@@ -1,0 +1,42 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-}
+    container_name: ${DOCKER_NAME:-docker-app-skeleton}
+    ports:
+      - "${DOCKER_PORT:-8092}:80"
+    env_file: .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3001}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8092}
+      - ENV_FILE_PATH=/app/.env
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - JWT_SECRET=${JWT_SECRET}
+      - UPLOAD_DIR=/app/uploads
+      - TZ=${TZ:-UTC}
+      - APP_VERSION=${APP_VERSION:-}
+    volumes:
+      # Writable so Setup Wizard can persist DB credentials
+      - ./.env:/app/.env
+      - ./data/uploads:/app/uploads
+    restart: unless-stopped
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+networks:
+  default:
+    external: true
+    name: "docker-lan"
