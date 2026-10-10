@@ -51,6 +51,27 @@ git tag v$(cat VERSION) && git push --tags
 
 `make bump-*` updates `VERSION`, both `package.json` files and both lock files. The UI reads `VERSION` at build time.
 
+## Upgrading a running installation
+
+Schema changes are applied automatically on start, so back up first:
+
+```bash
+set -a && . ./.env && set +a
+docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" postgres-18 \
+  pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > backup-$(date +%F-%H%M).dump
+docker tag my-product-app:latest my-product-app:previous
+git pull && make rebuild && make health
+```
+
+Upgrading from 0.0.1 creates roles and groups once: former admins become super administrators, everyone else joins the default group, and existing sessions stay valid. Set `SEED_LOCALE=ru` beforehand if the groups should be named in Russian.
+
+Restore a dump (stop the app first):
+
+```bash
+docker exec -i -e PGPASSWORD="$POSTGRES_PASSWORD" postgres-18 \
+  pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists < backup.dump
+```
+
 ## Rollback
 
 Tag the running image before a risky rebuild, then retag to roll back:
@@ -83,6 +104,14 @@ make rebuild
 
 Prefer merging security fixes in `middleware/` and `services/auth.js` even if you skip UI changes.
 
+## Sample users
+
+```bash
+make seed-demo      # adds five password-less demo accounts to the running database
+```
+
+Safe to run more than once; existing usernames are skipped. Delete them from **Users** when done.
+
 ## Postgres helpers (optional)
 
 If `/dockers/postgres` exists on the host:
@@ -109,3 +138,11 @@ Override path: `make postgres-up POSTGRES_DIR=/path/to/postgres`.
 | Setup 401 | `SETUP_TOKEN` set — paste it in the wizard |
 | Need to re-run the wizard on purpose | Remove `SETUP_LOCKED` from `.env`, point it at an empty database, `make restart` |
 | Dark-theme logo invisible | Upload a light version under Settings → General → *Dark theme* |
+| A sign-in method cannot be switched on | Its integration is not enabled or incomplete — follow the link next to the method |
+| Telegram widget says *Bot domain invalid* | Run `/setdomain` in @BotFather with the site's domain |
+| *This Telegram account is not linked* | The user must link Telegram in Cabinet → Security first (or enable auto-provisioning) |
+| Codes do not arrive | Check `make logs` for `Sign-in code delivery failed`; the user needs a phone (WhatsApp) / email / linked Telegram; a Wazzup channel must be *Active* |
+| Code always rejected | Codes expire after 5 minutes and burn after 5 wrong tries; only the newest code works |
+| AD users cannot sign in | *Test connection* in Integrations → Active Directory; check the base DN covers the users and the account is enabled in AD |
+| `409 LAST_SUPERADMIN` | Working as intended — make another super administrator first |
+| Locked out of the console completely | `make sql SQL="INSERT INTO user_roles SELECT u.id, r.id FROM users u, app_roles r WHERE u.username='name' AND r.key='superadmin' ON CONFLICT DO NOTHING"` |

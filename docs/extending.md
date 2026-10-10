@@ -248,7 +248,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { createNote, listNotes } from '../services/notes.js';
 
 const router = Router();
-router.use(requireAuth);           // or requireAdmin
+router.use(requireAuth);           // or requirePermission('notes.manage')
 
 router.get('/', async (req, res, next) => {
   try {

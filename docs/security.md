@@ -105,7 +105,8 @@ Assumptions:
 | Wizard window | Until an admin exists, setup is the most sensitive surface. |
 | Container user | Process runs as root inside the image to bind nginx :80. Put Docker/network policy around it. |
 | Secrets at rest | Integration secrets are stored in plaintext in `app_settings`. Restrict database access; encryption is on the roadmap. |
-| AD “test” | TCP connect only, not a full LDAP bind. |
+| Telegram Login | Requires `/setdomain` in @BotFather; users must link Telegram before signing in unless auto-provisioning is on. |
+| Sign-in codes | Delivered by third parties (SMTP provider, Wazzup, Telegram). Their compromise exposes codes — keep codes short-lived (5 min) as shipped. |
 
 ## Password and username policy
 

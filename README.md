@@ -306,6 +306,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Extending](docs/extending.md) | Recipes: settings screens, pages, endpoints, templates, integrations |
 | [Adapting a fork](docs/adapt.md) | Renaming, branding and what not to rewrite |
 | [Access control & sign-in](docs/access-control.md) | Roles, groups, permissions, safety rules, sign-in methods and their setup |
+| [Integrations](docs/integrations.md) | Email, Telegram, WhatsApp, Wazzup and Active Directory setup |
 | [Configuration](docs/configuration.md) | Environment variables and stored settings |
 | [Security](docs/security.md) | Threat model, built-in controls, go-live checklist |
 | [Operations](docs/operations.md) | Make targets, backups, upgrades, troubleshooting |

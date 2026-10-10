@@ -112,6 +112,6 @@ In order of value:
 5. **Type safety** — TypeScript, or JSDoc with `checkJs`, plus ESLint and Prettier in CI.
 6. **End-to-end tests** (Playwright) for setup → sign-in → settings → lockout guards.
 7. **Structured logging** (pino) with request IDs.
-8. **Password reset by email and TOTP 2FA** — the SMTP integration is already in place.
+8. **TOTP 2FA and passkeys** — one-time codes and magic links are done (see [access-control.md](access-control.md)); a second factor for password sign-in is the next step.
 9. **Server-side pagination** for users (the current list is fine up to a few thousand rows).
 10. **Major upgrades** — Ant Design 6 and React 19 as a separate change.

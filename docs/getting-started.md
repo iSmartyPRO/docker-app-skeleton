@@ -70,7 +70,7 @@ Behind a reverse proxy, set `FRONTEND_URL` to the public HTTPS origin, terminate
 | Step | What happens |
 |------|----------------|
 | Database | Tests credentials, writes `POSTGRES_*` into `.env`, creates tables |
-| Administrator | First `admin` user (bcrypt). After this, setup writes are `403`. |
+| Administrator | First account, a **super administrator** (bcrypt). Roles and the default groups are created in the wizard's language; *Add sample users* creates five password-less demo accounts. After this, setup writes are `403`. |
 | Access | **Closed** = guests hit login. **Open** = public landing; `/account` and `/admin` still need a session. |
 
 When the last step completes, `SETUP_LOCKED=true` is written to `.env` and the wizard is closed for good.
@@ -85,7 +85,11 @@ Sign in and open `/admin`:
 | **Settings → Color theme / Typography** | Pick a template and typeface — the UI previews live, *Apply* saves |
 | **Settings → Sign-in & sessions** | Lockout policy and session lifetime |
 | **Settings → IP filtering** | Optional allow-list — *Allow my IP* first |
-| **Users** | Invite the rest of the team |
+| **Settings → Integrations** | Connect email, Telegram, Wazzup or Active Directory ([integrations.md](integrations.md)) |
+| **Settings → Sign-in methods** | Turn on domain sign-in, Telegram, or one-time codes ([access-control.md](access-control.md)) |
+| **Groups / Roles** | Review the default groups and what each role may do |
+| **Users** | Invite the team: add people to groups; add a phone or email if they will sign in with a code |
+| **Settings** | Make a second super administrator so the product never depends on one account |
 
 Press **⌘K / Ctrl+K** anywhere in the console to jump to any page or setting.
 

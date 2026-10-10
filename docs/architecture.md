@@ -98,7 +98,7 @@ SETTINGS_GROUPS    → Project · Appearance · Security · Integrations · Syst
 ## Adding a feature (typical)
 
 1. Table or settings key in `src/backend/services/`.
-2. Route under `src/backend/routes/` with `requireAuth` or `requireAdmin`.
+2. Route under `src/backend/routes/` with `requireAuth` or `requirePermission(...)`.
 3. `src/frontend/src/services/api.js` client.
 4. **A settings screen:** add an item to a group in `admin/navigation.js`, register the
    component in `admin/settingsPages.js`, add `settings.<id>.title/.desc` to i18n.
