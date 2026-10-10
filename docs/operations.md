@@ -30,7 +30,15 @@ make dev-rebuild    # after package.json changes
 make dev-down
 ```
 
+## Tests
+
+```bash
+make test           # backend unit tests + frontend production build (host Node 22)
+```
+
 ## Version
+
+Keep [CHANGELOG.md](../CHANGELOG.md) up to date, then:
 
 ```bash
 make version
@@ -38,7 +46,22 @@ make bump-patch     # 0.0.1 → 0.0.2
 make bump-minor
 make bump-major
 make rebuild        # bake VERSION into the image
+git tag v$(cat VERSION) && git push --tags
 ```
+
+`make bump-*` updates `VERSION`, both `package.json` files and both lock files. The UI reads `VERSION` at build time.
+
+## Rollback
+
+Tag the running image before a risky rebuild, then retag to roll back:
+
+```bash
+docker tag my-product-app:latest my-product-app:previous     # before make rebuild
+docker tag my-product-app:previous my-product-app:latest     # roll back
+docker compose up -d --force-recreate
+```
+
+Replace `my-product-app` with your compose project's image name (`docker compose images`).
 
 ## Backup
 
@@ -80,5 +103,9 @@ Override path: `make postgres-up POSTGRES_DIR=/path/to/postgres`.
 | Wizard loops on database | Hostname from **inside Docker**, not `127.0.0.1` |
 | Cookies missing on HTTPS | `FRONTEND_URL` must be `https://…` or `COOKIE_SECURE=true` |
 | CORS errors in dev | `FRONTEND_URL` / Vite origin mismatch |
-| 403 after enabling allow-list | Your IP not in the list; connect from localhost on the host |
+| 403 for everyone after enabling allow-list | Clients reach Express with the proxy IP — set `TRUST_PROXY_HOPS`. Recover from the host: `curl` via `127.0.0.1` is always allowed |
+| One failed login locks out everybody | Same cause: `TRUST_PROXY_HOPS` lower than the real number of proxies |
+| `409 SELF_LOCKOUT` when saving IP settings | Working as intended — add your own address to the allow-list first |
 | Setup 401 | `SETUP_TOKEN` set — paste it in the wizard |
+| Need to re-run the wizard on purpose | Remove `SETUP_LOCKED` from `.env`, point it at an empty database, `make restart` |
+| Dark-theme logo invisible | Upload a light version under Settings → General → *Dark theme* |

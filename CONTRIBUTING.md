@@ -14,6 +14,14 @@ make dev
 
 Do not commit `.env`, uploads, or real credentials. Use `.env.example` only.
 
+Before pushing:
+
+```bash
+make test        # backend unit tests + frontend production build
+```
+
+How to add screens, endpoints, settings and integrations: [docs/extending.md](docs/extending.md).
+
 ## What to change vs. what to keep
 
 | Keep as-is | Replace in a product fork |
@@ -29,3 +37,7 @@ See [docs/adapt.md](docs/adapt.md).
 - Prefer small, reviewable PRs.
 - Security-sensitive changes (auth, uploads, setup, nginx) need a short threat note in the PR body.
 - Match existing code style: ESM, parameterized SQL, no secrets in logs.
+- New UI uses the shared kit (`PageHeader`, `SettingsSection`, `SaveBar`) and design tokens — no ad-hoc colors.
+- Every user-facing string goes into both `en` and `ru` dictionaries.
+- Add a line to [CHANGELOG.md](CHANGELOG.md) under *Unreleased*.
+- Commit messages: imperative mood, ≤ 72-character subject (`Add maintenance mode setting`).

@@ -35,7 +35,24 @@ export function ThemeProvider({ children }) {
   const { user } = useAuth();
   const savedAppearance = settings?.appearance || {};
   const [preview, setPreview] = useState(null);
-  const [manual, setManual] = useState(() => localStorage.getItem('da_theme'));
+  const [manual, setManual] = useState(() => {
+    try {
+      return localStorage.getItem('da_theme');
+    } catch {
+      return null;
+    }
+  });
+  const [systemDark, setSystemDark] = useState(
+    () => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!media) return undefined;
+    const onChange = (event) => setSystemDark(event.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
 
   const appearance = useMemo(
     () => mergeAppearance(savedAppearance, preview),
@@ -44,13 +61,9 @@ export function ThemeProvider({ children }) {
 
   const mode = useMemo(() => {
     const preferred = manual || user?.theme || appearance.defaultTheme || 'light';
-    if (preferred === 'system') {
-      return window.matchMedia?.('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
-    }
+    if (preferred === 'system') return systemDark ? 'dark' : 'light';
     return preferred === 'dark' ? 'dark' : 'light';
-  }, [manual, user?.theme, appearance.defaultTheme]);
+  }, [manual, user?.theme, appearance.defaultTheme, systemDark]);
 
   const antdConfig = useMemo(() => {
     const built = buildAntdTheme(appearance, mode);
@@ -72,6 +85,12 @@ export function ThemeProvider({ children }) {
     root.style.setProperty('--da-font', fontStack(typography));
     root.style.setProperty('--da-font-heading', headingStack(typography));
     root.style.setProperty('--da-font-size', `${typography.baseFontSize}px`);
+    root.style.setProperty('--da-layout', colors.colorBgLayout);
+    root.style.setProperty('--da-success', colors.colorSuccess);
+    root.style.setProperty('--da-warning', colors.colorWarning);
+    root.style.setProperty('--da-error', colors.colorError);
+    root.style.colorScheme = mode;
+    root.style.setProperty('--da-logo-h', `${Number(appearance.logoHeight) || 32}px`);
     document.body.style.background = colors.colorBgLayout;
     document.body.style.color = colors.colorTextBase;
     document.body.style.fontFamily = fontStack(typography);
@@ -82,8 +101,13 @@ export function ThemeProvider({ children }) {
   const value = useMemo(
     () => ({
       mode,
+      preference: manual || user?.theme || appearance.defaultTheme || 'light',
       setMode: (next) => {
-        localStorage.setItem('da_theme', next);
+        try {
+          localStorage.setItem('da_theme', next);
+        } catch {
+          /* ignore */
+        }
         setManual(next);
       },
       antdConfig,
@@ -93,7 +117,7 @@ export function ThemeProvider({ children }) {
       setPreview,
       clearPreview,
     }),
-    [mode, antdConfig, appearance, savedAppearance, preview, clearPreview]
+    [mode, manual, user?.theme, antdConfig, appearance, savedAppearance, preview, clearPreview]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

@@ -7,6 +7,7 @@ import { getSettings, parseSettings } from '../services/settings.js';
 import {
   changePassword,
   findUserById,
+  revokeSessions,
   setAvatar,
   toPublicUser,
   updateUser,
@@ -45,19 +46,38 @@ router.put('/password', async (req, res, next) => {
       req.body?.currentPassword,
       req.body?.password
     );
-    let sessionDays;
-    try {
-      sessionDays = parseSettings(await getSettings()).security?.sessionDays;
-    } catch {
-      sessionDays = 7;
-    }
+    const days = await sessionDays();
     const fresh = await findUserById(req.user.id);
     res.cookie(
       config.auth.cookieName,
-      signToken(fresh, { sessionDays }),
-      cookieOptions(req, { sessionDays })
+      signToken(fresh, { sessionDays: days }),
+      cookieOptions(req, { sessionDays: days })
     );
     res.json({ success: true, user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+async function sessionDays() {
+  try {
+    return parseSettings(await getSettings()).security?.sessionDays;
+  } catch {
+    return 7;
+  }
+}
+
+// Signs out every other device: bumps token_version and re-issues this cookie.
+router.post('/sessions/revoke', async (req, res, next) => {
+  try {
+    const fresh = await revokeSessions(req.user.id);
+    const days = await sessionDays();
+    res.cookie(
+      config.auth.cookieName,
+      signToken(fresh, { sessionDays: days }),
+      cookieOptions(req, { sessionDays: days })
+    );
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }

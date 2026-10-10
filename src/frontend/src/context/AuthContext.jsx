@@ -1,11 +1,24 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { getMe, login as loginRequest, logout as logoutRequest } from '../services/api';
+import api, { getMe, login as loginRequest, logout as logoutRequest } from '../services/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
+
+  // An expired or revoked session surfaces as 401 on any request: drop the
+  // user so route gates send them to /login instead of showing broken pages.
+  useEffect(() => {
+    const id = api.interceptors.response.use(undefined, (error) => {
+      const url = error?.config?.url || '';
+      if (error?.response?.status === 401 && !url.startsWith('/auth/') && !url.startsWith('/setup/')) {
+        setUser(null);
+      }
+      return Promise.reject(error);
+    });
+    return () => api.interceptors.response.eject(id);
+  }, []);
 
   useEffect(() => {
     getMe()

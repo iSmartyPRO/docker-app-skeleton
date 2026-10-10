@@ -1,24 +1,24 @@
 # Multi-stage build for production
 
 # Stage 1: Build frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 ARG APP_VERSION=
 WORKDIR /app/frontend
 COPY VERSION /app/VERSION
 COPY src/frontend/package*.json ./
-RUN npm install
+RUN npm ci --no-audit --no-fund
 COPY src/frontend/ ./
 ENV VITE_APP_VERSION=$APP_VERSION
 RUN npm run build
 
 # Stage 2: Build backend (install dependencies)
-FROM node:20-alpine AS backend-builder
+FROM node:22-alpine AS backend-builder
 WORKDIR /app/backend
 COPY src/backend/package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev --no-audit --no-fund
 
 # Stage 3: Production image
-FROM node:20-alpine
+FROM node:22-alpine
 ARG APP_VERSION=
 LABEL org.opencontainers.image.version="${APP_VERSION}"
 WORKDIR /app

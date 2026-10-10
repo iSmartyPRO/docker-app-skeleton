@@ -1,60 +1,59 @@
-import { useState } from 'react';
-import { Button, Card, Form, Radio, Typography, message } from 'antd';
+import { useMemo } from 'react';
+import { Form, Segmented } from 'antd';
+import PageHeader from '../../components/ui/PageHeader';
+import SaveBar from '../../components/ui/SaveBar';
+import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import { useThemeMode } from '../../context/ThemeContext';
+import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { updateAccountProfile } from '../../services/api';
-
-const { Title } = Typography;
 
 export default function AccountAppearance() {
   const { user, setUser } = useAuth();
   const { t, locale, setLocale } = useLocale();
   const { setMode } = useThemeMode();
-  const [saving, setSaving] = useState(false);
 
-  const onFinish = async (values) => {
-    setSaving(true);
-    try {
-      const res = await updateAccountProfile(values);
-      setUser(res.data.user);
-      setLocale(values.locale);
-      setMode(values.theme === 'system' ? values.theme : values.theme);
-      message.success(t('common.saved'));
-    } catch (err) {
-      message.error(err.response?.data?.error || err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const initial = useMemo(
+    () => ({ locale: user?.locale || locale, theme: user?.theme || 'system' }),
+    [user?.locale, user?.theme, locale]
+  );
+  const { dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async (values) => {
+    const res = await updateAccountProfile(values);
+    setUser(res.data.user);
+    setLocale(values.locale);
+    setMode(values.theme);
+  });
 
   return (
-    <div>
-      <Title level={2}>{t('account.appearance')}</Title>
-      <Card className="panel-card" bordered={false}>
-        <Form
-          layout="vertical"
-          initialValues={{ locale: user?.locale || locale, theme: user?.theme || 'system' }}
-          onFinish={onFinish}
-        >
-          <Form.Item name="locale" label={t('header.language')}>
-            <Radio.Group>
-              <Radio.Button value="en">English</Radio.Button>
-              <Radio.Button value="ru">Русский</Radio.Button>
-            </Radio.Group>
-          </Form.Item>
-          <Form.Item name="theme" label={t('header.theme')}>
-            <Radio.Group>
-              <Radio.Button value="light">{t('header.light')}</Radio.Button>
-              <Radio.Button value="dark">{t('header.dark')}</Radio.Button>
-              <Radio.Button value="system">System</Radio.Button>
-            </Radio.Group>
-          </Form.Item>
-          <Button type="primary" htmlType="submit" loading={saving}>
-            {t('common.save')}
-          </Button>
-        </Form>
-      </Card>
+    <div className="narrow-page">
+      <PageHeader title={t('account.appearance')} description={t('account.appearanceLead')} />
+      <Form {...formProps}>
+        <SettingsSection>
+          <SettingRow label={t('account.language')} description={t('account.languageDesc')}>
+            <Form.Item name="locale" noStyle>
+              <Segmented
+                options={[
+                  { value: 'en', label: 'English' },
+                  { value: 'ru', label: 'Русский' },
+                ]}
+              />
+            </Form.Item>
+          </SettingRow>
+          <SettingRow label={t('header.theme')} description={t('account.themeDesc')}>
+            <Form.Item name="theme" noStyle>
+              <Segmented
+                options={[
+                  { value: 'light', label: t('header.light') },
+                  { value: 'dark', label: t('header.dark') },
+                  { value: 'system', label: t('common.system') },
+                ]}
+              />
+            </Form.Item>
+          </SettingRow>
+        </SettingsSection>
+      </Form>
+      <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={reset} />
     </div>
   );
 }

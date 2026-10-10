@@ -14,6 +14,7 @@ export function resolveEnvPath() {
     process.env.ENV_FILE_PATH,
     resolve(process.cwd(), '.env'),
     resolve(process.cwd(), '../.env'),
+    resolve(process.cwd(), '../../.env'), // repo root when run from src/backend
     '/app/.env',
   ].filter(Boolean);
 
@@ -48,6 +49,18 @@ function commentOutKey(content, key) {
   return content.replace(pattern, (match) =>
     match.startsWith('#') ? match : `# ${match}`
   );
+}
+
+/** Upsert arbitrary keys into .env and process.env. */
+export function writeEnvValues(values) {
+  const envPath = resolveEnvPath();
+  let content = existsSync(envPath) ? readFileSync(envPath, 'utf-8') : '';
+  for (const [key, value] of Object.entries(values)) {
+    content = upsertEnvLine(content, key, value);
+    process.env[key] = String(value);
+  }
+  writeFileSync(envPath, content, 'utf-8');
+  return envPath;
 }
 
 /**

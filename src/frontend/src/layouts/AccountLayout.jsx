@@ -1,37 +1,34 @@
-import { useMemo } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Suspense, useMemo } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Menu } from 'antd';
 import Chrome from '../components/Chrome';
 import AppFooter from '../components/AppFooter';
 import { MenuIcon } from '../components/icons/menuIcons';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
+import { PageFallback } from './AdminLayout';
 
 const { Sider, Content } = Layout;
+
+const ITEMS = [
+  { key: '/account', icon: 'user', labelKey: 'account.profile' },
+  { key: '/account/appearance', icon: 'palette', labelKey: 'account.appearance' },
+  { key: '/account/security', icon: 'lock', labelKey: 'account.security' },
+];
 
 export default function AccountLayout() {
   const { t } = useLocale();
   const { appearance } = useThemeMode();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const items = useMemo(
-    () => [
-      {
-        key: '/account',
-        icon: <MenuIcon name="user" appearance={appearance} />,
-        label: <NavLink to="/account">{t('account.profile')}</NavLink>,
-      },
-      {
-        key: '/account/appearance',
-        icon: <MenuIcon name="palette" appearance={appearance} />,
-        label: <NavLink to="/account/appearance">{t('account.appearance')}</NavLink>,
-      },
-      {
-        key: '/account/security',
-        icon: <MenuIcon name="lock" appearance={appearance} />,
-        label: <NavLink to="/account/security">{t('account.security')}</NavLink>,
-      },
-    ],
+    () =>
+      ITEMS.map((item) => ({
+        key: item.key,
+        icon: <MenuIcon name={item.icon} appearance={appearance} />,
+        label: t(item.labelKey),
+      })),
     [t, appearance]
   );
 
@@ -39,20 +36,22 @@ export default function AccountLayout() {
     <div className="shell">
       <Chrome dense />
       <Layout className="workspace">
-        <Sider className="workspace__sider" width={240} theme="light">
-          <div className="workspace__brand">
-            <MenuIcon name="user" appearance={appearance} />
-            <span>{t('account.title')}</span>
+        <Sider className="workspace__sider" width={240} breakpoint="md" collapsedWidth={68} theme="light">
+          <div className="workspace__head">
+            <div className="workspace__eyebrow">{t('account.title')}</div>
           </div>
           <Menu
             mode="inline"
             selectedKeys={[location.pathname]}
             items={items}
+            onClick={({ key }) => navigate(key)}
             className="workspace__menu"
           />
         </Sider>
         <Content className="workspace__content">
-          <Outlet />
+          <Suspense fallback={<PageFallback />}>
+            <Outlet />
+          </Suspense>
         </Content>
       </Layout>
       <AppFooter />

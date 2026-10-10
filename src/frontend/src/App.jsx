@@ -1,6 +1,12 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
-import { ConfigProvider, Spin } from 'antd';
+import { Suspense, lazy, useEffect, useState } from 'react';
+import {
+  BrowserRouter as Router,
+  Navigate,
+  Route,
+  Routes,
+  useParams,
+} from 'react-router-dom';
+import { App as AntApp, ConfigProvider, Spin } from 'antd';
 import enUS from 'antd/locale/en_US';
 import ruRU from 'antd/locale/ru_RU';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -8,28 +14,28 @@ import { LocaleProvider, useLocale } from './context/LocaleContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import FontLoader from './components/FontLoader';
 import { ThemeProvider, useThemeMode } from './context/ThemeContext';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import SetupWizard from './pages/SetupWizard';
-import AdminLayout from './layouts/AdminLayout';
-import AccountLayout from './layouts/AccountLayout';
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminGeneral from './pages/admin/General';
-import AdminAppearance from './pages/admin/Appearance';
-import AdminTypography from './pages/admin/Typography';
-import AdminMenuIcons from './pages/admin/MenuIcons';
-import AdminIntegration from './pages/admin/Integration';
-import AdminUsers from './pages/admin/Users';
-import AdminUserEdit from './pages/admin/UserEdit';
-import AdminSecurity from './pages/admin/Security';
-import AdminIpLists from './pages/admin/IpLists';
-import AdminSecurityHistory from './pages/admin/SecurityHistory';
-import AccountProfile from './pages/account/Profile';
-import AccountAppearance from './pages/account/Appearance';
-import AccountSecurity from './pages/account/Security';
+import { LEGACY_ADMIN_ROUTES, SETTINGS_ITEMS } from './admin/navigation';
+import { SETTINGS_PAGES } from './admin/settingsPages';
 import { getSetupStatus } from './services/api';
 
-function Screen({ children }) {
+// Public entry points stay in the main bundle; consoles load on demand.
+import Home from './pages/Home';
+import Login from './pages/Login';
+
+const SetupWizard = lazy(() => import('./pages/SetupWizard'));
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
+const SettingsLayout = lazy(() => import('./layouts/SettingsLayout'));
+const AccountLayout = lazy(() => import('./layouts/AccountLayout'));
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminUserEdit = lazy(() => import('./pages/admin/UserEdit'));
+const AdminActivity = lazy(() => import('./pages/admin/Activity'));
+const SettingsHome = lazy(() => import('./pages/admin/settings/SettingsHome'));
+const AccountProfile = lazy(() => import('./pages/account/Profile'));
+const AccountAppearance = lazy(() => import('./pages/account/Appearance'));
+const AccountSecurity = lazy(() => import('./pages/account/Security'));
+
+function Screen() {
   return (
     <div className="boot-screen">
       <Spin size="large" />
@@ -37,19 +43,27 @@ function Screen({ children }) {
   );
 }
 
+// Setup can only move forward, so once it reports "done" we stop asking.
+let setupDone = false;
+
 function SetupGate({ children }) {
-  const [loading, setLoading] = useState(true);
-  const [needsSetup, setNeedsSetup] = useState(false);
+  const [state, setState] = useState(setupDone ? 'done' : 'loading');
 
   useEffect(() => {
+    if (setupDone) return;
     getSetupStatus()
-      .then((res) => setNeedsSetup(Boolean(res.data?.needsSetup)))
-      .catch(() => setNeedsSetup(true))
-      .finally(() => setLoading(false));
+      .then((res) => {
+        const needs = Boolean(res.data?.needsSetup);
+        if (!needs) setupDone = true;
+        setState(needs ? 'needed' : 'done');
+      })
+      // A failed status check (network, 5xx) must not bounce a configured
+      // product into the wizard; let the page load and surface its own errors.
+      .catch(() => setState('done'));
   }, []);
 
-  if (loading) return <Screen />;
-  if (needsSetup) return <Navigate to="/setup" replace />;
+  if (state === 'loading') return <Screen />;
+  if (state === 'needed') return <Navigate to="/setup" replace />;
   return children;
 }
 
@@ -79,75 +93,96 @@ function AdminGate({ children }) {
   return children;
 }
 
+/** /admin/<old path> → new location, so bookmarks keep working. */
+function LegacyAdminRedirect() {
+  const params = useParams();
+  const rest = params['*'] || '';
+  const target = LEGACY_ADMIN_ROUTES[rest];
+  return <Navigate to={target ? `/admin/${target}` : '/admin'} replace />;
+}
+
 function ThemedRoutes() {
   const { antdConfig, mode } = useThemeMode();
   const { locale } = useLocale();
+  const { settings } = useSettings();
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
     document.documentElement.lang = locale;
   }, [mode, locale]);
 
+  useEffect(() => {
+    if (settings?.appName) document.title = settings.appName;
+  }, [settings?.appName]);
+
   return (
     <ConfigProvider theme={antdConfig} locale={locale === 'ru' ? ruRU : enUS}>
-      <Routes>
-        <Route path="/setup" element={<SetupWizard />} />
-        <Route
-          path="/login"
-          element={
-            <SetupGate>
-              <Login />
-            </SetupGate>
-          }
-        />
-        <Route
-          path="/"
-          element={
-            <SetupGate>
-              <AccessGate>
-                <Home />
-              </AccessGate>
-            </SetupGate>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <SetupGate>
-              <AdminGate>
-                <AdminLayout />
-              </AdminGate>
-            </SetupGate>
-          }
-        >
-          <Route index element={<AdminDashboard />} />
-          <Route path="general" element={<AdminGeneral />} />
-          <Route path="appearance" element={<AdminAppearance />} />
-          <Route path="typography" element={<AdminTypography />} />
-          <Route path="icons" element={<AdminMenuIcons />} />
-          <Route path="integrations/:kind" element={<AdminIntegration />} />
-          <Route path="users" element={<AdminUsers />} />
-          <Route path="users/:id" element={<AdminUserEdit />} />
-          <Route path="security" element={<AdminSecurity />} />
-          <Route path="security/ip" element={<AdminIpLists />} />
-          <Route path="security/history" element={<AdminSecurityHistory />} />
-        </Route>
-        <Route
-          path="/account"
-          element={
-            <SetupGate>
-              <AuthGate>
-                <AccountLayout />
-              </AuthGate>
-            </SetupGate>
-          }
-        >
-          <Route index element={<AccountProfile />} />
-          <Route path="appearance" element={<AccountAppearance />} />
-          <Route path="security" element={<AccountSecurity />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <AntApp className="ant-app-root">
+        <Suspense fallback={<Screen />}>
+          <Routes>
+            <Route path="/setup" element={<SetupWizard />} />
+            <Route
+              path="/login"
+              element={
+                <SetupGate>
+                  <Login />
+                </SetupGate>
+              }
+            />
+            <Route
+              path="/"
+              element={
+                <SetupGate>
+                  <AccessGate>
+                    <Home />
+                  </AccessGate>
+                </SetupGate>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <SetupGate>
+                  <AdminGate>
+                    <AdminLayout />
+                  </AdminGate>
+                </SetupGate>
+              }
+            >
+              <Route index element={<AdminDashboard />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="users/:id" element={<AdminUserEdit />} />
+              <Route path="activity" element={<AdminActivity />} />
+              <Route path="settings" element={<SettingsLayout />}>
+                <Route index element={<SettingsHome />} />
+                {SETTINGS_ITEMS.map((item) => {
+                  const Page = SETTINGS_PAGES[item.id];
+                  return Page ? (
+                    <Route key={item.id} path={item.id} element={<Page key={item.id} itemId={item.id} />} />
+                  ) : null;
+                })}
+                <Route path="*" element={<Navigate to="/admin/settings" replace />} />
+              </Route>
+              <Route path="*" element={<LegacyAdminRedirect />} />
+            </Route>
+            <Route
+              path="/account"
+              element={
+                <SetupGate>
+                  <AuthGate>
+                    <AccountLayout />
+                  </AuthGate>
+                </SetupGate>
+              }
+            >
+              <Route index element={<AccountProfile />} />
+              <Route path="appearance" element={<AccountAppearance />} />
+              <Route path="security" element={<AccountSecurity />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </AntApp>
     </ConfigProvider>
   );
 }
@@ -159,7 +194,7 @@ export default function App() {
         <LocaleProvider>
           <ThemeProvider>
             <FontLoader />
-            <Router>
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <ThemedRoutes />
             </Router>
           </ThemeProvider>

@@ -45,7 +45,7 @@ export default function Home() {
       <Row gutter={[16, 16]} className="stats-row">
         {landing.stats.map((item) => (
           <Col xs={12} md={6} key={item.label}>
-            <Card className="panel-card" bordered={false}>
+            <Card className="panel-card" variant="borderless">
               <Statistic title={item.label} value={item.value} />
             </Card>
           </Col>
@@ -57,7 +57,7 @@ export default function Home() {
         <Row gutter={[16, 16]}>
           {landing.features.map((item) => (
             <Col xs={24} md={12} key={item.title}>
-              <Card className="panel-card" bordered={false} title={item.title}>
+              <Card className="panel-card" variant="borderless" title={item.title}>
                 <Paragraph type="secondary">{item.text}</Paragraph>
               </Card>
             </Col>
@@ -68,7 +68,7 @@ export default function Home() {
       <section className="section">
         <Title level={2}>{t('landing.antdTitle')}</Title>
         <Paragraph type="secondary">{t('landing.antdLead')}</Paragraph>
-        <Card className="panel-card" bordered={false}>
+        <Card className="panel-card" variant="borderless">
           <Steps
             current={2}
             items={[

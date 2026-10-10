@@ -1,33 +1,82 @@
-import { Link } from 'react-router-dom';
-import { Avatar, Tooltip } from 'antd';
+import { Link, useNavigate } from 'react-router-dom';
+import { Avatar, Dropdown, Tooltip } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
+import { initials } from '../lib/format';
 import BrandMark from './BrandMark';
 import LanguageSwitch from './LanguageSwitch';
 import ThemeSwitch from './ThemeSwitch';
-import { IconAdmin, IconLogin, IconLogout } from './icons/AdminIcons';
+import { IconAdmin, IconLogin } from './icons/AdminIcons';
 
-function HeaderIcon({ title, children }) {
+function UserMenu({ user }) {
+  const { logout } = useAuth();
+  const { t } = useLocale();
+  const navigate = useNavigate();
+  const name = user.displayName || user.username;
+  const isAdmin = user.role === 'admin';
+
+  const items = [
+    {
+      key: 'head',
+      disabled: true,
+      className: 'user-menu__head',
+      label: (
+        <div className="user-menu__who">
+          <strong>{name}</strong>
+          <span>
+            @{user.username} · {isAdmin ? t('menu.roleAdmin') : t('menu.roleUser')}
+          </span>
+        </div>
+      ),
+    },
+    { type: 'divider' },
+    { key: '/account', label: t('menu.cabinet') },
+    ...(isAdmin
+      ? [
+          { key: '/admin', label: t('menu.adminConsole') },
+          { key: '/admin/settings', label: t('menu.settings') },
+        ]
+      : []),
+    { type: 'divider' },
+    { key: 'logout', danger: true, label: t('common.signOut') },
+  ];
+
+  const onClick = async ({ key }) => {
+    if (key === 'logout') {
+      await logout();
+      navigate('/login', { replace: true });
+      return;
+    }
+    navigate(key);
+  };
+
   return (
-    <Tooltip title={title} mouseEnterDelay={0.15}>
-      <span className="chrome__icon-wrap">{children}</span>
-    </Tooltip>
+    <Dropdown menu={{ items, onClick }} trigger={['click']} placement="bottomRight" overlayClassName="user-menu">
+      <button type="button" className="chrome__user" aria-label={t('common.account')}>
+        <Avatar size={30} src={user.avatarUrl}>
+          {initials(name)}
+        </Avatar>
+        <span className="chrome__user-name">{name}</span>
+        <span className="chrome__caret" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+    </Dropdown>
   );
 }
 
 export default function Chrome({ dense }) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { t } = useLocale();
   const { settings } = useSettings();
   const name = settings?.appName || t('brand');
-  const accountName = user?.displayName || user?.username || t('common.account');
 
   return (
     <header className={`chrome ${dense ? 'chrome--dense' : ''}`}>
       <Link to="/" className="chrome__brand">
         <BrandMark />
-        {name}
+        <span className="chrome__name">{name}</span>
       </Link>
       <div className="chrome__actions">
         <LanguageSwitch />
@@ -35,31 +84,20 @@ export default function Chrome({ dense }) {
         {user ? (
           <>
             {user.role === 'admin' && (
-              <HeaderIcon title={t('common.admin')}>
+              <Tooltip title={t('menu.adminConsole')} mouseEnterDelay={0.15}>
                 <Link className="chrome__icon" to="/admin" aria-label={t('common.admin')}>
                   <IconAdmin />
                 </Link>
-              </HeaderIcon>
+              </Tooltip>
             )}
-            <HeaderIcon title={accountName}>
-              <Link className="chrome__icon" to="/account" aria-label={t('common.account')}>
-                <Avatar size={22} src={user.avatarUrl} style={{ background: 'transparent', color: 'inherit' }}>
-                  {accountName.slice(0, 1).toUpperCase()}
-                </Avatar>
-              </Link>
-            </HeaderIcon>
-            <HeaderIcon title={t('common.signOut')}>
-              <button type="button" className="chrome__icon" onClick={logout} aria-label={t('common.signOut')}>
-                <IconLogout />
-              </button>
-            </HeaderIcon>
+            <UserMenu user={user} />
           </>
         ) : (
-          <HeaderIcon title={t('common.signIn')}>
+          <Tooltip title={t('common.signIn')} mouseEnterDelay={0.15}>
             <Link className="chrome__icon" to="/login" aria-label={t('common.signIn')}>
               <IconLogin />
             </Link>
-          </HeaderIcon>
+          </Tooltip>
         )}
       </div>
     </header>

@@ -1,70 +1,79 @@
-import { useState } from 'react';
-import { Avatar, Button, Card, Form, Input, Typography, Upload, message } from 'antd';
+import { useMemo, useState } from 'react';
+import { App, Avatar, Button, Form, Input, Upload } from 'antd';
+import PageHeader from '../../components/ui/PageHeader';
+import SaveBar from '../../components/ui/SaveBar';
+import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
+import { useSettingsForm } from '../../hooks/useSettingsForm';
+import { errorMessage } from '../../lib/errors';
+import { initials } from '../../lib/format';
 import { updateAccountProfile, uploadAccountAvatar } from '../../services/api';
-
-const { Title, Paragraph } = Typography;
 
 export default function AccountProfile() {
   const { user, setUser } = useAuth();
   const { t } = useLocale();
-  const [saving, setSaving] = useState(false);
+  const { message } = App.useApp();
+  const [uploading, setUploading] = useState(false);
 
-  const onFinish = async (values) => {
-    setSaving(true);
-    try {
-      const res = await updateAccountProfile(values);
-      setUser(res.data.user);
-      message.success(t('common.saved'));
-    } catch (err) {
-      message.error(err.response?.data?.error || err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const initial = useMemo(
+    () => ({ displayName: user?.displayName || '', email: user?.email || '' }),
+    [user?.displayName, user?.email]
+  );
+  const { dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async (values) => {
+    const res = await updateAccountProfile({ ...values, email: values.email || null });
+    setUser(res.data.user);
+  });
 
   return (
-    <div>
-      <Title level={2}>{t('account.profile')}</Title>
-      <Card className="panel-card" bordered={false}>
-        <Avatar size={80} src={user?.avatarUrl} style={{ marginBottom: 16 }}>
-          {(user?.displayName || user?.username || '?')[0]}
+    <div className="narrow-page">
+      <PageHeader title={t('account.profile')} description={t('account.profileLead')} />
+      <section className="profile-hero">
+        <Avatar size={72} src={user?.avatarUrl}>
+          {initials(user?.displayName || user?.username)}
         </Avatar>
-        <Paragraph type="secondary">{t('account.avatarHint')}</Paragraph>
+        <div className="profile-hero__text">
+          <div className="profile-hero__name">{user?.displayName || user?.username}</div>
+          <div className="profile-hero__meta">@{user?.username}</div>
+          <div className="profile-hero__meta">{t('account.avatarHint')}</div>
+        </div>
         <Upload
+          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
           showUploadList={false}
           beforeUpload={async (file) => {
             const form = new FormData();
             form.append('avatar', file);
-            const res = await uploadAccountAvatar(form);
-            setUser(res.data.user);
-            message.success(t('common.saved'));
+            setUploading(true);
+            try {
+              const res = await uploadAccountAvatar(form);
+              setUser(res.data.user);
+              message.success(t('common.saved'));
+            } catch (err) {
+              message.error(errorMessage(err));
+            } finally {
+              setUploading(false);
+            }
             return false;
           }}
         >
-          <Button>{t('users.avatar')}</Button>
+          <Button loading={uploading}>{t('account.changeAvatar')}</Button>
         </Upload>
-        <Form
-          layout="vertical"
-          style={{ marginTop: 24, maxWidth: 480 }}
-          initialValues={{
-            displayName: user?.displayName,
-            email: user?.email,
-          }}
-          onFinish={onFinish}
-        >
-          <Form.Item name="displayName" label={t('users.displayName')}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="email" label={t('users.email')}>
-            <Input />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" loading={saving}>
-            {t('common.save')}
-          </Button>
-        </Form>
-      </Card>
+      </section>
+      <Form {...formProps}>
+        <SettingsSection>
+          <SettingRow label={t('users.displayName')}>
+            <Form.Item name="displayName" noStyle>
+              <Input maxLength={128} />
+            </Form.Item>
+          </SettingRow>
+          <SettingRow label={t('users.email')}>
+            <Form.Item name="email" rules={[{ type: 'email' }]} style={{ margin: 0 }}>
+              <Input />
+            </Form.Item>
+          </SettingRow>
+        </SettingsSection>
+      </Form>
+      <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={reset} />
     </div>
   );
 }

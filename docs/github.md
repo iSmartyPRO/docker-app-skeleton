@@ -39,12 +39,15 @@ git branch -M main
 git push -u origin main
 ```
 
-GitHub Actions ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) builds the frontend and syntax-checks the backend on push.
+GitHub Actions ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) installs with `npm ci`, syntax-checks and unit-tests the backend, and builds the frontend on every push and pull request.
 
 ## 4. Repository settings
 
 - Enable **Private vulnerability reporting** (see [SECURITY.md](../SECURITY.md)).
-- Add a description: “Product skeleton: React, Express, PostgreSQL, first-run wizard.”
+- Description: “Production-ready product skeleton — React, Ant Design, Express, PostgreSQL, admin console, first-run wizard.”
+- Topics: `react`, `express`, `postgresql`, `docker`, `admin-dashboard`, `boilerplate`, `starter-kit`, `ant-design`.
+- Protect `main`: require the CI checks to pass before merging.
+- Issue and pull-request templates are in `.github/`.
 - Do not store `.env` in GitHub Actions secrets unless you run deploy from CI — and never print them in logs.
 
 ## 5. Forks of this skeleton

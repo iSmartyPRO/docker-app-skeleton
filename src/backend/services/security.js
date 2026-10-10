@@ -95,6 +95,23 @@ export async function listIpRules(listType) {
   return result.rows;
 }
 
+// Same reasoning as the settings cache: rules are read on every request.
+const RULES_TTL_MS = 5000;
+let rulesCache = null;
+let rulesCachedAt = 0;
+
+function invalidateIpRules() {
+  rulesCache = null;
+  rulesCachedAt = 0;
+}
+
+async function cachedIpRules() {
+  if (rulesCache && Date.now() - rulesCachedAt < RULES_TTL_MS) return rulesCache;
+  rulesCache = await listIpRules();
+  rulesCachedAt = Date.now();
+  return rulesCache;
+}
+
 export async function addIpRule({ ip, listType, reason, createdBy }) {
   const value = String(ip || '').trim();
   if (!isValidIpOrCidr(value)) {
@@ -113,8 +130,9 @@ export async function addIpRule({ ip, listType, reason, createdBy }) {
     VALUES ($1, $2, $3, $4)
     RETURNING *
     `,
-    [value, listType, reason || null, createdBy || null]
+    [value, listType, String(reason || '').slice(0, 200) || null, createdBy || null]
   );
+  invalidateIpRules();
   return result.rows[0];
 }
 
@@ -127,7 +145,29 @@ export async function removeIpRule(id) {
     error.statusCode = 404;
     throw error;
   }
+  invalidateIpRules();
   return result.rows[0];
+}
+
+/** Pure verdict for an IP given security settings and rules (no I/O). */
+export function decideIpAccess(clientIp, security = {}, rules = []) {
+  const ip = normalizeIp(clientIp);
+  if (ip === '127.0.0.1' || ip === 'localhost') return { allowed: true, reason: 'local' };
+
+  const whitelist = rules.filter((r) => r.list_type === 'whitelist');
+  const blacklist = rules.filter((r) => r.list_type === 'blacklist');
+
+  if (security.blacklistEnabled !== false) {
+    const hit = blacklist.find((r) => ipMatchesRule(r.ip, ip));
+    if (hit) return { allowed: false, reason: 'blacklist', rule: hit };
+  }
+
+  if (security.whitelistEnabled) {
+    const hit = whitelist.find((r) => ipMatchesRule(r.ip, ip));
+    if (!hit) return { allowed: false, reason: 'whitelist' };
+  }
+
+  return { allowed: true, reason: 'ok' };
 }
 
 let lastWhitelistEnabled = false;
@@ -151,34 +191,14 @@ export async function evaluateIpAccess(clientIp) {
 
   let rules = [];
   try {
-    rules = await listIpRules();
+    rules = await cachedIpRules();
   } catch {
     if (security.whitelistEnabled || lastWhitelistEnabled) {
       return { allowed: false, reason: 'whitelist' };
     }
     return { allowed: true, reason: 'db-unavailable' };
   }
-  const whitelist = rules.filter((r) => r.list_type === 'whitelist');
-  const blacklist = rules.filter((r) => r.list_type === 'blacklist');
-
-  if (security.blacklistEnabled !== false) {
-    const hit = blacklist.find((r) => ipMatchesRule(r.ip, ip));
-    if (hit) {
-      return { allowed: false, reason: 'blacklist', rule: hit };
-    }
-  }
-
-  if (security.whitelistEnabled) {
-    if (!whitelist.length) {
-      return { allowed: false, reason: 'whitelist' };
-    }
-    const hit = whitelist.find((r) => ipMatchesRule(r.ip, ip));
-    if (!hit) {
-      return { allowed: false, reason: 'whitelist' };
-    }
-  }
-
-  return { allowed: true, reason: 'ok' };
+  return decideIpAccess(ip, security, rules);
 }
 
 export async function recordLoginAttempt({ username, ip, success }) {

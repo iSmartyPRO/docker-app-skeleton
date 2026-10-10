@@ -10,7 +10,7 @@
 .PHONY: postgres-up postgres-down postgres-health postgres-wait
 .PHONY: db-setup db-create db-drop user-create user-drop
 .PHONY: psql sql dbs users
-.PHONY: install build-local clean clean-image
+.PHONY: install build-local test clean clean-image
 
 # ── Configuration ───────────────────────────────────────────────────────────
 COMPOSE      ?= docker compose
@@ -123,13 +123,13 @@ info: ## Show resolved runtime configuration
 version: ## Show current app version
 	@echo "$(APP_VERSION)"
 
-sync-version: ## Copy VERSION into package.json and frontend constant
+sync-version: ## Copy VERSION into package.json / package-lock.json (UI reads VERSION at build)
 	@ver="$(APP_VERSION)"; \
 	test -n "$$ver" || { echo "VERSION file is empty"; exit 1; }; \
-	for pkg in "$(PROJECT_ROOT)src/frontend/package.json" "$(PROJECT_ROOT)src/backend/package.json"; do \
-		sed -i 's/"version": "[^"]*"/"version": "'$$ver'"/' "$$pkg"; \
+	for dir in "$(PROJECT_ROOT)src/frontend" "$(PROJECT_ROOT)src/backend"; do \
+		sed -i 's/"version": "[^"]*"/"version": "'$$ver'"/' "$$dir/package.json"; \
+		test -f "$$dir/package-lock.json" && sed -i '1,12s/"version": "[^"]*"/"version": "'$$ver'"/' "$$dir/package-lock.json"; \
 	done; \
-	printf "export const APP_VERSION = '%s';\n" "$$ver" > "$(PROJECT_ROOT)src/frontend/src/version.js"; \
 	echo "Synced version $$ver"
 
 bump-patch: ## Bump patch version (x.y.Z)
@@ -368,10 +368,14 @@ users: ## List PostgreSQL roles
 # ── Local host helpers ──────────────────────────────────────────────────────
 install: ## Install npm dependencies on the host
 	@echo "Installing backend dependencies..."
-	@cd "$(PROJECT_ROOT)src/backend" && npm install
+	@cd "$(PROJECT_ROOT)src/backend" && npm ci
 	@echo "Installing frontend dependencies..."
-	@cd "$(PROJECT_ROOT)src/frontend" && npm install
+	@cd "$(PROJECT_ROOT)src/frontend" && npm ci
 	@echo "Done."
+
+test: ## Run backend unit tests and a frontend build on the host
+	@cd "$(PROJECT_ROOT)src/backend" && npm test
+	@cd "$(PROJECT_ROOT)src/frontend" && npm run build
 
 build-local: ## Build frontend on the host (no Docker)
 	@cd "$(PROJECT_ROOT)src/frontend" && npm run build

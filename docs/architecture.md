@@ -33,10 +33,11 @@ browser
 ## Request flow
 
 1. nginx serves `frontend/dist` and proxies `/api` with `X-Real-IP` / `X-Forwarded-Proto`.
-2. Express `trust proxy = 1` so `req.ip` is the client behind that single proxy.
+2. Express `trust proxy = TRUST_PROXY_HOPS` (default `1`, the bundled nginx). Add one per extra proxy in front, otherwise `req.ip` is the proxy.
 3. `ipGuard` runs on every path except `/health`, `/ready`, and `/api/setup` **while setup is unfinished**.
-4. Global rate limit applies to `/api/*`. Login and setup have tighter limiters.
+4. Global rate limit applies to `/api/*` (cap read live from settings). Login and setup writes have tighter limiters.
 5. Session: cookie `da_session` (httpOnly, SameSite=Lax, Secure when HTTPS). JWT payload is `{ sub, tv }`. `tv` must match `users.token_version`.
+6. Settings and IP rules are cached in-process for 5 s and invalidated on write, so the per-request guards do not hit PostgreSQL every time.
 
 ## Data model
 
@@ -57,17 +58,50 @@ Passwords are bcrypt hashes only. Integration secrets live in `app_settings.inte
 | Path | Gate |
 |------|------|
 | `/`, `/login`, `/setup` | Public (setup redirects away when done) |
-| `/account/*` | Authenticated user |
-| `/admin/*` | `role === admin` |
+| `/account/*` | Authenticated user — profile, appearance, security |
+| `/admin` | Overview dashboard |
+| `/admin/users`, `/admin/users/:id` | User management |
+| `/admin/activity` | Security event log |
+| `/admin/settings` | Settings hub (search) → `/admin/settings/<id>` screens |
+
+Old URLs (`/admin/general`, `/admin/security/ip`, …) redirect to their new homes.
 
 Public settings (`GET /api/settings`) never include SMTP passwords, bot tokens, or API keys.
+
+### Admin structure is data
+
+`src/frontend/src/admin/navigation.js` is the single source of truth. The sidebar,
+the settings hub, the settings side-nav, the ⌘K command palette and the menu-icon
+editor are all generated from it:
+
+```
+ADMIN_PAGES        → sidebar (Overview, Users, Activity, Settings)
+SETTINGS_GROUPS    → Project · Appearance · Security · Integrations · System
+  └─ items         → /admin/settings/<id>, icon slot, search keywords
+```
+
+### UI kit
+
+| Piece | Use |
+|-------|-----|
+| `components/ui/PageHeader` | Title, lead, eyebrow/back link, actions |
+| `components/ui/SettingsSection` + `SettingRow` | Card with "label left, control right" rows |
+| `components/ui/SaveBar` | Floating bar shown only while a form is dirty |
+| `hooks/useSettingsForm` | antd form + dirty tracking + save/reset + toasts |
+| `hooks/useAdminSettings` | Admin settings with `save(patch)` that refreshes the whole UI |
+| `components/ui/LoadState` | Spinner / retryable error / content |
+| `components/CommandPalette` | ⌘K / Ctrl+K launcher |
 
 ## Adding a feature (typical)
 
 1. Table or settings key in `src/backend/services/`.
 2. Route under `src/backend/routes/` with `requireAuth` or `requireAdmin`.
 3. `src/frontend/src/services/api.js` client.
-4. Page + menu slot in `AdminLayout.jsx` / `menuIcons.jsx`.
-5. Copy in `i18n/translations.js` (en + ru).
+4. **A settings screen:** add an item to a group in `admin/navigation.js`, register the
+   component in `admin/settingsPages.js`, add `settings.<id>.title/.desc` to i18n.
+   Build it from `SettingsPageHeader` + `SettingsSection` + `useSettingsForm` + `SaveBar`.
+   **A top-level page:** add it to `ADMIN_PAGES` and a `<Route>` in `App.jsx`.
+5. Copy in `i18n/translations.js` (en + ru). `t('key', { name })` interpolates `{name}`.
+6. Backend unit tests live in `src/backend/test/*.test.js` (`npm test`).
 
 Keep SQL parameterized (`$1`, `$2`). Do not concatenate user input into queries.

@@ -4,7 +4,7 @@ import {
   reconfigurePool,
   query,
 } from '../config/database.js';
-import { writePostgresEnv, getCurrentDbConfigPublic } from './envFile.js';
+import { writeEnvValues, writePostgresEnv, getCurrentDbConfigPublic } from './envFile.js';
 import { getSettings, parseSettings, setSetting } from './settings.js';
 import { hasAdminUser, createAdminUser, assertUsername } from './users.js';
 import { bootstrapSchema } from './schema.js';
@@ -25,7 +25,30 @@ function normalizeDbCredentials(body) {
   return { host, port, database, user, password };
 }
 
+// Once setup has finished it must never reopen — otherwise a database outage
+// would expose /api/setup/database to anyone and let them repoint the app.
+// The flag lives in .env (SETUP_LOCKED) so it survives restarts and outages.
+let setupLocked = String(process.env.SETUP_LOCKED || '').trim() === 'true';
+
+function lockSetup() {
+  if (setupLocked) return;
+  setupLocked = true;
+  try {
+    writeEnvValues({ SETUP_LOCKED: 'true' });
+  } catch (err) {
+    console.warn('Could not persist SETUP_LOCKED to .env:', err.message);
+  }
+}
+
+export function isSetupLocked() {
+  return setupLocked;
+}
+
 export async function getSetupStatus() {
+  if (setupLocked) {
+    return { needsSetup: false, step: 'done' };
+  }
+
   const db = await tryConnectDB();
   let adminExists = false;
   let settings = null;
@@ -52,6 +75,7 @@ export async function getSetupStatus() {
   else if (needsAccess) step = 'access';
 
   if (!needsSetup) {
+    lockSetup();
     return { needsSetup: false, step: 'done' };
   }
 
@@ -172,5 +196,6 @@ export async function saveAccessMode(body) {
   }
 
   await setSetting('access_mode', mode);
+  lockSetup();
   return { ok: true, accessMode: mode };
 }

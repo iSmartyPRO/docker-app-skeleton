@@ -41,7 +41,9 @@ The skeleton ships with:
 
 - httpOnly `SameSite=Lax` session cookie (JWT)
 - bcrypt password hashes (cost 12)
-- token version bump on password change (session revoke)
+- token version bump on password, role and status changes; *sign out everywhere* for users and admins
+- setup wizard permanently locked after completion (`SETUP_LOCKED`)
+- self-lockout and last-administrator guards
 - Helmet, CORS allowlist, request size limits, API rate limits
 - dedicated login rate limit + lockout after failed attempts
 - IP allow-list / block-list (IPv4 CIDR)

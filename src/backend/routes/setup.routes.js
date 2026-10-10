@@ -19,8 +19,8 @@ const setupLimiter = rateLimit({
   message: { success: false, error: 'Too many setup attempts. Try again later.' },
 });
 
-router.use(setupLimiter);
-
+// Only the write endpoints are throttled hard. The SPA reads /status on every
+// page load, so limiting it would bounce real users into the wizard.
 router.get('/status', async (req, res, next) => {
   try {
     const status = await getSetupStatus();
@@ -42,6 +42,7 @@ router.get('/status', async (req, res, next) => {
 
 router.post(
   '/test-db',
+  setupLimiter,
   requireSetupToken,
   assertSetupAllowed,
   async (req, res, next) => {
@@ -67,6 +68,7 @@ router.post(
 
 router.post(
   '/database',
+  setupLimiter,
   requireSetupToken,
   assertSetupAllowed,
   async (req, res, next) => {
@@ -81,6 +83,7 @@ router.post(
 
 router.post(
   '/complete',
+  setupLimiter,
   requireSetupToken,
   assertSetupAllowed,
   async (req, res, next) => {
@@ -95,6 +98,7 @@ router.post(
 
 router.post(
   '/access',
+  setupLimiter,
   requireSetupToken,
   assertSetupAllowed,
   async (req, res, next) => {

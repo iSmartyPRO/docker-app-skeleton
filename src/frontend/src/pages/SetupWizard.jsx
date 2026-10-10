@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
+  App,
   Button,
   Card,
   Form,
@@ -10,10 +11,10 @@ import {
   Space,
   Steps,
   Typography,
-  message,
 } from 'antd';
 import PublicLayout from '../layouts/PublicLayout';
 import { useLocale } from '../context/LocaleContext';
+import { errorMessage } from '../lib/errors';
 import { useSettings } from '../context/SettingsContext';
 import {
   completeSetup,
@@ -34,6 +35,7 @@ const stepIndex = (step) => {
 };
 
 export default function SetupWizard() {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const { t } = useLocale();
   const { refresh } = useSettings();
@@ -74,7 +76,7 @@ export default function SetupWizard() {
 
   useEffect(() => {
     refreshStatus()
-      .catch((err) => message.error(err.response?.data?.error || err.message))
+      .catch((err) => message.error(errorMessage(err)))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -97,7 +99,7 @@ export default function SetupWizard() {
       message.success(res.data.database);
     } catch (err) {
       if (err.errorFields) return;
-      message.error(err.response?.data?.error || err.message);
+      message.error(errorMessage(err));
     } finally {
       setTesting(false);
     }
@@ -112,7 +114,7 @@ export default function SetupWizard() {
       if (next?.step === 'admin') setCurrent(1);
     } catch (err) {
       if (err.errorFields) return;
-      message.error(err.response?.data?.error || err.message);
+      message.error(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -127,7 +129,7 @@ export default function SetupWizard() {
       if (next?.step === 'access') setCurrent(2);
     } catch (err) {
       if (err.errorFields) return;
-      message.error(err.response?.data?.error || err.message);
+      message.error(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -140,7 +142,7 @@ export default function SetupWizard() {
       await refresh();
       navigate(accessMode === 'closed' ? '/login' : '/', { replace: true });
     } catch (err) {
-      message.error(err.response?.data?.error || err.message);
+      message.error(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -163,7 +165,7 @@ export default function SetupWizard() {
         <Paragraph type="secondary">{t('setup.lead')}</Paragraph>
 
         {tokenRequired && (
-          <Card className="panel-card" bordered={false} style={{ marginBottom: 16 }}>
+          <Card className="panel-card" variant="borderless" style={{ marginBottom: 16 }}>
             <Form layout="vertical">
               <Form.Item label={t('setup.token')} extra={t('setup.tokenHint')}>
                 <Input.Password
@@ -176,7 +178,7 @@ export default function SetupWizard() {
                   onPressEnter={() => {
                     setLoading(true);
                     refreshStatus()
-                      .catch((err) => message.error(err.response?.data?.error || err.message))
+                      .catch((err) => message.error(errorMessage(err)))
                       .finally(() => setLoading(false));
                   }}
                   autoComplete="off"
@@ -186,7 +188,7 @@ export default function SetupWizard() {
                 onClick={() => {
                   setLoading(true);
                   refreshStatus()
-                    .catch((err) => message.error(err.response?.data?.error || err.message))
+                    .catch((err) => message.error(errorMessage(err)))
                     .finally(() => setLoading(false));
                 }}
               >
@@ -204,7 +206,7 @@ export default function SetupWizard() {
           <Alert type="warning" showIcon message={status.databaseError} style={{ marginBottom: 16 }} />
         )}
 
-        <Card className="panel-card" bordered={false}>
+        <Card className="panel-card" variant="borderless">
           <Steps current={current} items={steps} style={{ marginBottom: 32 }} />
 
           {current === 0 && (

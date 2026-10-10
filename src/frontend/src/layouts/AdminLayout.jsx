@@ -1,56 +1,42 @@
-import { useEffect, useMemo, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Layout, Menu, Tooltip } from 'antd';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Layout, Menu, Spin } from 'antd';
 import Chrome from '../components/Chrome';
 import AppFooter from '../components/AppFooter';
+import CommandPalette, { useCommandPaletteHotkey } from '../components/CommandPalette';
 import { MenuIcon } from '../components/icons/menuIcons';
+import { ADMIN_PAGES } from '../admin/navigation';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
 
 const { Sider, Content } = Layout;
 
 const SIDER_KEY = 'da_admin_sider';
-const TOP_KEYS = ['project', 'integrations', 'people', 'security'];
 
-function loadSider() {
+function loadCollapsed() {
   try {
-    const raw = localStorage.getItem(SIDER_KEY);
-    if (!raw) return { collapsed: false, openKeys: [] };
-    const data = JSON.parse(raw);
-    return {
-      collapsed: Boolean(data.collapsed),
-      openKeys: Array.isArray(data.openKeys) ? data.openKeys.filter((key) => typeof key === 'string') : [],
-    };
+    return JSON.parse(localStorage.getItem(SIDER_KEY) || '{}').collapsed === true;
   } catch {
-    return { collapsed: false, openKeys: [] };
+    return false;
   }
 }
 
-function ancestorsFor(path) {
-  if (
-    path.startsWith('/admin/general') ||
-    path.startsWith('/admin/appearance') ||
-    path.startsWith('/admin/typography') ||
-    path.startsWith('/admin/icons')
-  ) {
-    const keys = ['project'];
-    if (
-      path.startsWith('/admin/appearance') ||
-      path.startsWith('/admin/typography') ||
-      path.startsWith('/admin/icons')
-    ) {
-      keys.push('appearance');
-    }
-    return keys;
-  }
-  if (path.startsWith('/admin/integrations')) return ['integrations'];
-  if (path.startsWith('/admin/users')) return ['people'];
-  if (path.startsWith('/admin/security')) return ['security'];
-  return [];
+/** The most specific sidebar entry that owns the current path. */
+function selectedKey(pathname) {
+  const match = ADMIN_PAGES.filter(
+    (page) => pathname === page.key || (page.key !== '/admin' && pathname.startsWith(`${page.key}/`))
+  ).sort((a, b) => b.key.length - a.key.length)[0];
+  return match?.key || '/admin';
 }
 
-function sameKeys(a, b) {
-  return a.length === b.length && a.every((key) => b.includes(key));
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+
+export function PageFallback() {
+  return (
+    <div className="page-fallback">
+      <Spin />
+    </div>
+  );
 }
 
 export default function AdminLayout() {
@@ -58,201 +44,96 @@ export default function AdminLayout() {
   const { appearance } = useThemeMode();
   const location = useLocation();
   const navigate = useNavigate();
-  const initial = useMemo(loadSider, []);
-  const [collapsed, setCollapsed] = useState(initial.collapsed);
-  const [openKeys, setOpenKeys] = useState(() => {
-    const needed = ancestorsFor(location.pathname);
-    return [...new Set([...initial.openKeys, ...needed])];
-  });
+  // `collapsed` is the saved desktop preference; below the lg breakpoint the
+  // sider is collapsed by default and the trigger only expands it temporarily.
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
+  const [broken, setBroken] = useState(false);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const effectiveCollapsed = broken ? !mobileExpanded : collapsed;
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useCommandPaletteHotkey(setPaletteOpen);
 
   useEffect(() => {
-    localStorage.setItem(SIDER_KEY, JSON.stringify({ collapsed, openKeys }));
-  }, [collapsed, openKeys]);
-
-  useEffect(() => {
-    if (!collapsed) return;
-    const needed = ancestorsFor(location.pathname);
-    if (!needed.length) return;
-    setOpenKeys((prev) => {
-      const top = needed[0];
-      const next = [...new Set([...prev.filter((key) => !TOP_KEYS.includes(key) || key === top), ...needed])];
-      return sameKeys(prev, next) ? prev : next;
-    });
-  }, [collapsed, location.pathname]);
-
-  const icon = (slot, title) => {
-    const node = <MenuIcon slot={slot} appearance={appearance} />;
-    if (!collapsed) return node;
-    return (
-      <Tooltip title={title} placement="right" mouseEnterDelay={0.15}>
-        <span className="workspace__menu-tip">{node}</span>
-      </Tooltip>
-    );
-  };
-
-  const label = (title, to) => {
-    if (collapsed) {
-      return <span className="workspace__menu-label-hidden">{title}</span>;
+    try {
+      localStorage.setItem(SIDER_KEY, JSON.stringify({ collapsed }));
+    } catch {
+      /* ignore */
     }
-    return to ? <NavLink to={to}>{title}</NavLink> : title;
-  };
+  }, [collapsed]);
 
   const items = useMemo(
-    () => [
-      {
-        key: '/admin',
-        icon: icon('/admin', t('admin.dashboard')),
-        label: label(t('admin.dashboard'), '/admin'),
-      },
-      {
-        key: 'project',
-        icon: icon('project', t('admin.project')),
-        label: label(t('admin.project')),
-        children: [
-          {
-            key: '/admin/general',
-            icon: icon('/admin/general', t('admin.general')),
-            label: label(t('admin.general'), '/admin/general'),
-          },
-          {
-            key: 'appearance',
-            icon: icon('appearance', t('admin.appearance')),
-            label: label(t('admin.appearance')),
-            children: [
-              {
-                key: '/admin/appearance',
-                icon: icon('/admin/appearance', t('admin.theme')),
-                label: label(t('admin.theme'), '/admin/appearance'),
-              },
-              {
-                key: '/admin/typography',
-                icon: icon('/admin/typography', t('admin.typography')),
-                label: label(t('admin.typography'), '/admin/typography'),
-              },
-              {
-                key: '/admin/icons',
-                icon: icon('/admin/icons', t('admin.iconStyle')),
-                label: label(t('admin.iconStyle'), '/admin/icons'),
-              },
-            ],
-          },
-        ],
-      },
-      {
-        key: 'integrations',
-        icon: icon('integrations', t('admin.integrations')),
-        label: label(t('admin.integrations')),
-        children: [
-          {
-            key: '/admin/integrations/email',
-            icon: icon('/admin/integrations/email', t('admin.email')),
-            label: label(t('admin.email'), '/admin/integrations/email'),
-          },
-          {
-            key: '/admin/integrations/telegram',
-            icon: icon('/admin/integrations/telegram', t('admin.telegram')),
-            label: label(t('admin.telegram'), '/admin/integrations/telegram'),
-          },
-          {
-            key: '/admin/integrations/whatsapp',
-            icon: icon('/admin/integrations/whatsapp', t('admin.whatsapp')),
-            label: label(t('admin.whatsapp'), '/admin/integrations/whatsapp'),
-          },
-          {
-            key: '/admin/integrations/ad',
-            icon: icon('/admin/integrations/ad', t('admin.ad')),
-            label: label(t('admin.ad'), '/admin/integrations/ad'),
-          },
-        ],
-      },
-      {
-        key: 'people',
-        icon: icon('people', t('admin.people')),
-        label: label(t('admin.people')),
-        children: [
-          {
-            key: '/admin/users',
-            icon: icon('/admin/users', t('admin.users')),
-            label: label(t('admin.users'), '/admin/users'),
-          },
-        ],
-      },
-      {
-        key: 'security',
-        icon: icon('security', t('admin.security')),
-        label: label(t('admin.security')),
-        children: [
-          {
-            key: '/admin/security',
-            icon: icon('/admin/security', t('admin.access')),
-            label: label(t('admin.access'), '/admin/security'),
-          },
-          {
-            key: '/admin/security/ip',
-            icon: icon('/admin/security/ip', t('admin.ipLists')),
-            label: label(t('admin.ipLists'), '/admin/security/ip'),
-          },
-          {
-            key: '/admin/security/history',
-            icon: icon('/admin/security/history', t('admin.history')),
-            label: label(t('admin.history'), '/admin/security/history'),
-          },
-        ],
-      },
-    ],
-    [t, appearance, collapsed]
+    () =>
+      // In a collapsed Sider antd shows the label as a tooltip by itself.
+      ADMIN_PAGES.map((page) => ({
+        key: page.key,
+        icon: <MenuIcon slot={page.key} appearance={appearance} />,
+        label: t(page.labelKey),
+      })),
+    [t, appearance]
   );
 
-  const handleCollapse = (next) => {
-    setCollapsed(next);
-    if (next) setOpenKeys(ancestorsFor(location.pathname));
-  };
-
-  const handleOpenChange = (keys) => {
-    if (!collapsed) {
-      setOpenKeys(keys);
-      return;
-    }
-    const opened = keys.find((key) => !openKeys.includes(key));
-    if (opened && TOP_KEYS.includes(opened)) {
-      setOpenKeys(keys.filter((key) => !TOP_KEYS.includes(key) || key === opened));
-      return;
-    }
-    setOpenKeys(keys);
-  };
+  const shortcut = isMac ? '⌘K' : 'Ctrl K';
 
   return (
     <div className="shell">
       <Chrome dense />
       <Layout className="workspace">
         <Sider
-          className={`workspace__sider${collapsed ? ' is-collapsed' : ''}`}
-          width={268}
-          collapsedWidth={64}
+          className={`workspace__sider${effectiveCollapsed ? ' is-collapsed' : ''}`}
+          width={252}
+          collapsedWidth={68}
           collapsible
-          collapsed={collapsed}
-          onCollapse={handleCollapse}
+          collapsed={effectiveCollapsed}
+          onBreakpoint={(isBroken) => {
+            setBroken(isBroken);
+            setMobileExpanded(false);
+          }}
+          onCollapse={(value, type) => {
+            // antd also fires this on breakpoint changes; only honor real clicks.
+            if (type !== 'clickTrigger') return;
+            if (broken) setMobileExpanded(!value);
+            else setCollapsed(value);
+          }}
+          breakpoint="lg"
           theme="light"
         >
+          <div className="workspace__head">
+            {!effectiveCollapsed && <div className="workspace__eyebrow">{t('nav.console')}</div>}
+            <button
+              type="button"
+              className="workspace__search"
+              onClick={() => setPaletteOpen(true)}
+              aria-label={t('nav.search')}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="2" />
+                <path d="m16 16 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              {!effectiveCollapsed && (
+                <>
+                  <span className="workspace__search-text">{t('nav.search')}</span>
+                  <kbd>{shortcut}</kbd>
+                </>
+              )}
+            </button>
+          </div>
           <Menu
             mode="inline"
-            inlineCollapsed={false}
-            selectedKeys={[location.pathname]}
-            openKeys={openKeys}
-            onOpenChange={handleOpenChange}
-            onClick={({ key }) => {
-              if (key.startsWith('/')) navigate(key);
-            }}
-            expandIcon={collapsed ? () => null : undefined}
+            selectedKeys={[selectedKey(location.pathname)]}
+            onClick={({ key }) => navigate(key)}
             items={items}
             className="workspace__menu"
           />
         </Sider>
         <Content className="workspace__content">
-          <Outlet />
+          <Suspense fallback={<PageFallback />}>
+            <Outlet />
+          </Suspense>
         </Content>
       </Layout>
       <AppFooter />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

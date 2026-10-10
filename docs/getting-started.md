@@ -63,7 +63,7 @@ make health
 
 Production: http://127.0.0.1:8092 (or `DOCKER_PORT`).
 
-Behind a reverse proxy, set `FRONTEND_URL` to the public HTTPS origin and terminate TLS on the proxy. The app container listens on HTTP internally.
+Behind a reverse proxy, set `FRONTEND_URL` to the public HTTPS origin, terminate TLS on the proxy and set `TRUST_PROXY_HOPS=2` (outer proxy + bundled nginx). The app container listens on HTTP internally. Example proxy config: [README → Deploying behind a reverse proxy](../README.md#deploying-behind-a-reverse-proxy).
 
 ## 5. Wizard
 
@@ -73,9 +73,25 @@ Behind a reverse proxy, set `FRONTEND_URL` to the public HTTPS origin and termin
 | Administrator | First `admin` user (bcrypt). After this, setup writes are `403`. |
 | Access | **Closed** = guests hit login. **Open** = public landing; `/account` and `/admin` still need a session. |
 
+When the last step completes, `SETUP_LOCKED=true` is written to `.env` and the wizard is closed for good.
+
+## 6. Tour the admin console
+
+Sign in and open `/admin`:
+
+| Where | First things to do |
+|-------|--------------------|
+| **Settings → General** | Product name, description, primary logo and a light logo for the dark theme |
+| **Settings → Color theme / Typography** | Pick a template and typeface — the UI previews live, *Apply* saves |
+| **Settings → Sign-in & sessions** | Lockout policy and session lifetime |
+| **Settings → IP filtering** | Optional allow-list — *Allow my IP* first |
+| **Users** | Invite the rest of the team |
+
+Press **⌘K / Ctrl+K** anywhere in the console to jump to any page or setting.
+
 Password policy: **10–200** characters. Username: **3–32**, `[A-Za-z0-9._-]`.
 
-## 6. Daily development
+## 7. Daily development
 
 ```bash
 make dev
@@ -83,7 +99,7 @@ make dev
 
 Vite on `:3020`, API on `:3021`, source mounted. Production image is rebuilt with `make rebuild` (frontend is compiled in Docker; bind mounts are not used in prod).
 
-## 7. Verify
+## 8. Verify
 
 ```bash
 make health          # process up
@@ -92,4 +108,4 @@ make setup-status    # wizard state
 make api-status      # app name + DB
 ```
 
-Next: [adapt.md](adapt.md) to replace branding and add modules, [security.md](security.md) before go-live.
+Next: [adapt.md](adapt.md) to rename and brand your fork, [extending.md](extending.md) to add features, [security.md](security.md) before go-live.

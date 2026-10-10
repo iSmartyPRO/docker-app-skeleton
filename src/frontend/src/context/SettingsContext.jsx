@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getSettings } from '../services/api';
 
 const SettingsContext = createContext(null);
@@ -7,7 +7,7 @@ export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(null);
   const [ready, setReady] = useState(false);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       const res = await getSettings();
       setSettings(res.data?.settings || null);
@@ -16,15 +16,15 @@ export function SettingsProvider({ children }) {
     } finally {
       setReady(true);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
 
   const value = useMemo(
     () => ({ settings, ready, refresh, setSettings }),
-    [settings, ready]
+    [settings, ready, refresh]
   );
 
   return (

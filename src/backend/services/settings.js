@@ -23,6 +23,8 @@ export const DEFAULTS = {
     },
     defaultTheme: 'light',
     logoUrl: null,
+    logoDarkUrl: null,
+    logoHeight: 32,
     icons: {
       style: 'colored',
       menu: {},
@@ -117,15 +119,32 @@ export async function ensureSettingsTable() {
       /* keep stored value */
     }
   }
+  invalidateSettings();
 }
 
-export async function getSettings() {
+// ipGuard and the rate limiter read settings on every request, so raw rows are
+// cached briefly. Every write goes through setSetting(), which drops the cache.
+const CACHE_TTL_MS = 5000;
+let cached = null;
+let cachedAt = 0;
+
+export function invalidateSettings() {
+  cached = null;
+  cachedAt = 0;
+}
+
+export async function getSettings({ fresh = false } = {}) {
+  if (!fresh && cached && Date.now() - cachedAt < CACHE_TTL_MS) {
+    return { ...cached };
+  }
   const result = await query('SELECT key, value FROM app_settings ORDER BY key');
   const settings = {};
   for (const row of result.rows) {
     settings[row.key] = row.value;
   }
-  return settings;
+  cached = settings;
+  cachedAt = Date.now();
+  return { ...settings };
 }
 
 export async function getSetting(key, fallback = null) {
@@ -144,6 +163,7 @@ export async function setSetting(key, value) {
     `,
     [key, String(value)]
   );
+  invalidateSettings();
 }
 
 function parseJson(raw, fallback) {
@@ -176,6 +196,8 @@ export function safeLogoUrl(url) {
 export function parseSettings(raw) {
   const appearance = parseJson(raw.appearance, JSON.parse(DEFAULTS.appearance));
   appearance.logoUrl = safeLogoUrl(appearance.logoUrl);
+  appearance.logoDarkUrl = safeLogoUrl(appearance.logoDarkUrl);
+  appearance.logoHeight = clampInt(appearance.logoHeight, 20, 64, 32);
   const integrations = parseJson(
     raw.integrations,
     JSON.parse(DEFAULTS.integrations)
@@ -233,20 +255,32 @@ function clampInt(value, min, max, fallback) {
   return Math.min(max, Math.max(min, Math.round(n)));
 }
 
-function sanitizeSecurity(current, incoming) {
+export function sanitizeSecurity(current, incoming) {
   const src = incoming && typeof incoming === 'object' ? incoming : {};
   return {
     whitelistEnabled: Boolean(src.whitelistEnabled ?? current.whitelistEnabled),
-    blacklistEnabled: src.blacklistEnabled !== false,
+    blacklistEnabled: (src.blacklistEnabled ?? current.blacklistEnabled) !== false,
     maxLoginAttempts: clampInt(src.maxLoginAttempts ?? current.maxLoginAttempts, 3, 30, 8),
     lockoutMinutes: clampInt(src.lockoutMinutes ?? current.lockoutMinutes, 5, 180, 15),
     sessionDays: clampInt(src.sessionDays ?? current.sessionDays, 1, 90, 7),
   };
 }
 
-function mergeKeepSecrets(current, incoming) {
+export function sanitizeRateLimit(current, incoming) {
+  const src = incoming && typeof incoming === 'object' ? incoming : {};
+  return {
+    windowMs: clampInt(src.windowMs ?? current.windowMs, 60_000, 24 * 60 * 60_000, 900_000),
+    max: clampInt(src.max ?? current.max, 20, 100_000, 100),
+  };
+}
+
+const INTEGRATION_GROUPS = ['email', 'telegram', 'whatsapp', 'activeDirectory'];
+
+export function mergeKeepSecrets(current, incoming) {
   const next = structuredClone(current);
   for (const group of Object.keys(incoming || {})) {
+    if (!INTEGRATION_GROUPS.includes(group)) continue;
+    if (!incoming[group] || typeof incoming[group] !== 'object') continue;
     next[group] = { ...next[group], ...incoming[group] };
   }
   for (const [group, field] of SECRET_PATHS) {
@@ -283,6 +317,11 @@ export async function updateAdminSettings(patch) {
         patch.appearance.logoUrl === undefined
           ? parsed.appearance.logoUrl
           : safeLogoUrl(patch.appearance.logoUrl),
+      logoDarkUrl:
+        patch.appearance.logoDarkUrl === undefined
+          ? parsed.appearance.logoDarkUrl
+          : safeLogoUrl(patch.appearance.logoDarkUrl),
+      logoHeight: clampInt(patch.appearance.logoHeight ?? parsed.appearance.logoHeight, 20, 64, 32),
       icons: patch.appearance.icons
         ? {
             style: patch.appearance.icons.style === 'mono' ? 'mono' : 'colored',
@@ -308,32 +347,36 @@ export async function updateAdminSettings(patch) {
     );
   }
   if (patch.rateLimit) {
-    if (patch.rateLimit.windowMs) {
-      await setSetting('rate_limit_window_ms', Number(patch.rateLimit.windowMs));
-    }
-    if (patch.rateLimit.max) {
-      await setSetting('rate_limit_max', Number(patch.rateLimit.max));
-    }
+    const rateLimit = sanitizeRateLimit(parsed.rateLimit, patch.rateLimit);
+    await setSetting('rate_limit_window_ms', rateLimit.windowMs);
+    await setSetting('rate_limit_max', rateLimit.max);
   }
 
-  return toAdminSettings(parseSettings(await getSettings()));
+  return toAdminSettings(parseSettings(await getSettings({ fresh: true })));
 }
 
-export async function setProjectLogo(filename) {
-  const parsed = parseSettings(await getSettings());
-  const previous = parsed.appearance.logoUrl;
+/** `primary` is used everywhere; `dark` replaces it in the dark theme when set. */
+function logoKey(variant) {
+  return variant === 'dark' ? 'logoDarkUrl' : 'logoUrl';
+}
+
+export async function setProjectLogo(filename, variant = 'primary') {
+  const key = logoKey(variant);
+  const parsed = parseSettings(await getSettings({ fresh: true }));
+  const previous = parsed.appearance[key];
   if (previous) {
     await unlink(join(logoDir, basename(previous))).catch(() => {});
   }
   return updateAdminSettings({
-    appearance: { logoUrl: `/uploads/logos/${basename(filename)}` },
+    appearance: { [key]: `/uploads/logos/${basename(filename)}` },
   });
 }
 
-export async function clearProjectLogo() {
-  const parsed = parseSettings(await getSettings());
-  if (parsed.appearance.logoUrl) {
-    await unlink(join(logoDir, basename(parsed.appearance.logoUrl))).catch(() => {});
+export async function clearProjectLogo(variant = 'primary') {
+  const key = logoKey(variant);
+  const parsed = parseSettings(await getSettings({ fresh: true }));
+  if (parsed.appearance[key]) {
+    await unlink(join(logoDir, basename(parsed.appearance[key]))).catch(() => {});
   }
-  return updateAdminSettings({ appearance: { logoUrl: null } });
+  return updateAdminSettings({ appearance: { [key]: null } });
 }

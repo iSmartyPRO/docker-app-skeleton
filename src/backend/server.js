@@ -23,7 +23,10 @@ const DEFAULT_RATE_LIMIT = {
   max: 100,
 };
 
-app.set('trust proxy', 1);
+// Number of reverse proxies in front of Express. The bundled nginx is one hop;
+// put another proxy (Traefik, NPM, Cloudflare) in front and set TRUST_PROXY_HOPS=2,
+// otherwise req.ip is the outer proxy and IP lockouts / allow-lists misfire.
+app.set('trust proxy', Math.max(0, Number(process.env.TRUST_PROXY_HOPS ?? 1) || 0));
 ensureUploadDirs();
 
 app.use(
@@ -106,18 +109,28 @@ async function start() {
   }
   const boot = await bootstrapFromDatabase();
 
+  // The window is fixed at boot; the request cap follows admin settings live.
   app.use(
     '/api/',
     rateLimit({
       windowMs: boot.windowMs,
-      max: boot.max,
+      limit: async () => {
+        try {
+          return parseSettings(await getSettings()).rateLimit.max;
+        } catch {
+          return boot.max;
+        }
+      },
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      message: { success: false, error: 'Too many requests. Try again later.' },
     })
   );
 
   app.use('/api', apiRoutes);
 
   app.use((req, res) => {
-    res.status(404).json({ error: 'Route not found' });
+    res.status(404).json({ success: false, error: 'Route not found' });
   });
 
   app.use(errorHandler);

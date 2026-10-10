@@ -32,6 +32,12 @@ import {
   IconWhatsapp,
 } from './AdminIcons';
 import { PREMIUM_ICONS } from './premiumIcons';
+import {
+  ADMIN_PAGES,
+  LEGACY_ADMIN_ROUTES,
+  SETTINGS_GROUPS,
+  SETTINGS_ITEMS,
+} from '../../admin/navigation';
 
 export const ICON_CATALOG = {
   dashboard: IconDashboard,
@@ -70,26 +76,37 @@ export const ICON_CATALOG = {
 
 export const ICON_IDS = Object.keys(ICON_CATALOG);
 
-export const MENU_SLOTS = [
-  { key: '/admin', labelKey: 'admin.dashboard', defaultIcon: 'dashboard' },
-  { key: 'project', labelKey: 'admin.project', defaultIcon: 'project' },
-  { key: '/admin/general', labelKey: 'admin.general', defaultIcon: 'general', depth: 1 },
-  { key: 'appearance', labelKey: 'admin.appearance', defaultIcon: 'palette', depth: 1 },
-  { key: '/admin/appearance', labelKey: 'admin.theme', defaultIcon: 'palette', depth: 2 },
-  { key: '/admin/typography', labelKey: 'admin.typography', defaultIcon: 'type', depth: 2 },
-  { key: '/admin/icons', labelKey: 'admin.iconStyle', defaultIcon: 'apps', depth: 2 },
-  { key: 'integrations', labelKey: 'admin.integrations', defaultIcon: 'integrations' },
-  { key: '/admin/integrations/email', labelKey: 'admin.email', defaultIcon: 'mail', depth: 1 },
-  { key: '/admin/integrations/telegram', labelKey: 'admin.telegram', defaultIcon: 'telegram', depth: 1 },
-  { key: '/admin/integrations/whatsapp', labelKey: 'admin.whatsapp', defaultIcon: 'whatsapp', depth: 1 },
-  { key: '/admin/integrations/ad', labelKey: 'admin.ad', defaultIcon: 'directory', depth: 1 },
-  { key: 'people', labelKey: 'admin.people', defaultIcon: 'people' },
-  { key: '/admin/users', labelKey: 'admin.users', defaultIcon: 'user', depth: 1 },
-  { key: 'security', labelKey: 'admin.security', defaultIcon: 'shield' },
-  { key: '/admin/security', labelKey: 'admin.access', defaultIcon: 'lock', depth: 1 },
-  { key: '/admin/security/ip', labelKey: 'admin.ipLists', defaultIcon: 'network', depth: 1 },
-  { key: '/admin/security/history', labelKey: 'admin.history', defaultIcon: 'bell', depth: 1 },
+/**
+ * Every icon slot the editor exposes, grouped the way the console shows them.
+ * Built from the navigation registry so new screens get a slot automatically.
+ */
+export const MENU_SLOT_GROUPS = [
+  {
+    id: 'sidebar',
+    labelKey: 'settings.icons.sidebar',
+    slots: ADMIN_PAGES.map((page) => ({
+      key: page.key,
+      labelKey: page.labelKey,
+      defaultIcon: page.defaultIcon,
+    })),
+  },
+  ...SETTINGS_GROUPS.map((group) => ({
+    id: group.id,
+    labelKey: group.labelKey,
+    slots: SETTINGS_ITEMS.filter((item) => item.group === group.id).map((item) => ({
+      key: item.key,
+      labelKey: item.labelKey,
+      defaultIcon: item.defaultIcon,
+    })),
+  })),
 ];
+
+export const MENU_SLOTS = MENU_SLOT_GROUPS.flatMap((group) => group.slots);
+
+// Icon choices saved by the first skeleton version used the old route keys.
+const LEGACY_SLOT_KEYS = Object.fromEntries(
+  Object.entries(LEGACY_ADMIN_ROUTES).map(([from, to]) => [`/admin/${to}`, `/admin/${from}`])
+);
 
 export function defaultMenuIcons() {
   return Object.fromEntries(MENU_SLOTS.map((slot) => [slot.key, slot.defaultIcon]));
@@ -100,7 +117,8 @@ export function resolveIconStyle(appearance) {
 }
 
 export function resolveIconId(appearance, slotKey) {
-  const chosen = appearance?.icons?.menu?.[slotKey];
+  const menu = appearance?.icons?.menu || {};
+  const chosen = menu[slotKey] || menu[LEGACY_SLOT_KEYS[slotKey]];
   if (chosen && ICON_CATALOG[chosen]) return chosen;
   return MENU_SLOTS.find((slot) => slot.key === slotKey)?.defaultIcon || 'dashboard';
 }

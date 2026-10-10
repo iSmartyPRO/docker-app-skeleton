@@ -15,7 +15,7 @@ This document is the go-live guide for the skeleton. Report vulnerabilities per 
 
 Assumptions:
 
-- One reverse proxy in front (`trust proxy = 1`).
+- The number of reverse proxies in front of Express matches `TRUST_PROXY_HOPS` (the bundled nginx is one).
 - Postgres is not on the public internet.
 - You finish setup before advertising the URL, or you set `SETUP_TOKEN`.
 
@@ -33,20 +33,25 @@ Assumptions:
 **Authorization**
 
 - `requireAuth` / `requireAdmin`.
-- Last admin cannot be deleted.
-- You cannot delete your own user.
+- The last *active* administrator cannot be deleted, demoted, disabled or blocked.
+- Administrators cannot demote, disable, block or delete their own account.
+- Role change, disabling, blocking and password reset bump `token_version` — the user is signed out everywhere.
+- Users can sign out all other devices; admins can revoke any user's sessions.
 
 **Setup**
 
-- Write routes no-op with `403` after an admin exists.
+- Write routes return `403` after an admin exists.
+- Once setup finishes, `SETUP_LOCKED=true` is written to `.env`; the wizard stays closed even if PostgreSQL is unreachable (otherwise an outage would let anyone repoint the database).
 - Optional `SETUP_TOKEN` (timing-safe compare). Without a valid token, status does not leak DB host/user.
-- Setup limiter: 20 / 15 min.
+- Setup limiter on write endpoints: 20 / 15 min. `GET /api/setup/status` is not throttled because the SPA reads it on every page load.
 
 **Network**
 
 - CORS origin is `FRONTEND_URL` with credentials (not `*`).
 - IP allow/block lists; CIDR bits must be 0–32.
 - Localhost is always allowed (so you cannot lock yourself out from the host). IPv4 CIDR only for ranges; IPv6 exact match.
+- Security changes, new block rules and rule deletions that would deny the acting admin's own IP are rejected with `409 SELF_LOCKOUT`.
+- Settings and IP rules are cached for 5 s, so per-request checks do not depend on a database round-trip.
 
 **Uploads**
 
@@ -73,10 +78,10 @@ Assumptions:
 3. **`SETUP_TOKEN`** if `/setup` might be reachable before you finish the wizard. Remove or rotate it after go-live (writes already 403).
 4. **Do not publish Postgres** on `0.0.0.0:5432` without a firewall.
 5. **Closed access** unless the landing must be public.
-6. **Allow-list** (`whitelistEnabled`) if only office IPs should reach the app. Add your IPv4/CIDR **before** enabling it, from a session that still has access.
+6. **Allow-list** if only office IPs should reach the app. Add your IPv4/CIDR first (*Allow my IP* in Settings → IP filtering); the API refuses to enable it otherwise.
 7. **Rotate** DB password and JWT if they ever appeared in chat, tickets, or screenshots.
 8. **Backups** of Postgres + `data/uploads/`.
-9. **Proxy count**: if you add another proxy, `trust proxy` must still match the number of hops you trust, or clients can spoof `X-Forwarded-For`.
+9. **Proxy count**: set `TRUST_PROXY_HOPS` to the number of proxies in front of Express (bundled nginx + any outer proxy). Too low and every client shares the proxy IP (lockouts hit everyone); too high and clients can spoof `X-Forwarded-For`.
 10. Run **`make env`** on every new deploy; never copy a production `.env` into git.
 
 ## Known limits (accept or extend)
@@ -90,6 +95,7 @@ Assumptions:
 | Username lockout | An attacker can lock a known username by failing logins (availability, not takeover). |
 | Wizard window | Until an admin exists, setup is the most sensitive surface. |
 | Container user | Process runs as root inside the image to bind nginx :80. Put Docker/network policy around it. |
+| Secrets at rest | Integration secrets are stored in plaintext in `app_settings`. Restrict database access; encryption is on the roadmap. |
 | AD “test” | TCP connect only, not a full LDAP bind. |
 
 ## Password and username policy

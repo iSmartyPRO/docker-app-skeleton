@@ -6,6 +6,7 @@ const envCandidates = [
   process.env.ENV_FILE_PATH,
   resolve(process.cwd(), '.env'),
   resolve(process.cwd(), '../.env'),
+  resolve(process.cwd(), '../../.env'), // repo root when run from src/backend
   '/app/.env',
 ].filter(Boolean);
 

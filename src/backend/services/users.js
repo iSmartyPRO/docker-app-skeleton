@@ -198,13 +198,50 @@ export async function createUser({
   }
 }
 
-export async function updateUser(id, patch, { allowRole = false } = {}) {
+function badRequest(message) {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+}
+
+async function countActiveAdmins() {
+  const result = await query(
+    `SELECT COUNT(*)::int AS count FROM users
+     WHERE role = 'admin' AND is_active IS NOT FALSE AND is_blocked IS NOT TRUE`
+  );
+  return result.rows[0].count;
+}
+
+function isActiveAdmin(user) {
+  return user.role === 'admin' && user.is_active !== false && user.is_blocked !== true;
+}
+
+/**
+ * Admin edits must never leave the project without a working administrator,
+ * and an admin cannot demote, disable or block their own account.
+ */
+async function assertAdminSafety(user, patch, actorId) {
+  const demotes = patch.role === 'user';
+  const disables = patch.isActive === false;
+  const blocks = patch.isBlocked === true;
+  if (!demotes && !disables && !blocks) return;
+
+  if (actorId != null && Number(actorId) === Number(user.id)) {
+    throw badRequest('You cannot demote, disable or block your own account');
+  }
+  if (isActiveAdmin(user) && (await countActiveAdmins()) <= 1) {
+    throw badRequest('This is the last active administrator');
+  }
+}
+
+export async function updateUser(id, patch, { allowRole = false, actorId = null } = {}) {
   const user = await findUserById(id);
   if (!user) {
     const error = new Error('User not found');
     error.statusCode = 404;
     throw error;
   }
+  if (allowRole) await assertAdminSafety(user, patch, actorId);
 
   const fields = [];
   const values = [];
@@ -224,10 +261,15 @@ export async function updateUser(id, patch, { allowRole = false } = {}) {
   }
   if (allowRole && typeof patch.isActive === 'boolean') add('is_active', patch.isActive);
   if (allowRole && typeof patch.isBlocked === 'boolean') add('is_blocked', patch.isBlocked);
+  const revokes =
+    Boolean(patch.password) ||
+    (allowRole && patch.role && patch.role !== user.role) ||
+    (allowRole && patch.isActive === false) ||
+    (allowRole && patch.isBlocked === true);
   if (patch.password) {
     add('password_hash', await bcrypt.hash(assertPassword(patch.password), 12));
-    add('token_version', Number(user.token_version || 0) + 1);
   }
+  if (revokes) add('token_version', Number(user.token_version || 0) + 1);
 
   if (!fields.length) return toAdminUser(user);
 
@@ -285,6 +327,46 @@ export async function setAvatar(id, filename) {
   return toAdminUser(result.rows[0]);
 }
 
+/** Invalidates every issued session cookie for the user. */
+export async function revokeSessions(id) {
+  const result = await query(
+    `UPDATE users SET token_version = token_version + 1, updated_at = NOW()
+     WHERE id = $1
+     RETURNING ${USER_COLUMNS}`,
+    [id]
+  );
+  if (!result.rows[0]) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  return result.rows[0];
+}
+
+export async function getUserStats() {
+  const result = await query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE role = 'admin')::int AS admins,
+      COUNT(*) FILTER (WHERE is_blocked IS TRUE)::int AS blocked,
+      COUNT(*) FILTER (WHERE is_active IS FALSE)::int AS disabled,
+      COUNT(*) FILTER (WHERE last_login_at > NOW() - INTERVAL '30 days')::int AS active30d
+    FROM users
+  `);
+  return result.rows[0];
+}
+
+export async function recentLogins(limit = 6) {
+  const result = await query(
+    `SELECT ${USER_COLUMNS} FROM users
+     WHERE last_login_at IS NOT NULL
+     ORDER BY last_login_at DESC
+     LIMIT $1`,
+    [limit]
+  );
+  return result.rows.map(toAdminUser);
+}
+
 export async function markLogin(id) {
   await query(`UPDATE users SET last_login_at = NOW() WHERE id = $1`, [id]);
 }
@@ -301,15 +383,8 @@ export async function deleteUser(id, actorId) {
     error.statusCode = 404;
     throw error;
   }
-  if (user.role === 'admin') {
-    const admins = await query(
-      `SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin'`
-    );
-    if (admins.rows[0].count <= 1) {
-      const error = new Error('Cannot delete the last administrator');
-      error.statusCode = 400;
-      throw error;
-    }
+  if (isActiveAdmin(user) && (await countActiveAdmins()) <= 1) {
+    throw badRequest('Cannot delete the last administrator');
   }
   if (user.avatar_path) {
     await unlink(join(avatarDir, basename(user.avatar_path))).catch(() => {});
