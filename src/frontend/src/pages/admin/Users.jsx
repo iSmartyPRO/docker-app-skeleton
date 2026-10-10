@@ -20,6 +20,8 @@ import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { formatDateTime, formatRelative, initials } from '../../lib/format';
 import { createAdminUser, deleteAdminUser, listAdminUsers } from '../../services/api';
+import { useAccessData } from '../../hooks/useAccessData';
+import { isSubset, roleLabel } from '../../lib/access';
 
 const { Text } = Typography;
 
@@ -30,13 +32,29 @@ export function UserStatusTag({ user }) {
   return <Tag color="green" bordered={false}>{t('users.active')}</Tag>;
 }
 
-export function RoleTag({ role }) {
+const ROLE_COLOR = { superadmin: 'gold', admin: 'blue', moderator: 'cyan', auditor: 'purple' };
+
+/** Effective roles of a user (direct + through groups), most powerful first. */
+export function AccessTags({ user, max = 2 }) {
   const { t } = useLocale();
-  return role === 'admin' ? (
-    <Tag color="gold" bordered={false}>{t('users.roleAdmin')}</Tag>
-  ) : (
-    <Tag bordered={false}>{t('users.roleUser')}</Tag>
+  const roles = [...(user.roles || [])].filter((role) => role.key !== 'user' || user.roles.length === 1);
+  if (!roles.length) return <span className="muted">—</span>;
+  return (
+    <span className="access-tags">
+      {roles.slice(0, max).map((role) => (
+        <Tag key={role.id} color={ROLE_COLOR[role.key]} bordered={false}>
+          {roleLabel(role, t)}
+        </Tag>
+      ))}
+      {roles.length > max && <Tag bordered={false}>+{roles.length - max}</Tag>}
+    </span>
   );
+}
+
+export function SourceBadge({ source }) {
+  const { t } = useLocale();
+  if (!source || source === 'local') return null;
+  return <span className={`source-badge is-${source}`}>{t(`users.source_${source}`)}</span>;
 }
 
 function statusOf(user) {
@@ -45,16 +63,26 @@ function statusOf(user) {
   return 'active';
 }
 
-function CreateUserModal({ open, onClose, onCreated }) {
+function CreateUserModal({ open, onClose, onCreated, roles, groups }) {
   const { t } = useLocale();
   const { message } = App.useApp();
+  const { user: me } = useAuth();
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
+  const holder = me?.permissions || [];
+  const defaultGroup = groups.find((group) => group.isDefault);
+
+  useEffect(() => {
+    if (open) form.setFieldsValue({ groupIds: defaultGroup ? [defaultGroup.id] : [], roleIds: [] });
+  }, [open, defaultGroup, form]);
 
   const onFinish = async (values) => {
     setSaving(true);
     try {
-      const res = await createAdminUser(values);
+      const payload = { ...values };
+      if (!payload.password) delete payload.password;
+      if (!payload.phone) delete payload.phone;
+      const res = await createAdminUser(payload);
       message.success(t('common.saved'));
       form.resetFields();
       onCreated(res.data.user);
@@ -75,34 +103,51 @@ function CreateUserModal({ open, onClose, onCreated }) {
       onOk={() => form.submit()}
       confirmLoading={saving}
       destroyOnHidden
+      width={560}
     >
-      <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ role: 'user' }} requiredMark={false}>
-        <Form.Item
-          name="username"
-          label={t('users.username')}
-          extra={t('users.usernameHint')}
-          rules={[
-            { required: true, min: 3, max: 32, message: t('users.usernameHint') },
-            { pattern: /^[a-zA-Z0-9._-]+$/, message: t('users.usernameHint') },
-          ]}
-        >
-          <Input autoComplete="off" />
-        </Form.Item>
-        <Form.Item name="displayName" label={t('users.displayName')}>
-          <Input />
-        </Form.Item>
-        <Form.Item name="email" label={t('users.email')} rules={[{ type: 'email' }]}>
-          <Input />
-        </Form.Item>
-        <Form.Item name="password" label={t('users.password')} rules={[{ required: true, min: 10 }]}>
+      <Form form={form} layout="vertical" onFinish={onFinish} requiredMark={false}>
+        <div className="form-grid">
+          <Form.Item
+            name="username"
+            label={t('users.username')}
+            rules={[
+              { required: true, min: 3, max: 32, message: t('users.usernameHint') },
+              { pattern: /^[a-zA-Z0-9._-]+$/, message: t('users.usernameHint') },
+            ]}
+          >
+            <Input autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="displayName" label={t('users.displayName')}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="email" label={t('users.email')} rules={[{ type: 'email' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="phone" label={t('users.phone')}>
+            <Input placeholder="+996 700 123 456" inputMode="tel" />
+          </Form.Item>
+        </div>
+        <Form.Item name="password" label={t('users.password')} extra={t('users.passwordOptional')} rules={[{ min: 10 }]}>
           <Input.Password autoComplete="new-password" />
         </Form.Item>
-        <Form.Item name="role" label={t('users.role')}>
-          <Segmented
-            options={[
-              { value: 'user', label: t('users.roleUser') },
-              { value: 'admin', label: t('users.roleAdmin') },
-            ]}
+        <Form.Item name="groupIds" label={t('users.groups')}>
+          <Select
+            mode="multiple"
+            options={groups.map((group) => ({
+              value: group.id,
+              label: group.name,
+              disabled: !isSubset(group.roles.flatMap((role) => roles.find((r) => r.id === role.id)?.permissions || []), holder),
+            }))}
+          />
+        </Form.Item>
+        <Form.Item name="roleIds" label={t('users.directRoles')} extra={t('users.directRolesHint')}>
+          <Select
+            mode="multiple"
+            options={roles.map((role) => ({
+              value: role.id,
+              label: roleLabel(role, t),
+              disabled: !isSubset(role.permissions, holder),
+            }))}
           />
         </Form.Item>
       </Form>
@@ -120,6 +165,9 @@ export default function AdminUsers() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [role, setRole] = useState('all');
+  const [group, setGroup] = useState('all');
+  const access = useAccessData();
+  const { can } = useAuth();
   const [status, setStatus] = useState('all');
 
   const load = useCallback(async () => {
@@ -140,14 +188,15 @@ export default function AdminUsers() {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return users.filter((user) => {
-      if (role !== 'all' && user.role !== role) return false;
+      if (role !== 'all' && !(user.roles || []).some((item) => item.id === role)) return false;
+      if (group !== 'all' && !(user.groupIds || []).includes(group)) return false;
       if (status !== 'all' && statusOf(user) !== status) return false;
       if (!q) return true;
-      return [user.username, user.displayName, user.email]
+      return [user.username, user.displayName, user.email, user.phone, user.instagram, user.telegram?.username]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(q));
     });
-  }, [users, query, role, status]);
+  }, [users, query, role, group, status]);
 
   const remove = async (user) => {
     try {
@@ -165,9 +214,11 @@ export default function AdminUsers() {
         title={t('users.title')}
         description={t('users.lead')}
         extra={
-          <Button type="primary" onClick={() => setOpen(true)}>
-            + {t('users.create')}
-          </Button>
+          can('users.manage') && (
+            <Button type="primary" onClick={() => setOpen(true)}>
+              + {t('users.create')}
+            </Button>
+          )
         }
       />
       <section className="panel">
@@ -182,11 +233,19 @@ export default function AdminUsers() {
           <Select
             value={role}
             onChange={setRole}
-            style={{ width: 170 }}
+            style={{ width: 190 }}
             options={[
               { value: 'all', label: t('users.allRoles') },
-              { value: 'admin', label: t('users.roleAdmin') },
-              { value: 'user', label: t('users.roleUser') },
+              ...access.roles.map((item) => ({ value: item.id, label: roleLabel(item, t) })),
+            ]}
+          />
+          <Select
+            value={group}
+            onChange={setGroup}
+            style={{ width: 190 }}
+            options={[
+              { value: 'all', label: t('users.allGroups') },
+              ...access.groups.map((item) => ({ value: item.id, label: item.name })),
             ]}
           />
           <Select
@@ -210,7 +269,7 @@ export default function AdminUsers() {
           loading={loading}
           dataSource={visible}
           pagination={{ pageSize: 25, hideOnSinglePage: true, showSizeChanger: false }}
-          scroll={{ x: 760 }}
+          scroll={{ x: 980 }}
           onRow={(row) => ({
             onClick: (event) => {
               if (event.target.closest('button, a, .ant-popover')) return;
@@ -234,12 +293,24 @@ export default function AdminUsers() {
                     <div className="user-cell__meta">
                       @{row.username}
                       {row.email ? ` · ${row.email}` : ''}
+                      <SourceBadge source={row.authSource} />
                     </div>
                   </div>
                 </div>
               ),
             },
-            { title: t('users.role'), dataIndex: 'role', width: 140, render: (value) => <RoleTag role={value} /> },
+            { title: t('users.access'), width: 230, render: (_, row) => <AccessTags user={row} /> },
+            {
+              title: t('users.groups'),
+              width: 200,
+              responsive: ['xxl'],
+              render: (_, row) =>
+                row.groups?.length ? (
+                  <span className="muted-list">{row.groups.map((item) => item.name).join(', ')}</span>
+                ) : (
+                  <span className="muted">—</span>
+                ),
+            },
             { title: t('users.status'), width: 140, render: (_, row) => <UserStatusTag user={row} /> },
             {
               title: t('users.lastLogin'),
@@ -258,7 +329,7 @@ export default function AdminUsers() {
               width: 120,
               align: 'right',
               render: (_, row) =>
-                row.id === me?.id ? null : (
+                row.id === me?.id || !can('users.delete') ? null : (
                   <Popconfirm
                     title={t('users.confirmDelete', { name: row.displayName || row.username })}
                     okText={t('common.delete')}
@@ -276,6 +347,8 @@ export default function AdminUsers() {
         />
       </section>
       <CreateUserModal
+        roles={access.roles}
+        groups={access.groups}
         open={open}
         onClose={() => setOpen(false)}
         onCreated={(created) => {

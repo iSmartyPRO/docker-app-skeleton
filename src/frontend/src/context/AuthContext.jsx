@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import api, { getMe, login as loginRequest, logout as logoutRequest } from '../services/api';
+import { can, canAny } from '../lib/access';
 
 const AuthContext = createContext(null);
 
@@ -32,6 +33,8 @@ export function AuthProvider({ children }) {
       user,
       ready,
       setUser,
+      can: (permission) => can(user, permission),
+      canAny: (permissions) => canAny(user, permissions),
       async login(payload) {
         const res = await loginRequest(payload);
         setUser(res.data.user);

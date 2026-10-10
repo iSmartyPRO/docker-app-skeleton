@@ -5,7 +5,8 @@ import Chrome from '../components/Chrome';
 import AppFooter from '../components/AppFooter';
 import CommandPalette, { useCommandPaletteHotkey } from '../components/CommandPalette';
 import { MenuIcon } from '../components/icons/menuIcons';
-import { ADMIN_PAGES } from '../admin/navigation';
+import { ADMIN_PAGES, visibleAdminPages } from '../admin/navigation';
+import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
 
@@ -51,6 +52,8 @@ export default function AdminLayout() {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const effectiveCollapsed = broken ? !mobileExpanded : collapsed;
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const { canAny } = useAuth();
+  const pages = visibleAdminPages(canAny);
 
   useCommandPaletteHotkey(setPaletteOpen);
 
@@ -65,12 +68,13 @@ export default function AdminLayout() {
   const items = useMemo(
     () =>
       // In a collapsed Sider antd shows the label as a tooltip by itself.
-      ADMIN_PAGES.map((page) => ({
+      pages.map((page) => ({
         key: page.key,
         icon: <MenuIcon slot={page.key} appearance={appearance} />,
         label: t(page.labelKey),
       })),
-    [t, appearance]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t, appearance, pages.map((page) => page.key).join()]
   );
 
   const shortcut = isMac ? '⌘K' : 'Ctrl K';

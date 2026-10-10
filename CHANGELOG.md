@@ -9,6 +9,14 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 ### Added
 
+- **Roles, groups and permissions (RBAC)**: permission catalog, five built-in roles (Super administrator, Administrator, Moderator, Auditor, User), custom roles, groups that grant roles, a default group, escalation-proof assignment, last-super-admin protection in a transaction, read-only settings for viewers. New **Groups** and **Roles** pages.
+- **Sign-in through integrations**: Active Directory / LDAP (real bind, auto-provisioning, group mapping), Telegram Login (redirect widget), 6-digit codes via WhatsApp (Wazzup), email and Telegram, and magic links. New *Settings → Sign-in methods* screen.
+- **Bank-style code entry**: six cells, auto-submit on the last digit, paste and OS autofill, countdown, resend timer.
+- Sign-in contacts on profiles: phone, Instagram, linked Telegram; first password for SSO accounts.
+- Setup wizard seeds roles and groups in its language and can add sample users; `make seed-demo` for existing installations.
+- Machine error codes for sign-in failures, translated in the UI.
+
+- **Wazzup integration** (WhatsApp, Telegram, Instagram, Avito and more via [Wazzup](https://wazzup24.com) API v3): write-only API key, channels loaded from the account and grouped by messenger, one default channel per messenger (stored as `{ transport: channelId }`), readable channel states, *test connection* that validates the selected channels.
 - **Settings hub** at `/admin/settings`: every configurable option grouped into Project, Appearance, Security, Integrations and System, with search and a grouped side navigation (a select on mobile).
 - **Command palette** (⌘K / Ctrl+K) across admin pages, settings screens and quick actions.
 - **Floating save bar** shown only while a form has unsaved changes.

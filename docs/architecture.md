@@ -45,7 +45,10 @@ Tables are created on connect (`bootstrapSchema`):
 
 | Table | Role |
 |-------|------|
-| `users` | Accounts, roles `admin` / `user`, flags, `token_version` |
+| `users` | Accounts, flags, `token_version`, sign-in identifiers (phone, Instagram, Telegram, `auth_source`, `external_id`) |
+| `app_roles` / `app_groups` | Roles (permission arrays) and groups; one group is the default |
+| `user_roles` / `group_roles` / `user_group_members` | Direct roles, roles granted by groups, memberships |
+| `auth_codes` | Hashed one-time codes and magic-link tokens |
 | `app_settings` | Key/value: name, appearance JSON, integrations JSON, security JSON |
 | `ip_rules` | Allow-list / block-list |
 | `login_attempts` | Lockout window (purged after 7 days) |

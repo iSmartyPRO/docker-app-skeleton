@@ -43,12 +43,19 @@ export const DEFAULTS = {
     telegram: {
       enabled: false,
       botToken: '',
+      botUsername: '',
       defaultChatId: '',
     },
     whatsapp: {
       enabled: false,
       serverUrl: '',
       apiKey: '',
+    },
+    wazzup: {
+      enabled: false,
+      apiKey: '',
+      // Default channel per transport, e.g. { whatsapp: '<channelId>', instagram: '<channelId>' }
+      channels: {},
     },
     activeDirectory: {
       enabled: false,
@@ -59,6 +66,17 @@ export const DEFAULTS = {
       bindPassword: '',
       baseDn: '',
     },
+  }),
+  // Sign-in methods. Each one beyond the password needs its integration configured.
+  auth: JSON.stringify({
+    password: { enabled: true },
+    ldap: { enabled: false, autoProvision: true, groupMap: [] },
+    telegram: { enabled: false, autoProvision: false },
+    emailCode: { enabled: false },
+    whatsappCode: { enabled: false },
+    telegramCode: { enabled: false },
+    // Lets code channels send a one-click sign-in link instead of a code.
+    magicLink: { enabled: false },
   }),
   security: JSON.stringify({
     whitelistEnabled: false,
@@ -73,6 +91,7 @@ const SECRET_PATHS = [
   ['email', 'password'],
   ['telegram', 'botToken'],
   ['whatsapp', 'apiKey'],
+  ['wazzup', 'apiKey'],
   ['activeDirectory', 'bindPassword'],
 ];
 
@@ -198,11 +217,25 @@ export function parseSettings(raw) {
   appearance.logoUrl = safeLogoUrl(appearance.logoUrl);
   appearance.logoDarkUrl = safeLogoUrl(appearance.logoDarkUrl);
   appearance.logoHeight = clampInt(appearance.logoHeight, 20, 64, 32);
-  const integrations = parseJson(
-    raw.integrations,
-    JSON.parse(DEFAULTS.integrations)
+  // Merge stored groups over defaults so integrations added in later versions
+  // appear in existing installations without a migration.
+  const integrationDefaults = JSON.parse(DEFAULTS.integrations);
+  const storedIntegrations = parseJson(raw.integrations, {});
+  const integrations = Object.fromEntries(
+    Object.entries(integrationDefaults).map(([group, defaults]) => [
+      group,
+      { ...defaults, ...(storedIntegrations[group] || {}) },
+    ])
   );
   const security = parseJson(raw.security, JSON.parse(DEFAULTS.security));
+  const authDefaults = JSON.parse(DEFAULTS.auth);
+  const storedAuth = parseJson(raw.auth, {});
+  const auth = Object.fromEntries(
+    Object.entries(authDefaults).map(([method, defaults]) => [
+      method,
+      { ...defaults, ...(storedAuth[method] || {}) },
+    ])
+  );
 
   return {
     appName: raw.app_name || DEFAULTS.app_name,
@@ -218,7 +251,76 @@ export function parseSettings(raw) {
     appearance,
     integrations,
     security,
+    auth,
   };
+}
+
+/**
+ * Whether each sign-in method can actually work right now: enabled in
+ * Settings → Sign-in methods AND its integration is enabled and configured.
+ */
+export function authAvailability(parsed) {
+  const { integrations: i, auth } = parsed;
+  const ready = {
+    ldap: Boolean(i.activeDirectory?.enabled && i.activeDirectory?.host && i.activeDirectory?.baseDn),
+    telegram: Boolean(i.telegram?.enabled && i.telegram?.botToken && i.telegram?.botUsername),
+    emailCode: Boolean(i.email?.enabled && i.email?.host),
+    whatsappCode: Boolean(i.wazzup?.enabled && i.wazzup?.apiKey && i.wazzup?.channels?.whatsapp),
+    telegramCode: Boolean(i.telegram?.enabled && i.telegram?.botToken),
+  };
+  ready.magicLink = ready.emailCode || ready.whatsappCode || ready.telegramCode;
+  return {
+    ready,
+    password: auth.password?.enabled !== false,
+    ldap: Boolean(auth.ldap?.enabled && ready.ldap),
+    telegram: Boolean(auth.telegram?.enabled && ready.telegram),
+    emailCode: Boolean(auth.emailCode?.enabled && ready.emailCode),
+    whatsappCode: Boolean(auth.whatsappCode?.enabled && ready.whatsappCode),
+    telegramCode: Boolean(auth.telegramCode?.enabled && ready.telegramCode),
+    magicLink: Boolean(auth.magicLink?.enabled),
+  };
+}
+
+const AUTH_INTEGRATION = {
+  ldap: 'Active Directory',
+  telegram: 'Telegram bot (token and bot username)',
+  emailCode: 'Email (SMTP)',
+  whatsappCode: 'Wazzup (with a WhatsApp channel)',
+  telegramCode: 'Telegram bot',
+};
+
+export function sanitizeAuth(current, incoming, readiness) {
+  const src = incoming && typeof incoming === 'object' ? incoming : {};
+  const next = structuredClone(current);
+  const flag = (method, key) => {
+    const value = src[method]?.[key];
+    if (typeof value === 'boolean' && next[method]) next[method][key] = value;
+  };
+  for (const method of Object.keys(next)) flag(method, 'enabled');
+  flag('ldap', 'autoProvision');
+  flag('telegram', 'autoProvision');
+  if (Array.isArray(src.ldap?.groupMap)) {
+    next.ldap.groupMap = src.ldap.groupMap
+      .filter((rule) => rule && String(rule.adGroup || '').trim() && Number.isInteger(Number(rule.groupId)))
+      .slice(0, 50)
+      .map((rule) => ({ adGroup: String(rule.adGroup).trim().slice(0, 300), groupId: Number(rule.groupId) }));
+  }
+  for (const method of Object.keys(AUTH_INTEGRATION)) {
+    if (!next[method]) continue;
+    const turnedOn = next[method].enabled && !current[method]?.enabled;
+    if (turnedOn && !readiness[method]) {
+      const error = new Error(`Configure and enable the ${AUTH_INTEGRATION[method]} integration first`);
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+  const signInMethods = Object.entries(next).filter(([method]) => method !== 'magicLink');
+  if (!signInMethods.some(([, method]) => method.enabled)) {
+    const error = new Error('At least one sign-in method must stay enabled');
+    error.statusCode = 400;
+    throw error;
+  }
+  return next;
 }
 
 export function toPublicSettings(parsed) {
@@ -228,10 +330,26 @@ export function toPublicSettings(parsed) {
     appDescription: parsed.appDescription,
     accessMode: parsed.accessMode || 'closed',
     appearance: parsed.appearance,
+    auth: (() => {
+      const available = authAvailability(parsed);
+      return {
+        password: available.password || available.ldap,
+        ldap: available.ldap,
+        telegram: available.telegram
+          ? { enabled: true, botUsername: parsed.integrations.telegram.botUsername }
+          : { enabled: false },
+        emailCode: available.emailCode,
+        whatsappCode: available.whatsappCode,
+        telegramCode: available.telegramCode,
+        magicLink:
+          available.magicLink && (available.emailCode || available.whatsappCode || available.telegramCode),
+      };
+    })(),
     integrations: {
       email: { enabled: Boolean(parsed.integrations.email?.enabled) },
       telegram: { enabled: Boolean(parsed.integrations.telegram?.enabled) },
       whatsapp: { enabled: Boolean(parsed.integrations.whatsapp?.enabled) },
+      wazzup: { enabled: Boolean(parsed.integrations.wazzup?.enabled) },
       activeDirectory: {
         enabled: Boolean(parsed.integrations.activeDirectory?.enabled),
       },
@@ -245,6 +363,8 @@ export function toAdminSettings(parsed) {
     accessMode: parsed.accessMode || '',
     rateLimit: parsed.rateLimit,
     security: parsed.security,
+    authMethods: parsed.auth,
+    authReady: authAvailability(parsed).ready,
     integrations: maskIntegrations(parsed.integrations),
   };
 }
@@ -274,7 +394,7 @@ export function sanitizeRateLimit(current, incoming) {
   };
 }
 
-const INTEGRATION_GROUPS = ['email', 'telegram', 'whatsapp', 'activeDirectory'];
+const INTEGRATION_GROUPS = ['email', 'telegram', 'whatsapp', 'wazzup', 'activeDirectory'];
 
 export function mergeKeepSecrets(current, incoming) {
   const next = structuredClone(current);
@@ -288,6 +408,20 @@ export function mergeKeepSecrets(current, incoming) {
       next[group][field] = current[group]?.[field] || '';
     }
   }
+  return next;
+}
+
+/** Keeps only `{ transport: channelId }` string pairs; drops the pre-release `channelId` field. */
+export function sanitizeWazzup(group = {}) {
+  const next = { ...group };
+  delete next.channelId;
+  const source = next.channels && typeof next.channels === 'object' ? next.channels : {};
+  next.channels = Object.fromEntries(
+    Object.entries(source)
+      .filter(([transport, id]) => /^[a-z0-9_-]{1,32}$/i.test(transport) && typeof id === 'string' && id.trim())
+      .slice(0, 20)
+      .map(([transport, id]) => [transport, id.trim().slice(0, 100)])
+  );
   return next;
 }
 
@@ -335,9 +469,14 @@ export async function updateAdminSettings(patch) {
     await setSetting('appearance', JSON.stringify(nextAppearance));
   }
   if (patch.integrations) {
+    const merged = mergeKeepSecrets(parsed.integrations, patch.integrations);
+    merged.wazzup = sanitizeWazzup(merged.wazzup);
+    await setSetting('integrations', JSON.stringify(merged));
+  }
+  if (patch.auth) {
     await setSetting(
-      'integrations',
-      JSON.stringify(mergeKeepSecrets(parsed.integrations, patch.integrations))
+      'auth',
+      JSON.stringify(sanitizeAuth(parsed.auth, patch.auth, authAvailability(parsed).ready))
     );
   }
   if (patch.security) {

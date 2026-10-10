@@ -4,6 +4,7 @@ import PublicLayout from '../layouts/PublicLayout';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
+import { can } from '../lib/access';
 
 const { Title, Paragraph } = Typography;
 
@@ -28,7 +29,7 @@ export default function Home() {
               <Link className="btn btn--primary" to="/account">
                 {t('landing.ctaAccount')}
               </Link>
-              {user.role === 'admin' && (
+              {can(user, 'console.access') && (
                 <Link className="btn btn--ghost" to="/admin">
                   {t('landing.ctaAdmin')}
                 </Link>

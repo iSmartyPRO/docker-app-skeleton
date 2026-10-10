@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAdmin } from '../middleware/auth.js';
+import { requireConsole, requirePermission } from '../middleware/auth.js';
 import { clientIp } from '../middleware/ipGuard.js';
 import { avatarUpload, logoUpload, verifyUploadedFile } from '../middleware/upload.js';
 import {
@@ -11,17 +11,18 @@ import {
   updateAdminSettings,
 } from '../services/settings.js';
 import {
+  assertCanManage,
   createUser,
   deleteUser,
-  findUserById,
+  getAdminUser,
   listUsers,
-  setAvatar,
   revokeSessions,
-  toAdminUser,
+  setAvatar,
+  unlinkTelegram,
   updateUser,
 } from '../services/users.js';
 import { getOverview, getSystemInfo } from '../services/overview.js';
-import { testIntegration } from '../services/integrations.js';
+import { listWazzupChannels, testIntegration } from '../services/integrations.js';
 import {
   addIpRule,
   decideIpAccess,
@@ -29,9 +30,32 @@ import {
   listSecurityEvents,
   removeIpRule,
 } from '../services/security.js';
+import {
+  PERMISSION_CATALOG,
+  SETTINGS_PATCH_PERMISSIONS,
+  SETTINGS_PERMISSIONS,
+  hasPermission,
+} from '../services/permissions.js';
+import {
+  createRole,
+  deleteGroup,
+  deleteRole,
+  listGroups,
+  listRoles,
+  saveGroup,
+  updateRole,
+} from '../services/rbac.js';
 
 const router = Router();
-router.use(requireAdmin);
+router.use(requireConsole);
+
+const wrap = (handler) => async (req, res, next) => {
+  try {
+    await handler(req, res);
+  } catch (err) {
+    next(err);
+  }
+};
 
 /**
  * Rejects a security change that would deny the acting admin's own IP —
@@ -53,207 +77,214 @@ async function assertAdminKeepsAccess(req, { security, rules } = {}) {
   }
 }
 
-router.get('/overview', async (req, res, next) => {
-  try {
-    res.json({ success: true, overview: await getOverview() });
-  } catch (err) {
-    next(err);
-  }
-});
+// ── Console ─────────────────────────────────────────────────────────────────
 
-router.get('/system', async (req, res, next) => {
-  try {
-    res.json({ success: true, system: await getSystemInfo() });
-  } catch (err) {
-    next(err);
-  }
-});
+router.get('/overview', wrap(async (req, res) => {
+  res.json({ success: true, overview: await getOverview() });
+}));
 
-router.get('/settings', async (req, res, next) => {
-  try {
-    const settings = toAdminSettings(parseSettings(await getSettings()));
-    res.json({ success: true, settings });
-  } catch (err) {
-    next(err);
-  }
-});
+router.get('/permissions', wrap(async (req, res) => {
+  res.json({ success: true, catalog: PERMISSION_CATALOG });
+}));
 
-router.put('/settings', async (req, res, next) => {
-  try {
-    if (req.body?.security) {
-      await assertAdminKeepsAccess(req, { security: req.body.security });
-    }
-    const settings = await updateAdminSettings(req.body || {});
-    res.json({ success: true, settings });
-  } catch (err) {
-    next(err);
-  }
-});
+// ── Settings ────────────────────────────────────────────────────────────────
 
-router.post('/settings/logo', (req, res, next) => {
+const anySettings = requirePermission('settings.view', ...SETTINGS_PERMISSIONS);
+
+router.get('/system', anySettings, wrap(async (req, res) => {
+  res.json({ success: true, system: await getSystemInfo() });
+}));
+
+router.get('/settings', anySettings, wrap(async (req, res) => {
+  res.json({ success: true, settings: toAdminSettings(parseSettings(await getSettings())) });
+}));
+
+/** Each top-level key of the patch needs its own permission. */
+router.put('/settings', anySettings, wrap(async (req, res) => {
+  const patch = req.body || {};
+  const denied = Object.keys(patch).filter(
+    (key) => SETTINGS_PATCH_PERMISSIONS[key] && !hasPermission(req.actor.permissions, SETTINGS_PATCH_PERMISSIONS[key])
+  );
+  if (denied.length) {
+    res.status(403).json({ success: false, error: 'You do not have permission to change these settings', code: 'FORBIDDEN' });
+    return;
+  }
+  if (patch.security) await assertAdminKeepsAccess(req, { security: patch.security });
+  res.json({ success: true, settings: await updateAdminSettings(patch) });
+}));
+
+const generalSettings = requirePermission('settings.general');
+
+router.post('/settings/logo', generalSettings, (req, res, next) => {
   logoUpload(req, res, async (err) => {
     if (err) {
       err.statusCode = 400;
       return next(err);
     }
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'Logo file is required' });
-    }
+    if (!req.file) return res.status(400).json({ success: false, error: 'Logo file is required' });
     try {
       await verifyUploadedFile(req.file, 'logo');
       const settings = await setProjectLogo(req.file.filename, req.query.variant);
-      res.json({ success: true, settings });
+      return res.json({ success: true, settings });
     } catch (error) {
-      next(error);
+      return next(error);
     }
   });
 });
 
-router.delete('/settings/logo', async (req, res, next) => {
-  try {
-    const settings = await clearProjectLogo(req.query.variant);
-    res.json({ success: true, settings });
-  } catch (err) {
-    next(err);
-  }
-});
+router.delete('/settings/logo', generalSettings, wrap(async (req, res) => {
+  res.json({ success: true, settings: await clearProjectLogo(req.query.variant) });
+}));
 
-router.post('/integrations/:kind/test', async (req, res, next) => {
-  try {
-    const result = await testIntegration(req.params.kind, req.body || {});
-    res.json({ success: true, ...result });
-  } catch (err) {
-    next(err);
-  }
-});
+const integrationSettings = requirePermission('settings.integrations');
 
-router.get('/users', async (req, res, next) => {
-  try {
-    res.json({ success: true, users: await listUsers() });
-  } catch (err) {
-    next(err);
-  }
-});
+router.post('/integrations/:kind/test', integrationSettings, wrap(async (req, res) => {
+  res.json({ success: true, ...(await testIntegration(req.params.kind, req.body || {})) });
+}));
 
-router.post('/users', async (req, res, next) => {
-  try {
-    const user = await createUser(req.body || {});
-    res.status(201).json({ success: true, user });
-  } catch (err) {
-    next(err);
-  }
-});
+// Channel picker for the Wazzup screen; accepts an unsaved API key in the body.
+router.post('/integrations/wazzup/channels', integrationSettings, wrap(async (req, res) => {
+  res.json({ success: true, channels: await listWazzupChannels(req.body || {}) });
+}));
 
-router.get('/users/:id', async (req, res, next) => {
-  try {
-    const user = await findUserById(Number(req.params.id));
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
-    }
-    res.json({ success: true, user: toAdminUser(user) });
-  } catch (err) {
-    next(err);
-  }
-});
+// ── Users ───────────────────────────────────────────────────────────────────
 
-router.put('/users/:id', async (req, res, next) => {
-  try {
-    const user = await updateUser(Number(req.params.id), req.body || {}, {
-      allowRole: true,
-      actorId: req.user.id,
-    });
-    res.json({ success: true, user });
-  } catch (err) {
-    next(err);
-  }
-});
+const viewUsers = requirePermission('users.view');
+const manageUsers = requirePermission('users.manage');
 
-router.post('/users/:id/avatar', (req, res, next) => {
+router.get('/users', viewUsers, wrap(async (req, res) => {
+  res.json({ success: true, users: await listUsers() });
+}));
+
+router.post('/users', manageUsers, wrap(async (req, res) => {
+  res.status(201).json({ success: true, user: await createUser(req.body || {}, req.actor) });
+}));
+
+router.get('/users/:id', viewUsers, wrap(async (req, res) => {
+  const user = await getAdminUser(Number(req.params.id));
+  if (!user) {
+    res.status(404).json({ success: false, error: 'User not found' });
+    return;
+  }
+  res.json({ success: true, user });
+}));
+
+router.put('/users/:id', manageUsers, wrap(async (req, res) => {
+  const user = await updateUser(Number(req.params.id), req.body || {}, { actor: req.actor });
+  res.json({ success: true, user });
+}));
+
+router.post('/users/:id/avatar', manageUsers, (req, res, next) => {
   avatarUpload(req, res, async (err) => {
     if (err) {
       err.statusCode = 400;
       return next(err);
     }
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'Avatar file is required' });
-    }
+    if (!req.file) return res.status(400).json({ success: false, error: 'Avatar file is required' });
     try {
+      await assertCanManage(req.actor, Number(req.params.id));
       await verifyUploadedFile(req.file, 'avatar');
-      const user = await setAvatar(Number(req.params.id), req.file.filename);
-      res.json({ success: true, user });
+      return res.json({ success: true, user: await setAvatar(Number(req.params.id), req.file.filename) });
     } catch (error) {
-      next(error);
+      return next(error);
     }
   });
 });
 
-router.post('/users/:id/revoke-sessions', async (req, res, next) => {
-  try {
-    const user = await revokeSessions(Number(req.params.id));
-    res.json({ success: true, user: toAdminUser(user) });
-  } catch (err) {
-    next(err);
-  }
-});
+router.post('/users/:id/revoke-sessions', manageUsers, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await assertCanManage(req.actor, id);
+  await revokeSessions(id);
+  res.json({ success: true, user: await getAdminUser(id) });
+}));
 
-router.delete('/users/:id', async (req, res, next) => {
-  try {
-    await deleteUser(Number(req.params.id), req.user.id);
-    res.json({ success: true });
-  } catch (err) {
-    next(err);
-  }
-});
+router.delete('/users/:id/telegram', manageUsers, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await assertCanManage(req.actor, id);
+  await unlinkTelegram(id);
+  res.json({ success: true, user: await getAdminUser(id) });
+}));
 
-router.get('/security/events', async (req, res, next) => {
-  try {
-    const data = await listSecurityEvents({
-      kind: req.query.kind,
-      limit: req.query.limit,
-    });
-    res.json({ success: true, ...data });
-  } catch (err) {
-    next(err);
-  }
-});
+router.delete('/users/:id', requirePermission('users.delete'), wrap(async (req, res) => {
+  await deleteUser(Number(req.params.id), req.actor);
+  res.json({ success: true });
+}));
 
-router.get('/security/ip-rules', async (req, res, next) => {
-  try {
-    const rules = await listIpRules(req.query.listType);
-    res.json({ success: true, rules, yourIp: clientIp(req) });
-  } catch (err) {
-    next(err);
-  }
-});
+// ── Roles & groups ──────────────────────────────────────────────────────────
 
-router.post('/security/ip-rules', async (req, res, next) => {
-  try {
-    if (req.body?.listType === 'blacklist') {
-      const candidate = { ip: String(req.body?.ip || '').trim(), list_type: 'blacklist' };
-      await assertAdminKeepsAccess(req, { rules: [...(await listIpRules()), candidate] });
-    }
-    const rule = await addIpRule({
-      ip: req.body?.ip,
-      listType: req.body?.listType,
-      reason: req.body?.reason,
-      createdBy: req.user.id,
-    });
-    res.status(201).json({ success: true, rule });
-  } catch (err) {
-    next(err);
-  }
-});
+const manageRoles = requirePermission('roles.manage');
+const manageGroups = requirePermission('groups.manage');
 
-router.delete('/security/ip-rules/:id', async (req, res, next) => {
-  try {
-    const id = Number(req.params.id);
-    const remaining = (await listIpRules()).filter((rule) => Number(rule.id) !== id);
-    await assertAdminKeepsAccess(req, { rules: remaining });
-    await removeIpRule(id);
-    res.json({ success: true });
-  } catch (err) {
-    next(err);
+router.get('/roles', viewUsers, wrap(async (req, res) => {
+  res.json({ success: true, roles: await listRoles() });
+}));
+
+router.post('/roles', manageRoles, wrap(async (req, res) => {
+  res.status(201).json({ success: true, role: await createRole(req.body || {}, req.actor) });
+}));
+
+router.put('/roles/:id', manageRoles, wrap(async (req, res) => {
+  res.json({ success: true, role: await updateRole(Number(req.params.id), req.body || {}, req.actor) });
+}));
+
+router.delete('/roles/:id', manageRoles, wrap(async (req, res) => {
+  await deleteRole(Number(req.params.id), req.actor);
+  res.json({ success: true });
+}));
+
+router.get('/groups', viewUsers, wrap(async (req, res) => {
+  res.json({ success: true, groups: await listGroups() });
+}));
+
+router.post('/groups', manageGroups, wrap(async (req, res) => {
+  const id = await saveGroup(null, req.body || {}, req.actor);
+  res.status(201).json({ success: true, id });
+}));
+
+router.put('/groups/:id', manageGroups, wrap(async (req, res) => {
+  await saveGroup(Number(req.params.id), req.body || {}, req.actor);
+  res.json({ success: true });
+}));
+
+router.delete('/groups/:id', manageGroups, wrap(async (req, res) => {
+  await deleteGroup(Number(req.params.id), req.actor);
+  res.json({ success: true });
+}));
+
+// ── Security ────────────────────────────────────────────────────────────────
+
+router.get('/security/events', requirePermission('activity.view'), wrap(async (req, res) => {
+  const data = await listSecurityEvents({ kind: req.query.kind, limit: req.query.limit });
+  res.json({ success: true, ...data });
+}));
+
+const securitySettings = requirePermission('settings.security');
+
+router.get('/security/ip-rules', requirePermission('settings.view', 'settings.security'), wrap(async (req, res) => {
+  const rules = await listIpRules(req.query.listType);
+  res.json({ success: true, rules, yourIp: clientIp(req) });
+}));
+
+router.post('/security/ip-rules', securitySettings, wrap(async (req, res) => {
+  if (req.body?.listType === 'blacklist') {
+    const candidate = { ip: String(req.body?.ip || '').trim(), list_type: 'blacklist' };
+    await assertAdminKeepsAccess(req, { rules: [...(await listIpRules()), candidate] });
   }
-});
+  const rule = await addIpRule({
+    ip: req.body?.ip,
+    listType: req.body?.listType,
+    reason: req.body?.reason,
+    createdBy: req.user.id,
+  });
+  res.status(201).json({ success: true, rule });
+}));
+
+router.delete('/security/ip-rules/:id', securitySettings, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const remaining = (await listIpRules()).filter((rule) => Number(rule.id) !== id);
+  await assertAdminKeepsAccess(req, { rules: remaining });
+  await removeIpRule(id);
+  res.json({ success: true });
+}));
 
 export default router;

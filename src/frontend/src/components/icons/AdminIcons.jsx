@@ -171,6 +171,23 @@ export function IconWhatsapp({ variant = 'colored' } = {}) {
   );
 }
 
+export function IconWazzup({ variant = 'colored' } = {}) {
+  return (
+    <Tile color="#6C4CF1" variant={variant}>
+      <path
+        fill="#fff"
+        d="M5.2 6.6c0-1 .8-1.8 1.8-1.8h7.4c1 0 1.8.8 1.8 1.8v4.6c0 1-.8 1.8-1.8 1.8H10l-2.9 2.3c-.3.2-.7 0-.7-.4V13c-.7-.1-1.2-.8-1.2-1.6V6.6Z"
+      />
+      <path
+        data-accent
+        fill="#fff"
+        fillOpacity=".55"
+        d="M17.6 9.2h.2c.6 0 1 .5 1 1v4.6c0 .7-.4 1.3-1 1.5v1.9c0 .3-.4.5-.6.3l-2.4-1.9h-3.4c-.6 0-1-.4-1-1v-.3h4c1.8 0 3.2-1.4 3.2-3.2V9.2Z"
+      />
+    </Tile>
+  );
+}
+
 export function IconDirectory({ variant = 'colored' } = {}) {
   return (
     <Tile color="#0078D4" variant={variant}>

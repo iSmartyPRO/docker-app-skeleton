@@ -30,13 +30,22 @@ Assumptions:
 - Password change increments `token_version` (other sessions die).
 - Cookie: httpOnly, SameSite=Lax, Secure when `FRONTEND_URL` is `https://`, `X-Forwarded-Proto` is https, or `COOKIE_SECURE=true`.
 
-**Authorization**
+**Authorization** (full model: [access-control.md](access-control.md))
 
-- `requireAuth` / `requireAdmin`.
-- The last *active* administrator cannot be deleted, demoted, disabled or blocked.
+- Every admin route requires `console.access` plus its own permission; settings patches are checked per key.
+- You can only grant roles and groups whose permissions you hold; users with more access than you are read-only to you.
+- The last active super administrator cannot be removed by any path — changes run in a transaction and roll back with `409 LAST_SUPERADMIN`.
 - Administrators cannot demote, disable, block or delete their own account.
 - Role change, disabling, blocking and password reset bump `token_version` — the user is signed out everywhere.
 - Users can sign out all other devices; admins can revoke any user's sessions.
+
+**Sign-in methods**
+
+- Active Directory: service bind + escaped search + user bind; empty passwords are rejected (no anonymous bind).
+- Telegram Login: HMAC-SHA256 signature with the bot token, payload younger than 24 h; redirect mode, so no `unsafe-eval` in the CSP.
+- One-time codes: 6 digits, 5 minutes, single use, 5 attempts, HMAC-hashed, resend limits, identical responses for known and unknown accounts.
+- Magic links: 256-bit tokens, SHA-256 hashed, 15 minutes, single use, delivered in the URL fragment.
+- Break-glass: super administrators can always use their password.
 
 **Setup**
 

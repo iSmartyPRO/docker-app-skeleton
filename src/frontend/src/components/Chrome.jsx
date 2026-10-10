@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
 import { initials } from '../lib/format';
+import { can, primaryRole, roleLabel } from '../lib/access';
 import BrandMark from './BrandMark';
 import LanguageSwitch from './LanguageSwitch';
 import ThemeSwitch from './ThemeSwitch';
@@ -14,7 +15,8 @@ function UserMenu({ user }) {
   const { t } = useLocale();
   const navigate = useNavigate();
   const name = user.displayName || user.username;
-  const isAdmin = user.role === 'admin';
+  const isAdmin = can(user, 'console.access');
+  const role = primaryRole(user);
 
   const items = [
     {
@@ -25,7 +27,8 @@ function UserMenu({ user }) {
         <div className="user-menu__who">
           <strong>{name}</strong>
           <span>
-            @{user.username} · {isAdmin ? t('menu.roleAdmin') : t('menu.roleUser')}
+            @{user.username}
+            {role ? ` · ${roleLabel(role, t)}` : ''}
           </span>
         </div>
       ),
@@ -35,7 +38,9 @@ function UserMenu({ user }) {
     ...(isAdmin
       ? [
           { key: '/admin', label: t('menu.adminConsole') },
-          { key: '/admin/settings', label: t('menu.settings') },
+          ...(user.permissions?.some((perm) => perm === '*' || perm.startsWith('settings.'))
+            ? [{ key: '/admin/settings', label: t('menu.settings') }]
+            : []),
         ]
       : []),
     { type: 'divider' },
@@ -83,7 +88,7 @@ export default function Chrome({ dense }) {
         <ThemeSwitch />
         {user ? (
           <>
-            {user.role === 'admin' && (
+            {can(user, 'console.access') && (
               <Tooltip title={t('menu.adminConsole')} mouseEnterDelay={0.15}>
                 <Link className="chrome__icon" to="/admin" aria-label={t('common.admin')}>
                   <IconAdmin />

@@ -1,8 +1,19 @@
 import { unlink } from 'fs/promises';
 import { basename, join } from 'path';
 import bcrypt from 'bcryptjs';
-import { query } from '../config/database.js';
+import { query, withTransaction } from '../config/database.js';
 import { avatarDir } from '../config/paths.js';
+import { LOCKED_ROLE } from './permissions.js';
+import {
+  NO_PASSWORD,
+  assertSuperadminRemains,
+  canManageTarget,
+  defaultGroupId,
+  getAccessMap,
+  getUserAccess,
+  hasSuperadmin,
+  setUserAccess,
+} from './rbac.js';
 
 export async function ensureUsersTable() {
   await query(`
@@ -25,22 +36,40 @@ export async function ensureUsersTable() {
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0`);
+  // Sign-in through integrations
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(32)`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_id BIGINT`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_username VARCHAR(64)`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_source VARCHAR(16) NOT NULL DEFAULT 'local'`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS external_id TEXT`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_method VARCHAR(16)`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS instagram VARCHAR(64)`);
+  await query(`CREATE UNIQUE INDEX IF NOT EXISTS users_telegram_id_key ON users (telegram_id) WHERE telegram_id IS NOT NULL`);
+  await query(`CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users (LOWER(email))`);
+  await query(`CREATE INDEX IF NOT EXISTS users_phone_idx ON users (phone)`);
 }
 
 const USER_COLUMNS = `
   id, username, email, display_name, avatar_path, locale, theme,
-  role, is_active, is_blocked, last_login_at, token_version, created_at, updated_at
+  role, is_active, is_blocked, last_login_at, token_version, created_at, updated_at,
+  phone, telegram_id, telegram_username, instagram, auth_source, external_id, last_login_method,
+  (password_hash LIKE '$2%') AS has_password
 `;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_RE = /^[a-zA-Z0-9._-]{3,32}$/;
 
+function httpError(statusCode, message, code) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  if (code) error.code = code;
+  return error;
+}
+
 export function assertUsername(username) {
   const name = String(username || '').trim();
   if (!USERNAME_RE.test(name)) {
-    const error = new Error('Username must be 3–32 characters: letters, digits, dot, underscore or hyphen');
-    error.statusCode = 400;
-    throw error;
+    throw httpError(400, 'Username must be 3–32 characters: letters, digits, dot, underscore or hyphen');
   }
   return name;
 }
@@ -48,9 +77,7 @@ export function assertUsername(username) {
 export function assertPassword(password) {
   const pass = String(password || '');
   if (pass.length < 10 || pass.length > 200) {
-    const error = new Error('Password must be 10–200 characters');
-    error.statusCode = 400;
-    throw error;
+    throw httpError(400, 'Password must be 10–200 characters');
   }
   return pass;
 }
@@ -58,12 +85,16 @@ export function assertPassword(password) {
 function normalizeEmail(email) {
   if (email == null || email === '') return null;
   const value = String(email).trim().slice(0, 255);
-  if (!EMAIL_RE.test(value)) {
-    const error = new Error('Email is not valid');
-    error.statusCode = 400;
-    throw error;
-  }
+  if (!EMAIL_RE.test(value)) throw httpError(400, 'Email is not valid');
   return value;
+}
+
+/** Stores phones as digits with a leading "+": "+996 700 12-34-56" → "+996700123456". */
+export function normalizePhone(phone) {
+  if (phone == null || phone === '') return null;
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length < 8 || digits.length > 15) throw httpError(400, 'Phone number is not valid');
+  return `+${digits}`;
 }
 
 export function avatarUrl(path) {
@@ -71,28 +102,42 @@ export function avatarUrl(path) {
   return `/uploads/avatars/${basename(path)}`;
 }
 
-export function toPublicUser(user) {
+const EMPTY_ACCESS = { roles: [], groups: [], permissions: [], roleIds: [], groupIds: [] };
+
+export function toPublicUser(user, access = EMPTY_ACCESS) {
   if (!user) return null;
   return {
     id: user.id,
     username: user.username,
     email: user.email,
+    phone: user.phone || null,
+    instagram: user.instagram || null,
     displayName: user.display_name || user.username,
     avatarUrl: avatarUrl(user.avatar_path),
     locale: user.locale || 'en',
     theme: user.theme || 'system',
-    role: user.role,
+    authSource: user.auth_source || 'local',
+    hasPassword: Boolean(user.has_password),
+    telegram: user.telegram_id
+      ? { id: String(user.telegram_id), username: user.telegram_username || null }
+      : null,
+    roles: access.roles,
+    groups: access.groups,
+    permissions: access.permissions,
     createdAt: user.created_at,
   };
 }
 
-export function toAdminUser(user) {
+export function toAdminUser(user, access = EMPTY_ACCESS) {
   if (!user) return null;
   return {
-    ...toPublicUser(user),
+    ...toPublicUser(user, access),
+    roleIds: access.roleIds,
+    groupIds: access.groupIds,
     isActive: user.is_active !== false,
     isBlocked: user.is_blocked === true,
     lastLoginAt: user.last_login_at,
+    lastLoginMethod: user.last_login_method || null,
     updatedAt: user.updated_at,
   };
 }
@@ -107,12 +152,12 @@ export async function countUsers() {
   }
 }
 
+/** Setup is complete once a super administrator exists (or a legacy admin before migration). */
 export async function hasAdminUser() {
   try {
-    const result = await query(
-      `SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin'`
-    );
-    return result.rows[0].count > 0;
+    if (await hasSuperadmin()) return true;
+    const legacy = await query(`SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin'`);
+    return legacy.rows[0].count > 0;
   } catch (err) {
     if (err.code === '42P01') return false;
     throw err;
@@ -121,210 +166,336 @@ export async function hasAdminUser() {
 
 export async function findUserByUsername(username) {
   const result = await query(
-    `SELECT ${USER_COLUMNS}, password_hash FROM users WHERE username = $1 LIMIT 1`,
+    `SELECT ${USER_COLUMNS}, password_hash FROM users
+     WHERE LOWER(username) = LOWER($1)
+     ORDER BY (username = $1) DESC
+     LIMIT 1`,
     [username]
   );
   return result.rows[0] || null;
 }
 
-export async function findUserById(id) {
+export async function findUserByEmail(email) {
   const result = await query(
-    `SELECT ${USER_COLUMNS} FROM users WHERE id = $1 LIMIT 1`,
-    [id]
+    `SELECT ${USER_COLUMNS} FROM users WHERE LOWER(email) = LOWER($1) ORDER BY id LIMIT 2`,
+    [String(email || '').trim()]
+  );
+  // Ambiguous addresses are treated as unknown rather than guessing.
+  return result.rows.length === 1 ? result.rows[0] : null;
+}
+
+export async function findUserByPhone(phone) {
+  let normalized;
+  try {
+    normalized = normalizePhone(phone);
+  } catch {
+    return null;
+  }
+  const result = await query(`SELECT ${USER_COLUMNS} FROM users WHERE phone = $1 ORDER BY id LIMIT 2`, [
+    normalized,
+  ]);
+  return result.rows.length === 1 ? result.rows[0] : null;
+}
+
+/** Telegram username of an account that has linked Telegram (so the bot can write to it). */
+export async function findUserByTelegramUsername(username) {
+  const name = String(username || '').trim().replace(/^@/, '');
+  if (!/^[a-zA-Z0-9_]{4,32}$/.test(name)) return null;
+  const result = await query(
+    `SELECT ${USER_COLUMNS} FROM users
+     WHERE LOWER(telegram_username) = LOWER($1) AND telegram_id IS NOT NULL LIMIT 1`,
+    [name]
   );
   return result.rows[0] || null;
 }
 
-export async function listUsers() {
-  const result = await query(
-    `SELECT ${USER_COLUMNS} FROM users ORDER BY id ASC`
-  );
-  return result.rows.map(toAdminUser);
+export function normalizeInstagram(value) {
+  if (value == null || value === '') return null;
+  const name = String(value).trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/$/, '');
+  if (!/^[a-zA-Z0-9._]{1,30}$/.test(name)) throw httpError(400, 'Instagram username is not valid');
+  return name.toLowerCase();
 }
 
+export async function findUserByTelegramId(telegramId) {
+  const result = await query(`SELECT ${USER_COLUMNS} FROM users WHERE telegram_id = $1 LIMIT 1`, [
+    String(telegramId),
+  ]);
+  return result.rows[0] || null;
+}
+
+export async function findUserByExternalId(source, externalId) {
+  const result = await query(
+    `SELECT ${USER_COLUMNS} FROM users WHERE auth_source = $1 AND LOWER(external_id) = LOWER($2) LIMIT 1`,
+    [source, externalId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function findUserById(id, client = { query }) {
+  const result = await client.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1 LIMIT 1`, [id]);
+  return result.rows[0] || null;
+}
+
+/** User row plus effective access, shaped for the API. */
+export async function getAdminUser(id) {
+  const user = await findUserById(id);
+  if (!user) return null;
+  return toAdminUser(user, await getUserAccess(user.id));
+}
+
+export async function getSessionUser(id) {
+  const user = await findUserById(id);
+  if (!user) return null;
+  return { row: user, access: await getUserAccess(user.id) };
+}
+
+export async function listUsers() {
+  const result = await query(`SELECT ${USER_COLUMNS} FROM users ORDER BY id ASC`);
+  const access = await getAccessMap(result.rows.map((row) => row.id));
+  return result.rows.map((row) => toAdminUser(row, access.get(row.id)));
+}
+
+/** First account, created by the setup wizard: always a super administrator. */
 export async function createAdminUser({ username, email, password }) {
-  await ensureUsersTable();
-
   const existing = await countUsers();
-  if (existing > 0) {
-    const error = new Error('Admin user already exists. Setup is complete.');
-    error.statusCode = 403;
-    throw error;
+  if (existing > 0 && (await hasAdminUser())) {
+    throw httpError(403, 'Admin user already exists. Setup is complete.');
   }
-
   const name = assertUsername(username);
   const passwordHash = await bcrypt.hash(assertPassword(password), 12);
-  const result = await query(
-    `
-    INSERT INTO users (username, email, password_hash, role, display_name)
-    VALUES ($1, $2, $3, 'admin', $1)
-    RETURNING ${USER_COLUMNS}
-    `,
-    [name, normalizeEmail(email), passwordHash]
-  );
-
-  return toPublicUser(result.rows[0]);
+  return withTransaction(async (client) => {
+    const result = await client.query(
+      `INSERT INTO users (username, email, password_hash, role, display_name)
+       VALUES ($1, $2, $3, 'admin', $1)
+       RETURNING ${USER_COLUMNS}`,
+      [name, normalizeEmail(email), passwordHash]
+    );
+    const user = result.rows[0];
+    await client.query(
+      `INSERT INTO user_roles (user_id, role_id)
+       SELECT $1, id FROM app_roles WHERE key = $2 ON CONFLICT DO NOTHING`,
+      [user.id, LOCKED_ROLE]
+    );
+    return toPublicUser(user, await getUserAccess(user.id, client));
+  });
 }
 
-export async function createUser({
-  username,
-  email,
-  password,
-  role = 'user',
-  displayName,
-}) {
-  const name = assertUsername(username);
-  const pass = assertPassword(password);
-  const nextRole = role === 'admin' ? 'admin' : 'user';
-
-  const passwordHash = await bcrypt.hash(pass, 12);
+/**
+ * Admin-created account. The password is optional: accounts that sign in only
+ * through Active Directory, Telegram or one-time codes do not need one.
+ * Without explicit groups the user joins the default group.
+ */
+export async function createUser(input, actor) {
+  const name = assertUsername(input.username);
+  const passwordHash = input.password ? await bcrypt.hash(assertPassword(input.password), 12) : NO_PASSWORD;
   try {
-    const result = await query(
-      `
-      INSERT INTO users (username, email, password_hash, role, display_name)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING ${USER_COLUMNS}
-      `,
-      [name, normalizeEmail(email), passwordHash, nextRole, displayName || name]
-    );
-    return toAdminUser(result.rows[0]);
+    return await withTransaction(async (client) => {
+      const result = await client.query(
+        `INSERT INTO users (username, email, password_hash, role, display_name, phone, instagram)
+         VALUES ($1, $2, $3, 'user', $4, $5, $6)
+         RETURNING ${USER_COLUMNS}`,
+        [
+          name,
+          normalizeEmail(input.email),
+          passwordHash,
+          String(input.displayName || name).slice(0, 128),
+          normalizePhone(input.phone),
+          normalizeInstagram(input.instagram),
+        ]
+      );
+      const user = result.rows[0];
+      let groupIds = input.groupIds;
+      if (groupIds === undefined) {
+        const fallback = await defaultGroupId(client);
+        groupIds = fallback ? [fallback] : [];
+      }
+      await setUserAccess(client, { userId: user.id, roleIds: input.roleIds, groupIds, actor });
+      return toAdminUser(user, await getUserAccess(user.id, client));
+    });
   } catch (err) {
-    if (err.code === '23505') {
-      const error = new Error('Username already exists');
-      error.statusCode = 409;
-      throw error;
-    }
+    if (err.code === '23505') throw httpError(409, 'Username already exists');
     throw err;
   }
 }
 
-function badRequest(message) {
-  const error = new Error(message);
-  error.statusCode = 400;
-  return error;
-}
-
-async function countActiveAdmins() {
-  const result = await query(
-    `SELECT COUNT(*)::int AS count FROM users
-     WHERE role = 'admin' AND is_active IS NOT FALSE AND is_blocked IS NOT TRUE`
+/** Account created on first sign-in through Active Directory or Telegram. */
+export async function provisionExternalUser(client, { username, displayName, email, source, externalId, telegram, groupIds }) {
+  let candidate = String(username || '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 28);
+  if (candidate.length < 3) candidate = `${source}-user`;
+  let name = candidate;
+  for (let i = 2; ; i += 1) {
+    const taken = await client.query(`SELECT 1 FROM users WHERE LOWER(username) = LOWER($1)`, [name]);
+    if (!taken.rows.length) break;
+    name = `${candidate}${i}`;
+  }
+  let safeEmail = null;
+  try {
+    safeEmail = normalizeEmail(email);
+  } catch {
+    safeEmail = null;
+  }
+  const result = await client.query(
+    `INSERT INTO users (username, email, password_hash, role, display_name, auth_source, external_id,
+                        telegram_id, telegram_username)
+     VALUES ($1, $2, $3, 'user', $4, $5, $6, $7, $8)
+     RETURNING ${USER_COLUMNS}`,
+    [
+      name,
+      safeEmail,
+      NO_PASSWORD,
+      String(displayName || name).slice(0, 128),
+      source,
+      externalId || null,
+      telegram?.id || null,
+      telegram?.username || null,
+    ]
   );
-  return result.rows[0].count;
+  const user = result.rows[0];
+  // Everyone joins the default group; directory mappings add more.
+  const groups = [...new Set([await defaultGroupId(client), ...(groupIds || [])].filter(Boolean))];
+  await setUserAccess(client, { userId: user.id, groupIds: groups, actor: null });
+  return user;
 }
 
-function isActiveAdmin(user) {
-  return user.role === 'admin' && user.is_active !== false && user.is_blocked !== true;
+/** Keeps directory-sourced profile fields in sync on every sign-in. */
+export async function syncExternalProfile(id, { displayName, email }) {
+  let safeEmail;
+  try {
+    safeEmail = normalizeEmail(email);
+  } catch {
+    safeEmail = undefined;
+  }
+  await query(
+    `UPDATE users SET
+       display_name = COALESCE($2, display_name),
+       email = COALESCE($3, email),
+       updated_at = NOW()
+     WHERE id = $1`,
+    [id, displayName ? String(displayName).slice(0, 128) : null, safeEmail || null]
+  );
 }
 
 /**
- * Admin edits must never leave the project without a working administrator,
- * and an admin cannot demote, disable or block their own account.
+ * One entry point for every user edit.
+ *  - `actor` set: an administrator acting through the console. They must be
+ *    allowed to manage the target, and cannot change their own status/access.
+ *  - no `actor`: the user editing their own profile (cabinet).
+ * Status, password and access changes sign the user out everywhere.
  */
-async function assertAdminSafety(user, patch, actorId) {
-  const demotes = patch.role === 'user';
-  const disables = patch.isActive === false;
-  const blocks = patch.isBlocked === true;
-  if (!demotes && !disables && !blocks) return;
+export async function updateUser(id, patch, { actor = null } = {}) {
+  return withTransaction(async (client) => {
+    const user = await findUserById(id, client);
+    if (!user) throw httpError(404, 'User not found');
+    const isSelf = !actor || Number(actor.id) === Number(id);
+    const access = await getUserAccess(id, client);
 
-  if (actorId != null && Number(actorId) === Number(user.id)) {
-    throw badRequest('You cannot demote, disable or block your own account');
-  }
-  if (isActiveAdmin(user) && (await countActiveAdmins()) <= 1) {
-    throw badRequest('This is the last active administrator');
-  }
+    if (actor && !isSelf && !canManageTarget(actor, access.permissions)) {
+      throw httpError(403, 'You cannot manage a user with more access than you have');
+    }
+    if (actor && isSelf) {
+      const statusChange =
+        (typeof patch.isActive === 'boolean' && patch.isActive !== (user.is_active !== false)) ||
+        (typeof patch.isBlocked === 'boolean' && patch.isBlocked !== (user.is_blocked === true));
+      if (statusChange) throw httpError(400, 'You cannot disable or block your own account');
+    }
+
+    const fields = [];
+    const values = [];
+    const add = (column, value) => {
+      values.push(value);
+      fields.push(`${column} = $${values.length}`);
+    };
+
+    if (patch.email !== undefined) add('email', normalizeEmail(patch.email));
+    if (patch.displayName !== undefined) add('display_name', String(patch.displayName).slice(0, 128));
+    if (patch.phone !== undefined) add('phone', normalizePhone(patch.phone));
+    if (patch.instagram !== undefined) add('instagram', normalizeInstagram(patch.instagram));
+    if (patch.locale === 'en' || patch.locale === 'ru') add('locale', patch.locale);
+    if (['light', 'dark', 'system'].includes(patch.theme)) add('theme', patch.theme);
+
+    let revoke = false;
+    if (actor && !isSelf) {
+      if (typeof patch.isActive === 'boolean' && patch.isActive !== (user.is_active !== false)) {
+        add('is_active', patch.isActive);
+        revoke ||= patch.isActive === false;
+      }
+      if (typeof patch.isBlocked === 'boolean' && patch.isBlocked !== (user.is_blocked === true)) {
+        add('is_blocked', patch.isBlocked);
+        revoke ||= patch.isBlocked === true;
+      }
+    }
+    if (patch.password) {
+      add('password_hash', await bcrypt.hash(assertPassword(patch.password), 12));
+      revoke = true;
+    }
+
+    if (actor && !isSelf && (patch.roleIds !== undefined || patch.groupIds !== undefined)) {
+      const before = JSON.stringify(access.permissions);
+      await setUserAccess(client, {
+        userId: id,
+        roleIds: patch.roleIds,
+        groupIds: patch.groupIds,
+        actor,
+      });
+      const after = await getUserAccess(id, client);
+      revoke ||= JSON.stringify(after.permissions) !== before;
+    } else if (actor && isSelf && (patch.roleIds !== undefined || patch.groupIds !== undefined)) {
+      const same =
+        (patch.roleIds === undefined || sameIds(patch.roleIds, access.roleIds)) &&
+        (patch.groupIds === undefined || sameIds(patch.groupIds, access.groupIds));
+      if (!same) throw httpError(400, 'You cannot change your own roles or groups');
+    }
+
+    if (revoke) add('token_version', Number(user.token_version || 0) + 1);
+
+    if (fields.length) {
+      values.push(id);
+      await client.query(
+        `UPDATE users SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${values.length}`,
+        values
+      );
+    }
+    await assertSuperadminRemains(client);
+    const fresh = await findUserById(id, client);
+    return toAdminUser(fresh, await getUserAccess(id, client));
+  });
 }
 
-export async function updateUser(id, patch, { allowRole = false, actorId = null } = {}) {
-  const user = await findUserById(id);
-  if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
-  }
-  if (allowRole) await assertAdminSafety(user, patch, actorId);
-
-  const fields = [];
-  const values = [];
-  const add = (column, value) => {
-    values.push(value);
-    fields.push(`${column} = $${values.length}`);
-  };
-
-  if (patch.email !== undefined) add('email', normalizeEmail(patch.email));
-  if (patch.displayName !== undefined) {
-    add('display_name', String(patch.displayName).slice(0, 128));
-  }
-  if (patch.locale === 'en' || patch.locale === 'ru') add('locale', patch.locale);
-  if (['light', 'dark', 'system'].includes(patch.theme)) add('theme', patch.theme);
-  if (allowRole && (patch.role === 'admin' || patch.role === 'user')) {
-    add('role', patch.role);
-  }
-  if (allowRole && typeof patch.isActive === 'boolean') add('is_active', patch.isActive);
-  if (allowRole && typeof patch.isBlocked === 'boolean') add('is_blocked', patch.isBlocked);
-  const revokes =
-    Boolean(patch.password) ||
-    (allowRole && patch.role && patch.role !== user.role) ||
-    (allowRole && patch.isActive === false) ||
-    (allowRole && patch.isBlocked === true);
-  if (patch.password) {
-    add('password_hash', await bcrypt.hash(assertPassword(patch.password), 12));
-  }
-  if (revokes) add('token_version', Number(user.token_version || 0) + 1);
-
-  if (!fields.length) return toAdminUser(user);
-
-  values.push(id);
-  const result = await query(
-    `
-    UPDATE users
-    SET ${fields.join(', ')}, updated_at = NOW()
-    WHERE id = $${values.length}
-    RETURNING ${USER_COLUMNS}
-    `,
-    values
-  );
-  return toAdminUser(result.rows[0]);
+function sameIds(a, b) {
+  const left = [...new Set((a || []).map(Number))].sort();
+  const right = [...new Set((b || []).map(Number))].sort();
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 export async function changePassword(id, currentPassword, nextPassword) {
-  const result = await query(
-    `SELECT id, password_hash FROM users WHERE id = $1`,
-    [id]
-  );
+  const result = await query(`SELECT id, password_hash FROM users WHERE id = $1`, [id]);
   const user = result.rows[0];
-  if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
-  }
-  const ok = await bcrypt.compare(String(currentPassword || ''), user.password_hash);
-  if (!ok) {
-    const error = new Error('Current password is incorrect');
-    error.statusCode = 400;
-    throw error;
+  if (!user) throw httpError(404, 'User not found');
+  // Accounts without a local password (SSO / invited) can set their first one.
+  if (user.password_hash.startsWith('$2')) {
+    const ok = await bcrypt.compare(String(currentPassword || ''), user.password_hash);
+    if (!ok) throw httpError(400, 'Current password is incorrect');
   }
   return updateUser(id, { password: nextPassword });
 }
 
+/** Throws unless `actor` may act on user `id` (self is always allowed). */
+export async function assertCanManage(actor, id) {
+  if (Number(actor.id) === Number(id)) return;
+  const access = await getUserAccess(id);
+  if (!canManageTarget(actor, access.permissions)) {
+    throw httpError(403, 'You cannot manage a user with more access than you have');
+  }
+}
+
 export async function setAvatar(id, filename) {
   const user = await findUserById(id);
-  if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
-  }
+  if (!user) throw httpError(404, 'User not found');
   if (user.avatar_path) {
     await unlink(join(avatarDir, basename(user.avatar_path))).catch(() => {});
   }
-  const result = await query(
-    `
-    UPDATE users SET avatar_path = $1, updated_at = NOW()
-    WHERE id = $2
-    RETURNING ${USER_COLUMNS}
-    `,
-    [filename, id]
-  );
-  return toAdminUser(result.rows[0]);
+  await query(`UPDATE users SET avatar_path = $1, updated_at = NOW() WHERE id = $2`, [filename, id]);
+  return getAdminUser(id);
 }
 
 /** Invalidates every issued session cookie for the user. */
@@ -335,25 +506,48 @@ export async function revokeSessions(id) {
      RETURNING ${USER_COLUMNS}`,
     [id]
   );
-  if (!result.rows[0]) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
-  }
+  if (!result.rows[0]) throw httpError(404, 'User not found');
   return result.rows[0];
+}
+
+export async function linkTelegram(id, telegram) {
+  try {
+    await query(
+      `UPDATE users SET telegram_id = $2, telegram_username = $3, updated_at = NOW() WHERE id = $1`,
+      [id, String(telegram.id), telegram.username || null]
+    );
+  } catch (err) {
+    if (err.code === '23505') throw httpError(409, 'This Telegram account is already linked to another user');
+    throw err;
+  }
+}
+
+export async function unlinkTelegram(id) {
+  await query(
+    `UPDATE users SET telegram_id = NULL, telegram_username = NULL, updated_at = NOW() WHERE id = $1`,
+    [id]
+  );
 }
 
 export async function getUserStats() {
   const result = await query(`
     SELECT
       COUNT(*)::int AS total,
-      COUNT(*) FILTER (WHERE role = 'admin')::int AS admins,
       COUNT(*) FILTER (WHERE is_blocked IS TRUE)::int AS blocked,
       COUNT(*) FILTER (WHERE is_active IS FALSE)::int AS disabled,
       COUNT(*) FILTER (WHERE last_login_at > NOW() - INTERVAL '30 days')::int AS active30d
     FROM users
   `);
-  return result.rows[0];
+  const ids = await query(`SELECT id FROM users`);
+  const access = await getAccessMap(ids.rows.map((row) => row.id));
+  let staff = 0;
+  let superadmins = 0;
+  for (const entry of access.values()) {
+    if (entry.permissions.includes('*')) superadmins += 1;
+    if (entry.permissions.includes('*') || entry.permissions.includes('console.access')) staff += 1;
+  }
+  const groups = await query(`SELECT COUNT(*)::int AS count FROM app_groups`);
+  return { ...result.rows[0], staff, superadmins, admins: staff, groups: groups.rows[0].count };
 }
 
 export async function recentLogins(limit = 6) {
@@ -364,30 +558,28 @@ export async function recentLogins(limit = 6) {
      LIMIT $1`,
     [limit]
   );
-  return result.rows.map(toAdminUser);
+  return result.rows.map((row) => toAdminUser(row));
 }
 
-export async function markLogin(id) {
-  await query(`UPDATE users SET last_login_at = NOW() WHERE id = $1`, [id]);
+export async function markLogin(id, method = 'password') {
+  await query(`UPDATE users SET last_login_at = NOW(), last_login_method = $2 WHERE id = $1`, [
+    id,
+    String(method).slice(0, 16),
+  ]);
 }
 
-export async function deleteUser(id, actorId) {
-  if (Number(id) === Number(actorId)) {
-    const error = new Error('You cannot delete your own account');
-    error.statusCode = 400;
-    throw error;
-  }
-  const user = await findUserById(id);
-  if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
-  }
-  if (isActiveAdmin(user) && (await countActiveAdmins()) <= 1) {
-    throw badRequest('Cannot delete the last administrator');
-  }
-  if (user.avatar_path) {
-    await unlink(join(avatarDir, basename(user.avatar_path))).catch(() => {});
-  }
-  await query(`DELETE FROM users WHERE id = $1`, [id]);
+export async function deleteUser(id, actor) {
+  if (Number(id) === Number(actor.id)) throw httpError(400, 'You cannot delete your own account');
+  const avatar = await withTransaction(async (client) => {
+    const user = await findUserById(id, client);
+    if (!user) throw httpError(404, 'User not found');
+    const access = await getUserAccess(id, client);
+    if (!canManageTarget(actor, access.permissions)) {
+      throw httpError(403, 'You cannot delete a user with more access than you have');
+    }
+    await client.query(`DELETE FROM users WHERE id = $1`, [id]);
+    await assertSuperadminRemains(client);
+    return user.avatar_path;
+  });
+  if (avatar) await unlink(join(avatarDir, basename(avatar))).catch(() => {});
 }

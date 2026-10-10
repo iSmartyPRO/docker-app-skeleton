@@ -5,6 +5,7 @@ import {
   App,
   Button,
   Card,
+  Checkbox,
   Form,
   Input,
   InputNumber,
@@ -37,7 +38,7 @@ const stepIndex = (step) => {
 export default function SetupWizard() {
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { refresh } = useSettings();
   const [setupToken, setSetupTokenValue] = useState(() => sessionStorage.getItem('da_setup_token') || '');
   const [tokenRequired, setTokenRequired] = useState(false);
@@ -124,7 +125,7 @@ export default function SetupWizard() {
     try {
       const values = await adminForm.validateFields();
       setSaving(true);
-      await completeSetup(values);
+      await completeSetup({ ...values, locale });
       const next = await refreshStatus();
       if (next?.step === 'access') setCurrent(2);
     } catch (err) {
@@ -247,7 +248,7 @@ export default function SetupWizard() {
           )}
 
           {current === 1 && (
-            <Form form={adminForm} layout="vertical">
+            <Form form={adminForm} layout="vertical" initialValues={{ demoUsers: true }}>
               <Form.Item
                 name="username"
                 label={t('users.username')}
@@ -285,6 +286,9 @@ export default function SetupWizard() {
                 ]}
               >
                 <Input.Password autoComplete="new-password" />
+              </Form.Item>
+              <Form.Item name="demoUsers" valuePropName="checked" extra={t('setup.demoUsersHint')}>
+                <Checkbox>{t('setup.demoUsers')}</Checkbox>
               </Form.Item>
               <Button type="primary" onClick={onCreateAdmin} loading={saving}>
                 {t('common.save')}

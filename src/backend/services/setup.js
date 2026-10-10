@@ -8,6 +8,7 @@ import { writeEnvValues, writePostgresEnv, getCurrentDbConfigPublic } from './en
 import { getSettings, parseSettings, setSetting } from './settings.js';
 import { hasAdminUser, createAdminUser, assertUsername } from './users.js';
 import { bootstrapSchema } from './schema.js';
+import { seedDemoUsers, seedRbac } from './rbac.js';
 
 function normalizeDbCredentials(body) {
   const host = String(body.host || '').trim();
@@ -163,6 +164,9 @@ export async function completeSetup(body) {
 
   await bootstrapSchema();
   const user = await createAdminUser({ username, email, password });
+  // Groups are named in the language the wizard was completed in.
+  await seedRbac({ locale: body.locale === 'ru' ? 'ru' : 'en' });
+  const demoUsers = body.demoUsers === false ? 0 : await seedDemoUsers();
 
   await query(
     `
@@ -172,7 +176,7 @@ export async function completeSetup(body) {
     `
   );
 
-  return { ok: true, user };
+  return { ok: true, user, demoUsers };
 }
 
 export async function saveAccessMode(body) {

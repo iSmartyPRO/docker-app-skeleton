@@ -29,6 +29,7 @@ import {
   IconTelegram,
   IconType,
   IconUser,
+  IconWazzup,
   IconWhatsapp,
 } from './AdminIcons';
 import { PREMIUM_ICONS } from './premiumIcons';
@@ -50,6 +51,7 @@ export const ICON_CATALOG = {
   mail: IconMail,
   telegram: IconTelegram,
   whatsapp: IconWhatsapp,
+  wazzup: IconWazzup,
   directory: IconDirectory,
   people: IconPeople,
   user: IconUser,

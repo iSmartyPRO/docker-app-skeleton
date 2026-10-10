@@ -1,23 +1,15 @@
 import config from '../config/app.js';
 import { verifyToken } from '../services/auth.js';
-import { findUserById, toPublicUser } from '../services/users.js';
+import { hasAnyPermission } from '../services/permissions.js';
+import { getSessionUser, toPublicUser } from '../services/users.js';
 
-export function optionalAuth(req, res, next) {
-  const token = req.cookies?.[config.auth.cookieName];
-  if (!token) {
-    req.user = null;
-    return next();
-  }
-
-  try {
-    req.auth = verifyToken(token);
-  } catch {
-    req.user = null;
-    req.auth = null;
-  }
-  return next();
-}
-
+/**
+ * Resolves the session cookie into:
+ *   req.userRow — database row
+ *   req.access  — { roles, groups, permissions, ... }
+ *   req.user    — public user shape (includes roles and permissions)
+ *   req.actor   — { id, permissions } for service-level authorization checks
+ */
 async function loadSessionUser(req) {
   const token = req.cookies?.[config.auth.cookieName];
   if (!token) return null;
@@ -29,18 +21,22 @@ async function loadSessionUser(req) {
     return null;
   }
 
-  const user = await findUserById(Number(payload.sub));
-  if (!user) return null;
-  if (Number(payload.tv || 0) !== Number(user.token_version || 0)) return null;
+  const session = await getSessionUser(Number(payload.sub));
+  if (!session) return null;
+  const { row, access } = session;
+  if (Number(payload.tv || 0) !== Number(row.token_version || 0)) return null;
   req.auth = payload;
-  req.userRow = user;
-  req.user = toPublicUser(user);
-  return user;
+  req.userRow = row;
+  req.access = access;
+  req.user = toPublicUser(row, access);
+  req.actor = { id: row.id, permissions: new Set(access.permissions) };
+  return row;
 }
 
 export async function requireAuth(req, res, next) {
   try {
-    const user = await loadSessionUser(req);
+    // Already resolved by an outer guard on the same request.
+    const user = req.userRow || (await loadSessionUser(req));
     if (!user) {
       return res.status(401).json({ success: false, error: 'Authentication required' });
     }
@@ -56,14 +52,20 @@ export async function requireAuth(req, res, next) {
   }
 }
 
-export async function requireAdmin(req, res, next) {
-  return requireAuth(req, res, () => {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Administrator access required',
-      });
-    }
-    return next();
-  });
+/** Allows the request when the user holds at least one of `permissions`. */
+export function requirePermission(...permissions) {
+  return (req, res, next) =>
+    requireAuth(req, res, () => {
+      if (!hasAnyPermission(req.access.permissions, permissions)) {
+        return res.status(403).json({
+          success: false,
+          error: 'You do not have permission for this action',
+          code: 'FORBIDDEN',
+        });
+      }
+      return next();
+    });
 }
+
+/** Admin console entry point. */
+export const requireConsole = requirePermission('console.access');

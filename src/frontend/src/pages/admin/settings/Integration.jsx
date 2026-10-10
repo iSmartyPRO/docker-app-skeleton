@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { App, Button, Form, Input, InputNumber, Switch, Typography } from 'antd';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { App, Button, Empty, Form, Input, InputNumber, Select, Switch, Tag, Typography } from 'antd';
 import SaveBar from '../../../components/ui/SaveBar';
 import LoadState from '../../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../../components/ui/SettingsSection';
@@ -8,7 +8,7 @@ import { useAdminSettings } from '../../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../../hooks/useSettingsForm';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
-import { testAdminIntegration } from '../../../services/api';
+import { listWazzupChannels, testAdminIntegration } from '../../../services/api';
 import SettingsPageHeader from './SettingsPageHeader';
 
 const { Text } = Typography;
@@ -25,12 +25,14 @@ const FIELDS = {
   ],
   telegram: [
     { name: 'botToken', label: 'token', secret: true },
+    { name: 'botUsername', label: 'botUsername', placeholder: 'my_portal_bot' },
     { name: 'defaultChatId', label: 'chatId' },
   ],
   whatsapp: [
     { name: 'serverUrl', label: 'server', placeholder: 'https://wa-gateway.example.com' },
     { name: 'apiKey', label: 'apiKey', secret: true },
   ],
+  wazzup: [{ name: 'apiKey', label: 'apiKey', secret: true }],
   activeDirectory: [
     { name: 'host', label: 'host', placeholder: 'dc01.corp.local' },
     { name: 'port', label: 'port', type: 'number' },
@@ -40,6 +42,99 @@ const FIELDS = {
     { name: 'baseDn', label: 'baseDn', placeholder: 'DC=corp,DC=local' },
   ],
 };
+
+/** Wazzup `transport` values → display names. Unknown ones are shown as-is. */
+const WAZZUP_TRANSPORTS = {
+  whatsapp: 'WhatsApp',
+  wapi: 'WhatsApp Business API',
+  whatsgroup: 'WhatsApp groups',
+  instagram: 'Instagram',
+  tgapi: 'Telegram',
+  telegram: 'Telegram bot',
+  vk: 'VK',
+  avito: 'Avito',
+  viber: 'Viber',
+  max: 'MAX',
+};
+
+function transportName(transport) {
+  return WAZZUP_TRANSPORTS[transport] || transport;
+}
+
+/**
+ * Channels come from the Wazzup account itself; the admin only picks which
+ * channel to use for each messenger. Stored as `{ transport: channelId }`.
+ */
+function WazzupChannelPicker({ value = {}, onChange, channels, loading, error, onLoad }) {
+  const { t } = useLocale();
+  const byTransport = useMemo(() => {
+    const groups = {};
+    for (const channel of channels || []) {
+      (groups[channel.transport] ||= []).push(channel);
+    }
+    return groups;
+  }, [channels]);
+
+  const stateLabel = (state) => {
+    if (!state) return '—';
+    const key = `settings.wazzup.states.${state}`;
+    const label = t(key);
+    return label === key ? state : label;
+  };
+
+  const setChannel = (transport, id) => {
+    const next = { ...value };
+    if (id) next[transport] = id;
+    else delete next[transport];
+    onChange?.(next);
+  };
+
+  if (!channels) {
+    return (
+      <div className="channel-empty">
+        <Text type={error ? 'danger' : 'secondary'}>{error || t('settings.wazzup.notLoaded')}</Text>
+        <Button onClick={onLoad} loading={loading}>
+          {t('settings.wazzup.load')}
+        </Button>
+      </div>
+    );
+  }
+
+  if (!channels.length) {
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('settings.wazzup.none')} />;
+  }
+
+  return (
+    <div>
+      {Object.entries(byTransport).map(([transport, list]) => (
+        <SettingRow
+          key={transport}
+          label={transportName(transport)}
+          description={t('settings.wazzup.count', { count: list.length })}
+        >
+          <Select
+            allowClear
+            style={{ width: '100%', maxWidth: 420 }}
+            placeholder={t('settings.wazzup.notSelected')}
+            value={value[transport] || undefined}
+            onChange={(id) => setChannel(transport, id)}
+            options={list.map((channel) => ({
+              value: channel.id,
+              label: (
+                <span className="channel-option">
+                  <span>{channel.plainId || channel.name || channel.id}</span>
+                  <Tag bordered={false} color={channel.state === 'active' ? 'green' : 'orange'}>
+                    {stateLabel(channel.state)}
+                  </Tag>
+                </span>
+              ),
+            }))}
+          />
+        </SettingRow>
+      ))}
+    </div>
+  );
+}
 
 function fieldControl(field, current, t) {
   if (field.type === 'number') return <InputNumber min={1} max={65535} style={{ width: 140 }} />;
@@ -64,15 +159,16 @@ function IntegrationForm({ group, settings, save }) {
 
   const initial = useMemo(() => {
     const values = { enabled: Boolean(current.enabled) };
+    if (group === 'wazzup') values.channels = current.channels || {};
     for (const field of fields) {
       if (field.secret) values[field.name] = '';
       else if (field.type === 'switch') values[field.name] = Boolean(current[field.name]);
       else values[field.name] = current[field.name] ?? (field.type === 'number' ? null : '');
     }
     return values;
-  }, [current, fields]);
+  }, [current, fields, group]);
 
-  const { form, dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async (values) => {
+  const { form, dirty, saving, submit, reset, recompute, formProps } = useSettingsForm(initial, async (values) => {
     await save({ integrations: { [group]: values } });
     // Secrets are write-only: clear what was typed once it is stored.
     form.setFieldsValue(
@@ -81,10 +177,40 @@ function IntegrationForm({ group, settings, save }) {
   });
   const enabled = Form.useWatch('enabled', form);
 
+  const [channels, setChannels] = useState(null);
+  const [channelsLoading, setChannelsLoading] = useState(false);
+  const [channelsError, setChannelsError] = useState('');
+
+  const loadChannels = useCallback(async () => {
+    setChannelsLoading(true);
+    setChannelsError('');
+    try {
+      const apiKey = form.getFieldValue('apiKey');
+      const res = await listWazzupChannels(apiKey ? { apiKey } : {});
+      setChannels(res.data.channels || []);
+    } catch (err) {
+      setChannelsError(errorMessage(err));
+    } finally {
+      setChannelsLoading(false);
+    }
+  }, [form]);
+
+  // With a saved key, show the account's channels straight away.
+  useEffect(() => {
+    if (group === 'wazzup' && current.apiKeySet) loadChannels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group]);
+
   const onTest = async () => {
     setTesting(true);
     try {
       const res = await testAdminIntegration(group, form.getFieldsValue(true));
+      if (res.data?.channels) setChannels(res.data.channels);
+      // Telegram: the bot's @username is needed for the login widget — fill it in.
+      if (group === 'telegram' && res.data?.bot?.username && form.getFieldValue('botUsername') !== res.data.bot.username) {
+        form.setFieldsValue({ botUsername: res.data.bot.username });
+        recompute();
+      }
       message.success(res.data?.message || (res.data?.bot ? `@${res.data.bot.username}` : 'OK'));
     } catch (err) {
       message.error(errorMessage(err));
@@ -128,6 +254,28 @@ function IntegrationForm({ group, settings, save }) {
           {t('settings.integration.testHint')}
         </Text>
       </SettingsSection>
+      {group === 'wazzup' && (
+        <SettingsSection
+          title={t('settings.wazzup.channels')}
+          description={t('settings.wazzup.channelsDesc')}
+          extra={
+            channels && (
+              <Button onClick={loadChannels} loading={channelsLoading}>
+                {t('settings.wazzup.reload')}
+              </Button>
+            )
+          }
+        >
+          <Form.Item name="channels" noStyle>
+            <WazzupChannelPicker
+              channels={channels}
+              loading={channelsLoading}
+              error={channelsError}
+              onLoad={loadChannels}
+            />
+          </Form.Item>
+        </SettingsSection>
+      )}
       <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={reset} />
     </Form>
   );

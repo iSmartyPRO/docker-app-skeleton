@@ -280,6 +280,15 @@ export const createNote = (body) => api.post('/notes', { body });
 
 **4. Document it** in [`docs/api.md`](api.md).
 
+Guard admin routes with a permission instead of a role:
+
+```js
+import { requirePermission } from '../middleware/auth.js';
+router.get('/reports', requirePermission('reports.view'), handler);
+```
+
+New permissions: [access-control.md → Adding a permission](access-control.md#adding-a-permission).
+
 Endpoint rules:
 
 - Every state change is `POST` / `PUT` / `DELETE`. Never mutate on `GET` — the CSRF model relies on `SameSite=Lax`.

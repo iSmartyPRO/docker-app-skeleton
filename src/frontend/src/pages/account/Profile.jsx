@@ -17,11 +17,21 @@ export default function AccountProfile() {
   const [uploading, setUploading] = useState(false);
 
   const initial = useMemo(
-    () => ({ displayName: user?.displayName || '', email: user?.email || '' }),
-    [user?.displayName, user?.email]
+    () => ({
+      displayName: user?.displayName || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      instagram: user?.instagram || '',
+    }),
+    [user?.displayName, user?.email, user?.phone, user?.instagram]
   );
   const { dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async (values) => {
-    const res = await updateAccountProfile({ ...values, email: values.email || null });
+    const res = await updateAccountProfile({
+      ...values,
+      email: values.email || null,
+      phone: values.phone || null,
+      instagram: values.instagram || null,
+    });
     setUser(res.data.user);
   });
 
@@ -69,6 +79,18 @@ export default function AccountProfile() {
           <SettingRow label={t('users.email')}>
             <Form.Item name="email" rules={[{ type: 'email' }]} style={{ margin: 0 }}>
               <Input />
+            </Form.Item>
+          </SettingRow>
+        </SettingsSection>
+        <SettingsSection title={t('users.contacts')} description={t('account.contactsDesc')}>
+          <SettingRow label={t('users.phone')} description={t('users.phoneDesc')}>
+            <Form.Item name="phone" style={{ margin: 0 }}>
+              <Input placeholder="+996 700 123 456" inputMode="tel" />
+            </Form.Item>
+          </SettingRow>
+          <SettingRow label="Instagram">
+            <Form.Item name="instagram" style={{ margin: 0 }}>
+              <Input prefix="@" placeholder="username" />
             </Form.Item>
           </SettingRow>
         </SettingsSection>

@@ -44,6 +44,10 @@ export const saveSetupAccess = (payload) =>
   api.post('/setup/access', payload, { headers: setupHeaders() });
 
 export const login = (payload) => api.post('/auth/login', payload);
+export const requestSignInCode = (payload) => api.post('/auth/code/request', payload);
+export const verifySignInCode = (payload) => api.post('/auth/code/verify', payload);
+export const signInWithMagicLink = (token) => api.post('/auth/magic', { token });
+export const signInWithTelegram = (payload) => api.post('/auth/telegram', payload);
 export const logout = () => api.post('/auth/logout');
 export const getMe = () => api.get('/auth/me');
 
@@ -58,6 +62,8 @@ export const removeProjectLogo = (variant = 'primary') =>
   api.delete('/admin/settings/logo', { params: { variant } });
 export const testAdminIntegration = (kind, payload) =>
   api.post(`/admin/integrations/${kind}/test`, payload || {});
+export const listWazzupChannels = (payload) =>
+  api.post('/admin/integrations/wazzup/channels', payload || {});
 
 export const getAdminOverview = () => api.get('/admin/overview');
 export const getAdminSystem = () => api.get('/admin/system');
@@ -68,6 +74,17 @@ export const getAdminUser = (id) => api.get(`/admin/users/${id}`);
 export const updateAdminUser = (id, payload) => api.put(`/admin/users/${id}`, payload);
 export const deleteAdminUser = (id) => api.delete(`/admin/users/${id}`);
 export const revokeAdminUserSessions = (id) => api.post(`/admin/users/${id}/revoke-sessions`);
+export const unlinkAdminUserTelegram = (id) => api.delete(`/admin/users/${id}/telegram`);
+
+export const getPermissionCatalog = () => api.get('/admin/permissions');
+export const listRoles = () => api.get('/admin/roles');
+export const createRole = (payload) => api.post('/admin/roles', payload);
+export const updateRole = (id, payload) => api.put(`/admin/roles/${id}`, payload);
+export const deleteRole = (id) => api.delete(`/admin/roles/${id}`);
+export const listGroups = () => api.get('/admin/groups');
+export const createGroup = (payload) => api.post('/admin/groups', payload);
+export const updateGroup = (id, payload) => api.put(`/admin/groups/${id}`, payload);
+export const deleteGroup = (id) => api.delete(`/admin/groups/${id}`);
 export const uploadAdminUserAvatar = (id, form) =>
   api.post(`/admin/users/${id}/avatar`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -81,6 +98,8 @@ export const deleteIpRule = (id) => api.delete(`/admin/security/ip-rules/${id}`)
 
 export const updateAccountProfile = (payload) => api.put('/account/profile', payload);
 export const changeAccountPassword = (payload) => api.put('/account/password', payload);
+export const linkAccountTelegram = (payload) => api.post('/account/telegram', payload);
+export const unlinkAccountTelegram = () => api.delete('/account/telegram');
 export const revokeOtherSessions = () => api.post('/account/sessions/revoke');
 export const uploadAccountAvatar = (form) =>
   api.post('/account/avatar', form, {

@@ -10,7 +10,7 @@
 .PHONY: postgres-up postgres-down postgres-health postgres-wait
 .PHONY: db-setup db-create db-drop user-create user-drop
 .PHONY: psql sql dbs users
-.PHONY: install build-local test clean clean-image
+.PHONY: install build-local test seed-demo clean clean-image
 
 # ── Configuration ───────────────────────────────────────────────────────────
 COMPOSE      ?= docker compose
@@ -372,6 +372,9 @@ install: ## Install npm dependencies on the host
 	@echo "Installing frontend dependencies..."
 	@cd "$(PROJECT_ROOT)src/frontend" && npm ci
 	@echo "Done."
+
+seed-demo: ## Add sample users (no passwords) to the running production database
+	docker exec -w /app/backend $(CONTAINER) node scripts/seed-demo.js
 
 test: ## Run backend unit tests and a frontend build on the host
 	@cd "$(PROJECT_ROOT)src/backend" && npm test

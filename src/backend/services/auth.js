@@ -1,16 +1,6 @@
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import config from '../config/app.js';
-import { findUserByUsername, markLogin, toPublicUser } from './users.js';
-
-const DUMMY_HASH = bcrypt.hashSync('__dummy_not_a_password__', 12);
-
-function authError(eventKind = 'login_failed') {
-  const error = new Error('Invalid username or password');
-  error.statusCode = 401;
-  error.eventKind = eventKind;
-  return error;
-}
+import { markLogin } from './users.js';
 
 function requireJwtSecret() {
   if (!config.auth.jwtSecret) {
@@ -58,24 +48,8 @@ export function cookieOptions(req, options = {}) {
   };
 }
 
-export async function loginWithPassword(username, password, options = {}) {
-  const user = await findUserByUsername(String(username || '').trim());
-  const ok = await bcrypt.compare(String(password || ''), user?.password_hash || DUMMY_HASH);
-  if (!user || !ok) {
-    throw authError('login_failed');
-  }
-
-  if (user.is_active === false) {
-    throw authError('account_disabled');
-  }
-  if (user.is_blocked === true) {
-    throw authError('account_blocked');
-  }
-
-  await markLogin(user.id);
-
-  return {
-    token: signToken(user, options),
-    user: toPublicUser(user),
-  };
+/** Records the sign-in and sets the session cookie. Shared by every sign-in method. */
+export async function startSession(req, res, user, { method, sessionDays }) {
+  await markLogin(user.id, method);
+  res.cookie(config.auth.cookieName, signToken(user, { sessionDays }), cookieOptions(req, { sessionDays }));
 }

@@ -4,7 +4,8 @@ import { Empty, Input } from 'antd';
 import PageHeader from '../../../components/ui/PageHeader';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { matchesQuery } from '../../../lib/search';
-import { SETTINGS_GROUPS, SETTINGS_ITEMS } from '../../../admin/navigation';
+import { SETTINGS_GROUPS, visibleSettingsItems } from '../../../admin/navigation';
+import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { useSettings } from '../../../context/SettingsContext';
 import { useThemeMode } from '../../../context/ThemeContext';
@@ -14,12 +15,13 @@ export default function SettingsHome() {
   const { appearance } = useThemeMode();
   const { settings } = useSettings();
   const [query, setQuery] = useState('');
+  const { can } = useAuth();
 
   const items = useMemo(() => {
-    return SETTINGS_ITEMS.filter((item) =>
+    return visibleSettingsItems(can).filter((item) =>
       matchesQuery(`${t(item.labelKey)} ${t(item.descKey)} ${t(item.groupLabelKey)} ${item.keywords}`, query)
     );
-  }, [query, t]);
+  }, [query, t, can]);
 
   return (
     <div className="settings-home">

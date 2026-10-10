@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input, Modal } from 'antd';
-import { ADMIN_PAGES, SETTINGS_ITEMS } from '../admin/navigation';
+import { visibleAdminPages, visibleSettingsItems } from '../admin/navigation';
+import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
 import { MenuIcon } from './icons/menuIcons';
@@ -32,13 +33,14 @@ export default function CommandPalette({ open, onClose }) {
   const { t } = useLocale();
   const { appearance, mode, setMode } = useThemeMode();
   const navigate = useNavigate();
+  const { can, canAny } = useAuth();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const listRef = useRef(null);
   const inputRef = useRef(null);
 
   const entries = useMemo(() => {
-    const pages = ADMIN_PAGES.map((page) => ({
+    const pages = visibleAdminPages(canAny).map((page) => ({
       id: page.key,
       section: t('palette.pages'),
       title: t(page.labelKey),
@@ -47,7 +49,7 @@ export default function CommandPalette({ open, onClose }) {
       icon: <MenuIcon slot={page.key} appearance={appearance} />,
       run: () => navigate(page.key),
     }));
-    const settings = SETTINGS_ITEMS.map((item) => ({
+    const settings = visibleSettingsItems(can).map((item) => ({
       id: item.key,
       section: t('palette.settings'),
       title: t(item.labelKey),
@@ -75,7 +77,7 @@ export default function CommandPalette({ open, onClose }) {
       },
     ];
     return [...pages, ...settings, ...actions];
-  }, [t, appearance, navigate, mode, setMode]);
+  }, [t, appearance, navigate, mode, setMode, can, canAny]);
 
   const visible = useMemo(() => entries.filter((entry) => matches(entry, query)), [entries, query]);
 

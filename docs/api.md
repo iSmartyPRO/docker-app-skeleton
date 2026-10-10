@@ -31,7 +31,11 @@ Limiter: 20 requests / 15 minutes / IP on the `POST` endpoints. `GET /status` is
 
 | Method | Path | Notes |
 |--------|------|--------|
-| `POST` | `/api/auth/login` | `{ username, password }` → sets cookie. 20 / 15 min |
+| `POST` | `/api/auth/login` | `{ username, password }` → local password, then Active Directory. 20 / 15 min |
+| `POST` | `/api/auth/telegram` | Telegram Login Widget fields (`id`, `auth_date`, `hash`, …) |
+| `POST` | `/api/auth/code/request` | `{ channel: "whatsapp" \| "email" \| "telegram", identifier, mode: "code" \| "link" }` → always `{ success: true }`. 10 / 15 min |
+| `POST` | `/api/auth/code/verify` | `{ channel, identifier, code }` |
+| `POST` | `/api/auth/magic` | `{ token }` from `/auth/magic#token` |
 | `POST` | `/api/auth/logout` | Clears cookie |
 | `GET` | `/api/auth/me` | Current user |
 
@@ -43,17 +47,29 @@ Limiter: 20 requests / 15 minutes / IP on the `POST` endpoints. `GET /status` is
 | `PUT` | `/api/account/profile` | `{ displayName, email, locale, theme }` |
 | `PUT` | `/api/account/password` | `{ currentPassword, password }` |
 | `POST` | `/api/account/sessions/revoke` | Signs out every other device |
+| `POST` / `DELETE` | `/api/account/telegram` | Link (widget payload) / unlink Telegram |
 | `POST` | `/api/account/avatar` | `multipart/form-data` field `avatar` |
 
-## Admin (`requireAdmin`)
+Sign-in failures return `401` with a machine `code` (`INVALID_CREDENTIALS`, `CODE_INVALID`, `LINK_INVALID`, `TELEGRAM_NOT_LINKED`, `TELEGRAM_INVALID`, `METHOD_DISABLED`); lockouts and rate limits return `429` with `LOCKED` / `RATE_LIMITED`. Disabled and blocked accounts get the same answer as a wrong password.
+
+## Admin (`console.access` + per-route permission)
+
+Every route requires `console.access`; the permission in brackets is checked in addition. See [access-control.md](access-control.md).
 
 | Method | Path |
 |--------|------|
+| `GET` | `/api/admin/permissions` | Permission catalog |
+| `GET` / `POST` | `/api/admin/roles` | [`users.view`] / [`roles.manage`] `{ name, description, permissions[] }` |
+| `PUT` / `DELETE` | `/api/admin/roles/:id` | [`roles.manage`] |
+| `GET` / `POST` | `/api/admin/groups` | [`users.view`] / [`groups.manage`] `{ name, description, isDefault, roleIds[], memberIds[] }` |
+| `PUT` / `DELETE` | `/api/admin/groups/:id` | [`groups.manage`] |
+| `DELETE` | `/api/admin/users/:id/telegram` | [`users.manage`] unlink Telegram |
 | `GET` | `/api/admin/overview` | Dashboard: user stats, recent sign-ins, 24h security summary, integrations |
 | `GET` | `/api/admin/system` | Version, Node, uptime, database info, rate limit |
 | `GET` / `PUT` | `/api/admin/settings` |
 | `POST` / `DELETE` | `/api/admin/settings/logo` |
-| `POST` | `/api/admin/integrations/:kind/test` | `email`, `telegram`, `whatsapp`, `ad` |
+| `POST` | `/api/admin/integrations/:kind/test` | `email`, `telegram`, `whatsapp`, `wazzup`, `activeDirectory`. Body: unsaved form values (blank secrets fall back to stored ones). `wazzup` also returns `channels` |
+| `POST` | `/api/admin/integrations/wazzup/channels` | `{ apiKey? }` → account channels `{ id, transport, plainId, name, state }` |
 | `GET` / `POST` | `/api/admin/users` |
 | `GET` / `PUT` / `DELETE` | `/api/admin/users/:id` |
 | `POST` | `/api/admin/users/:id/revoke-sessions` |

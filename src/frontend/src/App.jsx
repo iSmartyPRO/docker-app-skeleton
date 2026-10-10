@@ -17,6 +17,7 @@ import { ThemeProvider, useThemeMode } from './context/ThemeContext';
 import { LEGACY_ADMIN_ROUTES, SETTINGS_ITEMS } from './admin/navigation';
 import { SETTINGS_PAGES } from './admin/settingsPages';
 import { getSetupStatus } from './services/api';
+import { SETTINGS_VIEW } from './lib/access';
 
 // Public entry points stay in the main bundle; consoles load on demand.
 import Home from './pages/Home';
@@ -30,6 +31,9 @@ const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
 const AdminUserEdit = lazy(() => import('./pages/admin/UserEdit'));
 const AdminActivity = lazy(() => import('./pages/admin/Activity'));
+const AdminGroups = lazy(() => import('./pages/admin/Groups'));
+const AdminRoles = lazy(() => import('./pages/admin/Roles'));
+const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const SettingsHome = lazy(() => import('./pages/admin/settings/SettingsHome'));
 const AccountProfile = lazy(() => import('./pages/account/Profile'));
 const AccountAppearance = lazy(() => import('./pages/account/Appearance'));
@@ -86,11 +90,17 @@ function AuthGate({ children }) {
 }
 
 function AdminGate({ children }) {
-  const { user, ready } = useAuth();
+  const { user, ready, can } = useAuth();
   if (!ready) return <Screen />;
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== 'admin') return <Navigate to="/account" replace />;
+  if (!can('console.access')) return <Navigate to="/account" replace />;
   return children;
+}
+
+/** Hides a console page the user has no permission for. */
+function Allow({ any, children }) {
+  const { canAny } = useAuth();
+  return canAny(any) ? children : <Navigate to="/admin" replace />;
 }
 
 /** /admin/<old path> → new location, so bookmarks keep working. */
@@ -121,6 +131,8 @@ function ThemedRoutes() {
         <Suspense fallback={<Screen />}>
           <Routes>
             <Route path="/setup" element={<SetupWizard />} />
+            <Route path="/auth/magic" element={<AuthCallback kind="magic" />} />
+            <Route path="/auth/telegram" element={<AuthCallback kind="telegram" />} />
             <Route
               path="/login"
               element={
@@ -150,10 +162,12 @@ function ThemedRoutes() {
               }
             >
               <Route index element={<AdminDashboard />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="users/:id" element={<AdminUserEdit />} />
-              <Route path="activity" element={<AdminActivity />} />
-              <Route path="settings" element={<SettingsLayout />}>
+              <Route path="users" element={<Allow any={['users.view']}><AdminUsers /></Allow>} />
+              <Route path="users/:id" element={<Allow any={['users.view']}><AdminUserEdit /></Allow>} />
+              <Route path="groups" element={<Allow any={['users.view']}><AdminGroups /></Allow>} />
+              <Route path="roles" element={<Allow any={['users.view']}><AdminRoles /></Allow>} />
+              <Route path="activity" element={<Allow any={['activity.view']}><AdminActivity /></Allow>} />
+              <Route path="settings" element={<Allow any={SETTINGS_VIEW}><SettingsLayout /></Allow>}>
                 <Route index element={<SettingsHome />} />
                 {SETTINGS_ITEMS.map((item) => {
                   const Page = SETTINGS_PAGES[item.id];

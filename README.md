@@ -56,15 +56,17 @@ This repository is that work done once, properly:
 
 | Area | What you get |
 |------|--------------|
-| **First run** | Setup wizard: database connection → first administrator → open or closed site. Locks itself permanently once finished. |
-| **Authentication** | httpOnly `SameSite=Lax` JWT cookie, bcrypt (cost 12), per-user and per-IP lockout, login rate limit, timing-safe failures, session revocation via `token_version`. |
-| **User cabinet** | Profile and avatar, language and theme, password change, *sign out other devices*. |
+| **First run** | Setup wizard: database → super administrator → open or closed site. Seeds roles and groups in the wizard's language and, optionally, sample users. Locks itself permanently once finished. |
+| **Sign-in** | Password, Active Directory / LDAP (with group mapping and auto-provisioning), Telegram Login, 6-digit codes via WhatsApp (Wazzup), email or Telegram, and one-click magic links — each enabled per integration. Bank-style code entry that signs in on the last digit. |
+| **Access control** | Roles built from a permission catalog, groups that grant roles, five built-in roles (Super administrator → User), escalation-proof assignment, last-super-admin protection, read-only settings for viewers. |
+| **Sessions** | httpOnly `SameSite=Lax` JWT cookie, bcrypt (cost 12), per-user and per-IP lockout, rate limits, revocation on any access change, *sign out everywhere*. |
+| **User cabinet** | Profile, avatar, phone and Instagram, language and theme, password (or first password for SSO users), Telegram linking, *sign out other devices*. |
 | **Admin console** | Overview dashboard, user management (search, filters, roles, block/disable, password reset, revoke sessions), security activity log. |
 | **Settings hub** | One searchable place for everything configurable: project identity and logos, color theme, typography, menu icons, site access, sign-in policy, IP filtering, integrations, system info and API limits. |
 | **Design system** | 5 color templates × light/dark, custom color overrides, 28 typography presets, colored or monochrome icon sets, live preview before applying, separate logo for dark theme. |
 | **UX details** | ⌘K / Ctrl+K command palette, floating *unsaved changes* bar, skeleton states, retryable errors, responsive down to phones, EN/RU with fallback. |
 | **Security controls** | IP allow-list / block-list (IPv4/IPv6, IPv4 CIDR), guards against locking yourself out, last-admin protection, upload magic-byte checks, strict CSP. |
-| **Integrations** | Email (SMTP), Telegram bot, WhatsApp gateway, Active Directory — configuration, write-only secrets and *test connection*, off by default. |
+| **Integrations** | Email (SMTP), Telegram bot, WhatsApp gateway, [Wazzup](https://wazzup24.com) (WhatsApp, Telegram, Instagram, Avito), Active Directory — configuration, write-only secrets and *test connection*, off by default. |
 | **Operations** | Single production container (nginx + Node), hot-reload dev stack, `/health` and `/ready`, Makefile for every routine task, semver `VERSION` baked into the image. |
 
 ## Screenshots
@@ -74,8 +76,12 @@ This repository is that work done once, properly:
 | <img src="docs/images/settings-hub.png" alt="Settings hub" /> | <img src="docs/images/command-palette.png" alt="Command palette" /> |
 | **Live theme preview (dark)** | **Unsaved-changes bar** |
 | <img src="docs/images/theme-dark.png" alt="Theme settings in dark mode" /> | <img src="docs/images/save-bar.png" alt="Integration settings with save bar" /> |
-| **User management** | **IP filtering with self-lockout guard** |
-| <img src="docs/images/users.png" alt="Users list" /> | <img src="docs/images/ip-filtering.png" alt="IP filtering" /> |
+| **Sign-in with a one-time code** | **Roles and permissions** |
+| <img src="docs/images/sign-in-code.png" alt="Six-cell code entry" /> | <img src="docs/images/roles.png" alt="Role editor" /> |
+| **Sign-in methods** | **User management** |
+| <img src="docs/images/sign-in-methods.png" alt="Sign-in methods settings" /> | <img src="docs/images/users.png" alt="Users list" /> |
+| **IP filtering with self-lockout guard** | |
+| <img src="docs/images/ip-filtering.png" alt="IP filtering" /> | |
 | **Public landing (open mode)** | **Mobile** |
 | <img src="docs/images/landing.png" alt="Public landing page" /> | <img src="docs/images/mobile.png" alt="Mobile layout" width="260" /> |
 
@@ -168,17 +174,19 @@ make test                                      # unit tests + production build
 
 ## The admin console
 
-Four entries in the sidebar; everything configurable lives under **Settings**.
+The sidebar adapts to the user's permissions; everything configurable lives under **Settings**.
 
 ```
 Overview        KPIs, recent security events, recent sign-ins, quick links, status
-Users           search · role/status filters · user page (profile, access, password, sessions)
+Users           search · role/group/status filters · user page (profile, sign-in contacts, groups, roles, sessions)
+Groups          teams and the roles they grant; members; default group
+Roles           permission matrix per role; built-in and custom roles
 Activity        security events for 90 days with 24-hour counters
 Settings        searchable hub
   ├─ Project        General — name, description, primary + dark-theme logo, logo height
   ├─ Appearance     Color theme · Typography · Menu icons
-  ├─ Security       Site access · Sign-in & sessions · IP filtering
-  ├─ Integrations   Email · Telegram · WhatsApp · Active Directory
+  ├─ Security       Sign-in methods · Site access · Sign-in & sessions · IP filtering
+  ├─ Integrations   Email · Telegram · WhatsApp · Wazzup · Active Directory
   └─ System         Version, runtime, database, API rate limit
 ```
 
@@ -218,6 +226,7 @@ Bootstrap configuration lives in `.env` (gitignored; template: [`.env.example`](
 | `SETUP_TOKEN` | unset | Shared secret required by the wizard |
 | `SETUP_LOCKED` | written by the app | Keeps the wizard closed after setup |
 | `COOKIE_SECURE` | unset | Force `Secure` cookies when TLS terminates upstream |
+| `SEED_LOCALE` | first user's language | Language of the default groups created on upgrade (`en` / `ru`) |
 | `TZ` / `UPLOAD_DIR` | `UTC` / `/app/uploads` | Timezone, avatar and logo storage |
 
 Full reference: [docs/configuration.md](docs/configuration.md).
@@ -250,7 +259,9 @@ location / {
 
 Highlights — the full threat model and go-live checklist are in [docs/security.md](docs/security.md):
 
-- **Sessions:** httpOnly, `SameSite=Lax`, `Secure` on HTTPS. Password change, role change, disabling, blocking and *sign out everywhere* invalidate every outstanding token.
+- **Access control:** permission-checked routes, no privilege escalation (you can only grant what you hold), stronger accounts are read-only to you, and the product can never lose its last super administrator. Details: [docs/access-control.md](docs/access-control.md).
+- **Sign-in codes:** 6 digits, 5 minutes, single use, 5 attempts, hashed at rest, resend limits, no account enumeration; magic-link tokens never reach server logs.
+- **Sessions:** httpOnly, `SameSite=Lax`, `Secure` on HTTPS. Password change, access change, disabling, blocking and *sign out everywhere* invalidate every outstanding token.
 - **Brute force:** login limiter plus separate lockout streaks per username and per IP. Failures look identical to the client.
 - **Setup wizard:** optional `SETUP_TOKEN`, rate-limited writes, permanently locked after completion.
 - **Foot-gun guards:** the API refuses changes that would block the acting admin's own IP (`409 SELF_LOCKOUT`), and nobody can demote, disable, block or delete the last active administrator or their own account.
@@ -273,6 +284,7 @@ make help            # list every target
 | Development stack | `make dev` · `make dev-logs` · `make dev-down` |
 | Release a version | `make bump-patch` (or `-minor`, `-major`) → `make rebuild` |
 | Database helpers | `make psql` · `make sql SQL="SELECT 1"` · `make db-setup PASSWORD=…` |
+| Sample users | `make seed-demo` (no passwords; for demos and staging) |
 
 Backups, upgrades and troubleshooting: [docs/operations.md](docs/operations.md).
 
@@ -293,6 +305,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Architecture](docs/architecture.md) | Request flow, data model, frontend areas, UI kit |
 | [Extending](docs/extending.md) | Recipes: settings screens, pages, endpoints, templates, integrations |
 | [Adapting a fork](docs/adapt.md) | Renaming, branding and what not to rewrite |
+| [Access control & sign-in](docs/access-control.md) | Roles, groups, permissions, safety rules, sign-in methods and their setup |
 | [Configuration](docs/configuration.md) | Environment variables and stored settings |
 | [Security](docs/security.md) | Threat model, built-in controls, go-live checklist |
 | [Operations](docs/operations.md) | Make targets, backups, upgrades, troubleshooting |
@@ -312,7 +325,7 @@ Planned next steps, in priority order (details in [docs/audit.md](docs/audit.md#
 - [ ] Schema validation for request bodies (zod)
 - [ ] End-to-end tests with Playwright
 - [ ] Structured logging with request IDs
-- [ ] Password reset by email and TOTP two-factor authentication
+- [ ] TOTP two-factor authentication and passkeys
 
 ## Contributing
 
