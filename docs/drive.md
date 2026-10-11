@@ -1,0 +1,224 @@
+# Drive — company file servers (`/app/drive`)
+
+A [module](modules.md) that turns the company's Windows file servers (SMB 2/3, Samba too) into one network drive in the browser. An administrator names the drive (for example *iSmarty Drive*), adds file servers, and lists the folders (shares) people see. Together the folders work like a DFS namespace. People then browse, view, edit, upload and share files with their own domain accounts. The server's share permissions and NTFS rights, usually managed through Active Directory security groups, decide what each person can read or change.
+
+The module is **off by default**. Turn it on under *Settings → Modules → File server*, then add a server.
+
+## What people get
+
+- **Overview**: the drive's name and subtitle, a tile per folder with the person's rights (*Read & write* or *Read only*) and free space, plus favourites and recent files.
+- **Folders**:
+  - breadcrumbs and grid or list views, sorted by name, date, size or type;
+  - image thumbnails;
+  - search inside a folder and all its subfolders;
+  - an option to show hidden files;
+  - a *Copy network path* button (`\\server\share\…` or the DFS path you configure) for opening the item in Explorer.
+- **Changes**:
+  - upload by button or drag & drop, with a *Replace / Keep both / Skip* choice when names clash;
+  - new folder, rename, move or copy between folders of the same server, delete;
+  - download a file, a folder or a selection as a ZIP.
+
+  Write actions show only where the server grants write access.
+- **Viewers**:
+
+| Type | How it opens |
+|------|--------------|
+| PDF | pdf.js viewer: pages or **slides** (one page at a time; landscape documents start as slides), and a full-screen **presentation** (← → / Space, Home / End, `G` for all slides, Esc to leave) |
+| Images (`png`, `jpg`, `gif`, `webp`, `bmp`, `svg`) | Lightbox gallery with the folder's other images |
+| Word `docx` | Rendered in the browser, or as an exact PDF with [document conversion](integrations.md#document-conversion-collabora--libreoffice) |
+| Excel `xlsx`, `csv` | Spreadsheet grid |
+| `doc`, `xls`, `ppt`, `pptx`, OpenDocument | Converted to PDF (needs document conversion) |
+| AutoCAD `dwg`, `dxf` | CAD viewer (WebGL): pan, zoom, layers, fit to screen. DWG is converted to DXF on the server with LibreDWG (R13–2018+) and cached |
+| Markdown `md` | Rendered, and **editable in place**: write / split / preview, `Ctrl+S`. Saving refuses to overwrite a newer version unless you confirm |
+| Text, JSON, XML, logs, CSV | Shown and editable as text |
+| Video and audio | Native players with seeking (HTTP ranges) |
+
+- **Each file has its own page** (`/app/drive/v/<folder>/<path>`) by default. The page has the whole window for the viewer, ‹ › through the folder's files and a link back to the folder, and its address can be bookmarked or sent. The *Opening files* setting switches back to a modal over the folder.
+- **Favourites and recent files**, kept per person.
+- **Public links** (see below) and **My links** with the state of each one.
+- **Connections**: which account opens each server, and a way to sign in or switch accounts.
+
+## Signing in to file servers
+
+For each server, the administrator picks one of two modes.
+
+| Mode | How it works |
+|------|--------------|
+| **Personal domain accounts** (recommended) | Each person works as themselves, so NTFS rights and AD security groups apply. With *Use the portal sign-in*, people who signed in with Active Directory are connected automatically. Anyone else enters a domain account once under *Connections* (or the *Sign in* button on a tile). |
+| **One service account** | Everyone works as the same account. Use portal groups on each folder (*Visible to*) to limit who sees it. |
+
+The credential used for a person is chosen in this order:
+
+1. credentials the person saved for that server;
+2. their AD sign-in, if the server allows it;
+3. the server's service account.
+
+**Password handling:**
+
+- The AD password is captured only after a successful directory sign-in. It is sealed with AES-256-GCM (`ENCRYPTION_KEY`) and never sent back to the browser.
+- An hourly job deletes the credentials of disabled or blocked users. Turning *Use the portal sign-in* off also deletes stored sign-in passwords.
+- When a server rejects a stored password (it changed, expired, or the account is locked), the credential is **parked**. It is not tried again until the person signs in anew, so a stale password cannot lock the AD account.
+- Parallel requests (for example a page of thumbnails) wait for a single authentication, so one bad password costs one failed logon.
+- Sessions are pooled **per credential** (server, user and password), never per user name. A session is renewed after 15 minutes, so AD group changes apply as they would on a new Windows logon.
+
+## Administration (*Settings → Modules → File server*)
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| Drive name / subtitle | “File server” | Shown in the menu, launcher and on the overview |
+| Use the portal sign-in | on | Reuse the AD sign-in password (sealed) |
+| Hide folders without access | on | Off: such folders are shown locked |
+| Opening files | Own page | *Window over the folder* opens files in a modal (images always use the lightbox there) |
+| Activity log | on | Records who did what (see *Activity log* below) |
+| Record opened folders | on | Off: only files, changes, links and sign-ins are recorded |
+| Keep the log for | 365 days | 0 = forever; older rows are removed once a day |
+| Maximum upload size | 2048 MB | Up to 10 GB |
+| Public links | on | |
+| Who may open links | Author decides | *Employees only* forces sign-in for every link |
+| Require password / maximum days | off / 0 | Same as in Files |
+
+**A server:**
+
+- name, host (DNS or IP), port 445, domain (empty = the domain from the Active Directory base DN);
+- sign-in mode (see above);
+- *Require SMB encryption* (SMB 3).
+
+*Test connection* checks the account entered in the dialog, else the service account, else your own sign-in. It also lists the server's shares.
+
+**A folder:**
+
+- the name people see, colour and description;
+- the share, picked from the server's list or typed (hidden `$` shares work too);
+- an optional sub-folder, so you can publish `\\fs01\Data\Departments\Accounting` as *Accounting*;
+- the path shown to people, for example a DFS path;
+- portal groups that see it (empty = everyone);
+- *Allow public links*.
+
+Folders can be reordered.
+
+**All public links** lists every link with its author, state and views, and lets you turn any of them off.
+
+Permission: `drive.admin`. With it you manage servers and folders and see all links, and you see every folder regardless of portal groups. What you can open inside a folder is still decided by the file server.
+
+## Public links (`/d/<token>`)
+
+**Share by link** on a file or folder:
+
+| Option | Notes |
+|--------|-------|
+| Who can open | *Anyone with the link*, or *Employees only* (sign-in required, then back to the link) |
+| Password | Optional, at least 4 characters; unlocking is rate-limited |
+| Expiry | 1 / 7 / 30 days or a date; capped by *maximum days* |
+| Downloads | Can be switched off |
+
+A link has **no access of its own**. It acts with its author's credentials, re-checked on every request. It stops working, and the page explains why, when:
+
+| Situation | Visitor sees |
+|-----------|--------------|
+| The author's portal account is disabled or blocked (they left the company) | *This link is no longer active.* It was created by an employee who no longer works with the company. For security, all links created by former employees are switched off automatically. If you still need these materials, contact your company representative and they will share them again. |
+| The author loses access to the item on the file server (AD group removed, NTFS rights changed) | *These files are no longer shared* |
+| The author turned the link off / it expired | *This link has been turned off* / *This link has expired* |
+| The file was moved or deleted on the server | *This file was moved or deleted* |
+| The server is unreachable or the author's password must be renewed | *The files are temporarily unavailable* |
+
+Reactivating the author's account makes their links work again. Deleting the account deletes their links. A folder link never reaches outside its folder, because paths are confined to the link's root.
+
+## Security
+
+- **SMB gateway.** SMB runs in a small Python process (`modules/drive/gateway/smbgate.py`, smbprotocol) that Node starts on first use and restarts if it dies. It listens on a private Unix socket (mode `0600`) and accepts only requests that carry a random per-start key. No credentials touch the disk there.
+- **Paths are validated twice** (Node and the gateway):
+  - no `..`;
+  - no alternate data streams (`:`);
+  - no characters Windows forbids;
+  - share names and hosts are checked too.
+- **Content is served safely.** It is streamed with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Only safe types are shown inline; everything else downloads.
+- **Uploads are atomic.** They are written to a hidden temporary file (`~$portal-….tmp`) and renamed at the end, so an interrupted upload never leaves a broken document. Replacing a file swaps it with rollback on failure.
+- **Locked files are reported.** Files open in Word or Excel on someone's PC are still readable. Writing to them returns *The file is open in another program*.
+- **Caches are checked on every use.** Thumbnails, Office PDFs and DWG conversions are cached in `UPLOAD_DIR/.previews/` by path, size and modification time. Each request first checks access on the server with the person's own credentials, then serves the cache.
+
+## Operations
+
+- The container must reach the file servers on **TCP 445**, routed from the Docker host.
+- NTLM is used for authentication, with NTLMv2 against AD. If NTLM is disabled in the domain, the module cannot sign in.
+- Environment (optional):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SMBGATE_PYTHON` | `python3` | Interpreter for the gateway |
+| `SMBGATE_IDLE` | `300` | Seconds before an idle SMB session closes |
+| `SMBGATE_MAX_AGE` | `900` | Seconds before sessions are renewed (AD group changes) |
+| `SMBGATE_DC` | — | Domain controller for domain-based DFS (`\\corp.local\dfs`) |
+| `DWG2DXF` | `dwg2dxf` | LibreDWG converter used for DWG previews |
+
+- The production image builds LibreDWG 0.14 (`dwg2dxf`) and installs Python 3, smbprotocol and Pillow. The CAD viewer ships the DejaVu Sans font (`/fonts/cad-sans.ttf`) for Cyrillic and Latin text in drawings.
+- The bundled `nginx.conf` streams `/api/app/drive/` (up to 10 GB, no buffering, 1-hour timeouts) and `/api/d/`. A reverse proxy in front needs the same settings.
+
+## API
+
+All under `/api/app/drive`, signed-in users only (`:id` = folder id, `path` = path inside it):
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/` | Drive name, folders with state, rights and free space, connections, config |
+| GET | `/shares/:id/list?path=&hidden=1` | Folder contents, rights, network path |
+| GET | `/shares/:id/stat?path=` · `/search?path=&q=` | Item details · recursive name search |
+| POST | `/shares/:id/folders` | `{ path, name }` |
+| PUT | `/shares/:id/rename` | `{ path, name }` |
+| POST | `/shares/:id/delete` | `{ paths }` |
+| POST | `/shares/:id/move` | `{ paths, toShareId?, toPath, copy? }` |
+| PUT | `/shares/:id/upload?path=&name=&conflict=rename\|replace\|fail` | Raw body (`application/octet-stream`) |
+| PUT | `/shares/:id/text?path=&mtime=` | Save text; `409 CHANGED` if the file changed |
+| GET | `/shares/:id/file?path=[&download=1]` | Content, with HTTP ranges |
+| GET | `/shares/:id/thumb` · `/preview.pdf` · `/cad` · `/zip?p=…` | Thumbnail · Office → PDF · drawing as DXF · ZIP |
+| GET / POST / DELETE | `/recent`, `/favorites` | Shortcuts |
+| GET / PUT / DELETE | `/connections[/:serverId]` | The person's credentials (checked before saving, rate-limited) |
+| GET | `/links[?shareId&path]` | My links |
+| POST | `/shares/:id/links` | `{ path, audience, password?, expiresAt?, allowDownload }` |
+| PUT / DELETE | `/links/:id` | Edit, revoke (`{ revoked }`) or delete |
+| `*` | `/admin/…` | Servers, folders, order, test, all links (`drive.admin`) |
+
+Public (`X-Link-Token` header or `?t=` after unlocking; the session cookie counts for *Employees only*):
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/api/d/:token/unlock` | `{ password }` → `{ token }` |
+| GET | `/api/d/:token[?path=]` | The item, or a folder's contents inside the link |
+| GET | `/api/d/:token/file` · `/thumb` · `/preview.pdf` · `/cad` · `/zip` | Content (downloads only if allowed) |
+
+Visitor error codes: `NOT_FOUND`, `REVOKED`, `EXPIRED`, `OWNER_INACTIVE`, `OWNER_NO_ACCESS`, `GONE`, `UNAVAILABLE`, `LINKS_DISABLED`, `SIGN_IN_REQUIRED`, `PASSWORD_REQUIRED`, `WRONG_PASSWORD`, `NO_DOWNLOAD`.
+
+File server error codes:
+
+- sign-in: `CREDENTIALS_REQUIRED`, `CREDENTIALS_FAILED` (with `info.reason`), `AUTH_FAILED`, `ACCOUNT_LOCKED`, `ACCOUNT_DISABLED`, `PASSWORD_EXPIRED`, `SERVICE_AUTH_FAILED`;
+- access and items: `ACCESS_DENIED`, `NOT_FOUND`, `SHARE_NOT_FOUND`, `EXISTS`, `FILE_LOCKED`, `NOT_EMPTY`;
+- limits: `DISK_FULL`, `QUOTA_EXCEEDED`, `FILE_TOO_LARGE`;
+- names and moves: `INVALID_PATH`, `INVALID_NAME`, `MOVE_CYCLE`, `CROSS_SERVER`, `CROSS_ACCOUNT`;
+- connection: `SERVER_UNREACHABLE`, `GATEWAY_DOWN`;
+- drawings: `NO_CAD_CONVERTER`, `CAD_UNREADABLE`.
+
+## Activity log
+
+Permission: `drive.audit` (*File server activity log*). Super administrators always have it; it can be given to other roles in the role editor. The log is at **File server → Activity log** (`/app/drive/activity`), and *Activity history* in a file's or folder's menu opens it filtered to that item.
+
+What is recorded, with time, person (or link visitor and IP), folder, path, size, result and browser:
+
+| Group | Actions |
+|-------|---------|
+| Viewing | opened folder, searched (with the query), viewed file, opened public link |
+| Downloads | downloaded file, downloaded ZIP (with the items) |
+| Changes | uploaded (replaced or new), created folder, renamed, moved, copied, edited text |
+| Deletion | deleted |
+| Links | created, changed, deleted link; wrong link password |
+| Connections | signed in to a server (including refused accounts), signed out |
+| Administration | saved or deleted a server, saved or removed a folder |
+
+- Failures are recorded too (for example *access denied* by the server), except "not connected yet" (`CREDENTIALS_REQUIRED` / `CREDENTIALS_FAILED`).
+- Repeated reads are folded: the same file opened again within 10 minutes (range requests, previews), the same folder within 5 minutes and the same search within a minute count once.
+- Writing happens after the response and never fails a request.
+- Names of people and folders are stored with each row, so the log stays readable after an account or folder is removed.
+- Filters: period (today, 7/30/90 days or any range), free-text search (file, path, person, login, folder, IP, details), people, actions or whole groups, folders, result, portal or public links, and a path (the item and everything under it). Filters live in the address, so a view can be bookmarked or sent.
+- Figures for the period (events, people, downloads, changes, deletions, failures; each one is a filter), the most active people and most used files.
+- **Export CSV**: everything that matches the filters, up to 100 000 rows, `;`-separated with a BOM for Excel, times in the viewer's time zone.
+
+API (`drive.audit`): `GET /api/app/drive/admin/activity` (`from`, `to`, `q`, `users`, `actions`, `shares`, `result=ok|failed`, `via=portal|link`, `path`, `ip`, `page`, `pageSize`), `GET /api/app/drive/admin/activity/people?q=`, `GET /api/app/drive/admin/activity/export.csv` (same filters, `tz`).
+

@@ -5,7 +5,7 @@ import AppFooter from '../components/AppFooter';
 import { MenuIcon } from '../components/icons/menuIcons';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
-import { enabledModules } from '../modules/registry';
+import { enabledModules, moduleLabel } from '../modules/registry';
 import InstallBanner from '../pwa/InstallBanner';
 
 /** /apps — launcher with every enabled module. */
@@ -33,7 +33,7 @@ export default function Apps() {
                 <span className="app-tile__icon">
                   <MenuIcon name={module.icon} />
                 </span>
-                <strong>{t(module.labelKey)}</strong>
+                <strong>{moduleLabel(module, settings, t)}</strong>
                 <span>{t(module.descKey)}</span>
               </Link>
             ))}

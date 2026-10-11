@@ -2,8 +2,9 @@ import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 
 import bcrypt from 'bcryptjs';
 import config from '../config/app.js';
 import { query, withTransaction } from '../config/database.js';
-import { authAvailability, getSettings, parseSettings } from './settings.js';
+import { authAvailability, getSettings, localeFor, parseSettings } from './settings.js';
 import { authenticateDirectory, mapDirectoryGroups } from './ldap.js';
+import { emitDirectorySignIn } from './hooks.js';
 import { sendEmail, sendMattermostDirect, sendTelegram, sendWhatsapp } from './integrations.js';
 import { getUserAccess, hasLocalPassword } from './rbac.js';
 import { recordSecurityEvent } from './security.js';
@@ -109,7 +110,10 @@ export async function signInWithPassword(username, password) {
   if (available.ldap && (!user || user.auth_source === 'ldap' || !hasLocalPassword(user.password_hash))) {
     const profile = await authenticateDirectory(parsed.integrations.activeDirectory, login, password);
     if (!profile) throw authError();
-    return { user: await resolveDirectoryUser(profile, parsed.auth.ldap), method: 'ldap' };
+    const resolved = await resolveDirectoryUser(profile, parsed.auth.ldap);
+    // Lets modules reuse the directory password (e.g. Drive for file servers).
+    await emitDirectorySignIn({ user: resolved, profile, password: String(password) });
+    return { user: resolved, method: 'ldap' };
   }
 
   await bcrypt.compare(String(password || ''), DUMMY_HASH);
@@ -295,8 +299,8 @@ function tokenHash(token) {
   return createHash('sha256').update(String(token)).digest('hex');
 }
 
-function signInMessage(user, appName, { code, link }) {
-  const ru = user.locale === 'ru';
+function signInMessage(user, appName, { code, link }, locale = user.locale) {
+  const ru = locale === 'ru';
   if (link) {
     return {
       subject: ru ? `Вход в ${appName}` : `Sign in to ${appName}`,
@@ -373,7 +377,7 @@ export async function requestSignInCode(channel, identifier, mode = 'code', { ip
       [user.id, channel, tokenHash(token), String(LINK_TTL_MINUTES)]
     );
     const origin = String(config.frontend.url).replace(/\/$/, '');
-    message = signInMessage(user, parsed.appName, { link: `${origin}/auth/magic#${token}` });
+    message = signInMessage(user, parsed.appName, { link: `${origin}/auth/magic#${token}` }, await localeFor(user));
   } else {
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     await query(
@@ -381,7 +385,7 @@ export async function requestSignInCode(channel, identifier, mode = 'code', { ip
        VALUES ($1, $2, 'code', $3, NOW() + ($4 || ' minutes')::interval)`,
       [user.id, channel, codeHash(user.id, code), String(CODE_TTL_MINUTES)]
     );
-    message = signInMessage(user, parsed.appName, { code });
+    message = signInMessage(user, parsed.appName, { code }, await localeFor(user));
   }
   try {
     await deliver(channel, user, message);

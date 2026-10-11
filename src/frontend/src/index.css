@@ -3794,3 +3794,79 @@ h4,
   color: var(--da-muted);
   font-size: 13px;
 }
+
+.choice-grid--compact {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.choice-card.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Code / link requested: neutral, never "success" — the account may not exist. */
+.signin__status:not(.is-expired):not(.is-error) {
+  border-color: color-mix(in srgb, var(--da-primary) 30%, var(--da-hairline));
+  background: color-mix(in srgb, var(--da-primary) 7%, var(--da-surface));
+}
+
+.signin__status:not(.is-expired):not(.is-error) .signin__status-icon {
+  background: var(--da-primary);
+}
+
+.signin__notice.is-quiet {
+  padding: 0 4px;
+  background: transparent;
+  text-align: center;
+}
+
+.signin__privacy {
+  display: block;
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
+/* A page that failed to load (see AppErrorBoundary). */
+.app-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  padding: 24px 16px;
+}
+
+.app-error.is-quiet {
+  color: var(--da-muted);
+}
+
+.app-error__card {
+  max-width: 480px;
+  padding: 36px 32px;
+  border-radius: 24px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+  box-shadow: var(--da-shadow);
+  text-align: center;
+}
+
+.app-error__icon {
+  margin-bottom: 12px;
+  font-size: 40px;
+}
+
+.app-error__card h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.app-error__card p {
+  margin: 0 0 20px;
+  color: var(--da-muted);
+  line-height: 1.55;
+}
+
+.app-error__actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}

@@ -15,13 +15,14 @@ function RateLimitForm({ settings, save }) {
   const rate = settings.rateLimit || {};
   const initial = useMemo(
     () => ({
-      max: rate.max || 100,
+      max: rate.max || 300,
+      userMax: rate.userMax || 5000,
       windowMinutes: Math.round((rate.windowMs || 900000) / 60000),
     }),
-    [rate.max, rate.windowMs]
+    [rate.max, rate.userMax, rate.windowMs]
   );
   const { dirty, saving, submit, reset, formProps } = useSettingsForm(initial, (values) =>
-    save({ rateLimit: { max: values.max, windowMs: values.windowMinutes * 60000 } })
+    save({ rateLimit: { max: values.max, userMax: values.userMax, windowMs: values.windowMinutes * 60000 } })
   );
   return (
     <Form {...formProps}>
@@ -29,6 +30,11 @@ function RateLimitForm({ settings, save }) {
         <SettingRow label={t('settings.system.max')}>
           <Form.Item name="max" noStyle>
             <InputNumber min={20} max={100000} step={50} />
+          </Form.Item>
+        </SettingRow>
+        <SettingRow label={t('settings.system.userMax')} description={t('settings.system.userMaxDesc')}>
+          <Form.Item name="userMax" noStyle>
+            <InputNumber min={200} max={1000000} step={500} />
           </Form.Item>
         </SettingRow>
         <SettingRow label={t('settings.system.windowMinutes')}>

@@ -52,6 +52,14 @@ export const ADMIN_PAGES = [
     keywords: 'activity audit log security events журнал события аудит',
   },
   {
+    key: '/admin/api',
+    labelKey: 'nav.api',
+    descKey: 'nav.apiDesc',
+    defaultIcon: 'code',
+    permission: 'api.admin',
+    keywords: 'api tokens webhooks integrations rest openapi developers токены вебхуки интеграции разработчики',
+  },
+  {
     key: '/admin/settings',
     labelKey: 'nav.settings',
     descKey: 'nav.settingsDesc',
@@ -189,6 +197,36 @@ export const SETTINGS_GROUPS = [
         id: 'modules',
         defaultIcon: 'apps',
         keywords: 'modules apps applications enable модули приложения включить',
+      },
+      {
+        id: 'dashboard',
+        defaultIcon: 'dashboard',
+        keywords: 'dashboard widgets home charts дашборд виджеты главная графики сводка',
+      },
+      {
+        id: 'chat',
+        defaultIcon: 'chat',
+        keywords: 'chat messenger messages calls чат мессенджер сообщения звонки переписка',
+      },
+      {
+        id: 'files',
+        defaultIcon: 'folder',
+        keywords: 'files drive storage share links quota trash файлы хранилище диск доступ ссылки квота корзина',
+      },
+      {
+        id: 'companies',
+        defaultIcon: 'building',
+        keywords: 'companies counterparties contacts crm clients suppliers inn dadata minjust контрагенты компании контакты клиенты поставщики инн минюст',
+      },
+      {
+        id: 'resources',
+        defaultIcon: 'compass',
+        keywords: 'online resources links home page bookmarks icons онлайн ресурсы ссылки главная страница закладки иконки',
+      },
+      {
+        id: 'drive',
+        defaultIcon: 'server',
+        keywords: 'drive file server smb share dfs network windows active directory сетевой диск файловый сервер шара папки',
       },
       {
         id: 'kb',

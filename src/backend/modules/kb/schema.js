@@ -1,4 +1,6 @@
 import { query, withTransaction } from '../../config/database.js';
+import { ensureKbFileLinks } from '../files/schema.js';
+import { migrateKbFiles } from '../files/kb.js';
 
 /*
  * Knowledge base storage.
@@ -89,6 +91,9 @@ export async function ensureKbSchema() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS kb_shares_folder_idx ON kb_shares (folder_id)`);
 
+  // Files are kept in the Files module; link tables, then move legacy uploads.
+  await ensureKbFileLinks();
+  await migrateKbFiles();
   await seedKb();
 }
 

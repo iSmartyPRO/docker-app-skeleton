@@ -72,7 +72,7 @@ export default function AccountNotifications() {
           </SettingsSection>
           <SettingsSection title={t('notifications.whatTitle')} description={t('notifications.whatDesc')}>
             <ul className="notify-kinds">
-              {['tasksAssigned', 'tasksStatus', 'tasksComment', 'tasksDue', 'calendarInvite', 'calendarReminder'].map((kind) => (
+              {['tasksAssigned', 'tasksStatus', 'tasksComment', 'tasksDue', 'calendarInvite', 'calendarReminder', 'filesShared'].map((kind) => (
                 <li key={kind}>{t(`notifications.kind_${kind}`)}</li>
               ))}
             </ul>

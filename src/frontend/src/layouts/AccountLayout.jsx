@@ -6,6 +6,7 @@ import AppFooter from '../components/AppFooter';
 import { MenuIcon } from '../components/icons/menuIcons';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { PageFallback } from './AdminLayout';
 import PageTransition from '../components/ui/PageTransition';
 
@@ -17,6 +18,7 @@ const ITEMS = [
   { key: '/account/security', icon: 'lock', labelKey: 'account.security' },
   { key: '/account/notifications', icon: 'bell', labelKey: 'notifications.prefsTitle' },
   { key: '/account/connections', icon: 'integrations', labelKey: 'connections.title' },
+  { key: '/account/api', icon: 'code', labelKey: 'account.api', permissions: ['api.tokens', 'api.admin'] },
 ];
 
 export default function AccountLayout() {
@@ -25,14 +27,15 @@ export default function AccountLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const { canAny } = useAuth();
   const items = useMemo(
     () =>
-      ITEMS.map((item) => ({
+      ITEMS.filter((item) => !item.permissions || canAny(item.permissions)).map((item) => ({
         key: item.key,
         icon: <MenuIcon name={item.icon} appearance={appearance} />,
         label: t(item.labelKey),
       })),
-    [t, appearance]
+    [t, appearance, canAny]
   );
 
   return (

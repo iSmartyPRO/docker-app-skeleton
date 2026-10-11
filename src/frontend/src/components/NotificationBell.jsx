@@ -7,7 +7,7 @@ import { getUnreadNotifications, listNotifications, markNotificationsRead } from
 import { MenuIcon } from './icons/menuIcons';
 
 const POLL_MS = 45_000;
-const MODULE_ICON = { tasks: 'tasks', calendar: 'calendar', kb: 'book' };
+const MODULE_ICON = { tasks: 'tasks', calendar: 'calendar', kb: 'book', files: 'folder' };
 
 /** Mirrors the unread counter on the installed app icon where supported. */
 function setBadge(count) {

@@ -1,4 +1,12 @@
 import { extraEn, extraRu } from './extra.js';
+import { filesEn, filesRu } from './files.js';
+import { driveEn, driveRu } from './drive.js';
+import { resourcesEn, resourcesRu } from './resources.js';
+import { companiesEn, companiesRu } from './companies.js';
+import { dashboardEn, dashboardRu } from './dashboard.js';
+import { chatEn, chatRu } from './chat.js';
+import { tasks2En, tasks2Ru } from './tasks2.js';
+import { apiEn, apiRu } from './api.js';
 
 const en = {
   brand: 'docker-app-skeleton',
@@ -396,8 +404,10 @@ const en = {
       runtime: 'Runtime',
       database: 'Database',
       limits: 'API rate limit',
-      limitsDesc: 'Requests per IP to /api. The cap applies instantly; the window applies after a restart.',
-      max: 'Requests per window',
+      limitsDesc: 'Protects /api from floods. Signed-in people are counted per account, guests per IP address. Page loads and file previews are not counted. Caps apply instantly; the window after a restart.',
+      max: 'Guests: requests per IP',
+      userMax: 'Signed-in: requests per person',
+      userMaxDesc: 'Generous on purpose: an active person makes a few hundred requests in 15 minutes.',
       windowMinutes: 'Window',
       version: 'Version',
       node: 'Node.js',
@@ -506,6 +516,19 @@ const en = {
     notReceived_mattermost: 'No code? Your Mattermost username must be saved in your profile.',
     getCode: 'Get code',
     getLink: 'Send me a sign-in link',
+    checkInbox_email: 'Check your email',
+    checkInbox_phone: 'Check WhatsApp',
+    checkInbox_telegram: 'Check Telegram',
+    checkInbox_mattermost: 'Check Mattermost',
+    codeIf_email: 'If this address belongs to an account, a code is on its way. Valid for {time}.',
+    codeIf_phone: 'If this number belongs to an account, a code is on its way. Valid for {time}.',
+    codeIf_telegram: 'If this Telegram is linked to an account, a code is on its way. Valid for {time}.',
+    codeIf_mattermost: 'If this username belongs to an account, a code is on its way. Valid for {time}.',
+    linkIf_email: 'If this address belongs to an account, a sign-in link is on its way. Open it within {time}.',
+    linkIf_phone: 'If this number belongs to an account, a sign-in link is on its way. Open it within {time}.',
+    linkIf_telegram: 'If this Telegram is linked to an account, a sign-in link is on its way. Open it within {time}.',
+    linkIf_mattermost: 'If this username belongs to an account, a sign-in link is on its way. Open it within {time}.',
+    privacyNote: 'For your security we do not say whether an account exists.',
     codeSent: 'Code sent',
     linkSent: 'Link sent',
     codeValid: 'Valid for {time}',
@@ -526,7 +549,7 @@ const en = {
     backToSignIn: 'Back to sign-in',
     lead: 'Choose how you want to sign in.',
     notReceived_phone: 'No code? It is sent only to a number saved in a profile. Check the number, ask your administrator to add it, or sign in another way.',
-    notReceived_email: 'No code? Check spam. It is sent only to an email saved in a profile — or sign in another way.',
+    notReceived_email: 'No email? Check the address and the Spam folder. Codes go only to an email saved in an employee profile — if you are new, ask your administrator, or sign in another way.',
     notReceived_telegram: 'No code? Telegram must be linked in your profile and the bot not blocked.',
     errors: {
       INVALID_CREDENTIALS: 'Incorrect username or password',
@@ -768,6 +791,13 @@ const en = {
       count: '{count} public links',
     },
     viewer: {
+      viewScroll: 'Pages',
+      viewSlides: 'Slides',
+      present: 'Present',
+      presentHint: 'Full-screen presentation: one page per slide',
+      exitPresentation: 'Exit (Esc)',
+      slideKeys: '← → or Space — slides · Home / End — first / last · Esc — exit',
+      overview: 'All slides (G)',
       loading: 'Loading…',
       thumbnails: 'Pages',
       fitWidth: 'Fit width',
@@ -1321,8 +1351,10 @@ const ru = {
       runtime: 'Среда выполнения',
       database: 'База данных',
       limits: 'Лимит запросов к API',
-      limitsDesc: 'Запросов к /api с одного IP. Лимит применяется сразу, окно — после перезапуска.',
-      max: 'Запросов за окно',
+      limitsDesc: 'Защищает /api от перегрузки. Вошедших пользователей считаем по учётной записи, гостей — по IP. Загрузка страниц и просмотр файлов не учитываются. Лимиты применяются сразу, окно — после перезапуска.',
+      max: 'Гости: запросов с одного IP',
+      userMax: 'Вошедшие: запросов на человека',
+      userMaxDesc: 'С запасом: активный сотрудник делает несколько сотен запросов за 15 минут.',
       windowMinutes: 'Окно',
       version: 'Версия',
       node: 'Node.js',
@@ -1431,6 +1463,19 @@ const ru = {
     notReceived_mattermost: 'Код не пришёл? Имя пользователя Mattermost должно быть указано в профиле.',
     getCode: 'Получить код',
     getLink: 'Прислать ссылку для входа',
+    checkInbox_email: 'Проверьте почту',
+    checkInbox_phone: 'Проверьте WhatsApp',
+    checkInbox_telegram: 'Проверьте Telegram',
+    checkInbox_mattermost: 'Проверьте Mattermost',
+    codeIf_email: 'Если этот адрес зарегистрирован, код уже в пути. Действует {time}.',
+    codeIf_phone: 'Если этот номер зарегистрирован, код уже в пути. Действует {time}.',
+    codeIf_telegram: 'Если этот Telegram привязан к аккаунту, код уже в пути. Действует {time}.',
+    codeIf_mattermost: 'Если это имя пользователя зарегистрировано, код уже в пути. Действует {time}.',
+    linkIf_email: 'Если этот адрес зарегистрирован, ссылка для входа уже в пути. Откройте её в течение {time}.',
+    linkIf_phone: 'Если этот номер зарегистрирован, ссылка для входа уже в пути. Откройте её в течение {time}.',
+    linkIf_telegram: 'Если этот Telegram привязан к аккаунту, ссылка для входа уже в пути. Откройте её в течение {time}.',
+    linkIf_mattermost: 'Если это имя пользователя зарегистрировано, ссылка для входа уже в пути. Откройте её в течение {time}.',
+    privacyNote: 'В целях безопасности мы не сообщаем, существует ли учётная запись.',
     codeSent: 'Код отправлен',
     linkSent: 'Ссылка отправлена',
     codeValid: 'Действует {time}',
@@ -1451,7 +1496,7 @@ const ru = {
     backToSignIn: 'Вернуться ко входу',
     lead: 'Выберите удобный способ входа.',
     notReceived_phone: 'Код не пришёл? Он отправляется только на номер из профиля. Проверьте номер, попросите администратора добавить его или войдите другим способом.',
-    notReceived_email: 'Код не пришёл? Проверьте «Спам». Код приходит только на почту из профиля — или войдите другим способом.',
+    notReceived_email: 'Письма нет? Проверьте адрес и папку «Спам». Код приходит только на почту, указанную в профиле сотрудника: если вы новый сотрудник — обратитесь к администратору или войдите другим способом.',
     notReceived_telegram: 'Код не пришёл? Telegram должен быть привязан в профиле, а бот — не заблокирован.',
     errors: {
       INVALID_CREDENTIALS: 'Неверный логин или пароль',
@@ -1693,6 +1738,13 @@ const ru = {
       count: 'Публичных ссылок: {count}',
     },
     viewer: {
+      viewScroll: 'Страницы',
+      viewSlides: 'Слайды',
+      present: 'Презентация',
+      presentHint: 'Показ на весь экран: каждая страница — отдельный слайд',
+      exitPresentation: 'Выйти (Esc)',
+      slideKeys: '← → или Пробел — слайды · Home / End — первый / последний · Esc — выход',
+      overview: 'Все слайды (G)',
       loading: 'Загрузка…',
       thumbnails: 'Страницы',
       fitWidth: 'По ширине',
@@ -1864,6 +1916,26 @@ function mergeDeep(target, extra) {
 
 mergeDeep(en, extraEn);
 mergeDeep(ru, extraRu);
+mergeDeep(en, filesEn);
+mergeDeep(ru, filesRu);
+mergeDeep(en, driveEn);
+mergeDeep(ru, driveRu);
+mergeDeep(en, dashboardEn);
+mergeDeep(ru, dashboardRu);
+mergeDeep(en, chatEn);
+mergeDeep(ru, chatRu);
+mergeDeep(en, apiEn);
+mergeDeep(ru, apiRu);
+mergeDeep(en, tasks2En);
+mergeDeep(ru, tasks2Ru);
+mergeDeep(en, resourcesEn);
+mergeDeep(ru, resourcesRu);
+mergeDeep(en, companiesEn);
+mergeDeep(en, { account: { languageAuto: 'As the portal ({name})', languageBrowser: 'browser language' }, settings: { general: { language: 'Default language', languageDesc: 'For guests and for people who have not chosen a language. Everyone can pick their own under Account → Appearance or with the flags in the header.', languageAuto: 'Browser language' } } });
+mergeDeep(ru, { account: { languageAuto: 'Как в портале ({name})', languageBrowser: 'язык браузера' }, settings: { general: { language: 'Язык по умолчанию', languageDesc: 'Для гостей и для тех, кто ещё не выбрал язык. Каждый может выбрать свой в «Кабинет → Оформление» или флажками в шапке.', languageAuto: 'Язык браузера' } } });
+mergeDeep(en, { appError: { title: 'This page did not load', text: 'Something went wrong while opening it. Reload the page — your data is safe.', updateTitle: 'A new version is available', updateText: 'The portal was updated while this tab was open. Reload to continue.', updating: 'Loading the new version…', reload: 'Reload', home: 'Home' } });
+mergeDeep(ru, { appError: { title: 'Страница не загрузилась', text: 'При открытии что-то пошло не так. Обновите страницу — ваши данные в порядке.', updateTitle: 'Доступна новая версия', updateText: 'Пока вкладка была открыта, портал обновился. Обновите страницу, чтобы продолжить.', updating: 'Загружаем новую версию…', reload: 'Обновить', home: 'На главную' } });
+mergeDeep(ru, companiesRu);
 
 export const dictionaries = { en, ru };
 

@@ -25,6 +25,10 @@ export const PERMISSION_CATALOG = [
     permissions: ['activity.view'],
   },
   {
+    group: 'api',
+    permissions: ['api.tokens', 'api.admin'],
+  },
+  {
     group: 'settings',
     permissions: [
       'settings.view',

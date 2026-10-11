@@ -1,6 +1,6 @@
 # Modules (apps)
 
-The skeleton is a platform for **modules**: self-contained applications that plug into the same users, roles, settings, theme and navigation. Built in: [Knowledge Base](knowledge-base.md), [Tasks](tasks.md) and [Calendar](calendar.md). Modules notify people through the shared [notification center](notifications.md) and can schedule background work with `registerJob()`.
+The skeleton is a platform for **modules**: self-contained applications that plug into the same users, roles, settings, theme and navigation. Built in: [Dashboard](dashboard.md), [Counterparties](companies.md), [Online resources](resources.md), [File server (Drive)](drive.md), [Files](files.md), [Knowledge Base](knowledge-base.md), [Tasks](tasks.md), [Chat](chat.md) and [Calendar](calendar.md). Modules notify people through the shared [notification center](notifications.md) and can schedule background work with `registerJob()`. A module gives its records a conversation with `registerChatEntity()` (see [Chat](chat.md#chats-for-other-modules)), and publishes webhook events with `emitEvent()` (see [Public API](public-api.md#for-module-authors)). Its endpoints appear in the API reference and get their own token area automatically.
 
 | URL | What it is |
 |-----|------------|

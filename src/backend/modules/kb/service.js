@@ -1,6 +1,7 @@
 import { query, withTransaction } from '../../config/database.js';
 import { LEVEL, LEVEL_NAMES, httpError, loadAccess, readAcl, requireLevel, writeAcl } from './access.js';
 import { removeStoredFile } from './files.js';
+import { attachmentsOf, syncAttachments } from './attachments.js';
 
 const HEX = /^#[0-9a-f]{6}$/i;
 const ICON = /^[a-z0-9_-]{2,32}$/i;
@@ -159,7 +160,11 @@ export async function getItem(ctx, id) {
     ? (await query(`SELECT id, name, icon, color FROM kb_folders WHERE id = ANY($1)`, [crumbIds])).rows
     : [];
   return {
-    item: { ...itemShape(row, level), content: row.kind === 'article' ? row.content || '' : undefined },
+    item: {
+      ...itemShape(row, level),
+      content: row.kind === 'article' ? row.content || '' : undefined,
+      attachments: row.kind === 'article' ? await attachmentsOf(row.id) : [],
+    },
     breadcrumbs: crumbIds.map((folderId) => names.find((entry) => entry.id === folderId)).filter(Boolean),
   };
 }
@@ -242,7 +247,7 @@ export async function deleteFolder(ctx, id) {
        SELECT id FROM kb_folders WHERE id = $1
        UNION ALL SELECT f.id FROM kb_folders f JOIN tree t ON f.parent_id = t.id
      )
-     SELECT i.file_name FROM kb_items i WHERE i.folder_id IN (SELECT id FROM tree) AND i.file_name IS NOT NULL`,
+     SELECT i.file_name FROM kb_items i WHERE i.folder_id IN (SELECT id FROM tree) AND i.file_name IS NOT NULL AND i.file_node_id IS NULL`,
     [id]
   );
   const ids = await query(
@@ -296,7 +301,16 @@ export async function createItem(ctx, input) {
       ctx.userId,
     ]
   );
-  return result.rows[0].id;
+  const itemId = result.rows[0].id;
+  if (kind === 'article') {
+    try {
+      await syncAttachments(ctx, itemId, input.content, input.attachments);
+    } catch (err) {
+      await query(`DELETE FROM kb_items WHERE id = $1`, [itemId]);
+      throw err;
+    }
+  }
+  return itemId;
 }
 
 export async function updateItem(ctx, id, input) {
@@ -323,6 +337,9 @@ export async function updateItem(ctx, id, input) {
       ctx.userId,
     ]
   );
+  if (row.kind === 'article' && (input.content !== undefined || input.attachments !== undefined)) {
+    await syncAttachments(ctx, id, input.content ?? row.content, input.attachments);
+  }
 }
 
 export async function deleteItem(ctx, id) {
@@ -331,7 +348,8 @@ export async function deleteItem(ctx, id) {
   requireLevel(access.itemLevel(row), LEVEL.edit, 'this material');
   await query(`DELETE FROM kb_acl WHERE resource_type = 'item' AND resource_id = $1`, [id]);
   await query(`DELETE FROM kb_items WHERE id = $1`, [id]);
-  if (row.file_name) await removeStoredFile(row.file_name);
+  // Files-backed materials leave the file in its owner's Files.
+  if (row.file_name && !row.file_node_id) await removeStoredFile(row.file_name);
 }
 
 // ── Access settings ─────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { rememberReturnPath, takeReturnPath } from '../lib/returnPath';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { isStandalone } from '../pwa/pwa';
 import { Button, Form, Input } from 'antd';
@@ -219,13 +220,21 @@ function CodePane({ channel, magicLink, onSuccess }) {
       </div>
 
       <div className={`signin__status${expired ? ' is-expired' : ''}`}>
-        <span className="signin__status-icon">{expired ? '!' : '✓'}</span>
+        <span className="signin__status-icon" aria-hidden="true">
+          {expired ? '!' : (
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="m3 7 9 6 9-6" />
+            </svg>
+          )}
+        </span>
         <div>
-          <strong>{t(step === 'link' ? 'signin.linkSent' : 'signin.codeSent')}</strong>
+          {/* Same answer whether or not the account exists: nobody can probe which addresses are registered. */}
+          <strong>{t(`signin.checkInbox_${spec.input}`)}</strong>
           <div>
             {expired
               ? t('signin.expired')
-              : t(step === 'link' ? 'signin.linkValid' : 'signin.codeValid', { time: clock(left) })}
+              : t(`signin.${step === 'link' ? 'linkIf' : 'codeIf'}_${spec.input}`, { time: clock(left) })}
           </div>
         </div>
       </div>
@@ -239,7 +248,11 @@ function CodePane({ channel, magicLink, onSuccess }) {
           ) : (
             <p className="signin__hint signin__hint--center">{busy ? t('signin.checking') : t('signin.autoSubmit')}</p>
           )}
-          {resendIn === 0 && !error && <p className="signin__notice">{t(`signin.notReceived_${spec.input}`)}</p>}
+          {!error && (
+            <p className={`signin__notice${resendIn > 0 ? ' is-quiet' : ''}`}>
+              {t(`signin.notReceived_${spec.input}`)} <span className="signin__privacy">{t('signin.privacyNote')}</span>
+            </p>
+          )}
         </>
       ) : (
         <p className="signin__hint">{t('signin.linkHint')}</p>
@@ -281,6 +294,7 @@ function SsoButtons({ google }) {
 }
 
 export default function Login() {
+  useState(() => rememberReturnPath());
   const { user, ready, setUser } = useAuth();
   const { t } = useLocale();
   const { settings } = useSettings();
@@ -329,11 +343,11 @@ export default function Login() {
     }
   };
 
-  if (ready && user) return <Navigate to="/" replace />;
+  if (ready && user) return <Navigate to={takeReturnPath()} replace />;
 
   const onSuccess = (signedIn) => {
     setUser(signedIn);
-    navigate('/', { replace: true });
+    navigate(takeReturnPath(), { replace: true });
   };
 
   return (

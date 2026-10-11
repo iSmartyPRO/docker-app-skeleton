@@ -259,11 +259,22 @@ function roleRow(row) {
   };
 }
 
+/**
+ * Runs reads in parallel on the pool, one after another on a transaction
+ * client (a single connection cannot run queries concurrently).
+ */
+async function runAll(client, tasks) {
+  if (client.query === query) return Promise.all(tasks.map((task) => task()));
+  const results = [];
+  for (const task of tasks) results.push(await task());
+  return results;
+}
+
 async function loadGraph(client = { query }) {
-  const [roles, groups, groupRoles] = await Promise.all([
-    client.query(`SELECT * FROM app_roles ORDER BY sort, name`),
-    client.query(`SELECT * FROM app_groups ORDER BY is_default DESC, name`),
-    client.query(`SELECT group_id, role_id FROM group_roles`),
+  const [roles, groups, groupRoles] = await runAll(client, [
+    () => client.query(`SELECT * FROM app_roles ORDER BY sort, name`),
+    () => client.query(`SELECT * FROM app_groups ORDER BY is_default DESC, name`),
+    () => client.query(`SELECT group_id, role_id FROM group_roles`),
   ]);
   const roleById = new Map(roles.rows.map((row) => [row.id, roleRow(row)]));
   const rolesOfGroup = new Map();
@@ -302,10 +313,10 @@ function accessFrom(graph, directRoleIds, groupIds) {
 
 /** Effective access for one user. */
 export async function getUserAccess(userId, client = { query }) {
-  const [graph, direct, member] = await Promise.all([
-    loadGraph(client),
-    client.query(`SELECT role_id FROM user_roles WHERE user_id = $1`, [userId]),
-    client.query(`SELECT group_id FROM user_group_members WHERE user_id = $1`, [userId]),
+  const [graph, direct, member] = await runAll(client, [
+    () => loadGraph(client),
+    () => client.query(`SELECT role_id FROM user_roles WHERE user_id = $1`, [userId]),
+    () => client.query(`SELECT group_id FROM user_group_members WHERE user_id = $1`, [userId]),
   ]);
   return accessFrom(
     graph,

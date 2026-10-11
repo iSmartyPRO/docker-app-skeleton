@@ -30,6 +30,7 @@ export const kbApi = {
   updateShare: (id, payload) => api.put(`${base}/shares/${id}`, payload),
   deleteShare: (id) => api.delete(`${base}/shares/${id}`),
   checkSlug: (params) => api.get(`${base}/shares/check`, { params }),
+  fromFiles: (folderId, nodeIds) => api.post(`${base}/folders/${folderId}/from-files`, { nodeIds }),
 };
 
 export const publicApi = {
@@ -51,6 +52,8 @@ export function privateSource() {
     preview: (item) => `/api${base}/items/${item.id}/preview.pdf?v=${new Date(item.updatedAt).getTime()}`,
     itemPath: (item) => `/app/kb/d/${item.id}`,
     folderPath: (folderId) => `/app/kb/f/${folderId}`,
+    attachment: (item, nodeId, { download } = {}) => `/api${base}/items/${item.id}/attachments/${nodeId}${download ? '?download=1' : ''}`,
+    attachmentPreview: (item, nodeId) => `/api${base}/items/${item.id}/attachments/${nodeId}/preview.pdf`,
     canDownload: true,
   };
 }
@@ -67,6 +70,8 @@ export function publicSource(slug, token, allowDownload) {
     file: (item, { download } = {}) => `/api/s/${slug}/items/${item.id}/file${q(download ? { download: 1 } : {})}`,
     preview: (item) => `/api/s/${slug}/items/${item.id}/preview.pdf${q()}`,
     itemPath: (item) => `/s/${slug}/d/${item.id}`,
+    attachment: (item, nodeId, { download } = {}) => `/api/s/${slug}/items/${item.id}/attachments/${nodeId}${q(download ? { download: 1 } : {})}`,
+    attachmentPreview: (item, nodeId) => `/api/s/${slug}/items/${item.id}/attachments/${nodeId}/preview.pdf${q()}`,
     folderPath: (folderId, rootId) => (folderId === rootId ? `/s/${slug}` : `/s/${slug}/f/${folderId}`),
     canDownload: allowDownload !== false,
   };

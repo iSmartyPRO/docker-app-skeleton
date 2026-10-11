@@ -2,9 +2,15 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { getSettings, parseSettings } from '../services/settings.js';
 import { MODULE_CATALOG } from './catalog.js';
+import files from './files/index.js';
 import kb from './kb/index.js';
 import tasks from './tasks/index.js';
 import calendar from './calendar/index.js';
+import drive from './drive/index.js';
+import resources from './resources/index.js';
+import companies from './companies/index.js';
+import dashboard from './dashboard/index.js';
+import chat from './chat/index.js';
 
 /*
  * Module platform.
@@ -20,7 +26,9 @@ import calendar from './calendar/index.js';
  * A disabled module answers 404 everywhere, so it is invisible.
  */
 
-export const MODULES = [kb, tasks, calendar];
+// Files first: the knowledge base keeps its files there.
+// Chat before tasks: task conversations are entity rooms of the chat module.
+export const MODULES = [files, kb, chat, tasks, calendar, drive, resources, companies, dashboard];
 
 async function moduleState(id) {
   const parsed = parseSettings(await getSettings());
@@ -48,6 +56,9 @@ export async function ensureModuleSchemas() {
   }
 }
 
+/** Module routers as mounted, for the API reference (api/introspect.js). */
+export const MOUNTED = [];
+
 /** Mounts every module under /api: /app/<id> (auth) and its public prefix. */
 export function moduleRouter() {
   const router = Router();
@@ -67,7 +78,9 @@ export function moduleRouter() {
   });
 
   for (const module of MODULES) {
-    router.use(`/app/${module.id}`, enabledOnly(module.id), requireAuth, module.routes());
+    const routes = module.routes();
+    MOUNTED.push({ prefix: `/app/${module.id}`, router: routes, module: module.id });
+    router.use(`/app/${module.id}`, enabledOnly(module.id), requireAuth, routes);
     if (module.publicRoutes) {
       router.use(module.publicPrefix, enabledOnly(module.id), module.publicRoutes());
     }

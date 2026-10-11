@@ -2,6 +2,7 @@ import config from '../config/app.js';
 import { verifyToken } from '../services/auth.js';
 import { hasAnyPermission } from '../services/permissions.js';
 import { getSessionUser, toPublicUser } from '../services/users.js';
+import { localeFor } from '../services/settings.js';
 
 /**
  * Resolves the session cookie into:
@@ -29,6 +30,8 @@ async function loadSessionUser(req) {
   req.userRow = row;
   req.access = access;
   req.user = toPublicUser(row, access);
+  // Language for server-made texts: the person's choice, else the portal default.
+  req.locale = await localeFor(row);
   req.actor = { id: row.id, permissions: new Set(access.permissions) };
   return row;
 }
@@ -38,7 +41,7 @@ export async function requireAuth(req, res, next) {
     // Already resolved by an outer guard on the same request.
     const user = req.userRow || (await loadSessionUser(req));
     if (!user) {
-      return res.status(401).json({ success: false, error: 'Authentication required' });
+      return res.status(401).json({ success: false, code: 'SESSION_REQUIRED', error: 'Authentication required' });
     }
     if (user.is_active === false) {
       return res.status(403).json({ success: false, error: 'Account is disabled' });

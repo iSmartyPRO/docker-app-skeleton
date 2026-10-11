@@ -10,8 +10,9 @@ import LanguageSwitch from './LanguageSwitch';
 import ThemeSwitch from './ThemeSwitch';
 import { IconAdmin, IconLogin } from './icons/AdminIcons';
 import { MenuIcon } from './icons/menuIcons';
-import { enabledModules } from '../modules/registry';
+import { enabledModules, moduleLabel } from '../modules/registry';
 import NotificationBell from './NotificationBell';
+import ChatButton from '../modules/chat/components/ChatButton';
 import { isStandalone } from '../pwa/pwa';
 
 /** Grid button listing every enabled module (the "app launcher"). */
@@ -33,7 +34,7 @@ function AppsLauncher() {
             {modules.map((module) => (
               <button key={module.id} type="button" className="launcher__app" onClick={() => navigate(module.path)}>
                 <MenuIcon name={module.icon} />
-                <span>{t(module.labelKey)}</span>
+                <span>{moduleLabel(module, settings, t)}</span>
               </button>
             ))}
           </div>
@@ -129,6 +130,7 @@ export default function Chrome({ dense }) {
         <ThemeSwitch />
         {user ? (
           <>
+            <ChatButton />
             <NotificationBell />
             <AppsLauncher />
             {can(user, 'console.access') && (

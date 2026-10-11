@@ -2,6 +2,8 @@
 
 Base path: `/api`. Session: cookie `da_session` (`credentials: include`). JSON bodies.
 
+**Integrations** use API tokens instead of the session: `Authorization: Bearer pat_…` on `/api/v1/<path>` (the same endpoints). Tokens, access templates, webhooks and the request log are described in [public-api.md](public-api.md); the full, always-current reference is the developer portal at `/developers` and `/api/developer/openapi.json`.
+
 Unless noted, errors look like `{ "success": false, "error": "…" }`.
 
 ## Public
@@ -93,8 +95,11 @@ Safety rails (all return `400`/`409` with a readable `error`):
 | `GET` | `/api/apps` | Enabled modules (`requireAuth`) |
 | `*` | `/api/app/<id>/…` | Module API: `requireAuth` + module enabled, otherwise `404 MODULE_DISABLED` |
 | `*` | `/api/s/…` | Knowledge Base public links (anonymous, token per link) |
+| `*` | `/api/l/…` | Files public links (anonymous, token per link) |
+| `GET` | `/api/res` | Online resources board for anyone (public tiles for guests) |
+| `*` | `/api/d/…` | Drive public links (anonymous or employees, token per link) |
 
-Full references: [Knowledge Base](knowledge-base.md#api), [Tasks](tasks.md#api-apiapptasks-signed-in-users), [Calendar](calendar.md#api-apiappcalendar-signed-in-users).
+Full references: [Counterparties](companies.md#api), [Online resources](resources.md#api), [Drive](drive.md#api), [Files](files.md#api), [Knowledge Base](knowledge-base.md#api), [Tasks](tasks.md#api-apiapptasks-signed-in-users), [Calendar](calendar.md#api-apiappcalendar-signed-in-users).
 
 ## Notifications, push, PWA
 

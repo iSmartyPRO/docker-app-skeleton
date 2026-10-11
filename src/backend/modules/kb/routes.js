@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { unlink } from 'fs/promises';
 import rateLimit from 'express-rate-limit';
 import { query } from '../../config/database.js';
 import { LEVEL, contextFromRequest, httpError, loadAccess, requireLevel } from './access.js';
@@ -23,14 +22,7 @@ import {
 } from './service.js';
 import {
   CONVERTIBLE,
-  fileExt,
   kbSettings,
-  originalName,
-  previewPdf,
-  sendPreview,
-  sendStoredFile,
-  uploader,
-  verifyContent,
 } from './files.js';
 import {
   checkSlug,
@@ -44,6 +36,8 @@ import {
   unlockShare,
   updateShare,
 } from './shares.js';
+import { addFromFiles, attachmentsOf, sendAttachment, sendAttachmentPreview, sendItemFile, sendItemPreview } from './attachments.js';
+import { uploadForKb } from '../files/kb.js';
 
 const wrap = (handler) => async (req, res, next) => {
   try {
@@ -111,38 +105,33 @@ export function privateRoutes() {
     res.json({ success: true });
   }));
 
-  // Upload: access is checked before multer touches the disk.
+  // Upload: access is checked before multer touches the disk. Files are kept
+  // in Files ("My files / Knowledge base" of the uploader) and linked here.
   router.post('/folders/:id/files', wrap(async (req, res) => {
     const folderId = id(req.params.id);
     const access = await loadAccess(req.kb);
     requireLevel(access.folderLevel(folderId), LEVEL.edit, 'this folder');
-    const upload = await uploader();
-    await new Promise((resolve, reject) => {
-      upload(req, res, (err) => {
-        if (err?.code === 'LIMIT_FILE_SIZE') reject(httpError(413, 'File is too large', 'FILE_TOO_LARGE'));
-        else if (err) reject(err.statusCode ? err : httpError(400, err.message));
-        else resolve();
-      });
-    });
+    const { module } = await kbSettings();
+    const nodes = await uploadForKb(req.kb, req, res, { maxUploadMb: module.maxUploadMb, fileGroups: module.fileGroups, locale: req.locale });
     const created = [];
-    try {
-      for (const file of req.files || []) {
-        const name = originalName(file);
-        const ext = fileExt(name);
-        await verifyContent(file.path, ext);
-        const result = await query(
-          `INSERT INTO kb_items (folder_id, kind, title, file_name, file_original, file_mime, file_size, file_ext,
-             created_by, updated_by)
-           VALUES ($1, 'file', $2, $3, $4, $5, $6, $7, $8, $8) RETURNING *`,
-          [folderId, name.replace(/\.[^.]+$/, '').slice(0, 200) || name, file.filename, name, file.mimetype, file.size, ext, req.kb.userId]
-        );
-        created.push(itemShape(result.rows[0], LEVEL.edit));
-      }
-    } catch (err) {
-      await Promise.all((req.files || []).map((file) => unlink(file.path).catch(() => {})));
-      throw err;
+    for (const node of nodes) {
+      const result = await query(
+        `INSERT INTO kb_items (folder_id, kind, title, file_node_id, file_original, file_mime, file_size, file_ext, created_by, updated_by)
+         VALUES ($1, 'file', $2, $3, $4, $5, $6, $7, $8, $8) RETURNING *`,
+        [folderId, node.name.replace(/\.[^.]+$/, '').slice(0, 200) || node.name, node.id, node.name, node.mime, node.size, node.ext, req.kb.userId]
+      );
+      created.push(itemShape(result.rows[0], LEVEL.edit));
     }
     res.status(201).json({ success: true, items: created });
+  }));
+
+  // Existing files from Files become materials of this folder.
+  router.post('/folders/:id/from-files', wrap(async (req, res) => {
+    const folderId = id(req.params.id);
+    const access = await loadAccess(req.kb);
+    requireLevel(access.folderLevel(folderId), LEVEL.edit, 'this folder');
+    const rows = await addFromFiles(req.kb, folderId, req.body?.nodeIds);
+    res.status(201).json({ success: true, items: rows.map((row) => itemShape(row, LEVEL.edit)) });
   }));
 
   // Items
@@ -164,14 +153,26 @@ export function privateRoutes() {
     const row = await loadItemRow(id(req.params.id));
     const access = await loadAccess(req.kb);
     requireLevel(access.itemLevel(row), LEVEL.view);
-    if (row.kind !== 'file') throw httpError(404, 'Not found', 'NOT_FOUND');
-    await sendStoredFile(req, res, row, { download: req.query.download === '1' });
+    await sendItemFile(res, row, req.query.download === '1');
   }));
   router.get('/items/:id/preview.pdf', wrap(async (req, res) => {
     const row = await loadItemRow(id(req.params.id));
     const access = await loadAccess(req.kb);
     requireLevel(access.itemLevel(row), LEVEL.view);
-    sendPreview(res, await previewPdf(row), row.title);
+    await sendItemPreview(res, row);
+  }));
+  // Files embedded in / attached to an article.
+  router.get('/items/:id/attachments/:nodeId', wrap(async (req, res) => {
+    const row = await loadItemRow(id(req.params.id));
+    const access = await loadAccess(req.kb);
+    requireLevel(access.itemLevel(row), LEVEL.view);
+    await sendAttachment(res, row.id, id(req.params.nodeId), req.query.download === '1');
+  }));
+  router.get('/items/:id/attachments/:nodeId/preview.pdf', wrap(async (req, res) => {
+    const row = await loadItemRow(id(req.params.id));
+    const access = await loadAccess(req.kb);
+    requireLevel(access.itemLevel(row), LEVEL.view);
+    await sendAttachmentPreview(res, row.id, id(req.params.nodeId));
   }));
 
   // Access
@@ -322,22 +323,42 @@ export function publicRoutes() {
   router.get('/:slug/items/:id', wrap(async (req, res) => {
     const share = await resolveShare(req.params.slug, tokenOf(req));
     const row = await sharedItem(share, id(req.params.id));
-    res.json({ success: true, item: { ...itemShape(row), content: row.kind === 'article' ? row.content || '' : undefined } });
+    res.json({
+      success: true,
+      item: {
+        ...itemShape(row),
+        content: row.kind === 'article' ? row.content || '' : undefined,
+        attachments: row.kind === 'article' ? await attachmentsOf(row.id) : [],
+      },
+    });
+  }));
+
+  router.get('/:slug/items/:id/attachments/:nodeId', wrap(async (req, res) => {
+    const share = await resolveShare(req.params.slug, tokenOf(req));
+    const row = await sharedItem(share, id(req.params.id));
+    const download = req.query.download === '1';
+    if (download && !share.allow_download) throw httpError(403, 'Downloads are disabled for this link', 'NO_DOWNLOAD');
+    await sendAttachment(res, row.id, id(req.params.nodeId), download);
+  }));
+
+  router.get('/:slug/items/:id/attachments/:nodeId/preview.pdf', wrap(async (req, res) => {
+    const share = await resolveShare(req.params.slug, tokenOf(req));
+    const row = await sharedItem(share, id(req.params.id));
+    await sendAttachmentPreview(res, row.id, id(req.params.nodeId));
   }));
 
   router.get('/:slug/items/:id/file', wrap(async (req, res) => {
     const share = await resolveShare(req.params.slug, tokenOf(req));
     const row = await sharedItem(share, id(req.params.id));
-    if (row.kind !== 'file') throw httpError(404, 'Not found', 'NOT_FOUND');
     const download = req.query.download === '1';
     if (download && !share.allow_download) throw httpError(403, 'Downloads are disabled for this link', 'NO_DOWNLOAD');
-    await sendStoredFile(req, res, row, { download });
+    await sendItemFile(res, row, download);
   }));
 
   router.get('/:slug/items/:id/preview.pdf', wrap(async (req, res) => {
     const share = await resolveShare(req.params.slug, tokenOf(req));
     const row = await sharedItem(share, id(req.params.id));
-    sendPreview(res, await previewPdf(row), row.title);
+    await sendItemPreview(res, row);
   }));
 
   return router;

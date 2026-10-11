@@ -14,7 +14,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const id = api.interceptors.response.use(undefined, (error) => {
       const url = error?.config?.url || '';
-      if (error?.response?.status === 401 && !url.startsWith('/auth/') && !url.startsWith('/setup/')) {
+      // Other 401s (a wrong link password, a file-server login) carry their own
+      // code and must not end the portal session.
+      const code = error?.response?.data?.code;
+      const sessionLost = !code || code === 'SESSION_REQUIRED';
+      if (error?.response?.status === 401 && sessionLost && !url.startsWith('/auth/') && !url.startsWith('/setup/')) {
         setUser(null);
       }
       return Promise.reject(error);

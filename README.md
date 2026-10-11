@@ -68,10 +68,16 @@ This repository is that work done once, properly:
 | **Security controls** | IP allow-list / block-list (IPv4/IPv6, IPv4 CIDR), guards against locking yourself out, last-admin protection, upload magic-byte checks, strict CSP. |
 | **Integrations** | Email (SMTP), Telegram bot, WhatsApp Gateway, [Wazzup](https://wazzup24.com) (WhatsApp, Telegram, Instagram, Avito), Mattermost (codes and security alerts), Google (sign-in, Calendar, Gmail), Active Directory, document conversion (Collabora / LibreOffice) — configuration, write-only secrets and *test connection*, off by default. |
 | **Modules** | App platform: `/apps` launcher, `/app/<id>` URLs, per-module switch and settings, a disabled module is invisible (UI and API). |
-| **Tasks** | Projects with keys (`HR-12`), own workflows, kanban board with drag & drop (mouse, touch, keyboard), list view, My tasks by deadline, checklists, comments with @mentions, watchers, history, deadline reminders. |
+| **Tasks** | Projects with keys (`HR-12`) or no project at all, roles (originator, assignee, co-assignees, auditors), a quick and a full form with a visual editor and optional blocks (results, checklists, files, subtasks, reminders, recurring, flows, time tracking…), a chat per task as discussion and event log, kanban board and list, My tasks by role. |
+| **Chat** | Direct, group and per-record conversations in real time: replies, mentions, reactions, files, read receipts, search, video-call links, web push to people not looking. |
+| **Public API** | REST API at `/api/v1` with tokens acting on behalf of a person: access templates, per-area levels, path rules, project/calendar/space limits, IP lists, expiry and rate limits; signed webhooks with retries; a request log with charts; a bilingual developer portal (`/developers`) with live console and OpenAPI 3.1. |
 | **Calendar** | Personal and shared calendars, month / week / day / agenda, recurring events in the event's time zone with per-occurrence exceptions, attendees with RSVP, reminders, task deadlines, live Google Calendar. |
 | **Notifications** | One notification center for every module: the bell, push on phones and computers, email (SMTP or Gmail), Telegram, Mattermost — per-user preferences, app-icon badge. |
 | **Installable app** | PWA: home-screen icon, full screen, push, offline screen, custom app icon; `/install` guide with illustrated steps for iPhone, Android and desktop. |
+| **Counterparties** | Companies and their people: country-specific details (KG, RU, KZ, UZ, BY…) filled by identifier from the Kyrgyz Ministry of Justice (with the PDF extract) or DaData / EGRUL for Russia, checks with the register field by field, careers that survive job changes, history of who changed what, ratings, documents, custom fields. |
+| **Online resources** | Company links as premium icon tiles, ready to be the home page: public ones for guests, employees or chosen users / groups / roles; drag & drop, hide and restore, remembered per person (server) or per browser (guests); 1,850 icons, 3,400 brand logos or your own PNG/SVG with a dark-theme variant; new tab or same window. **Home page** can be the landing, online resources or any module. |
+| **File server (Drive)** | Company Windows file servers (SMB 2/3) as one network drive with your own name (e.g. *iSmarty Drive*): folders from many servers like a DFS namespace, rights from NTFS and AD security groups, sign-in with the AD account, viewers for PDF, Office, images, SVG, Markdown (editable) and AutoCAD DWG/DXF, upload, move, ZIP, search; public links that stop working when the author leaves or loses access. |
+| **Files** | My files, Shared with me and team spaces; share with users and groups (view / edit); public links `/l/<token>` with password, expiry and download control; trash, search, quotas, the same viewers as the Knowledge Base. The Knowledge Base stores its files here and embeds or attaches them in articles. |
 | **Knowledge Base** | Folder hierarchy with icons and colours, articles (Markdown), links and files; access per base / folder / material for users, groups and roles; public links `/s/<slug>` with custom address, password, expiry and download control; premium PDF and image viewers; Word, Excel and PowerPoint in the browser (with Collabora / LibreOffice conversion). |
 | **Operations** | Single production container (nginx + Node), hot-reload dev stack, `/health` and `/ready`, Makefile for every routine task, semver `VERSION` baked into the image. |
 
@@ -321,10 +327,17 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Adapting a fork](docs/adapt.md) | Renaming, branding and what not to rewrite |
 | [Access control & sign-in](docs/access-control.md) | Roles, groups, permissions, safety rules, sign-in methods and their setup |
 | [Modules](docs/modules.md) | The app platform: `/apps`, `/app/<id>`, enabling modules, writing a new one |
-| [Tasks](docs/tasks.md) | Projects, workflow, board, access, reminders, API |
+| [Tasks](docs/tasks.md) | Projects, roles, quick and full forms, blocks, task chat, templates and recurring tasks, flows, API |
+| [Chat](docs/chat.md) | Direct, group and record conversations, real time, push, adapters for modules, API |
+| [Public API](docs/public-api.md) | Tokens, access templates, rules and limits, webhooks, request log, developer portal, OpenAPI |
 | [Calendar](docs/calendar.md) | Calendars, recurrence, attendees, reminders, Google Calendar, API |
 | [Notifications](docs/notifications.md) | Notification center, channels, Web Push, scheduler, sealed secrets |
 | [Installable app (PWA)](docs/pwa.md) | Manifest, service worker, icons, install guide, deployment notes |
+| [Counterparties](docs/companies.md) | Companies, contacts, registers (Minjust KG, DaData, EGRUL), careers, history, ratings, API |
+| [Dashboard](docs/dashboard.md) | Personal widgets over the modules: catalog, customization, starting layout, API |
+| [Online resources](docs/resources.md) | Home page board, visibility, personal layouts, icons, API |
+| [File server (Drive)](docs/drive.md) | SMB file servers, sign-in, viewers, public links, security, operations, API |
+| [Files](docs/files.md) | My files, spaces, sharing, public links, Knowledge Base integration, API |
 | [Knowledge Base](docs/knowledge-base.md) | Folders, access levels, public links, viewers, storage, API |
 | [Integrations](docs/integrations.md) | Email, Telegram, WhatsApp Gateway, Wazzup, Mattermost, Google, document conversion and Active Directory setup |
 | [Configuration](docs/configuration.md) | Environment variables and stored settings |

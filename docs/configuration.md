@@ -28,7 +28,8 @@ Created by `make env` from `.env.example`. **Never commit it.**
 | `ENCRYPTION_KEY` | derived from `JWT_SECRET` | Key for sealed secrets (Google tokens, VAPID private key) |
 | `DISABLE_SCHEDULER` | `false` | `true` stops background jobs (reminders) on this instance |
 | `PUSH_CONTACT` | — | Contact email for VAPID when `PUBLIC_URL` is not HTTPS |
-| `UPLOAD_DIR` | `/app/uploads` | Avatars, logos and Knowledge Base files (`kb/`, previews in `kb/.previews/`) |
+| `SMBGATE_PYTHON`, `SMBGATE_IDLE`, `SMBGATE_MAX_AGE`, `SMBGATE_DC`, `DWG2DXF` | see [Drive](drive.md#operations) | SMB gateway and DWG conversion for the file server module |
+| `UPLOAD_DIR` | `/app/uploads` | Avatars, logos, [Files](files.md) blobs (`files/`, legacy Knowledge Base files in `kb/`) and Office previews (`.previews/`) |
 | `VITE_API_URL` | `http://localhost:3021` | Dev compose only |
 | `WAZZUP_API_URL` | `https://api.wazzup24.com/v3` | Override for tests or an egress proxy |
 
@@ -40,6 +41,11 @@ Edited in **Admin → Settings**. Reads are cached for 5 seconds and the cache i
 |-----|---------|
 | `app_name` / `app_description` | Branding |
 | `access_mode` | `open` / `closed` |
+| `default_locale` | `auto` (browser), `ru` or `en`: language for guests and people who have not chosen one; also used for their emails and notifications. Set from the installer's language at setup |
+| `users_locale_cleared` | One-time marker: the old implicit `en` of every user became "as the portal" |
+| `default_locale` | `auto` (browser), `ru` or `en`: language for guests and people who have not chosen one; also used for their emails and notifications. Set from the installer's language at setup |
+| `users_locale_cleared` | One-time marker: the old implicit `en` of every user became "as the portal" |
+| `home_page` | `landing` or a module id (`resources`, `files`, `kb`, `tasks`, `calendar`, `drive`): what `/` shows |
 | `appearance` | Template, custom colors, default theme, typography, icons, `logoUrl`, `logoDarkUrl`, `logoHeight` (20–64 px), `appIconUrl` (PWA icon), `shortName` (name under the icon) |
 | `integrations` | Email, Telegram, WhatsApp Gateway, Wazzup, Mattermost, document conversion, AD (secrets masked in API). Groups added in newer versions are merged in from defaults automatically |
 | `security` | Allow/block lists, lockout, session length |
@@ -47,7 +53,9 @@ Edited in **Admin → Settings**. Reads are cached for 5 seconds and the cache i
 | `modules` | `{ <id>: { enabled, settings } }` per module — see [modules.md](modules.md) and [knowledge-base.md](knowledge-base.md#module-settings-admin--settings--modules--knowledge-base) |
 | `webpush` | VAPID keys (private key sealed), generated on first use |
 | `tasks_seeded`, `kb_seeded` | One-time starter content markers |
-| `rate_limit_*` | Express limiter window and max (Knowledge Base file and preview downloads are exempt, so galleries and PDFs do not burn the budget) |
+| `companies_dadata_key` | DaData API key of the Counterparties module (sealed) |
+| `kb_files_migrated` | Knowledge Base files were moved into the Files module (one-time) |
+| `rate_limit_window_ms`, `rate_limit_max`, `rate_limit_user_max` | General `/api` limiter: window (15 min), guests per IP (300), signed-in people per account (5000) — an office behind one NAT address never shares a budget. Not counted: sign-in routes (they have their own brute-force limiters), page-load reads (`/settings`, `/setup/status`, `/apps`, `/notifications/unread`) and file/preview/thumbnail streams |
 
 Security JSON is sanitized on write: lockout 5–180 minutes, attempts 3–30, session 1–90 days. Omitted flags keep their stored value. The rate limit is clamped to 20–100 000 requests and a 1–1440 minute window.
 

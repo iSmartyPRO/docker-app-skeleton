@@ -10,10 +10,10 @@ import { tasksApi } from '../api';
 import { atLeast, useTasks } from '../TasksContext';
 import Board from '../components/Board';
 import TaskList from '../components/TaskList';
-import TaskDrawer, { forgetProjectMeta } from '../components/TaskDrawer';
+import { useTaskEditor } from '../components/editor/EditorContext';
+import { CreateButton } from '../components/editor/QuickTask';
 import ProjectDialog from '../components/ProjectDialog';
 import StatusesDialog from '../components/StatusesDialog';
-import NewTaskDialog from '../components/NewTaskDialog';
 import { priorityOptions } from '../components/bits';
 
 function useStoredView(key, fallback) {
@@ -53,6 +53,7 @@ export default function ProjectPage({ projectKey, taskRef }) {
   const [label, setLabel] = useState();
   const [showDone, setShowDone] = useState(true);
   const [dialog, setDialog] = useState(null);
+  const editor = useTaskEditor();
 
   const loadTasks = useCallback(async () => {
     const res = await tasksApi.tasks({ project: projectKey });
@@ -60,7 +61,6 @@ export default function ProjectPage({ projectKey, taskRef }) {
   }, [projectKey]);
 
   const loadMeta = useCallback(async () => {
-    forgetProjectMeta(projectKey);
     const res = await tasksApi.project(projectKey);
     setMeta(res.data);
   }, [projectKey]);
@@ -71,6 +71,21 @@ export default function ProjectPage({ projectKey, taskRef }) {
     setError(null);
     Promise.all([loadMeta(), loadTasks()]).catch(setError);
   }, [loadMeta, loadTasks]);
+
+  // Lists follow changes made in the task forms.
+  useEffect(() => {
+    if (editor.version) {
+      loadTasks().catch(() => {});
+      refreshProjects();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor.version]);
+
+  // /app/tasks/KEY-12 opens the task's card over the board.
+  useEffect(() => {
+    if (taskRef) editor.openTask(taskRef, () => navigate(`/app/tasks/${projectKey}`, { replace: true }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskRef]);
 
   const filtered = useMemo(() => {
     if (!tasks) return [];
@@ -184,9 +199,11 @@ export default function ProjectPage({ projectKey, taskRef }) {
             </Dropdown>
           )}
           {canEdit && !project.archived && (
-            <Button type="primary" onClick={() => setDialog('new')}>
-              + {t('tasks.task')}
-            </Button>
+            <CreateButton
+              onQuick={() => editor.openQuick({ projectId: project.id })}
+              onFull={() => editor.openFull({ projectId: project.id })}
+              onTemplate={(draft) => editor.openFull({ ...draft, projectId: draft.projectId || project.id })}
+            />
           )}
         </div>
       </header>
@@ -229,39 +246,15 @@ export default function ProjectPage({ projectKey, taskRef }) {
         <Board
           statuses={statuses}
           tasks={filtered}
-          onOpen={(task) => navigate(`/app/tasks/${task.ref}`)}
+          onOpen={(task) => editor.openTask(task.ref)}
           onMove={onMove}
           canEdit={canEditTask}
           onQuickCreate={canEdit && !project.archived ? quickCreate : null}
         />
       ) : (
-        <TaskList groups={listGroups} onOpen={(task) => navigate(`/app/tasks/${task.ref}`)} onToggle={toggleDone} canEdit={canEditTask} />
+        <TaskList groups={listGroups} onOpen={(task) => editor.openTask(task.ref)} onToggle={toggleDone} canEdit={canEditTask} />
       )}
 
-      <TaskDrawer
-        taskRef={taskRef}
-        open={Boolean(taskRef)}
-        onClose={() => navigate(`/app/tasks/${project.key}`)}
-        onChanged={() => {
-          loadTasks();
-          refreshProjects();
-        }}
-        onDeleted={() => {
-          loadTasks();
-          refreshProjects();
-        }}
-      />
-      <NewTaskDialog
-        open={dialog === 'new'}
-        projectKey={project.key}
-        onClose={(task) => {
-          setDialog(null);
-          if (task) {
-            loadTasks();
-            refreshProjects();
-          }
-        }}
-      />
       <ProjectDialog
         open={dialog === 'edit'}
         project={project}

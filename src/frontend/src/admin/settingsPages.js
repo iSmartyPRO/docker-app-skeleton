@@ -26,6 +26,12 @@ export const SETTINGS_PAGES = {
   kb: lazy(() => import('../modules/kb/KbSettings')),
   documents: Integration,
   google: lazy(() => import('../pages/admin/settings/GoogleSettings')),
+  dashboard: lazy(() => import('../modules/dashboard/DashboardSettings')),
+  chat: lazy(() => import('../modules/chat/ChatSettings')),
+  files: lazy(() => import('../modules/files/FilesSettings')),
+  drive: lazy(() => import('../modules/drive/DriveSettings')),
+  resources: lazy(() => import('../modules/resources/ResourcesSettings')),
+  companies: lazy(() => import('../modules/companies/CompaniesSettings')),
   tasks: lazy(() => import('../modules/tasks/TasksSettings')),
   calendar: lazy(() => import('../modules/calendar/CalendarSettings')),
 };

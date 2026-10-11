@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { App, Button, Form, Input, InputNumber, Slider, Upload } from 'antd';
+import { App, Button, Form, Input, InputNumber, Segmented, Slider, Upload } from 'antd';
 import SaveBar from '../../../components/ui/SaveBar';
 import LoadState from '../../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../../components/ui/SettingsSection';
@@ -136,12 +136,15 @@ function GeneralForm({ settings, appearance, save }) {
       appDescription: settings.appDescription || '',
       logoHeight: Number(appearance.logoHeight) || 32,
       shortName: appearance.shortName || '',
+      defaultLocale: settings.defaultLocale || 'auto',
     }),
-    [settings.appName, settings.appDescription, appearance.logoHeight, appearance.shortName]
+    [settings.appName, settings.appDescription, appearance.logoHeight, appearance.shortName, settings.defaultLocale]
   );
-  const { form, dirty, saving, submit, reset, formProps } = useSettingsForm(initial, ({ logoHeight, shortName, ...rest }) =>
-    save({ ...rest, appearance: { logoHeight, shortName } })
-  );
+  const { form, dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async ({ logoHeight, shortName, ...rest }) => {
+    await save({ ...rest, appearance: { logoHeight, shortName } });
+    // The default language applies to this tab at once.
+    refreshPublic();
+  });
   const height = Form.useWatch('logoHeight', form) || initial.logoHeight;
 
   return (
@@ -155,6 +158,17 @@ function GeneralForm({ settings, appearance, save }) {
         <SettingRow label={t('admin.appDescription')} stacked>
           <Form.Item name="appDescription" rules={[{ max: 400 }]} noStyle>
             <Input.TextArea rows={3} maxLength={400} showCount />
+          </Form.Item>
+        </SettingRow>
+        <SettingRow label={t('settings.general.language')} description={t('settings.general.languageDesc')}>
+          <Form.Item name="defaultLocale" noStyle>
+            <Segmented
+              options={[
+                { value: 'ru', label: 'Русский' },
+                { value: 'en', label: 'English' },
+                { value: 'auto', label: t('settings.general.languageAuto') },
+              ]}
+            />
           </Form.Item>
         </SettingRow>
       </SettingsSection>

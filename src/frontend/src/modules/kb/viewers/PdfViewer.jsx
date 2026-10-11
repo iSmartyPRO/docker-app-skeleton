@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, InputNumber, Select, Spin, Tooltip } from 'antd';
+import { Button, InputNumber, Segmented, Select, Spin, Tooltip } from 'antd';
 // The legacy build bundles polyfills (Uint8Array#toHex, Promise.withResolvers…)
 // so documents open in browsers that are a few versions behind as well.
 import { GlobalWorkerOptions, TextLayer, getDocument } from 'pdfjs-dist/legacy/build/pdf.min.mjs';
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { useLocale } from '../../../context/LocaleContext';
+import PdfSlides, { Thumb } from './PdfSlides';
 import './pdf-text-layer.css';
 
-GlobalWorkerOptions.workerSrc = workerUrl;
+// The query busts browser caches that kept the worker from when it was served
+// with a wrong MIME type (the file name alone is content-hashed and unchanged).
+GlobalWorkerOptions.workerSrc = `${workerUrl}?m=1`;
 
 const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
 const GAP = 16;
@@ -68,44 +71,10 @@ function PdfPage({ doc, number, scale, size, registerRef, visible }) {
   );
 }
 
-function Thumb({ doc, number, active, onClick }) {
-  const ref = useRef(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const node = ref.current;
-    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && setVisible(true), { rootMargin: '300px' });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-  useEffect(() => {
-    if (!visible) return undefined;
-    let cancelled = false;
-    (async () => {
-      const page = await doc.getPage(number);
-      const viewport = page.getViewport({ scale: 0.25 });
-      const canvas = ref.current.querySelector('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      if (!cancelled) await page.render({ canvas, canvasContext: canvas.getContext('2d'), viewport }).promise;
-    })().catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [doc, number, visible]);
-  useEffect(() => {
-    if (active) ref.current?.scrollIntoView({ block: 'nearest' });
-  }, [active]);
-  return (
-    <button type="button" ref={ref} className={`pdfv-thumb${active ? ' is-active' : ''}`} onClick={onClick}>
-      <canvas />
-      <span>{number}</span>
-    </button>
-  );
-}
-
 /**
  * PDF viewer on pdf.js: lazy page rendering, selectable text, thumbnails,
- * fit-to-width / fit-to-page zoom, page jump, keyboard and full screen.
+ * fit-to-width / fit-to-page zoom, page jump, keyboard and full screen —
+ * plus slides (one page at a time) and a full-screen presentation.
  */
 export default function PdfViewer({ url, downloadUrl, title }) {
   const { t } = useLocale();
@@ -122,6 +91,10 @@ export default function PdfViewer({ url, downloadUrl, title }) {
   const [current, setCurrent] = useState(1);
   const [visible, setVisible] = useState(() => new Set([1, 2]));
   const [thumbs, setThumbs] = useState(() => window.innerWidth > 900);
+  // 'scroll' (all pages) or 'slides'; landscape documents (decks) start as slides.
+  const [mode, setMode] = useState(null);
+  const [presenting, setPresenting] = useState(false);
+  const slidesView = mode === 'slides' || presenting;
 
   useEffect(() => {
     let destroyed = false;
@@ -146,6 +119,7 @@ export default function PdfViewer({ url, downloadUrl, title }) {
         }
         if (!destroyed) {
           setSizes(list);
+          setMode((value) => value || (list.length > 1 && list.every((size) => size.width > size.height * 1.1) ? 'slides' : 'scroll'));
           setDoc(pdf);
         }
       })
@@ -165,7 +139,7 @@ export default function PdfViewer({ url, downloadUrl, title }) {
     });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [doc]);
+  }, [doc, slidesView]);
 
   const scale = useMemo(() => {
     const first = sizes[0];
@@ -208,11 +182,20 @@ export default function PdfViewer({ url, downloadUrl, title }) {
       near.disconnect();
       middle.disconnect();
     };
-  }, [doc, scale]);
+  }, [doc, scale, slidesView]);
+
+  // Back from slides to pages: show the page the slides ended on.
+  useEffect(() => {
+    if (!doc || slidesView) return;
+    setVisible((prev) => (prev.has(current) ? prev : new Set([...prev, current])));
+    requestAnimationFrame(() => pageRefs.current.get(current)?.scrollIntoView({ block: 'start' }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slidesView, doc]);
 
   const goTo = (number) => {
     const target = Math.min(Math.max(1, number), sizes.length);
-    pageRefs.current.get(target)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (slidesView) setCurrent(target);
+    else pageRefs.current.get(target)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
 
   const step = (direction) => {
@@ -223,7 +206,7 @@ export default function PdfViewer({ url, downloadUrl, title }) {
 
   useEffect(() => {
     const onKey = (event) => {
-      if (event.target.closest?.('input, textarea')) return;
+      if (slidesView || event.target.closest?.('input, textarea')) return;
       if ((event.ctrlKey || event.metaKey) && (event.key === '=' || event.key === '+')) {
         event.preventDefault();
         step(1);
@@ -255,74 +238,118 @@ export default function PdfViewer({ url, downloadUrl, title }) {
   return (
     <div className="pdfv" ref={shellRef}>
       <div className="pdfv-bar">
-        <Tooltip title={t('kb.viewer.thumbnails')}>
-          <Button type="text" onClick={() => setThumbs((value) => !value)} className={thumbs ? 'is-on' : ''}>☰</Button>
-        </Tooltip>
-        <span className="pdfv-bar__sep" />
+        {!slidesView && (
+          <>
+            <Tooltip title={t('kb.viewer.thumbnails')}>
+              <Button type="text" onClick={() => setThumbs((value) => !value)} className={thumbs ? 'is-on' : ''}>☰</Button>
+            </Tooltip>
+            <span className="pdfv-bar__sep" />
+          </>
+        )}
         <Button type="text" onClick={() => goTo(current - 1)} disabled={current <= 1}>‹</Button>
         <span className="pdfv-bar__page">
           <InputNumber size="small" min={1} max={sizes.length || 1} value={current} onChange={(value) => value && goTo(value)} controls={false} />
           <span>/ {sizes.length || '…'}</span>
         </span>
         <Button type="text" onClick={() => goTo(current + 1)} disabled={current >= sizes.length}>›</Button>
-        <span className="pdfv-bar__sep" />
-        <Button type="text" onClick={() => step(-1)}>−</Button>
-        <Select
-          size="small"
-          variant="borderless"
-          value={zoom}
-          onChange={setZoom}
-          popupMatchSelectWidth={false}
-          className="pdfv-bar__zoom"
-          options={[
-            { value: 'width', label: t('kb.viewer.fitWidth') },
-            { value: 'page', label: t('kb.viewer.fitPage') },
-            ...ZOOMS.map((value) => ({ value, label: `${Math.round(value * 100)}%` })),
-          ]}
-          labelRender={() => `${Math.round(scale * 100)}%`}
-        />
-        <Button type="text" onClick={() => step(1)}>+</Button>
+        {!slidesView && (
+          <>
+            <span className="pdfv-bar__sep" />
+            <Button type="text" onClick={() => step(-1)}>−</Button>
+            <Select
+              size="small"
+              variant="borderless"
+              value={zoom}
+              onChange={setZoom}
+              popupMatchSelectWidth={false}
+              className="pdfv-bar__zoom"
+              options={[
+                { value: 'width', label: t('kb.viewer.fitWidth') },
+                { value: 'page', label: t('kb.viewer.fitPage') },
+                ...ZOOMS.map((value) => ({ value, label: `${Math.round(value * 100)}%` })),
+              ]}
+              labelRender={() => `${Math.round(scale * 100)}%`}
+            />
+            <Button type="text" onClick={() => step(1)}>+</Button>
+          </>
+        )}
         <span className="pdfv-bar__grow" title={title} />
-        <Tooltip title={t('kb.viewer.fullscreen')}>
-          <Button type="text" onClick={fullscreen}>⤢</Button>
-        </Tooltip>
+        {sizes.length > 1 && (
+          <Segmented
+            size="small"
+            className="pdfv-bar__mode"
+            value={mode || 'scroll'}
+            onChange={setMode}
+            options={[
+              { value: 'scroll', label: t('kb.viewer.viewScroll') },
+              { value: 'slides', label: t('kb.viewer.viewSlides') },
+            ]}
+          />
+        )}
+        {/* In slides the bar under the slide has its own, larger button. */}
+        {!slidesView && (
+          <Tooltip title={t('kb.viewer.presentHint')}>
+            <Button type="text" className="pdfv-bar__present" onClick={() => setPresenting(true)} disabled={!doc}>
+              ▶ <span>{t('kb.viewer.present')}</span>
+            </Button>
+          </Tooltip>
+        )}
+        {!slidesView && (
+          <Tooltip title={t('kb.viewer.fullscreen')}>
+            <Button type="text" onClick={fullscreen}>⤢</Button>
+          </Tooltip>
+        )}
         {downloadUrl && (
           <Tooltip title={t('kb.download')}>
             <Button type="text" href={downloadUrl}>⤓</Button>
           </Tooltip>
         )}
       </div>
-      <div className="pdfv-body">
-        {thumbs && doc && (
-          <div className="pdfv-thumbs">
-            {sizes.map((_, index) => (
-              <Thumb key={index + 1} doc={doc} number={index + 1} active={current === index + 1} onClick={() => goTo(index + 1)} />
-            ))}
-          </div>
-        )}
-        <div className="pdfv-scroll" ref={scrollRef}>
-          {!doc ? (
-            <div className="viewer-loading">
-              <Spin />
-              <span>{progress ? `${progress}%` : t('kb.viewer.loading')}</span>
-            </div>
-          ) : (
-            <div className="pdfv-pages" style={{ gap: GAP }}>
-              {sizes.map((size, index) => (
-                <PdfPage
-                  key={index + 1}
-                  doc={doc}
-                  number={index + 1}
-                  size={size}
-                  scale={scale}
-                  registerRef={registerRef}
-                  visible={visible.has(index + 1)}
-                />
+      {doc && slidesView ? (
+        <div className="pdfv-body">
+          <PdfSlides
+            doc={doc}
+            sizes={sizes}
+            page={current}
+            onPage={setCurrent}
+            presenting={presenting}
+            onPresent={() => setPresenting(true)}
+            onExit={() => setPresenting(false)}
+          />
+        </div>
+      ) : (
+        <div className="pdfv-body">
+          {thumbs && doc && (
+            <div className="pdfv-thumbs">
+              {sizes.map((_, index) => (
+                <Thumb key={index + 1} doc={doc} number={index + 1} active={current === index + 1} onClick={() => goTo(index + 1)} />
               ))}
             </div>
           )}
+          <div className="pdfv-scroll" ref={scrollRef}>
+            {!doc ? (
+              <div className="viewer-loading">
+                <Spin />
+                <span>{progress ? `${progress}%` : t('kb.viewer.loading')}</span>
+              </div>
+            ) : (
+              <div className="pdfv-pages" style={{ gap: GAP }}>
+                {sizes.map((size, index) => (
+                  <PdfPage
+                    key={index + 1}
+                    doc={doc}
+                    number={index + 1}
+                    size={size}
+                    scale={scale}
+                    registerRef={registerRef}
+                    visible={visible.has(index + 1)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

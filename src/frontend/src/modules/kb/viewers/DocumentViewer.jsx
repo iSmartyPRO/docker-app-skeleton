@@ -5,6 +5,8 @@ import { FileIcon } from '../components/Icons';
 import { formatSize, viewerFor } from '../fileTypes';
 import Markdown from './Markdown';
 
+const Attachments = lazy(() => import('../components/Attachments'));
+
 // Heavy renderers load only when a document of that type is opened.
 const PdfViewer = lazy(() => import('./PdfViewer'));
 const SheetViewer = lazy(() => import('./SheetViewer'));
@@ -52,9 +54,12 @@ export default function DocumentViewer({ item, src, conversion }) {
   switch (viewer) {
     case 'article':
       body = (
-        <article className="kb-article">
-          <Markdown text={item.content} />
-        </article>
+        <>
+          <article className="kb-article">
+            <Markdown text={item.content} fileUrl={src.attachment ? (nodeId) => src.attachment(item, nodeId) : undefined} />
+          </article>
+          {item.attachments?.length > 0 && <Attachments item={item} src={src} conversion={conversion} />}
+        </>
       );
       break;
     case 'link':

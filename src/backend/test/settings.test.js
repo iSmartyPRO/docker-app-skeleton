@@ -86,3 +86,13 @@ test('Mattermost base URL and usernames', async () => {
   assert.equal(normalizeMattermost('@Ivan.Petrov'), 'ivan.petrov');
   assert.throws(() => normalizeMattermost('1bad'), /not valid/);
 });
+
+test('rate limits: guests per IP, signed-in people per account', async () => {
+  const { sanitizeRateLimit } = await import('../services/settings.js');
+  const current = { windowMs: 900000, max: 300, userMax: 5000 };
+  assert.deepEqual(sanitizeRateLimit(current, {}), current);
+  const next = sanitizeRateLimit(current, { max: 5, userMax: 10, windowMs: 1 });
+  assert.equal(next.max, 20, 'guest cap has a floor');
+  assert.equal(next.userMax, 200, 'per-person cap has a floor so nobody locks the admin console');
+  assert.equal(next.windowMs, 60000);
+});

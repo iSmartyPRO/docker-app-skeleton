@@ -3,14 +3,15 @@ import { basename, join } from 'path';
 import { query } from '../config/database.js';
 import { logoDir } from '../config/paths.js';
 import { APP_VERSION } from '../config/version.js';
-import { resolveModules, sanitizeModules } from '../modules/catalog.js';
+import { MODULE_IDS, resolveModules, sanitizeModules } from '../modules/catalog.js';
 
 export const DEFAULTS = {
   app_name: 'docker-app-skeleton',
   app_version: APP_VERSION,
   app_description: 'Premium application skeleton on React, Express and PostgreSQL',
   rate_limit_window_ms: '900000',
-  rate_limit_max: '100',
+  rate_limit_max: '300',
+  rate_limit_user_max: '5000',
   access_mode: '',
   appearance: JSON.stringify({
     template: 'navy',
@@ -279,9 +280,14 @@ export function parseSettings(raw) {
     accessMode: raw.access_mode === 'open' || raw.access_mode === 'closed'
       ? raw.access_mode
       : '',
+    // What "/" shows: the built-in landing page or a module (e.g. online resources).
+    homePage: MODULE_IDS.includes(raw.home_page) ? raw.home_page : 'landing',
+    // Interface language for people who have not chosen one: 'auto' = the browser's language.
+    defaultLocale: ['ru', 'en'].includes(raw.default_locale) ? raw.default_locale : 'auto',
     rateLimit: {
       windowMs: Number(raw.rate_limit_window_ms) || Number(DEFAULTS.rate_limit_window_ms),
       max: Number(raw.rate_limit_max) || Number(DEFAULTS.rate_limit_max),
+      userMax: Number(raw.rate_limit_user_max) || Number(DEFAULTS.rate_limit_user_max),
     },
     appearance,
     integrations,
@@ -377,16 +383,32 @@ export function sanitizeAuth(current, incoming, readiness) {
   return next;
 }
 
+/**
+ * Language for server-made texts (emails, notifications, codes) to a person:
+ * their own choice, else the portal default, else English.
+ */
+export async function localeFor(user) {
+  if (user?.locale === 'ru' || user?.locale === 'en') return user.locale;
+  const fallback = parseSettings(await getSettings()).defaultLocale;
+  return fallback === 'ru' ? 'ru' : 'en';
+}
+
 export function toPublicSettings(parsed) {
   return {
     appName: parsed.appName,
     appVersion: parsed.appVersion,
     appDescription: parsed.appDescription,
     accessMode: parsed.accessMode || 'closed',
+    homePage: parsed.homePage,
+    defaultLocale: parsed.defaultLocale,
     appearance: parsed.appearance,
     // Only on/off — module system settings stay admin-only.
     modules: Object.fromEntries(
-      Object.entries(parsed.modules).map(([id, state]) => [id, { enabled: state.enabled }])
+      Object.entries(parsed.modules).map(([id, state]) => [
+        id,
+        // A module may carry a display name chosen by the administrator (e.g. "iSmarty Drive").
+        state.settings?.title ? { enabled: state.enabled, title: state.settings.title } : { enabled: state.enabled },
+      ])
     ),
     auth: (() => {
       const available = authAvailability(parsed);
@@ -458,7 +480,8 @@ export function sanitizeRateLimit(current, incoming) {
   const src = incoming && typeof incoming === 'object' ? incoming : {};
   return {
     windowMs: clampInt(src.windowMs ?? current.windowMs, 60_000, 24 * 60 * 60_000, 900_000),
-    max: clampInt(src.max ?? current.max, 20, 100_000, 100),
+    max: clampInt(src.max ?? current.max, 20, 100_000, 300),
+    userMax: clampInt(src.userMax ?? current.userMax, 200, 1_000_000, 5000),
   };
 }
 
@@ -523,6 +546,12 @@ export async function updateAdminSettings(patch) {
   if (patch.accessMode === 'open' || patch.accessMode === 'closed') {
     await setSetting('access_mode', patch.accessMode);
   }
+  if (['auto', 'ru', 'en'].includes(patch.defaultLocale)) {
+    await setSetting('default_locale', patch.defaultLocale);
+  }
+  if (patch.homePage === 'landing' || MODULE_IDS.includes(patch.homePage)) {
+    await setSetting('home_page', patch.homePage);
+  }
   if (patch.appearance) {
     const nextAppearance = {
       ...parsed.appearance,
@@ -585,6 +614,7 @@ export async function updateAdminSettings(patch) {
     const rateLimit = sanitizeRateLimit(parsed.rateLimit, patch.rateLimit);
     await setSetting('rate_limit_window_ms', rateLimit.windowMs);
     await setSetting('rate_limit_max', rateLimit.max);
+    await setSetting('rate_limit_user_max', rateLimit.userMax);
   }
 
   return toAdminSettings(parseSettings(await getSettings({ fresh: true })));

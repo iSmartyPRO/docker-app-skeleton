@@ -32,6 +32,17 @@ export async function ensureUsersTable() {
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(128)`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path TEXT`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS locale VARCHAR(8) DEFAULT 'en'`);
+  // NULL language = "as the portal": the default language from the settings.
+  // The old default 'en' was never a choice, so it is cleared once.
+  await query(`ALTER TABLE users ALTER COLUMN locale DROP DEFAULT`);
+  const settingsTable = await query(`SELECT to_regclass('app_settings') AS t`);
+  if (settingsTable.rows[0].t) {
+    const done = await query(`SELECT 1 FROM app_settings WHERE key = 'users_locale_cleared'`);
+    if (!done.rows.length) {
+      await query(`UPDATE users SET locale = NULL WHERE locale = 'en'`);
+      await query(`INSERT INTO app_settings (key, value) VALUES ('users_locale_cleared', 'true') ON CONFLICT (key) DO NOTHING`);
+    }
+  }
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(16) DEFAULT 'system'`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE`);
@@ -133,7 +144,8 @@ export function toPublicUser(user, access = EMPTY_ACCESS) {
     mattermost: user.mattermost || null,
     displayName: user.display_name || user.username,
     avatarUrl: avatarUrl(user.avatar_path),
-    locale: user.locale || 'en',
+    // null = follow the portal's default language
+    locale: user.locale || null,
     theme: user.theme || 'system',
     authSource: user.auth_source || 'local',
     hasPassword: Boolean(user.has_password),
@@ -377,7 +389,7 @@ export async function provisionExternalUser(client, { username, displayName, ema
   const result = await client.query(
     `INSERT INTO users (username, email, password_hash, role, display_name, auth_source, external_id,
                         telegram_id, telegram_username, email_trusted)
-     VALUES ($1, $2, $3, 'user', $4, $5, $6, $7, $8, $2 IS NOT NULL)
+     VALUES ($1, $2::varchar, $3, 'user', $4, $5, $6, $7, $8, $2::varchar IS NOT NULL)
      RETURNING ${USER_COLUMNS}`,
     [
       name,
@@ -464,6 +476,7 @@ export async function updateUser(id, patch, { actor = null } = {}) {
     if (patch.instagram !== undefined) add('instagram', normalizeInstagram(patch.instagram));
     if (patch.mattermost !== undefined) add('mattermost', normalizeMattermost(patch.mattermost));
     if (patch.locale === 'en' || patch.locale === 'ru') add('locale', patch.locale);
+    else if (patch.locale === null || patch.locale === '' || patch.locale === 'auto') add('locale', null);
     if (['light', 'dark', 'system'].includes(patch.theme)) add('theme', patch.theme);
 
     let revoke = false;

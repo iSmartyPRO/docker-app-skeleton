@@ -9,6 +9,7 @@ import {
   deleteCalendar,
   deleteEvent,
   deleteGoogleItem,
+  eventWebhook,
   forgetGoogleCalendars,
   getCalendarAccess,
   getEvent,
@@ -36,7 +37,7 @@ export function privateRoutes() {
     const google = await googleStatus(req.user.id);
     res.json({
       success: true,
-      calendars: await listCalendars(req.cal, req.user.locale),
+      calendars: await listCalendars(req.cal, req.locale),
       google: { available: google.calendarFeature, connected: google.connected, calendar: google.calendar, email: google.email },
       config: {
         canCreateCalendars: settings.calendarCreation !== 'admins' || req.cal.isAdmin,
@@ -88,18 +89,24 @@ export function privateRoutes() {
     });
   }));
   router.post('/events', wrap(async (req, res) => {
-    res.status(201).json({ success: true, event: await createEvent(req.cal, req.body || {}) });
+    const event = await createEvent(req.cal, req.body || {});
+    res.status(201).json({ success: true, event });
+    eventWebhook('calendar.event.created', event, req.user.id);
   }));
   router.get('/events/:id', wrap(async (req, res) => {
     res.json({ success: true, event: await getEvent(req.cal, intId(req.params.id), req.query.occurrence) });
   }));
   router.put('/events/:id', wrap(async (req, res) => {
     const { scope, occurrence, ...body } = req.body || {};
-    res.json({ success: true, event: await updateEvent(req.cal, intId(req.params.id), body, { scope, occurrence }) });
+    const event = await updateEvent(req.cal, intId(req.params.id), body, { scope, occurrence });
+    res.json({ success: true, event });
+    eventWebhook('calendar.event.updated', event, req.user.id);
   }));
   router.delete('/events/:id', wrap(async (req, res) => {
+    const before = await getEvent(req.cal, intId(req.params.id)).catch(() => null);
     await deleteEvent(req.cal, intId(req.params.id), { scope: req.query.scope, occurrence: req.query.occurrence });
     res.json({ success: true });
+    eventWebhook('calendar.event.deleted', before && { ...before, deletedScope: req.query.scope === 'single' ? 'single' : 'all', deletedOccurrence: req.query.occurrence || null }, req.user.id);
   }));
   router.put('/events/:id/rsvp', wrap(async (req, res) => {
     res.json({ success: true, event: await respond(req.cal, intId(req.params.id), req.body?.status) });

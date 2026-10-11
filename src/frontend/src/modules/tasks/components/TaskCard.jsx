@@ -25,7 +25,10 @@ const TaskCard = forwardRef(function TaskCard({ task, onOpen, dragging, overlay,
         </span>
         <PriorityIcon value={task.priority} />
       </div>
-      <div className="task-card__title">{task.title}</div>
+      <div className="task-card__title">
+        {task.important && <span className="task-flame">🔥</span>}
+        {task.title}
+      </div>
       {task.labels.length > 0 && (
         <div className="task-card__labels">
           {task.labels.slice(0, 3).map((label) => (

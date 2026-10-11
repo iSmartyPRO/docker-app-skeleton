@@ -24,12 +24,22 @@ export function httpError(statusCode, message, code) {
 
 export function contextFromRequest(req, adminPermission) {
   const access = req.access || {};
+  // An API token may be narrowed to some resources (see api/scopes.js);
+  // a narrowed token never gets the module administrator's bypass.
+  const limits = req.apiLimits || null;
   return {
     userId: req.user?.id || null,
     groupIds: new Set(access.groupIds || []),
     roleIds: new Set((access.roles || []).map((role) => role.id)),
-    isAdmin: hasPermission(access.permissions || [], adminPermission),
+    isAdmin: hasPermission(access.permissions || [], adminPermission) && !limits,
+    limits,
   };
+}
+
+/** False when the context is narrowed to resources of `table` and `id` is not one of them. */
+export function withinLimits(ctx, table, id) {
+  const allowed = ctx?.limits?.[table];
+  return !allowed || allowed.has(Number(id));
 }
 
 export function matches(entry, ctx) {
@@ -71,12 +81,13 @@ export async function levelMap(table, ctx) {
     levels.set(entry.resource_id, Math.max(levels.get(entry.resource_id) || 0, entry.level));
   }
   return {
-    of: (id) => (ctx.isAdmin ? LEVEL.manage : levels.get(id) || 0),
-    visibleIds: () => [...levels.entries()].filter(([, level]) => level >= LEVEL.view).map(([id]) => id),
+    of: (id) => (!withinLimits(ctx, table, id) ? 0 : ctx.isAdmin ? LEVEL.manage : levels.get(id) || 0),
+    visibleIds: () => [...levels.entries()].filter(([id, level]) => level >= LEVEL.view && withinLimits(ctx, table, id)).map(([id]) => id),
   };
 }
 
 export async function levelOn(table, resourceId, ctx) {
+  if (!withinLimits(ctx, table, resourceId)) return 0;
   if (ctx.isAdmin) return LEVEL.manage;
   const { rows } = await query(`SELECT subject_type, subject_id, level FROM ${table} WHERE resource_id = $1`, [resourceId]);
   return rows.reduce((max, entry) => (matches(entry, ctx) ? Math.max(max, entry.level) : max), 0);

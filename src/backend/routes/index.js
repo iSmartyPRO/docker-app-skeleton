@@ -8,13 +8,18 @@ import accountRoutes from './account.routes.js';
 import notificationRoutes from './notifications.routes.js';
 import pwaRoutes from './pwa.routes.js';
 import { moduleRouter } from '../modules/index.js';
+import { accountApiRoutes, adminApiRoutes, developerRoutes } from '../api/routes.js';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/setup', setupRoutes);
+// API console and personal tokens sit before their parents' guards.
+router.use('/admin/api', adminApiRoutes());
 router.use('/admin', adminRoutes);
+router.use('/account/api', accountApiRoutes());
 router.use('/account', accountRoutes);
+router.use('/developer', developerRoutes());
 router.use('/notifications', notificationRoutes);
 router.use('/pwa', pwaRoutes);
 // Modules: /api/apps, /api/app/<id>/…, public prefixes such as /api/s/<slug>

@@ -16,6 +16,8 @@ import MoveDialog from '../components/MoveDialog';
 import UploadPanel from '../components/UploadPanel';
 import { ImageViewer } from '../viewers/DocumentViewer';
 import { useItemActions } from './useItemActions';
+import { useSettings } from '../../../context/SettingsContext';
+import { FilePicker } from '../../files/components/dialogs';
 
 const VIEW_KEY = 'kb_view';
 
@@ -45,6 +47,8 @@ export default function KbFolder() {
   const { message, modal } = App.useApp();
   const navigate = useNavigate();
   const { config, refreshTree } = useKb();
+  const { settings } = useSettings();
+  const filesOn = Boolean(settings?.modules?.files?.enabled);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [view, setView] = useView();
@@ -92,16 +96,20 @@ export default function KbFolder() {
       error: file.size > max ? t('kb.upload.tooLarge', { mb: config.maxUploadMb }) : null,
     }));
     setUploads((list) => [...list, ...batch]);
+    let stored = 0;
     for (const entry of batch.filter((item) => item.status === 'uploading')) {
       try {
         await kbApi.upload(folderId, [entry.file], (progress) =>
           setUploads((list) => list.map((row) => (row.key === entry.key ? { ...row, progress } : row)))
         );
         setUploads((list) => list.map((row) => (row.key === entry.key ? { ...row, progress: 1, status: 'done' } : row)));
+        stored += 1;
       } catch (err) {
         setUploads((list) => list.map((row) => (row.key === entry.key ? { ...row, status: 'error', error: errorMessage(err) } : row)));
       }
     }
+    // Uploads live in Files: say where to find them.
+    if (stored) message.info(t('kb.storedInFiles'), 5);
     changed();
   };
 
@@ -179,6 +187,7 @@ export default function KbFolder() {
   const createMenu = [
     { key: 'folder', label: t('kb.newFolder'), onClick: () => setDialog({ type: 'folder', parentId: folder.id }) },
     { key: 'upload', label: t('kb.uploadFiles'), onClick: () => fileInput.current?.click() },
+    ...(filesOn ? [{ key: 'files', label: t('kb.fromFiles'), onClick: () => setDialog({ type: 'files' }) }] : []),
     { key: 'article', label: t('kb.newArticle'), onClick: () => setDialog({ type: 'item', kind: 'article' }) },
     { key: 'link', label: t('kb.newLink'), onClick: () => setDialog({ type: 'item', kind: 'link' }) },
   ];
@@ -309,6 +318,23 @@ export default function KbFolder() {
           }}
         />
       )}
+      <FilePicker
+        open={dialog?.type === 'files'}
+        title={t('kb.fromFiles')}
+        okText={t('kb.addToFolder')}
+        onClose={() => setDialog(null)}
+        onPick={async (nodes) => {
+          try {
+            await kbApi.fromFiles(folder.id, nodes.map((node) => node.id));
+            message.success(t('kb.addedFromFiles', { n: nodes.length }));
+            setDialog(null);
+            load();
+            refreshTree();
+          } catch (err) {
+            message.error(errorMessage(err));
+          }
+        }}
+      />
       {dialog?.type === 'share' && <ShareDialog open folder={dialog.folder} config={config} onClose={() => { setDialog(null); load(); }} />}
       <MoveDialog
         open={dialog?.type === 'move'}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { takeReturnPath } from '../lib/returnPath';
 import { Link, useNavigate } from 'react-router-dom';
 import { Spin } from 'antd';
 import PublicLayout from '../layouts/PublicLayout';
@@ -31,7 +32,7 @@ export default function AuthCallback({ kind }) {
         window.history.replaceState(null, '', window.location.pathname);
         const res = await signInWithMagicLink(token);
         setUser(res.data.user);
-        navigate('/', { replace: true });
+        navigate(takeReturnPath(), { replace: true });
         return;
       }
       const params = Object.fromEntries(new URLSearchParams(window.location.search));
@@ -44,7 +45,7 @@ export default function AuthCallback({ kind }) {
       }
       const res = await signInWithTelegram(params);
       setUser(res.data.user);
-      navigate('/', { replace: true });
+      navigate(takeReturnPath(), { replace: true });
     };
 
     run().catch((err) => setError(authErrorMessage(err, t)));

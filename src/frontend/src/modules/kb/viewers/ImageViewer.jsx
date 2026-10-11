@@ -137,7 +137,8 @@ export default function ImageViewer({ images, index, onIndex, onClose, src, canD
                 className={position === index ? 'is-active' : ''}
                 onClick={() => onIndex(position)}
               >
-                <img src={src.file(item)} alt="" loading="lazy" />
+                {/* SVG has no raster thumbnail on the server: show the file itself. */}
+                <img src={src.thumb && !/\.svg$/i.test(item.name || item.path || '') ? src.thumb(item, 160) : src.file(item)} alt="" loading="lazy" />
               </button>
             ))}
           </div>

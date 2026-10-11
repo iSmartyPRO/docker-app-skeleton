@@ -7,6 +7,51 @@ import { lazy } from 'react';
  */
 export const MODULE_REGISTRY = [
   {
+    id: 'dashboard',
+    path: '/app/dashboard',
+    icon: 'dashboard',
+    labelKey: 'apps.dashboard.name',
+    descKey: 'apps.dashboard.desc',
+    App: lazy(() => import('./dashboard/DashboardApp')),
+    Settings: lazy(() => import('./dashboard/DashboardSettings')),
+  },
+  {
+    id: 'chat',
+    path: '/app/chat',
+    icon: 'chat',
+    labelKey: 'apps.chat.name',
+    descKey: 'apps.chat.desc',
+    App: lazy(() => import('./chat/ChatApp')),
+    Settings: lazy(() => import('./chat/ChatSettings')),
+  },
+  {
+    id: 'resources',
+    path: '/app/resources',
+    icon: 'compass',
+    labelKey: 'apps.resources.name',
+    descKey: 'apps.resources.desc',
+    App: lazy(() => import('./resources/ResourcesApp')),
+    Settings: lazy(() => import('./resources/ResourcesSettings')),
+  },
+  {
+    id: 'companies',
+    path: '/app/companies',
+    icon: 'building',
+    labelKey: 'apps.companies.name',
+    descKey: 'apps.companies.desc',
+    App: lazy(() => import('./companies/CompaniesApp')),
+    Settings: lazy(() => import('./companies/CompaniesSettings')),
+  },
+  {
+    id: 'files',
+    path: '/app/files',
+    icon: 'folder',
+    labelKey: 'apps.files.name',
+    descKey: 'apps.files.desc',
+    App: lazy(() => import('./files/FilesApp')),
+    Settings: lazy(() => import('./files/FilesSettings')),
+  },
+  {
     id: 'kb',
     path: '/app/kb',
     icon: 'book',
@@ -33,7 +78,21 @@ export const MODULE_REGISTRY = [
     App: lazy(() => import('./calendar/CalendarApp')),
     Settings: lazy(() => import('./calendar/CalendarSettings')),
   },
+  {
+    id: 'drive',
+    path: '/app/drive',
+    icon: 'server',
+    labelKey: 'apps.drive.name',
+    descKey: 'apps.drive.desc',
+    App: lazy(() => import('./drive/DriveApp')),
+    Settings: lazy(() => import('./drive/DriveSettings')),
+  },
 ];
+
+/** A module's name: the administrator's choice when the module has one (Drive), else the translation. */
+export function moduleLabel(module, settings, t) {
+  return settings?.modules?.[module.id]?.title || t(module.labelKey);
+}
 
 export function moduleById(id) {
   return MODULE_REGISTRY.find((module) => module.id === id) || null;

@@ -39,10 +39,22 @@ async function runJob(job) {
   }
 }
 
+// Each running job holds a pooled connection for its lock and needs more for
+// its own queries, so only a few run at once; the rest wait for the next slot.
+const MAX_PARALLEL = 3;
+let active = 0;
+
 function tick() {
   const now = Date.now();
   for (const job of jobs.values()) {
-    if (!job.running && now - job.lastRun >= job.everyMs) runJob(job);
+    if (active >= MAX_PARALLEL) break;
+    if (job.running || now - job.lastRun < job.everyMs) continue;
+    active += 1;
+    runJob(job).finally(() => {
+      active -= 1;
+      // Free slot: start whatever is still due without waiting for the interval.
+      setImmediate(tick);
+    });
   }
 }
 

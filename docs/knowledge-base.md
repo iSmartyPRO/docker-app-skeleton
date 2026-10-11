@@ -6,8 +6,8 @@ The first [module](modules.md). It is a structured library of folders and materi
 
 - **Folders of any depth**, each with an icon and a colour. Folders without their own icon or colour use the defaults from the module settings. A tree in the sidebar (a drawer on mobile), breadcrumbs, grid and list views, and search across folders and materials.
 - **Materials** come in three kinds:
-  - **Files**, uploaded with the button or by drag & drop, several at once.
-  - **Articles**, written in Markdown with a toolbar and write / split / preview modes.
+  - **Files**, uploaded with the button or by drag & drop, several at once, or picked with **Add from Files**. They are stored in the [Files](files.md) module (see [Files from the Files module](#files-from-the-files-module)).
+  - **Articles**, written in Markdown with a toolbar and write / split / preview modes. An article can embed files (📎) and carry attachments.
   - **Links**, to external pages (http/https only).
 - **Viewers:**
 
@@ -58,6 +58,16 @@ You can keep several links per folder with different settings. Each link shows i
 
 Module settings can switch public links off entirely, require a password on every link, and cap the lifetime (*maximum days*).
 
+## Files from the Files module
+
+With the [Files](files.md) module enabled:
+
+- Uploads are stored in the uploader's *My files → Knowledge base* folder, so they show up in Files as well.
+- **Add from Files** (folder menu) adds files from My files, Shared with me or a shared space without copying them.
+- In the article editor, **📎 File** embeds a file in the text: images are shown inline (`![name](kbfile:42)`), other files become a link (`[📎 name](kbfile:42)`). The *Files* section adds attachments below the article.
+- Readers open these files through Knowledge Base access, including public links. They do not need access in Files.
+- A file used by the Knowledge Base cannot be moved to the trash in Files until it is removed from the materials that use it. Deleting a material keeps the file in Files.
+
 ## Module settings (Admin → Settings → Modules → Knowledge base)
 
 | Setting | Default |
@@ -72,7 +82,7 @@ Office conversion shows its status here. Its URL is configured under **Integrati
 
 ## Storage and security
 
-- Files live in `UPLOAD_DIR/kb/` under random names. PDF previews are cached in `UPLOAD_DIR/kb/.previews/` and keyed by the material's update time.
+- Files are stored by the [Files](files.md#storage-and-security) module: `UPLOAD_DIR/files/…`, plus `UPLOAD_DIR/kb/` for files uploaded before Files existed (moved into Files once, `kb_files_migrated`). PDF previews are cached in `UPLOAD_DIR/.previews/`.
 - Uploads are checked against the allowed extensions and the size limit. PDF and image files must also match their magic bytes, so a renamed executable is rejected.
 - Files are served by the API rather than as static files, with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Only safe types are shown inline; everything else is sent as an attachment.
 - Article Markdown is sanitised before rendering, and links open with `rel="noopener noreferrer"`.
@@ -92,8 +102,10 @@ All under `/api/app/kb`, signed-in users only:
 | GET | `/tree` | Visible folders with levels and counts |
 | GET | `/search?q=` | Folders and materials |
 | GET / POST / PUT / DELETE | `/folders[/:id]` | Folder CRUD; `PUT` with `parentId` moves |
-| POST | `/folders/:id/files` | Multipart upload (`files[]`) |
-| POST / GET / PUT / DELETE | `/items[/:id]` | Articles and links; file metadata |
+| POST | `/folders/:id/files` | Multipart upload (`files[]`), stored in Files |
+| POST | `/folders/:id/from-files` | `{ nodeIds }` from Files |
+| POST / GET / PUT / DELETE | `/items[/:id]` | Articles (`attachments: [nodeId…]`, `kbfile:<id>` embeds) and links; file metadata |
+| GET | `/items/:id/attachments/:nodeId[/preview.pdf]` | An article's embedded or attached file |
 | GET | `/items/:id/file[?download=1]` | File content |
 | GET | `/items/:id/preview.pdf` | Office → PDF preview (cached) |
 | GET | `/subjects` | Users, groups and roles for access rules |
@@ -111,5 +123,6 @@ Public API, no session (`X-Share-Token` header or `?t=`):
 | GET | `/api/s/:slug/items/:id` | Material |
 | GET | `/api/s/:slug/items/:id/file` | File (downloads only if allowed) |
 | GET | `/api/s/:slug/items/:id/preview.pdf` | Office preview |
+| GET | `/api/s/:slug/items/:id/attachments/:nodeId[/preview.pdf]` | Article files |
 
 Error codes: `NOT_FOUND`, `FORBIDDEN`, `MODULE_DISABLED`, `PASSWORD_REQUIRED` (401), `WRONG_PASSWORD`, `RATE_LIMITED`, `EXPIRED` (410), `NO_DOWNLOAD`, `SHARING_DISABLED`, `EXPIRY_LIMIT`, `FILE_TYPE`, `FILE_CONTENT`, `FILE_TOO_LARGE`, `FILE_MISSING`, `NO_PREVIEW`, `NO_CONVERTER`. Slug checks return `available: false` with `reason` `TAKEN`, `RESERVED` or `FORMAT`.

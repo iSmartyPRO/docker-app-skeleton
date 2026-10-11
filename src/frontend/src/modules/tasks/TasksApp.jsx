@@ -7,9 +7,10 @@ import { MenuIcon } from '../../components/icons/menuIcons';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { TASK_REF } from './api';
-import { TasksProvider, atLeast, useTasks } from './TasksContext';
+import { TasksProvider, useTasks } from './TasksContext';
 import ProjectDialog from './components/ProjectDialog';
-import NewTaskDialog from './components/NewTaskDialog';
+import { TaskEditorProvider, useTaskEditor } from './components/editor/EditorContext';
+import { CreateButton } from './components/editor/QuickTask';
 import '../shared/module.css';
 import './tasks.css';
 
@@ -21,19 +22,15 @@ function Sidebar({ onNavigate }) {
   const { t } = useLocale();
   const navigate = useNavigate();
   const { projects, mine, config } = useTasks();
+  const editor = useTaskEditor();
   const [dialog, setDialog] = useState(null);
-  const canCreateTask = projects.some((project) => atLeast(project.level, 'edit') && !project.archived);
   return (
     <div className="mod-side">
       <NavLink to="/app/tasks" end className="mod-side__brand" onClick={onNavigate}>
         <MenuIcon name="tasks" />
         <span>{t('apps.tasks.name')}</span>
       </NavLink>
-      {canCreateTask && (
-        <Button type="primary" block onClick={() => setDialog('task')}>
-          + {t('tasks.newTask')}
-        </Button>
-      )}
+      <CreateButton block onQuick={() => { onNavigate?.(); editor.openQuick(); }} onFull={() => { onNavigate?.(); editor.openFull(); }} onTemplate={(draft) => { onNavigate?.(); editor.openFull(draft); }} />
       <nav className="mod-nav">
         <NavLink to="/app/tasks" end className="mod-nav__link" onClick={onNavigate}>
           <MenuIcon name="user" variant="mono" />
@@ -73,16 +70,6 @@ function Sidebar({ onNavigate }) {
           }
         }}
       />
-      <NewTaskDialog
-        open={dialog === 'task'}
-        onClose={(task) => {
-          setDialog(null);
-          if (task) {
-            onNavigate?.();
-            navigate(`/app/tasks/${task.ref}`);
-          }
-        }}
-      />
     </div>
   );
 }
@@ -90,8 +77,11 @@ function Sidebar({ onNavigate }) {
 /** /app/tasks/HR → project; /app/tasks/HR-12 → project with the task open. */
 function RefRoute() {
   const { ref } = useParams();
+  const { projects } = useTasks();
   const match = TASK_REF.exec(ref || '');
   const projectKey = (match ? match[1] : ref || '').toUpperCase();
+  // A task without a project, or of a project the person does not see as a whole, opens over "My tasks".
+  if (match && !projects.some((project) => project.key === projectKey)) return <MyTasks openRef={`${projectKey}-${match[2]}`} />;
   return <ProjectPage projectKey={projectKey} taskRef={match ? `${projectKey}-${match[2]}` : null} />;
 }
 
@@ -144,7 +134,9 @@ export default function TasksApp() {
     <div className="shell">
       <Chrome dense />
       <TasksProvider>
-        <Shell />
+        <TaskEditorProvider>
+          <Shell />
+        </TaskEditorProvider>
       </TasksProvider>
     </div>
   );

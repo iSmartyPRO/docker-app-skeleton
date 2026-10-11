@@ -3,7 +3,7 @@ import { sendEmail, sendMattermostDirect, sendTelegram } from './integrations.js
 import { publicBase } from './google.js';
 import { pushToUser } from './push.js';
 import { registerJob } from './scheduler.js';
-import { authAvailability, getSettings, parseSettings } from './settings.js';
+import { authAvailability, getSettings, localeFor, parseSettings } from './settings.js';
 
 /*
  * Notification center shared by every module.
@@ -94,6 +94,8 @@ ${url ? `<tr><td style="padding:8px 28px 28px"><a href="${escapeHtml(url)}" styl
 
 async function deliver(user, message, ready, appName) {
   const prefs = resolvePrefs(user.notify_prefs);
+  // A sender may narrow the channels (a task reminder "by e-mail only").
+  if (Array.isArray(message.channels)) for (const channel of CHANNELS) if (!message.channels.includes(channel)) prefs[channel] = false;
   const reach = channelReach(user, ready);
   const url = message.link ? `${publicBase()}${message.link}` : '';
   const plain = [message.title, message.body, url].filter(Boolean).join('\n\n');
@@ -138,8 +140,9 @@ async function deliver(user, message, ready, appName) {
  * @param {number} [input.actorId] excluded from recipients
  * @param {(locale: string) => {title: string, body?: string}} input.render
  * @param {boolean} [input.external=true] false = in-app only
+ * @param {string[]} [input.channels] only these external channels (still within each person's preferences)
  */
-export async function notify({ userIds, kind, module = null, link = null, actorId = null, render, external = true }) {
+export async function notify({ userIds, kind, module = null, link = null, actorId = null, render, external = true, channels = null }) {
   const ids = [...new Set((userIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0 && id !== Number(actorId)))];
   if (!ids.length) return 0;
   const { rows: users } = await query(
@@ -149,9 +152,12 @@ export async function notify({ userIds, kind, module = null, link = null, actorI
      WHERE id = ANY($1) AND is_active IS NOT FALSE AND is_blocked IS NOT TRUE`,
     [ids]
   );
+  // People who never chose a language get the portal's default one.
+  const fallback = await localeFor(null);
+  for (const user of users) user.locale = user.locale === 'ru' || user.locale === 'en' ? user.locale : fallback;
   const messages = users.map((user) => {
-    const { title, body = '' } = render(user.locale === 'ru' ? 'ru' : 'en');
-    return { user, kind, title: String(title).slice(0, 300), body: String(body || '').slice(0, 2000), link };
+    const { title, body = '' } = render(user.locale);
+    return { user, kind, title: String(title).slice(0, 300), body: String(body || '').slice(0, 2000), link, channels };
   });
   if (!messages.length) return 0;
 

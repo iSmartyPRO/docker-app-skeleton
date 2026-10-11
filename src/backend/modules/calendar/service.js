@@ -6,19 +6,23 @@ import {
   googleStatus,
   listGoogleCalendars,
   listGoogleEvents,
+  publicBase,
   updateGoogleEvent,
 } from '../../services/google.js';
+import { emitEvent } from '../../api/events.js';
 import {
   HEX,
   LEVEL,
   LEVEL_NAMES,
   avatarOf,
   clean,
+  contextFromRequest,
   httpError,
   levelMap,
   levelOn,
   readAcl,
   requireLevel,
+  withinLimits,
   writeAcl,
 } from '../shared/acl.js';
 import { normalizeRule, occurrences, validTimeZone } from './recurrence.js';
@@ -688,4 +692,28 @@ export async function deleteGoogleItem(ctx, calendarId, eventId) {
 
 export function forgetGoogleCalendars(userId) {
   googleCalendarCache.delete(userId);
+}
+
+/**
+ * A webhook event about an event (see api/events.js): delivered to webhooks
+ * whose person sees the calendar or is invited.
+ */
+export async function eventWebhook(type, event, actorId) {
+  if (!event) return;
+  try {
+    const calendar = await loadCalendar(event.calendarId).catch(() => null);
+    if (!calendar) return;
+    const invited = (event.attendees || []).map((person) => person.id);
+    const { canEdit, invited: _invited, myStatus, ...data } = event;
+    await emitEvent(type, {
+      data: { event: { ...data, url: `${publicBase()}/app/calendar?event=${event.id}` }, actorId: actorId || null },
+      visible: async (req) => {
+        const ctx = contextFromRequest(req, 'calendar.admin');
+        if (!withinLimits(ctx, ACL, calendar.id)) return false;
+        return (await calendarLevel(ctx, calendar)) >= LEVEL.view || invited.includes(ctx.userId);
+      },
+    });
+  } catch (err) {
+    console.warn(`[calendar] webhook ${type} failed:`, err.message);
+  }
 }

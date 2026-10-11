@@ -11,17 +11,17 @@ import { updateAccountProfile } from '../../services/api';
 
 export default function AccountAppearance() {
   const { user, setUser } = useAuth();
-  const { t, locale, setLocale } = useLocale();
+  const { t, setLocale, portalDefault } = useLocale();
   const { setMode } = useThemeMode();
 
   const initial = useMemo(
-    () => ({ locale: user?.locale || locale, theme: user?.theme || 'system' }),
-    [user?.locale, user?.theme, locale]
+    () => ({ locale: user?.locale || 'auto', theme: user?.theme || 'system' }),
+    [user?.locale, user?.theme]
   );
   const { dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async (values) => {
     const res = await updateAccountProfile(values);
     setUser(res.data.user);
-    setLocale(values.locale);
+    setLocale(values.locale === 'auto' ? null : values.locale);
     setMode(values.theme);
   });
 
@@ -34,8 +34,9 @@ export default function AccountAppearance() {
             <Form.Item name="locale" noStyle>
               <Segmented
                 options={[
-                  { value: 'en', label: 'English' },
+                  { value: 'auto', label: t('account.languageAuto', { name: portalDefault === 'ru' ? 'Русский' : portalDefault === 'en' ? 'English' : t('account.languageBrowser') }) },
                   { value: 'ru', label: 'Русский' },
+                  { value: 'en', label: 'English' },
                 ]}
               />
             </Form.Item>

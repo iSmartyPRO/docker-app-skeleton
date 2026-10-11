@@ -100,7 +100,7 @@ router.delete('/push', requireAuth, wrap(async (req, res) => {
 }));
 
 router.post('/push/test', requireAuth, wrap(async (req, res) => {
-  const ru = req.user.locale === 'ru';
+  const ru = req.locale === 'ru';
   const delivered = await pushToUser(req.user.id, {
     title: ru ? 'Уведомления работают' : 'Notifications work',
     body: ru ? 'Так будут выглядеть уведомления на этом устройстве.' : 'This is how notifications will look on this device.',

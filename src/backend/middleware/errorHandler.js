@@ -30,6 +30,8 @@ export const errorHandler = (err, req, res, next) => {
     success: false,
     error: userMessage,
     ...(err.code && statusCode < 500 && typeof err.code === 'string' && { code: err.code }),
+    // Structured context for client errors, e.g. where a file is used.
+    ...(statusCode < 500 && err.details && typeof err.details === 'object' && { info: err.details }),
     ...(process.env.NODE_ENV !== 'production' &&
       statusCode >= 500 && {
         details: err.message,

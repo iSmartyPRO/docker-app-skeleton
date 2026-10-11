@@ -5,7 +5,7 @@ import {
   query,
 } from '../config/database.js';
 import { writeEnvValues, writePostgresEnv, getCurrentDbConfigPublic } from './envFile.js';
-import { getSettings, parseSettings, setSetting } from './settings.js';
+import { getSettings, invalidateSettings, parseSettings, setSetting } from './settings.js';
 import { hasAdminUser, createAdminUser, assertUsername } from './users.js';
 import { bootstrapSchema } from './schema.js';
 import { seedDemoUsers, seedRbac } from './rbac.js';
@@ -167,6 +167,9 @@ export async function completeSetup(body) {
   // Groups (and module starter content) use the language of the wizard.
   const locale = body.locale === 'ru' ? 'ru' : 'en';
   await query(`UPDATE users SET locale = $2 WHERE id = $1`, [user.id, locale]);
+  // The installer's language becomes the portal default.
+  await query(`INSERT INTO app_settings (key, value) VALUES ('default_locale', $1) ON CONFLICT (key) DO NOTHING`, [locale]);
+  invalidateSettings();
   await seedRbac({ locale });
   const demoUsers = body.demoUsers === false ? 0 : await seedDemoUsers();
 

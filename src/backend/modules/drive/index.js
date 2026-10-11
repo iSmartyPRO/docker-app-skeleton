@@ -1,0 +1,11 @@
+import { ensureDriveSchema } from './schema.js';
+import { privateRoutes, publicRoutes } from './routes.js';
+
+/** Drive module descriptor: company file servers as one network drive. */
+export default {
+  id: 'drive',
+  schema: ensureDriveSchema,
+  routes: privateRoutes,
+  publicRoutes,
+  publicPrefix: '/d',
+};

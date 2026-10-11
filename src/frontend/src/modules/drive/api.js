@@ -1,0 +1,169 @@
+import api from '../../services/api';
+
+const base = '/app/drive';
+
+const qs = (params) => {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (Array.isArray(value)) value.forEach((item) => search.append(key, item));
+    else if (value !== undefined && value !== null && value !== '') search.set(key, value);
+  });
+  const text = search.toString();
+  return text ? `?${text}` : '';
+};
+
+export const driveApi = {
+  home: () => api.get(base),
+  list: (shareId, path, hidden) => api.get(`${base}/shares/${shareId}/list`, { params: { path, hidden: hidden ? 1 : undefined } }),
+  stat: (shareId, path) => api.get(`${base}/shares/${shareId}/stat`, { params: { path } }),
+  search: (shareId, path, q) => api.get(`${base}/shares/${shareId}/search`, { params: { path, q }, timeout: 30000 }),
+  mkdir: (shareId, path, name) => api.post(`${base}/shares/${shareId}/folders`, { path, name }),
+  rename: (shareId, path, name) => api.put(`${base}/shares/${shareId}/rename`, { path, name }),
+  remove: (shareId, paths) => api.post(`${base}/shares/${shareId}/delete`, { paths }, { timeout: 0 }),
+  move: (shareId, payload) => api.post(`${base}/shares/${shareId}/move`, payload, { timeout: 0 }),
+  saveText: (shareId, path, text, mtime) =>
+    api.put(`${base}/shares/${shareId}/text`, text, { params: { path, mtime }, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }),
+  upload: (shareId, path, file, { conflict = 'rename', onProgress, signal } = {}) =>
+    api.put(`${base}/shares/${shareId}/upload`, file, {
+      params: { path, name: file.name, conflict },
+      headers: { 'Content-Type': 'application/octet-stream' },
+      timeout: 0,
+      signal,
+      onUploadProgress: (event) => onProgress?.(event.total ? event.loaded / event.total : 0),
+    }),
+
+  recent: () => api.get(`${base}/recent`),
+  touchRecent: (payload) => api.post(`${base}/recent`, payload),
+  favorites: () => api.get(`${base}/favorites`),
+  addFavorite: (payload) => api.post(`${base}/favorites`, payload),
+  removeFavorite: (shareId, path) => api.delete(`${base}/favorites`, { params: { shareId, path } }),
+
+  connections: () => api.get(`${base}/connections`),
+  connect: (serverId, payload) => api.put(`${base}/connections/${serverId}`, payload, { timeout: 30000 }),
+  disconnect: (serverId) => api.delete(`${base}/connections/${serverId}`),
+
+  links: (params) => api.get(`${base}/links`, { params }),
+  createLink: (shareId, payload) => api.post(`${base}/shares/${shareId}/links`, payload),
+  updateLink: (id, payload) => api.put(`${base}/links/${id}`, payload),
+  deleteLink: (id) => api.delete(`${base}/links/${id}`),
+
+  admin: () => api.get(`${base}/admin`),
+  adminLinks: () => api.get(`${base}/admin/links`),
+  testServer: (payload) => api.post(`${base}/admin/test`, payload, { timeout: 30000 }),
+  createServer: (payload) => api.post(`${base}/admin/servers`, payload),
+  updateServer: (id, payload) => api.put(`${base}/admin/servers/${id}`, payload),
+  deleteServer: (id) => api.delete(`${base}/admin/servers/${id}`),
+  createShare: (serverId, payload) => api.post(`${base}/admin/servers/${serverId}/shares`, payload),
+  updateShare: (serverId, id, payload) => api.put(`${base}/admin/servers/${serverId}/shares/${id}`, payload),
+  deleteShare: (id) => api.delete(`${base}/admin/shares/${id}`),
+  reorder: (ids) => api.put(`${base}/admin/order`, { ids }),
+
+  activity: (params) => api.get(`${base}/admin/activity`, { params, timeout: 30000 }),
+  activityPeople: (q) => api.get(`${base}/admin/activity/people`, { params: { q } }),
+  activityExportUrl: (params) => `/api${base}/admin/activity/export.csv${qs(params)}`,
+};
+
+export const publicDriveApi = {
+  open: (token, { path, visitor } = {}) =>
+    api.get(`/d/${encodeURIComponent(token)}`, { params: path ? { path } : {}, headers: visitor ? { 'X-Link-Token': visitor } : {} }),
+  unlock: (token, password) => api.post(`/d/${encodeURIComponent(token)}/unlock`, { password }),
+};
+
+/**
+ * Viewer sources: the same shape the knowledge-base viewers use
+ * (file, preview, canDownload) plus thumb, cad and zip.
+ */
+export function shareSource(shareId) {
+  const root = `/api${base}/shares/${shareId}`;
+  const v = (entry) => (entry.mtime ? new Date(entry.mtime).getTime() : '');
+  return {
+    file: (entry, { download } = {}) => `${root}/file${qs({ path: entry.path, download: download ? 1 : undefined, v: v(entry) })}`,
+    preview: (entry) => `${root}/preview.pdf${qs({ path: entry.path, v: v(entry) })}`,
+    thumb: (entry, size = 320) => `${root}/thumb${qs({ path: entry.path, size, v: v(entry) })}`,
+    cad: (entry) => `${root}/cad${qs({ path: entry.path, v: v(entry) })}`,
+    zip: (paths) => `${root}/zip${qs({ p: paths })}`,
+    canDownload: true,
+  };
+}
+
+export function linkSource(token, visitor, allowDownload) {
+  const root = `/api/d/${encodeURIComponent(token)}`;
+  const auth = visitor ? { t: visitor } : {};
+  return {
+    file: (entry, { download } = {}) => `${root}/file${qs({ path: entry.path, download: download ? 1 : undefined, ...auth })}`,
+    preview: (entry) => `${root}/preview.pdf${qs({ path: entry.path, ...auth })}`,
+    thumb: (entry, size = 320) => `${root}/thumb${qs({ path: entry.path, size, ...auth })}`,
+    cad: (entry) => `${root}/cad${qs({ path: entry.path, ...auth })}`,
+    zip: (path) => `${root}/zip${qs({ path, ...auth })}`,
+    canDownload: allowDownload !== false,
+  };
+}
+
+/** Drive entries in the shape the shared viewers expect. */
+export function asViewerItem(entry) {
+  return {
+    ...entry,
+    id: entry.path,
+    kind: 'file',
+    title: entry.name,
+    file: { ext: entry.ext, size: entry.size, name: entry.name },
+  };
+}
+
+export const IMAGE = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
+export const CAD = new Set(['dwg', 'dxf']);
+export const EDITABLE = new Set(['md', 'txt', 'csv', 'json', 'xml', 'log']);
+
+export function formatBytes(bytes) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return `${value} B`;
+  const units = ['KB', 'MB', 'GB', 'TB', 'PB'];
+  let size = value / 1024;
+  let index = 0;
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024;
+    index += 1;
+  }
+  return `${size < 10 ? size.toFixed(1) : Math.round(size)} ${units[index]}`;
+}
+
+/** Folder path → URL under /app/drive/s/:shareId/… */
+export function folderUrl(shareId, path = '') {
+  return `/app/drive/s/${shareId}${path ? `/${path.split('/').map(encodeURIComponent).join('/')}` : ''}`;
+}
+
+/** File path → its own viewer page under /app/drive/v/:shareId/… */
+export function fileUrl(shareId, path) {
+  return `/app/drive/v/${shareId}/${path.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+export async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const area = document.createElement('textarea');
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    return ok;
+  }
+}
+
+/** Drive errors in the UI language (`drive.errors.<CODE>`), else the server text. */
+export function driveError(err, t, fallback) {
+  const code = err?.response?.data?.code || err?.code;
+  if (code) {
+    const key = `drive.errors.${code}`;
+    const text = t(key);
+    if (text !== key) return text;
+  }
+  return err?.response?.data?.error || fallback || err?.message || 'Error';
+}
+
+export function tOr(t, key, fallbackKey) {
+  const text = t(key);
+  return text === key ? t(fallbackKey) : text;
+}

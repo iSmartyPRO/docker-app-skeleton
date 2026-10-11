@@ -12,12 +12,16 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   }
 });
 
-/** Markdown → sanitized HTML. Raw HTML in articles is stripped of scripts and handlers. */
-export default function Markdown({ text, className = '' }) {
-  const html = useMemo(
-    () => DOMPurify.sanitize(marked.parse(String(text || '')), { USE_PROFILES: { html: true }, FORBID_TAGS: ['style', 'form', 'input'] }),
-    [text]
-  );
+/**
+ * Markdown → sanitized HTML. Raw HTML in articles is stripped of scripts and handlers.
+ * `fileUrl(nodeId)` turns embedded files (`kbfile:<id>`) into real URLs.
+ */
+export default function Markdown({ text, className = '', fileUrl }) {
+  const html = useMemo(() => {
+    let source = String(text || '');
+    if (fileUrl) source = source.replace(/kbfile:(\d{1,10})/g, (match, id) => fileUrl(Number(id)));
+    return DOMPurify.sanitize(marked.parse(source), { USE_PROFILES: { html: true }, FORBID_TAGS: ['style', 'form', 'input'] });
+  }, [text, fileUrl]);
   // eslint-disable-next-line react/no-danger
   return <div className={`kb-prose ${className}`.trim()} dangerouslySetInnerHTML={{ __html: html }} />;
 }

@@ -4,6 +4,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
   useParams,
 } from 'react-router-dom';
 import { App as AntApp, ConfigProvider, Spin } from 'antd';
@@ -14,8 +15,13 @@ import { LocaleProvider, useLocale } from './context/LocaleContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import FontLoader from './components/FontLoader';
 import { ThemeProvider, useThemeMode } from './context/ThemeContext';
+import { ChatProvider } from './modules/chat/ChatContext';
+// Texts of task events in conversations (task chats show up on the chat page too).
+import './modules/tasks/chatEvents';
 import { LEGACY_ADMIN_ROUTES, SETTINGS_ITEMS } from './admin/navigation';
 import { SETTINGS_PAGES } from './admin/settingsPages';
+import { loginUrl } from './lib/returnPath';
+import AppErrorBoundary from './components/AppErrorBoundary';
 import { getSetupStatus } from './services/api';
 import { SETTINGS_VIEW } from './lib/access';
 import { MODULE_REGISTRY } from './modules/registry';
@@ -38,12 +44,18 @@ const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const AppsPage = lazy(() => import('./pages/Apps'));
 const PublicShare = lazy(() => import('./modules/kb/PublicShare'));
 const InstallPage = lazy(() => import('./pwa/InstallPage'));
+const PublicLink = lazy(() => import('./modules/files/PublicLink'));
+const PublicDrive = lazy(() => import('./modules/drive/PublicDrive'));
+const ResourcesHome = lazy(() => import('./modules/resources/ResourcesHome'));
 const SettingsHome = lazy(() => import('./pages/admin/settings/SettingsHome'));
 const AccountProfile = lazy(() => import('./pages/account/Profile'));
 const AccountAppearance = lazy(() => import('./pages/account/Appearance'));
 const AccountSecurity = lazy(() => import('./pages/account/Security'));
 const AccountNotifications = lazy(() => import('./pages/account/Notifications'));
 const AccountConnections = lazy(() => import('./pages/account/Connections'));
+const ApiConsole = lazy(() => import('./developer/ApiConsole'));
+const ApiTokensPage = lazy(() => import('./developer/ApiTokensPage'));
+const Developers = lazy(() => import('./developer/Developers'));
 
 function Screen() {
   return (
@@ -79,19 +91,21 @@ function SetupGate({ children }) {
 
 function AccessGate({ children }) {
   const { user, ready } = useAuth();
+  const location = useLocation();
   const { settings, ready: settingsReady } = useSettings();
 
   if (!ready || !settingsReady) return <Screen />;
   if ((settings?.accessMode || 'closed') === 'closed' && !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={loginUrl(location)} replace />;
   }
   return children;
 }
 
 function AuthGate({ children }) {
   const { user, ready } = useAuth();
+  const location = useLocation();
   if (!ready) return <Screen />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to={loginUrl(location)} replace />;
   return children;
 }
 
@@ -117,6 +131,23 @@ function ModuleGate({ id, children }) {
   return children;
 }
 
+/**
+ * "/" follows Settings → Site access → Home page: the landing page, the
+ * online resources board (works for guests too) or any other module
+ * (guests are sent to sign in first).
+ */
+function HomeRoute() {
+  const { settings } = useSettings();
+  const { user } = useAuth();
+  const location = useLocation();
+  const page = settings?.homePage || 'landing';
+  const module = page !== 'landing' && settings?.modules?.[page]?.enabled ? MODULE_REGISTRY.find((entry) => entry.id === page) : null;
+  if (!module) return <Home />;
+  if (module.id === 'resources') return <ResourcesHome />;
+  if (!user) return <Navigate to={loginUrl({ ...location, pathname: module.path })} replace />;
+  return <Navigate to={module.path} replace />;
+}
+
 /** /admin/<old path> → new location, so bookmarks keep working. */
 function LegacyAdminRedirect() {
   const params = useParams();
@@ -126,6 +157,7 @@ function LegacyAdminRedirect() {
 }
 
 function ThemedRoutes() {
+  const location = useLocation();
   const { antdConfig, mode } = useThemeMode();
   const { locale } = useLocale();
   const { settings } = useSettings();
@@ -154,12 +186,15 @@ function ThemedRoutes() {
   return (
     <ConfigProvider theme={antdConfig} locale={locale === 'ru' ? ruRU : enUS}>
       <AntApp className="ant-app-root">
+        <AppErrorBoundary resetKey={location.pathname}>
         <Suspense fallback={<Screen />}>
           <Routes>
             <Route path="/setup" element={<SetupWizard />} />
             <Route path="/auth/magic" element={<AuthCallback kind="magic" />} />
             <Route path="/auth/telegram" element={<AuthCallback kind="telegram" />} />
             <Route path="/s/:slug/*" element={<PublicShare />} />
+            <Route path="/l/:token" element={<PublicLink />} />
+            <Route path="/d/:token" element={<PublicDrive />} />
             <Route
               path="/install"
               element={
@@ -194,6 +229,14 @@ function ThemedRoutes() {
               />
             ))}
             <Route
+              path="/developers"
+              element={
+                <SetupGate>
+                  <Developers />
+                </SetupGate>
+              }
+            />
+            <Route
               path="/login"
               element={
                 <SetupGate>
@@ -206,7 +249,7 @@ function ThemedRoutes() {
               element={
                 <SetupGate>
                   <AccessGate>
-                    <Home />
+                    <HomeRoute />
                   </AccessGate>
                 </SetupGate>
               }
@@ -227,6 +270,7 @@ function ThemedRoutes() {
               <Route path="groups" element={<Allow any={['users.view']}><AdminGroups /></Allow>} />
               <Route path="roles" element={<Allow any={['users.view']}><AdminRoles /></Allow>} />
               <Route path="activity" element={<Allow any={['activity.view']}><AdminActivity /></Allow>} />
+              <Route path="api" element={<Allow any={['api.admin']}><ApiConsole /></Allow>} />
               <Route path="settings" element={<Allow any={SETTINGS_VIEW}><SettingsLayout /></Allow>}>
                 <Route index element={<SettingsHome />} />
                 {SETTINGS_ITEMS.map((item) => {
@@ -254,10 +298,12 @@ function ThemedRoutes() {
               <Route path="security" element={<AccountSecurity />} />
               <Route path="notifications" element={<AccountNotifications />} />
               <Route path="connections" element={<AccountConnections />} />
+              <Route path="api" element={<ApiTokensPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
+        </AppErrorBoundary>
       </AntApp>
     </ConfigProvider>
   );
@@ -270,9 +316,11 @@ export default function App() {
         <LocaleProvider>
           <ThemeProvider>
             <FontLoader />
-            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-              <ThemedRoutes />
-            </Router>
+            <ChatProvider>
+              <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <ThemedRoutes />
+              </Router>
+            </ChatProvider>
           </ThemeProvider>
         </LocaleProvider>
       </AuthProvider>

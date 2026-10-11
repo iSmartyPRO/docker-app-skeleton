@@ -59,7 +59,13 @@ Built-in roles are inserted once by key and never overwritten, so permission cha
 | `settings.auth` | Sign-in methods |
 | `settings.integrations` | Email, Telegram, WhatsApp, Wazzup, Mattermost, document conversion, Active Directory |
 | `settings.system` | API rate limit |
+| `api.tokens` | Creating personal API tokens under *Account → API tokens*; a token never has more rights than its owner. See [Public API](public-api.md) |
+| `api.admin` | The API console (`/admin/api`): tokens of anyone (including on behalf of other accounts), access templates, webhooks, request log, API settings |
 | `settings.modules` | Turning modules on and off and their settings |
+| `companies.admin` | Change any company or contact card, delete for good, configure the Counterparties module and its DaData key |
+| `resources.admin` | Add, edit and order online resources and choose who sees each one |
+| `drive.admin` | Manage file servers and drive folders, see every folder regardless of portal groups and every public link. Content rights stay with the file server |
+| `files.admin` | Create shared spaces (when restricted to administrators) and *manage* every space. Personal files stay private |
 | `kb.admin` | *Manage* on everything in the Knowledge Base, whatever its access rules |
 | `tasks.admin` | *Manage* on every task project |
 | `calendar.admin` | *Manage* on every shared calendar (personal calendars stay private) |

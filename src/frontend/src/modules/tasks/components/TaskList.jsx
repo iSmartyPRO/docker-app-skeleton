@@ -17,7 +17,10 @@ function Row({ task, onOpen, onToggle, showProject, canEdit }) {
         {task.ref}
       </span>
       <span className="task-row__title">
+        {task.important && <span className="task-flame" title="🔥">🔥</span>}
         <span>{task.title}</span>
+        {task.deferred && <span className="task-deferred">⏸</span>}
+        {task.subtasks > 0 && <span className="task-subs">⤵ {task.subtasks}</span>}
         {task.labels.slice(0, 2).map((label) => (
           <LabelTag key={label} label={label} />
         ))}

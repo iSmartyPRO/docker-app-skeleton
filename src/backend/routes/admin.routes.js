@@ -22,6 +22,7 @@ import {
   updateUser,
 } from '../services/users.js';
 import { getOverview, getSystemInfo } from '../services/overview.js';
+import { emitEvent } from '../api/events.js';
 import { listWazzupChannels, testIntegration } from '../services/integrations.js';
 import {
   addIpRule,
@@ -186,8 +187,14 @@ router.get('/users', viewUsers, wrap(async (req, res) => {
   res.json({ success: true, users: await listUsers() });
 }));
 
+// Webhook events about accounts go to webhooks whose person may view users.
+const userWebhook = (type, user, actorId) =>
+  emitEvent(type, { data: { user, actorId }, visible: (req) => hasPermission(req.access?.permissions || [], 'users.view') });
+
 router.post('/users', manageUsers, wrap(async (req, res) => {
-  res.status(201).json({ success: true, user: await createUser(req.body || {}, req.actor) });
+  const user = await createUser(req.body || {}, req.actor);
+  res.status(201).json({ success: true, user });
+  userWebhook('user.created', user, req.actor.id);
 }));
 
 router.get('/users/:id', viewUsers, wrap(async (req, res) => {
@@ -202,6 +209,7 @@ router.get('/users/:id', viewUsers, wrap(async (req, res) => {
 router.put('/users/:id', manageUsers, wrap(async (req, res) => {
   const user = await updateUser(Number(req.params.id), req.body || {}, { actor: req.actor });
   res.json({ success: true, user });
+  userWebhook('user.updated', user, req.actor.id);
 }));
 
 router.post('/users/:id/avatar', manageUsers, (req, res, next) => {
@@ -236,8 +244,10 @@ router.delete('/users/:id/telegram', manageUsers, wrap(async (req, res) => {
 }));
 
 router.delete('/users/:id', requirePermission('users.delete'), wrap(async (req, res) => {
+  const before = await getAdminUser(Number(req.params.id));
   await deleteUser(Number(req.params.id), req.actor);
   res.json({ success: true });
+  if (before) userWebhook('user.deleted', before, req.actor.id);
 }));
 
 // ── Roles & groups ──────────────────────────────────────────────────────────
