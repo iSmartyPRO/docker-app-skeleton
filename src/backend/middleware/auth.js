@@ -52,6 +52,16 @@ export async function requireAuth(req, res, next) {
   }
 }
 
+/** Resolves the session when there is one; never rejects. */
+export async function optionalAuth(req, res, next) {
+  try {
+    if (!req.userRow) await loadSessionUser(req);
+  } catch {
+    /* anonymous */
+  }
+  next();
+}
+
 /** Allows the request when the user holds at least one of `permissions`. */
 export function requirePermission(...permissions) {
   return (req, res, next) =>

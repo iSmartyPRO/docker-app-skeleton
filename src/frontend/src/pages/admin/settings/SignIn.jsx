@@ -4,7 +4,7 @@ import { Button, Form, Input, Select, Switch } from 'antd';
 import SaveBar from '../../../components/ui/SaveBar';
 import LoadState from '../../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../../components/ui/SettingsSection';
-import { IconDirectory, IconMail, IconTelegram, IconUser, IconWhatsapp } from '../../../components/icons/AdminIcons';
+import { IconDirectory, IconGoogle, IconMail, IconMattermost, IconTelegram, IconUser, IconWhatsapp } from '../../../components/icons/AdminIcons';
 import { useAdminSettings } from '../../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../../hooks/useSettingsForm';
 import { useAccessData } from '../../../hooks/useAccessData';
@@ -50,9 +50,14 @@ function SignInForm({ settings, save, groups }) {
       ldapGroupMap: auth.ldap?.groupMap || [],
       telegramEnabled: Boolean(auth.telegram?.enabled),
       telegramAutoProvision: Boolean(auth.telegram?.autoProvision),
+      googleEnabled: Boolean(auth.google?.enabled),
+      googleAutoProvision: Boolean(auth.google?.autoProvision),
       whatsappCodeEnabled: Boolean(auth.whatsappCode?.enabled),
+      whatsappProvider: auth.whatsappCode?.provider || 'gateway',
+      whatsappFallback: auth.whatsappCode?.fallback !== false,
       emailCodeEnabled: Boolean(auth.emailCode?.enabled),
       telegramCodeEnabled: Boolean(auth.telegramCode?.enabled),
+      mattermostCodeEnabled: Boolean(auth.mattermostCode?.enabled),
       magicLinkEnabled: Boolean(auth.magicLink?.enabled),
     }),
     [auth]
@@ -68,16 +73,23 @@ function SignInForm({ settings, save, groups }) {
           groupMap: (v.ldapGroupMap || []).filter((rule) => rule?.adGroup && rule?.groupId),
         },
         telegram: { enabled: v.telegramEnabled, autoProvision: v.telegramAutoProvision },
-        whatsappCode: { enabled: v.whatsappCodeEnabled },
+        google: { enabled: v.googleEnabled, autoProvision: v.googleAutoProvision },
+        whatsappCode: { enabled: v.whatsappCodeEnabled, provider: v.whatsappProvider, fallback: v.whatsappFallback },
         emailCode: { enabled: v.emailCodeEnabled },
         telegramCode: { enabled: v.telegramCodeEnabled },
+        mattermostCode: { enabled: v.mattermostCodeEnabled },
         magicLink: { enabled: v.magicLinkEnabled },
       },
     })
   );
   const ldapOn = Form.useWatch('ldapEnabled', form);
   const telegramOn = Form.useWatch('telegramEnabled', form);
+  const googleOn = Form.useWatch('googleEnabled', form);
   const passwordOn = Form.useWatch('passwordEnabled', form);
+  const whatsappOn = Form.useWatch('whatsappCodeEnabled', form);
+  const provider = Form.useWatch('whatsappProvider', form) || initial.whatsappProvider;
+  const providerReady = { gateway: ready.whatsappGateway, wazzup: ready.whatsappWazzup };
+  const backup = provider === 'gateway' ? 'wazzup' : 'gateway';
 
   const toggle = (name, isReady = true) => (
     <Form.Item name={name} valuePropName="checked" noStyle>
@@ -95,6 +107,19 @@ function SignInForm({ settings, save, groups }) {
       </SettingsSection>
 
       <SettingsSection title={t('signinSettings.ssoTitle')} description={t('signinSettings.ssoDesc')}>
+        <MethodHead icon={IconGoogle} title="Google" description={t('signinSettings.googleHint')} ready={ready.google} to="/admin/settings/google">
+          {toggle('googleEnabled', ready.google)}
+        </MethodHead>
+        {googleOn && (
+          <div className="method-body">
+            <SettingRow label={t('signinSettings.autoProvision')} description={t('signinSettings.googleProvisionDesc')}>
+              <Form.Item name="googleAutoProvision" valuePropName="checked" noStyle>
+                <Switch />
+              </Form.Item>
+            </SettingRow>
+          </div>
+        )}
+
         <MethodHead
           icon={IconDirectory}
           title="Active Directory / LDAP"
@@ -166,14 +191,57 @@ function SignInForm({ settings, save, groups }) {
       </SettingsSection>
 
       <SettingsSection title={t('signinSettings.codesTitle')} description={t('signinSettings.codesDesc')}>
-        <MethodHead icon={IconWhatsapp} title={t('signinSettings.whatsappCode')} description={t('signinSettings.whatsappCodeHint')} ready={ready.whatsappCode} to="/admin/settings/wazzup">
+        <MethodHead
+          icon={IconWhatsapp}
+          title={t('signinSettings.whatsappCode')}
+          description={t('signinSettings.whatsappCodeHint')}
+          ready={ready.whatsappCode}
+          to={ready.whatsappWazzup ? '/admin/settings/wazzup' : '/admin/settings/whatsapp'}
+        >
           {toggle('whatsappCodeEnabled', ready.whatsappCode)}
         </MethodHead>
+        {whatsappOn && (
+          <div className="method-body">
+            <SettingRow label={t('signinSettings.whatsappProvider')} description={t('signinSettings.whatsappProviderDesc')}>
+              <Form.Item name="whatsappProvider" noStyle>
+                <Select
+                  style={{ width: 260 }}
+                  options={['gateway', 'wazzup'].map((value) => ({
+                    value,
+                    label: (
+                      <span className="provider-option">
+                        {t(`signinSettings.provider_${value}`)}
+                        <span className={`readiness${providerReady[value] ? ' is-ready' : ''}`}>
+                          ● {providerReady[value] ? t('signinSettings.integrationReady') : t('signinSettings.notConfigured')}
+                        </span>
+                      </span>
+                    ),
+                  }))}
+                />
+              </Form.Item>
+            </SettingRow>
+            <SettingRow
+              label={t('signinSettings.whatsappFallback', { provider: t(`signinSettings.provider_${backup}`) })}
+              description={
+                providerReady[backup]
+                  ? t('signinSettings.whatsappFallbackDesc')
+                  : t('signinSettings.whatsappFallbackMissing', { provider: t(`signinSettings.provider_${backup}`) })
+              }
+            >
+              <Form.Item name="whatsappFallback" valuePropName="checked" noStyle>
+                <Switch />
+              </Form.Item>
+            </SettingRow>
+          </div>
+        )}
         <MethodHead icon={IconMail} title={t('signinSettings.emailCode')} description={t('signinSettings.emailCodeHint')} ready={ready.emailCode} to="/admin/settings/email">
           {toggle('emailCodeEnabled', ready.emailCode)}
         </MethodHead>
         <MethodHead icon={IconTelegram} title={t('signinSettings.telegramCode')} description={t('signinSettings.telegramCodeHint')} ready={ready.telegramCode} to="/admin/settings/telegram">
           {toggle('telegramCodeEnabled', ready.telegramCode)}
+        </MethodHead>
+        <MethodHead icon={IconMattermost} title={t('signinSettings.mattermostCode')} description={t('signinSettings.mattermostCodeHint')} ready={ready.mattermostCode} to="/admin/settings/mattermost">
+          {toggle('mattermostCodeEnabled', ready.mattermostCode)}
         </MethodHead>
         <SettingRow label={t('signinSettings.magicLink')} description={t('signinSettings.magicLinkHint')}>
           <Form.Item name="magicLinkEnabled" valuePropName="checked" noStyle>

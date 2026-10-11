@@ -24,7 +24,11 @@ Created by `make env` from `.env.example`. **Never commit it.**
 | `SETUP_LOCKED` | written by the app | Set to `true` once setup finishes; keeps `/api/setup` closed even during a DB outage |
 | `SEED_LOCALE` | first user's language | Language for default groups created on upgrade (`en` / `ru`) |
 | `TRUST_PROXY_HOPS` | `1` | Proxies in front of Express (bundled nginx = 1). Behind Traefik / NPM / Cloudflare use `2` |
-| `UPLOAD_DIR` | `/app/uploads` | Avatars and logos |
+| `PUBLIC_URL` | `FRONTEND_URL` | Public origin for links in emails/push and the Google redirect URI |
+| `ENCRYPTION_KEY` | derived from `JWT_SECRET` | Key for sealed secrets (Google tokens, VAPID private key) |
+| `DISABLE_SCHEDULER` | `false` | `true` stops background jobs (reminders) on this instance |
+| `PUSH_CONTACT` | — | Contact email for VAPID when `PUBLIC_URL` is not HTTPS |
+| `UPLOAD_DIR` | `/app/uploads` | Avatars, logos and Knowledge Base files (`kb/`, previews in `kb/.previews/`) |
 | `VITE_API_URL` | `http://localhost:3021` | Dev compose only |
 | `WAZZUP_API_URL` | `https://api.wazzup24.com/v3` | Override for tests or an egress proxy |
 
@@ -36,11 +40,14 @@ Edited in **Admin → Settings**. Reads are cached for 5 seconds and the cache i
 |-----|---------|
 | `app_name` / `app_description` | Branding |
 | `access_mode` | `open` / `closed` |
-| `appearance` | Template, custom colors, default theme, typography, icons, `logoUrl`, `logoDarkUrl`, `logoHeight` (20–64 px) |
-| `integrations` | Email, Telegram, WhatsApp, Wazzup, AD (secrets masked in API). Groups added in newer versions are merged in from defaults automatically |
+| `appearance` | Template, custom colors, default theme, typography, icons, `logoUrl`, `logoDarkUrl`, `logoHeight` (20–64 px), `appIconUrl` (PWA icon), `shortName` (name under the icon) |
+| `integrations` | Email, Telegram, WhatsApp Gateway, Wazzup, Mattermost, document conversion, AD (secrets masked in API). Groups added in newer versions are merged in from defaults automatically |
 | `security` | Allow/block lists, lockout, session length |
 | `auth` | Sign-in methods: `password`, `ldap` (+ `autoProvision`, `groupMap`), `telegram` (+ `autoProvision`), `emailCode`, `whatsappCode`, `telegramCode`, `magicLink` |
-| `rate_limit_*` | Express limiter window and max |
+| `modules` | `{ <id>: { enabled, settings } }` per module — see [modules.md](modules.md) and [knowledge-base.md](knowledge-base.md#module-settings-admin--settings--modules--knowledge-base) |
+| `webpush` | VAPID keys (private key sealed), generated on first use |
+| `tasks_seeded`, `kb_seeded` | One-time starter content markers |
+| `rate_limit_*` | Express limiter window and max (Knowledge Base file and preview downloads are exempt, so galleries and PDFs do not burn the budget) |
 
 Security JSON is sanitized on write: lockout 5–180 minutes, attempts 3–30, session 1–90 days. Omitted flags keep their stored value. The rate limit is clamped to 20–100 000 requests and a 1–1440 minute window.
 

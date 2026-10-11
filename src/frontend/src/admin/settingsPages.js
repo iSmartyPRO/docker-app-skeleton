@@ -19,6 +19,13 @@ export const SETTINGS_PAGES = {
   telegram: Integration,
   whatsapp: Integration,
   wazzup: Integration,
+  mattermost: Integration,
   ad: Integration,
   system: lazy(() => import('../pages/admin/settings/System')),
+  modules: lazy(() => import('../pages/admin/settings/Modules')),
+  kb: lazy(() => import('../modules/kb/KbSettings')),
+  documents: Integration,
+  google: lazy(() => import('../pages/admin/settings/GoogleSettings')),
+  tasks: lazy(() => import('../modules/tasks/TasksSettings')),
+  calendar: lazy(() => import('../modules/calendar/CalendarSettings')),
 };

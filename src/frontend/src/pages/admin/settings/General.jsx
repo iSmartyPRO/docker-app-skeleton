@@ -80,6 +80,53 @@ function LogoSlot({ variant, title, description, url, fallbackUrl, height, onCha
   );
 }
 
+/** Home-screen icon of the installed app: square PNG, 512×512 recommended. */
+function AppIconSlot({ url, onChanged }) {
+  const { t } = useLocale();
+  const { message } = App.useApp();
+  const [busy, setBusy] = useState(false);
+  const run = async (request) => {
+    setBusy(true);
+    try {
+      await request();
+      await onChanged();
+      message.success(t('common.saved'));
+    } catch (err) {
+      message.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="app-icon-slot">
+      <img src={url || '/pwa/icon-192.png'} alt="" />
+      <div className="app-icon-slot__body">
+        <strong>{t('settings.general.appIcon')}</strong>
+        <span>{t('settings.general.appIconDesc')}</span>
+        <div className="logo-slot__actions">
+          <Upload
+            accept=".png,image/png"
+            showUploadList={false}
+            beforeUpload={(file) => {
+              const form = new FormData();
+              form.append('logo', file);
+              run(() => uploadProjectLogo(form, 'icon'));
+              return false;
+            }}
+          >
+            <Button size="small" loading={busy}>{t('admin.logoUpload')}</Button>
+          </Upload>
+          {url && (
+            <Button size="small" type="text" danger disabled={busy} onClick={() => run(() => removeProjectLogo('icon'))}>
+              {t('admin.logoRemove')}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GeneralForm({ settings, appearance, save }) {
   const { t } = useLocale();
   const { refresh: refreshPublic } = useSettings();
@@ -88,11 +135,12 @@ function GeneralForm({ settings, appearance, save }) {
       appName: settings.appName || '',
       appDescription: settings.appDescription || '',
       logoHeight: Number(appearance.logoHeight) || 32,
+      shortName: appearance.shortName || '',
     }),
-    [settings.appName, settings.appDescription, appearance.logoHeight]
+    [settings.appName, settings.appDescription, appearance.logoHeight, appearance.shortName]
   );
-  const { form, dirty, saving, submit, reset, formProps } = useSettingsForm(initial, ({ logoHeight, ...rest }) =>
-    save({ ...rest, appearance: { logoHeight } })
+  const { form, dirty, saving, submit, reset, formProps } = useSettingsForm(initial, ({ logoHeight, shortName, ...rest }) =>
+    save({ ...rest, appearance: { logoHeight, shortName } })
   );
   const height = Form.useWatch('logoHeight', form) || initial.logoHeight;
 
@@ -141,6 +189,19 @@ function GeneralForm({ settings, appearance, save }) {
             </Form.Item>
           </div>
         </SettingRow>
+      </SettingsSection>
+      <SettingsSection title={t('settings.general.app')} description={t('settings.general.appDesc')}>
+        <div className="app-icon-row">
+          <AppIconSlot url={appearance.appIconUrl} onChanged={refreshPublic} />
+          <div className="app-icon-row__fields">
+            <SettingRow label={t('settings.general.shortName')} description={t('settings.general.shortNameDesc')} stacked>
+              <Form.Item name="shortName" noStyle>
+                <Input maxLength={24} showCount placeholder={(settings.appName || '').split(' ')[0]} />
+              </Form.Item>
+            </SettingRow>
+            <a href="/install" target="_blank" rel="noopener noreferrer">{t('settings.general.installGuide')} ↗</a>
+          </div>
+        </div>
       </SettingsSection>
       <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={reset} />
     </Form>

@@ -8,6 +8,7 @@ import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
 import { useThemeMode } from '../context/ThemeContext';
 import { PageFallback } from './AdminLayout';
+import PageTransition from '../components/ui/PageTransition';
 
 function IntegrationDot({ item }) {
   const { settings } = useSettings();
@@ -81,7 +82,9 @@ export default function SettingsLayout() {
         )}
         <ConfigProvider componentDisabled={readOnly}>
           <Suspense fallback={<PageFallback />}>
-            <Outlet />
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
           </Suspense>
         </ConfigProvider>
       </div>

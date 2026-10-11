@@ -4,14 +4,17 @@ import config from '../config/app.js';
 import { query, withTransaction } from '../config/database.js';
 import { authAvailability, getSettings, parseSettings } from './settings.js';
 import { authenticateDirectory, mapDirectoryGroups } from './ldap.js';
-import { sendEmail, sendTelegram, sendWhatsapp } from './integrations.js';
+import { sendEmail, sendMattermostDirect, sendTelegram, sendWhatsapp } from './integrations.js';
 import { getUserAccess, hasLocalPassword } from './rbac.js';
+import { recordSecurityEvent } from './security.js';
+import { allowedDomains, domainAllowed, findGoogleAccountBySub, saveGoogleAccount } from './google.js';
 import {
   findUserByEmail,
   findUserByExternalId,
   findUserById,
   findUserByPhone,
   findUserByTelegramId,
+  findUserByMattermost,
   findUserByTelegramUsername,
   findUserByUsername,
   provisionExternalUser,
@@ -219,6 +222,51 @@ export async function signInWithTelegram(payload) {
   return { user, method: 'telegram' };
 }
 
+// ── Google (OpenID Connect) ──────────────────────────────────────────────────
+
+/**
+ * `claims` come from a verified Google ID token (services/google.js).
+ * Lookup order: linked Google account → the single user with that verified
+ * email (then linked) → a new account when auto-provisioning is on.
+ */
+export async function signInWithGoogle(claims) {
+  const { parsed, available } = await loadSettings();
+  if (!available.google) throw authError('login_failed', 'Google sign-in is disabled', 'METHOD_DISABLED');
+  const domains = allowedDomains(parsed.integrations.google);
+  if (!domainAllowed(claims, domains)) {
+    throw authError('login_failed', 'This Google account is not from an allowed domain', 'GOOGLE_DOMAIN');
+  }
+
+  const linked = await findGoogleAccountBySub(claims.sub);
+  let user = linked ? await findUserById(linked.user_id) : null;
+  if (!user && claims.email && claims.email_verified) {
+    // Only addresses we trust: a self-typed email must not capture someone's Google sign-in.
+    const candidate = await findUserByEmail(claims.email);
+    if (candidate?.email_trusted) user = candidate;
+    else if (candidate) {
+      throw authError('login_failed', 'This Google account is not linked to any user', 'GOOGLE_NOT_LINKED');
+    }
+  }
+  if (!user) {
+    if (!parsed.auth.google?.autoProvision) {
+      throw authError('login_failed', 'This Google account is not linked to any user', 'GOOGLE_NOT_LINKED');
+    }
+    if (!claims.email_verified) throw authError('login_failed', 'Google email is not verified', 'GOOGLE_NOT_LINKED');
+    user = await withTransaction((client) =>
+      provisionExternalUser(client, {
+        username: String(claims.email || '').split('@')[0],
+        displayName: claims.name || claims.email,
+        email: claims.email,
+        source: 'google',
+        externalId: claims.sub,
+      })
+    );
+  }
+  assertActive(user);
+  await saveGoogleAccount(user.id, claims);
+  return { user, method: 'google' };
+}
+
 // ── One-time codes and magic links (email / WhatsApp / Telegram) ───────────
 //
 // Protection:
@@ -233,6 +281,7 @@ const CHANNELS = {
   email: { method: 'emailCode', find: findUserByEmail },
   whatsapp: { method: 'whatsappCode', find: findUserByPhone },
   telegram: { method: 'telegramCode', find: findUserByTelegramUsername },
+  mattermost: { method: 'mattermostCode', find: findUserByMattermost },
 };
 
 const LINK_TTL_MINUTES = 15;
@@ -267,6 +316,7 @@ function signInMessage(user, appName, { code, link }) {
 async function deliver(channel, user, message) {
   if (channel === 'email') return sendEmail({ to: user.email, ...message });
   if (channel === 'whatsapp') return sendWhatsapp({ phone: user.phone, text: message.text });
+  if (channel === 'mattermost') return sendMattermostDirect({ username: user.mattermost, text: message.text });
   return sendTelegram({ chatId: user.telegram_id, text: message.text });
 }
 
@@ -274,7 +324,7 @@ async function deliver(channel, user, message) {
  * Sends a code (or a magic link) if the identifier belongs to exactly one
  * active account. The caller always gets the same answer.
  */
-export async function requestSignInCode(channel, identifier, mode = 'code') {
+export async function requestSignInCode(channel, identifier, mode = 'code', { ip } = {}) {
   const spec = CHANNELS[channel];
   if (!spec) throw badRequest('Unknown channel');
   const { parsed, available } = await loadSettings();
@@ -283,7 +333,18 @@ export async function requestSignInCode(channel, identifier, mode = 'code') {
   if (kind === 'link' && !available.magicLink) throw badRequest('Sign-in links are disabled');
 
   const user = await spec.find(identifier);
-  if (!user || user.is_active === false || user.is_blocked === true) return;
+  if (!user || user.is_active === false || user.is_blocked === true) {
+    // Invisible to the requester (no enumeration), visible to admins in Activity.
+    await recordSecurityEvent({
+      kind: 'code_unknown',
+      severity: 'warning',
+      username: String(identifier).slice(0, 64),
+      ip,
+      detail: user ? `${channel}: account disabled or blocked` : `${channel}: no single active account matches`,
+      debounceMinutes: 5,
+    });
+    return;
+  }
 
   const recent = await query(
     `SELECT
@@ -322,7 +383,19 @@ export async function requestSignInCode(channel, identifier, mode = 'code') {
     );
     message = signInMessage(user, parsed.appName, { code });
   }
-  await deliver(channel, user, message);
+  try {
+    await deliver(channel, user, message);
+  } catch (err) {
+    await recordSecurityEvent({
+      kind: 'code_delivery_failed',
+      severity: 'danger',
+      username: user.username,
+      ip,
+      detail: `${channel}: ${String(err.message || err).slice(0, 160)}`,
+      debounceMinutes: 1,
+    });
+    throw err;
+  }
 }
 
 export async function signInWithCode(channel, identifier, code) {
@@ -362,6 +435,7 @@ export async function signInWithCode(channel, identifier, code) {
   );
   if (!claimed.rows.length) throw invalid();
   assertActive(user);
+  if (channel === 'email') await query(`UPDATE users SET email_trusted = TRUE WHERE id = $1`, [user.id]);
   return { user, method: channel };
 }
 
@@ -382,5 +456,6 @@ export async function signInWithMagicLink(token) {
   const user = await findUserById(row.user_id);
   if (!user) throw invalid();
   assertActive(user);
+  if (row.channel === 'email') await query(`UPDATE users SET email_trusted = TRUE WHERE id = $1`, [user.id]);
   return { user, method: 'magic_link' };
 }

@@ -63,3 +63,26 @@ test('sanitizeWazzup keeps a transport → channel map and drops junk', async ()
   assert.deepEqual(next.channels, { whatsapp: 'abc', instagram: 'def' });
   assert.equal(next.enabled, true);
 });
+
+test('phones are validated against real numbering plans', async () => {
+  const { normalizePhone } = await import('../services/users.js');
+  assert.equal(normalizePhone('+996 559 25-57-77'), '+996559255777');
+  assert.equal(normalizePhone('996502800800'), '+996502800800');
+  assert.throws(() => normalizePhone('+9965255777'), /not valid/, 'a missing digit is rejected');
+  assert.equal(normalizePhone(''), null);
+});
+
+test('WhatsApp Gateway base URL works on any domain', async () => {
+  const { gatewayBase } = await import('../services/integrations.js');
+  assert.equal(gatewayBase('https://wa.example.org/'), 'https://wa.example.org');
+  assert.equal(gatewayBase('https://wa.example.org/api'), 'https://wa.example.org');
+  assert.equal(gatewayBase(' http://10.0.0.5:8080/api/ '), 'http://10.0.0.5:8080');
+});
+
+test('Mattermost base URL and usernames', async () => {
+  const { mattermostBase } = await import('../services/integrations.js');
+  const { normalizeMattermost } = await import('../services/users.js');
+  assert.equal(mattermostBase('https://chat.example.com/api/v4/'), 'https://chat.example.com');
+  assert.equal(normalizeMattermost('@Ivan.Petrov'), 'ivan.petrov');
+  assert.throws(() => normalizeMattermost('1bad'), /not valid/);
+});

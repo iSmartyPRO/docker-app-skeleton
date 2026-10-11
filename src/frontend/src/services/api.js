@@ -106,4 +106,25 @@ export const uploadAccountAvatar = (form) =>
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
+// Google (account connection, Calendar access) and the admin side of the integration
+export const getAccountGoogle = () => api.get('/account/google');
+export const getAccountGoogleCalendars = () => api.get('/account/google/calendars');
+export const saveAccountGoogleCalendars = (selected) => api.put('/account/google/calendars', { selected });
+export const disconnectAccountGoogle = () => api.delete('/account/google');
+export const getAdminGoogleInfo = () => api.get('/admin/integrations/google/info');
+export const disconnectAdminGmail = () => api.delete('/admin/integrations/google/gmail');
+/** Full-page navigation: the OAuth flow leaves the app and comes back. */
+export function startGoogle(purpose = 'signin', returnTo) {
+  const params = new URLSearchParams({ purpose });
+  if (returnTo) params.set('returnTo', returnTo);
+  window.location.assign(`/api/auth/google/start?${params}`);
+}
+
+// Notification center
+export const listNotifications = (params) => api.get('/notifications', { params });
+export const getUnreadNotifications = () => api.get('/notifications/unread');
+export const markNotificationsRead = (payload) => api.post('/notifications/read', payload);
+export const getNotificationPrefs = () => api.get('/account/notifications');
+export const saveNotificationPrefs = (payload) => api.put('/account/notifications', payload);
+
 export default api;

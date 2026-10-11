@@ -66,10 +66,24 @@ This repository is that work done once, properly:
 | **Design system** | 5 color templates × light/dark, custom color overrides, 28 typography presets, colored or monochrome icon sets, live preview before applying, separate logo for dark theme. |
 | **UX details** | ⌘K / Ctrl+K command palette, floating *unsaved changes* bar, skeleton states, retryable errors, responsive down to phones, EN/RU with fallback. |
 | **Security controls** | IP allow-list / block-list (IPv4/IPv6, IPv4 CIDR), guards against locking yourself out, last-admin protection, upload magic-byte checks, strict CSP. |
-| **Integrations** | Email (SMTP), Telegram bot, WhatsApp gateway, [Wazzup](https://wazzup24.com) (WhatsApp, Telegram, Instagram, Avito), Active Directory — configuration, write-only secrets and *test connection*, off by default. |
+| **Integrations** | Email (SMTP), Telegram bot, WhatsApp Gateway, [Wazzup](https://wazzup24.com) (WhatsApp, Telegram, Instagram, Avito), Mattermost (codes and security alerts), Google (sign-in, Calendar, Gmail), Active Directory, document conversion (Collabora / LibreOffice) — configuration, write-only secrets and *test connection*, off by default. |
+| **Modules** | App platform: `/apps` launcher, `/app/<id>` URLs, per-module switch and settings, a disabled module is invisible (UI and API). |
+| **Tasks** | Projects with keys (`HR-12`), own workflows, kanban board with drag & drop (mouse, touch, keyboard), list view, My tasks by deadline, checklists, comments with @mentions, watchers, history, deadline reminders. |
+| **Calendar** | Personal and shared calendars, month / week / day / agenda, recurring events in the event's time zone with per-occurrence exceptions, attendees with RSVP, reminders, task deadlines, live Google Calendar. |
+| **Notifications** | One notification center for every module: the bell, push on phones and computers, email (SMTP or Gmail), Telegram, Mattermost — per-user preferences, app-icon badge. |
+| **Installable app** | PWA: home-screen icon, full screen, push, offline screen, custom app icon; `/install` guide with illustrated steps for iPhone, Android and desktop. |
+| **Knowledge Base** | Folder hierarchy with icons and colours, articles (Markdown), links and files; access per base / folder / material for users, groups and roles; public links `/s/<slug>` with custom address, password, expiry and download control; premium PDF and image viewers; Word, Excel and PowerPoint in the browser (with Collabora / LibreOffice conversion). |
 | **Operations** | Single production container (nginx + Node), hot-reload dev stack, `/health` and `/ready`, Makefile for every routine task, semver `VERSION` baked into the image. |
 
 ## Screenshots
+
+| Tasks — kanban board | Task panel |
+|---|---|
+| <img src="docs/images/tasks-board.png" alt="Kanban board of a project" /> | <img src="docs/images/task-panel.png" alt="Task details with checklist and comments" /> |
+| **Calendar — week view** | **Notification center** |
+| <img src="docs/images/calendar-week.png" alt="Calendar week view" /> | <img src="docs/images/notifications.png" alt="Notification bell panel" /> |
+| **Install guide (iPhone)** | **Illustrated step** |
+| <img src="docs/images/install-guide.png" alt="Install the app guide on iPhone" width="260" /> | <img src="docs/images/install-step.png" alt="Add to Home Screen step" width="300" /> |
 
 | Settings hub | Command palette (⌘K) |
 |---|---|
@@ -186,7 +200,7 @@ Settings        searchable hub
   ├─ Project        General — name, description, primary + dark-theme logo, logo height
   ├─ Appearance     Color theme · Typography · Menu icons
   ├─ Security       Sign-in methods · Site access · Sign-in & sessions · IP filtering
-  ├─ Integrations   Email · Telegram · WhatsApp · Wazzup · Active Directory
+  ├─ Integrations   Email · Telegram · WhatsApp Gateway · Wazzup · Mattermost · Active Directory
   └─ System         Version, runtime, database, API rate limit
 ```
 
@@ -306,7 +320,13 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Extending](docs/extending.md) | Recipes: settings screens, pages, endpoints, templates, integrations |
 | [Adapting a fork](docs/adapt.md) | Renaming, branding and what not to rewrite |
 | [Access control & sign-in](docs/access-control.md) | Roles, groups, permissions, safety rules, sign-in methods and their setup |
-| [Integrations](docs/integrations.md) | Email, Telegram, WhatsApp, Wazzup and Active Directory setup |
+| [Modules](docs/modules.md) | The app platform: `/apps`, `/app/<id>`, enabling modules, writing a new one |
+| [Tasks](docs/tasks.md) | Projects, workflow, board, access, reminders, API |
+| [Calendar](docs/calendar.md) | Calendars, recurrence, attendees, reminders, Google Calendar, API |
+| [Notifications](docs/notifications.md) | Notification center, channels, Web Push, scheduler, sealed secrets |
+| [Installable app (PWA)](docs/pwa.md) | Manifest, service worker, icons, install guide, deployment notes |
+| [Knowledge Base](docs/knowledge-base.md) | Folders, access levels, public links, viewers, storage, API |
+| [Integrations](docs/integrations.md) | Email, Telegram, WhatsApp Gateway, Wazzup, Mattermost, Google, document conversion and Active Directory setup |
 | [Configuration](docs/configuration.md) | Environment variables and stored settings |
 | [Security](docs/security.md) | Threat model, built-in controls, go-live checklist |
 | [Operations](docs/operations.md) | Make targets, backups, upgrades, troubleshooting |

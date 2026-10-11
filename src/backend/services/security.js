@@ -246,6 +246,8 @@ const EVENT_KINDS = new Set([
   'ip_blocked',
   'ip_denied',
   'rate_limited',
+  'code_unknown',
+  'code_delivery_failed',
 ]);
 
 export async function recordSecurityEvent({ kind, severity, username, ip, detail, debounceMinutes = 0 }) {
@@ -276,6 +278,19 @@ export async function recordSecurityEvent({ kind, severity, username, ip, detail
       `,
       [kind, severity || 'warning', safeUser, ip || null, safeDetail]
     );
+
+    if ((severity || 'warning') === 'danger') {
+      // Loaded lazily to keep this module free of network dependencies.
+      import('./integrations.js')
+        .then(({ notifyMattermost }) =>
+          notifyMattermost(
+            `:rotating_light: **${kind.replace(/_/g, ' ')}**` +
+              `${safeUser ? ` · user \`${safeUser}\`` : ''}${ip ? ` · IP \`${ip}\`` : ''}` +
+              `${safeDetail ? `\n${safeDetail}` : ''}`
+          )
+        )
+        .catch(() => {});
+    }
 
     await query(`DELETE FROM security_events WHERE created_at < NOW() - INTERVAL '90 days'`);
     return result.rows[0];

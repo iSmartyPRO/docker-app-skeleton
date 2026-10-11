@@ -1,7 +1,20 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import config from '../config/app.js';
-import { requireAuth } from '../middleware/auth.js';
+import { optionalAuth, requireAuth } from '../middleware/auth.js';
+import { hasPermission } from '../services/permissions.js';
+import {
+  STATE_COOKIE,
+  allowedDomains,
+  beginAuthorization,
+  connectGmailSender,
+  domainAllowed,
+  exchangeCode,
+  googleConfig,
+  readState,
+  saveGoogleAccount,
+  verifyIdToken,
+} from '../services/google.js';
 import { clientIp } from '../middleware/ipGuard.js';
 import { cookieOptions, startSession } from '../services/auth.js';
 import { getSettings, parseSettings } from '../services/settings.js';
@@ -11,6 +24,7 @@ import {
   signInWithCode,
   signInWithMagicLink,
   signInWithPassword,
+  signInWithGoogle,
   signInWithTelegram,
 } from '../services/signin.js';
 import { toPublicUser } from '../services/users.js';
@@ -135,7 +149,7 @@ router.post('/code/request', codeLimiter, async (req, res, next) => {
     const identifier = String(req.body?.identifier || '').trim().slice(0, 255);
     if (!identifier) return res.status(400).json({ success: false, error: 'Enter your email or phone' });
     const mode = req.body?.mode === 'link' ? 'link' : 'code';
-    await requestSignInCode(channel, identifier, mode).catch((err) => {
+    await requestSignInCode(channel, identifier, mode, { ip: clientIp(req) }).catch((err) => {
       if (err.expose) throw err;
       // Delivery problems are logged, not revealed: the answer must not leak
       // whether the account exists.
@@ -165,8 +179,110 @@ router.post(
   )
 );
 
+// ── Google OAuth (sign-in, account connection, Gmail sender) ────────────────
+
+const googleLimiter = limiter(40, 'Google sign-in rate limit exceeded');
+const GOOGLE_PURPOSES = ['signin', 'connect', 'gmail'];
+
+function googleFailure(purpose, code) {
+  const safe = encodeURIComponent(String(code || 'GOOGLE_ERROR').replace(/[^A-Z_]/g, '').slice(0, 32) || 'GOOGLE_ERROR');
+  if (purpose === 'connect') return `/account/connections?google_error=${safe}`;
+  if (purpose === 'gmail') return `/admin/settings/google?google_error=${safe}`;
+  return `/login?error=${safe}`;
+}
+
+function stateCookieOptions(req) {
+  const { maxAge, ...base } = cookieOptions(req);
+  return { ...base, path: '/api/auth/google', maxAge: 10 * 60 * 1000 };
+}
+
+function withQuery(path, key, value) {
+  return `${path}${path.includes('?') ? '&' : '?'}${key}=${value}`;
+}
+
+router.get('/google/start', googleLimiter, optionalAuth, async (req, res) => {
+  const purpose = GOOGLE_PURPOSES.includes(req.query.purpose) ? req.query.purpose : 'signin';
+  try {
+    if (purpose === 'gmail' && !hasPermission(req.access?.permissions || [], 'settings.integrations')) {
+      return res.redirect(googleFailure(purpose, 'FORBIDDEN'));
+    }
+    const { url, state } = await beginAuthorization({
+      purpose,
+      userId: req.userRow?.id || null,
+      returnTo: req.query.returnTo,
+      loginHint: purpose === 'signin' ? undefined : req.userRow?.email,
+    });
+    res.cookie(STATE_COOKIE, state, stateCookieOptions(req));
+    return res.redirect(url);
+  } catch (err) {
+    return res.redirect(googleFailure(purpose, err.code));
+  }
+});
+
+router.get('/google/callback', googleLimiter, optionalAuth, async (req, res) => {
+  const ip = clientIp(req);
+  const { maxAge, ...clearOptions } = stateCookieOptions(req);
+  const raw = req.cookies?.[STATE_COOKIE];
+  res.clearCookie(STATE_COOKIE, clearOptions);
+  let state;
+  try {
+    state = readState(raw, String(req.query.state || ''));
+  } catch (err) {
+    return res.redirect(googleFailure('signin', err.code));
+  }
+  const purpose = state.p;
+  if (req.query.error) {
+    return res.redirect(googleFailure(purpose, req.query.error === 'access_denied' ? 'GOOGLE_DENIED' : 'GOOGLE_ERROR'));
+  }
+
+  let claims = null;
+  try {
+    const tokens = await exchangeCode(String(req.query.code || ''), state.v);
+    const { cfg } = await googleConfig();
+    claims = await verifyIdToken(tokens.id_token, { clientId: cfg.clientId, nonce: state.n });
+
+    if (purpose === 'signin') {
+      if (await isLockedOut(claims.email || '', ip)) return res.redirect(googleFailure(purpose, 'LOCKED'));
+      const { user, method } = await signInWithGoogle(claims);
+      await recordLoginAttempt({ username: user.username, ip, success: true });
+      await startSession(req, res, user, { method, sessionDays: await sessionDays() });
+      return res.redirect(state.r);
+    }
+
+    // Connecting must finish in the same signed-in session that started it.
+    if (!req.userRow || req.userRow.id !== state.u) return res.redirect(googleFailure(purpose, 'AUTH_REQUIRED'));
+    if (purpose === 'connect') {
+      if (!domainAllowed(claims, allowedDomains(cfg))) return res.redirect(googleFailure(purpose, 'GOOGLE_DOMAIN'));
+      await saveGoogleAccount(req.userRow.id, claims, tokens);
+      return res.redirect(withQuery(state.r, 'google', 'connected'));
+    }
+    if (!hasPermission(req.access.permissions, 'settings.integrations')) return res.redirect(googleFailure(purpose, 'FORBIDDEN'));
+    await connectGmailSender(claims, tokens);
+    return res.redirect(withQuery(state.r, 'gmail', 'connected'));
+  } catch (err) {
+    if (purpose === 'signin') {
+      const login = String(claims?.email || 'google').slice(0, 64);
+      await recordLoginAttempt({ username: login, ip, success: false }).catch(() => {});
+      await recordSecurityEvent({
+        kind: err.eventKind || 'login_failed',
+        severity: err.eventKind && err.eventKind !== 'login_failed' ? 'danger' : 'warning',
+        username: login,
+        ip,
+        detail: `Google sign-in failed: ${err.code || err.message}`.slice(0, 200),
+        debounceMinutes: 1,
+      }).catch(() => {});
+    } else if ((err.statusCode || 500) >= 500) {
+      console.warn('Google connection failed:', err.message);
+    }
+    // Disabled / blocked accounts look like any other failure.
+    const code = err.eventKind && err.eventKind !== 'login_failed' ? 'INVALID_CREDENTIALS' : err.code;
+    return res.redirect(googleFailure(purpose, code));
+  }
+});
+
 router.post('/logout', (req, res) => {
-  res.clearCookie(config.auth.cookieName, cookieOptions(req));
+  const { maxAge, ...options } = cookieOptions(req);
+  res.clearCookie(config.auth.cookieName, options);
   res.json({ success: true });
 });
 

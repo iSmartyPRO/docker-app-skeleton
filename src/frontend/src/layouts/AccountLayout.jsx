@@ -7,6 +7,7 @@ import { MenuIcon } from '../components/icons/menuIcons';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
 import { PageFallback } from './AdminLayout';
+import PageTransition from '../components/ui/PageTransition';
 
 const { Sider, Content } = Layout;
 
@@ -14,6 +15,8 @@ const ITEMS = [
   { key: '/account', icon: 'user', labelKey: 'account.profile' },
   { key: '/account/appearance', icon: 'palette', labelKey: 'account.appearance' },
   { key: '/account/security', icon: 'lock', labelKey: 'account.security' },
+  { key: '/account/notifications', icon: 'bell', labelKey: 'notifications.prefsTitle' },
+  { key: '/account/connections', icon: 'integrations', labelKey: 'connections.title' },
 ];
 
 export default function AccountLayout() {
@@ -50,7 +53,9 @@ export default function AccountLayout() {
         </Sider>
         <Content className="workspace__content">
           <Suspense fallback={<PageFallback />}>
-            <Outlet />
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
           </Suspense>
         </Content>
       </Layout>

@@ -1,6 +1,7 @@
 import { unlink } from 'fs/promises';
 import { basename, join } from 'path';
 import bcrypt from 'bcryptjs';
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import { query, withTransaction } from '../config/database.js';
 import { avatarDir } from '../config/paths.js';
 import { LOCKED_ROLE } from './permissions.js';
@@ -44,6 +45,10 @@ export async function ensureUsersTable() {
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS external_id TEXT`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_method VARCHAR(16)`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS instagram VARCHAR(64)`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mattermost VARCHAR(64)`);
+  // Set by an administrator, a directory or Google, or proven by an email code.
+  // Only trusted addresses may link a Google account automatically.
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_trusted BOOLEAN NOT NULL DEFAULT FALSE`);
   await query(`CREATE UNIQUE INDEX IF NOT EXISTS users_telegram_id_key ON users (telegram_id) WHERE telegram_id IS NOT NULL`);
   await query(`CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users (LOWER(email))`);
   await query(`CREATE INDEX IF NOT EXISTS users_phone_idx ON users (phone)`);
@@ -52,7 +57,7 @@ export async function ensureUsersTable() {
 const USER_COLUMNS = `
   id, username, email, display_name, avatar_path, locale, theme,
   role, is_active, is_blocked, last_login_at, token_version, created_at, updated_at,
-  phone, telegram_id, telegram_username, instagram, auth_source, external_id, last_login_method,
+  phone, telegram_id, telegram_username, instagram, mattermost, auth_source, external_id, last_login_method, email_trusted,
   (password_hash LIKE '$2%') AS has_password
 `;
 
@@ -89,12 +94,24 @@ function normalizeEmail(email) {
   return value;
 }
 
-/** Stores phones as digits with a leading "+": "+996 700 12-34-56" → "+996700123456". */
+/**
+ * International (E.164) phone: "+996 700 12-34-56" → "+996700123456".
+ * Validated against real numbering plans, so a missing digit is caught on
+ * save instead of silently breaking WhatsApp sign-in codes later.
+ */
 export function normalizePhone(phone) {
   if (phone == null || phone === '') return null;
   const digits = String(phone).replace(/\D/g, '');
-  if (digits.length < 8 || digits.length > 15) throw httpError(400, 'Phone number is not valid');
-  return `+${digits}`;
+  const parsed = parsePhoneNumberFromString(`+${digits}`);
+  if (!parsed || !parsed.isValid()) {
+    throw httpError(400, 'Phone number is not valid. Use the international format, e.g. +996 700 123 456');
+  }
+  return parsed.number;
+}
+
+export function isValidPhone(phone) {
+  if (!phone) return true;
+  return Boolean(parsePhoneNumberFromString(String(phone))?.isValid());
 }
 
 export function avatarUrl(path) {
@@ -111,7 +128,9 @@ export function toPublicUser(user, access = EMPTY_ACCESS) {
     username: user.username,
     email: user.email,
     phone: user.phone || null,
+    phoneValid: isValidPhone(user.phone),
     instagram: user.instagram || null,
+    mattermost: user.mattermost || null,
     displayName: user.display_name || user.username,
     avatarUrl: avatarUrl(user.avatar_path),
     locale: user.locale || 'en',
@@ -216,6 +235,26 @@ export function normalizeInstagram(value) {
   return name.toLowerCase();
 }
 
+/** Mattermost usernames: lowercase letters, digits, dot, dash, underscore. */
+export function normalizeMattermost(value) {
+  if (value == null || value === '') return null;
+  const name = String(value).trim().replace(/^@/, '').toLowerCase();
+  if (!/^[a-z][a-z0-9._-]{2,63}$/.test(name)) throw httpError(400, 'Mattermost username is not valid');
+  return name;
+}
+
+export async function findUserByMattermost(username) {
+  let name;
+  try {
+    name = normalizeMattermost(username);
+  } catch {
+    return null;
+  }
+  if (!name) return null;
+  const result = await query(`SELECT ${USER_COLUMNS} FROM users WHERE mattermost = $1 ORDER BY id LIMIT 2`, [name]);
+  return result.rows.length === 1 ? result.rows[0] : null;
+}
+
 export async function findUserByTelegramId(telegramId) {
   const result = await query(`SELECT ${USER_COLUMNS} FROM users WHERE telegram_id = $1 LIMIT 1`, [
     String(telegramId),
@@ -265,8 +304,8 @@ export async function createAdminUser({ username, email, password }) {
   const passwordHash = await bcrypt.hash(assertPassword(password), 12);
   return withTransaction(async (client) => {
     const result = await client.query(
-      `INSERT INTO users (username, email, password_hash, role, display_name)
-       VALUES ($1, $2, $3, 'admin', $1)
+      `INSERT INTO users (username, email, password_hash, role, display_name, email_trusted)
+       VALUES ($1, $2, $3, 'admin', $1, TRUE)
        RETURNING ${USER_COLUMNS}`,
       [name, normalizeEmail(email), passwordHash]
     );
@@ -291,8 +330,8 @@ export async function createUser(input, actor) {
   try {
     return await withTransaction(async (client) => {
       const result = await client.query(
-        `INSERT INTO users (username, email, password_hash, role, display_name, phone, instagram)
-         VALUES ($1, $2, $3, 'user', $4, $5, $6)
+        `INSERT INTO users (username, email, password_hash, role, display_name, phone, instagram, mattermost, email_trusted)
+         VALUES ($1, $2, $3, 'user', $4, $5, $6, $7, TRUE)
          RETURNING ${USER_COLUMNS}`,
         [
           name,
@@ -301,6 +340,7 @@ export async function createUser(input, actor) {
           String(input.displayName || name).slice(0, 128),
           normalizePhone(input.phone),
           normalizeInstagram(input.instagram),
+          normalizeMattermost(input.mattermost),
         ]
       );
       const user = result.rows[0];
@@ -336,8 +376,8 @@ export async function provisionExternalUser(client, { username, displayName, ema
   }
   const result = await client.query(
     `INSERT INTO users (username, email, password_hash, role, display_name, auth_source, external_id,
-                        telegram_id, telegram_username)
-     VALUES ($1, $2, $3, 'user', $4, $5, $6, $7, $8)
+                        telegram_id, telegram_username, email_trusted)
+     VALUES ($1, $2, $3, 'user', $4, $5, $6, $7, $8, $2 IS NOT NULL)
      RETURNING ${USER_COLUMNS}`,
     [
       name,
@@ -369,6 +409,7 @@ export async function syncExternalProfile(id, { displayName, email }) {
     `UPDATE users SET
        display_name = COALESCE($2, display_name),
        email = COALESCE($3, email),
+       email_trusted = CASE WHEN $3::text IS NULL THEN email_trusted ELSE TRUE END,
        updated_at = NOW()
      WHERE id = $1`,
     [id, displayName ? String(displayName).slice(0, 128) : null, safeEmail || null]
@@ -406,10 +447,22 @@ export async function updateUser(id, patch, { actor = null } = {}) {
       fields.push(`${column} = $${values.length}`);
     };
 
-    if (patch.email !== undefined) add('email', normalizeEmail(patch.email));
+    if (patch.email !== undefined) {
+      const email = normalizeEmail(patch.email);
+      const byAdmin = Boolean(actor && !isSelf);
+      if ((email || null) !== (user.email || null)) {
+        add('email', email);
+        // Self-entered addresses are unverified until proven by an email code.
+        add('email_trusted', byAdmin);
+      } else if (byAdmin && email && !user.email_trusted) {
+        // An administrator saving the address vouches for it.
+        add('email_trusted', true);
+      }
+    }
     if (patch.displayName !== undefined) add('display_name', String(patch.displayName).slice(0, 128));
     if (patch.phone !== undefined) add('phone', normalizePhone(patch.phone));
     if (patch.instagram !== undefined) add('instagram', normalizeInstagram(patch.instagram));
+    if (patch.mattermost !== undefined) add('mattermost', normalizeMattermost(patch.mattermost));
     if (patch.locale === 'en' || patch.locale === 'ru') add('locale', patch.locale);
     if (['light', 'dark', 'system'].includes(patch.theme)) add('theme', patch.theme);
 

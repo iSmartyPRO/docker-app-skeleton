@@ -30,10 +30,13 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "ldapts": "^9.0.0",
+    "libphonenumber-js": "^1.13.10",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
     "nodemailer": "^6.10.1",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "rrule": "^2.8.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

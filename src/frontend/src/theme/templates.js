@@ -161,6 +161,14 @@ export function buildAntdTheme(appearance = {}, mode = 'light') {
       fontSize: Number(typography.baseFontSize) || 16,
       borderRadius: 10,
       fontWeightStrong: Number(typography.headingWeight) || 600,
+      // Motion: a touch slower than antd's defaults, with a soft "expo out"
+      // curve, so modals, drawers and menus glide rather than snap.
+      motionDurationFast: '0.14s',
+      motionDurationMid: '0.24s',
+      motionDurationSlow: '0.34s',
+      motionEaseOut: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      motionEaseOutCirc: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      motionEaseInOut: 'cubic-bezier(0.65, 0, 0.35, 1)',
     },
     algorithm: undefined,
   };

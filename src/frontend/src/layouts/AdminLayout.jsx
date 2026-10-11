@@ -9,6 +9,7 @@ import { ADMIN_PAGES, visibleAdminPages } from '../admin/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
+import PageTransition from '../components/ui/PageTransition';
 
 const { Sider, Content } = Layout;
 
@@ -38,6 +39,13 @@ export function PageFallback() {
       <Spin />
     </div>
   );
+}
+
+/** Settings screens share one shell: only their content animates (SettingsLayout). */
+function sectionKey(pathname) {
+  const path = pathname.replace(/\/$/, '');
+  if (path === '/admin/settings') return 'settings-hub';
+  return path.startsWith('/admin/settings/') ? 'settings' : path;
 }
 
 export default function AdminLayout() {
@@ -132,7 +140,9 @@ export default function AdminLayout() {
         </Sider>
         <Content className="workspace__content">
           <Suspense fallback={<PageFallback />}>
-            <Outlet />
+            <PageTransition id={sectionKey(location.pathname)}>
+              <Outlet />
+            </PageTransition>
           </Suspense>
         </Content>
       </Layout>

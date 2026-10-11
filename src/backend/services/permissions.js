@@ -6,6 +6,8 @@
  * the roles of every group they belong to. `*` means every permission.
  */
 
+import { MODULE_CATALOG } from '../modules/catalog.js';
+
 export const ALL = '*';
 
 /** Grouped for the role editor; `key` is what routes check. */
@@ -30,9 +32,12 @@ export const PERMISSION_CATALOG = [
       'settings.security',
       'settings.auth',
       'settings.integrations',
+      'settings.modules',
       'settings.system',
     ],
   },
+  // Each module contributes its own permission group.
+  ...MODULE_CATALOG.map((module) => ({ group: `module_${module.id}`, permissions: module.permissions })),
 ];
 
 export const PERMISSIONS = PERMISSION_CATALOG.flatMap((group) => group.permissions);
@@ -125,6 +130,7 @@ export const SETTINGS_PATCH_PERMISSIONS = {
   integrations: 'settings.integrations',
   auth: 'settings.auth',
   rateLimit: 'settings.system',
+  modules: 'settings.modules',
 };
 
 export const SETTINGS_PERMISSIONS = PERMISSIONS.filter((perm) => perm.startsWith('settings.'));

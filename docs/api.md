@@ -33,7 +33,7 @@ Limiter: 20 requests / 15 minutes / IP on the `POST` endpoints. `GET /status` is
 |--------|------|--------|
 | `POST` | `/api/auth/login` | `{ username, password }` → local password, then Active Directory. 20 / 15 min |
 | `POST` | `/api/auth/telegram` | Telegram Login Widget fields (`id`, `auth_date`, `hash`, …) |
-| `POST` | `/api/auth/code/request` | `{ channel: "whatsapp" \| "email" \| "telegram", identifier, mode: "code" \| "link" }` → always `{ success: true }`. 10 / 15 min |
+| `POST` | `/api/auth/code/request` | `{ channel: "whatsapp" \| "email" \| "telegram" \| "mattermost", identifier, mode: "code" \| "link" }` → always `{ success: true }`. 10 / 15 min |
 | `POST` | `/api/auth/code/verify` | `{ channel, identifier, code }` |
 | `POST` | `/api/auth/magic` | `{ token }` from `/auth/magic#token` |
 | `POST` | `/api/auth/logout` | Clears cookie |
@@ -68,7 +68,7 @@ Every route requires `console.access`; the permission in brackets is checked in 
 | `GET` | `/api/admin/system` | Version, Node, uptime, database info, rate limit |
 | `GET` / `PUT` | `/api/admin/settings` |
 | `POST` / `DELETE` | `/api/admin/settings/logo` |
-| `POST` | `/api/admin/integrations/:kind/test` | `email`, `telegram`, `whatsapp`, `wazzup`, `activeDirectory`. Body: unsaved form values (blank secrets fall back to stored ones). `wazzup` also returns `channels` |
+| `POST` | `/api/admin/integrations/:kind/test` | `email`, `telegram`, `whatsapp`, `wazzup`, `mattermost`, `activeDirectory`. Body: unsaved form values (blank secrets fall back to stored ones). `wazzup` also returns `channels` |
 | `POST` | `/api/admin/integrations/wazzup/channels` | `{ apiKey? }` → account channels `{ id, transport, plainId, name, state }` |
 | `GET` / `POST` | `/api/admin/users` |
 | `GET` / `PUT` / `DELETE` | `/api/admin/users/:id` |
@@ -85,6 +85,37 @@ Safety rails (all return `400`/`409` with a readable `error`):
 - Changes to `security`, new block rules and rule deletions are rejected with `409 SELF_LOCKOUT` if they would deny the acting admin's own IP.
 - An admin cannot demote, disable, block or delete their own account, and the last active administrator cannot be removed by any route.
 - Role changes, disabling, blocking and password resets bump `token_version`, signing the user out everywhere.
+
+## Modules
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/api/apps` | Enabled modules (`requireAuth`) |
+| `*` | `/api/app/<id>/…` | Module API: `requireAuth` + module enabled, otherwise `404 MODULE_DISABLED` |
+| `*` | `/api/s/…` | Knowledge Base public links (anonymous, token per link) |
+
+Full references: [Knowledge Base](knowledge-base.md#api), [Tasks](tasks.md#api-apiapptasks-signed-in-users), [Calendar](calendar.md#api-apiappcalendar-signed-in-users).
+
+## Notifications, push, PWA
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/api/notifications` | Inbox (`requireAuth`); `/unread`, `POST /read` |
+| `GET` / `PUT` | `/api/account/notifications` | Channel preferences |
+| `GET` | `/api/pwa/manifest.webmanifest` | Public, built from settings |
+| `GET` | `/api/pwa/vapid` | VAPID public key (`requireAuth`) |
+| `GET` / `POST` / `DELETE` | `/api/pwa/push` | Device subscriptions; `POST /push/test` |
+
+## Google
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/api/auth/google/start?purpose=signin\|connect\|gmail&returnTo=` | Redirects to Google (connect/gmail need a session; gmail needs `settings.integrations`) |
+| `GET` | `/api/auth/google/callback` | OAuth callback for every flow |
+| `GET` / `DELETE` | `/api/account/google` | Connection status / disconnect |
+| `GET` / `PUT` | `/api/account/google/calendars` | Google calendars and the selection shown in Calendar |
+| `GET` | `/api/admin/integrations/google/info` | Redirect URI and origin for Google Cloud Console |
+| `DELETE` | `/api/admin/integrations/google/gmail` | Disconnect the Gmail sender |
 
 ## Static files
 

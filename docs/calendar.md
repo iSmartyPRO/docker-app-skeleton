@@ -1,0 +1,126 @@
+# Calendar (`/app/calendar`)
+
+The third [module](modules.md) covers:
+- personal and shared calendars;
+- events that repeat;
+- attendees with RSVP;
+- reminders;
+- the deadlines of your tasks;
+- your Google calendars, shown live next to the portal ones.
+
+## Views
+
+The views are **Month**, **Week**, **Day** and **Agenda** (FullCalendar).
+
+- **Creating and moving events:**
+  - drag over the grid to create an event;
+  - drag an event to move it, or drag its edge to resize it;
+  - click an event to see details.
+- **Sidebar:**
+  - the "New event" button;
+  - a mini month for jumping to a date;
+  - calendar toggles (remembered per browser);
+  - Invitations;
+  - My task deadlines;
+  - Google calendars.
+- **Phones:** the Day view by default and a drawer instead of the sidebar.
+- `/app/calendar/e/:id` opens an event card. Notifications link there.
+
+## Calendars and access
+
+- **Personal calendar:** every user gets one on first visit. It is private until shared.
+  - Administrators do **not** see personal calendars of others.
+  - `calendar.admin` applies only to shared calendars.
+- **Shared calendars** are for teams and resources, such as a meeting room or a department. Visibility when created:
+  - everyone can see;
+  - everyone can edit;
+  - only me.
+
+  Settings can restrict creation to administrators.
+- **Levels** (same editor as in Tasks and the Knowledge Base):
+  - *view*: events and details;
+  - *edit*: create, move and delete events;
+  - *manage*: name, colour, access and deletion.
+- **Invitations:** invited people see the event even without access to its calendar.
+
+## Events
+
+| Field | Notes |
+|-------|-------|
+| Title, description, location | |
+| Video call link | Shown as a "Join" button |
+| All day / start–end | Timed events up to 62 days |
+| Repeat | Daily, weekdays, weekly, monthly, yearly, or custom: every N days/weeks/months/years, chosen weekdays, ending never / on a date / after N times |
+| Attendees | Any active users; the organizer joins automatically |
+| Reminders | Up to 5: at start, 5–30 min, 1–2 h, 1–2 days, 1 week before |
+| Colour | Overrides the calendar colour |
+
+**Recurrence:**
+- Recurrence is stored as an RFC 5545 `RRULE`, a safe subset: FREQ, INTERVAL, BYDAY, BYMONTHDAY, COUNT, UNTIL.
+- It is expanded **in the event's own time zone**, so "every Monday 09:00" stays 09:00 across daylight-saving changes.
+- Rules are validated:
+  - `BYMONTHDAY=0` is refused;
+  - years must fall between 1970 and 10 years ahead;
+  - an expansion stops at 1,000 occurrences;
+  - one broken event never stops the reminder job.
+- Changing a series' start time or rule removes its exceptions, because they belonged to the old schedule.
+- All-day reminders fire relative to local midnight in the event's time zone.
+- Editing or deleting one occurrence asks *this event* or *all events*:
+  - *This event* stores an exception: the original date goes to `exdates`, and a changed occurrence becomes a separate event linked to the series.
+  - Exceptions are deleted with the series.
+
+**RSVP:**
+- Attendees answer Yes / Maybe / No.
+- The organizer gets an in-app notification.
+- Pending invitations are hatched in the grid; declined ones are faded.
+
+## Notifications and reminders
+
+| Event | Who |
+|-------|-----|
+| Invited | New attendees |
+| Time, place or repeat changed | Attendees |
+| Removed from the event / event or occurrence deleted | Those attendees |
+| RSVP | Organizer (in-app only) |
+| Reminder | Attendees who did not decline, the organizer, and the owner of a personal calendar |
+
+**How reminders are sent:**
+- The job runs every minute and looks 7 days ahead.
+- Each reminder of each occurrence is sent exactly once (`cal_reminders_sent`).
+- A reminder that falls due during a short restart is sent with a 10-minute grace period, stating the real time left.
+
+## Google Calendar
+
+This needs the [Google integration](integrations.md#google) with *Google Calendar for users* switched on.
+
+1. A user connects their own Google account in **Profile → Connected accounts**. This grants `calendar.events` and `calendar.calendarlist.readonly`.
+2. They choose which of their Google calendars to show.
+3. Google events are read **live** for the visible range, with no copy kept in the portal, and shown with a Google mark.
+4. Events in writable Google calendars can be created, moved and deleted from the portal.
+5. Single occurrences of Google series are read-only here. "Open in Google Calendar" opens them in Google.
+
+## Settings (Admin → Settings → Modules → Calendar)
+
+| Setting | Default |
+|---------|---------|
+| Enabled | on |
+| Who creates shared calendars | everyone |
+| Show task deadlines | on (needs Tasks) |
+| Default view / week starts on | week / Monday |
+| Working hours | 07:00–21:00 (highlighted; the grid scrolls to the start) |
+| Reminders / default for new events | on / 15 minutes |
+
+## API (`/api/app/calendar`, signed-in users)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/` | Calendars (creates the personal one), Google status, config |
+| POST / PUT / DELETE | `/calendars[/:id]` | Shared calendars; personal ones cannot be deleted |
+| GET / PUT | `/calendars/:id/access` | Access list |
+| GET | `/events?from&to&calendars=1,2&invitations=0\|1` | Occurrences in a range (max 120 days) |
+| POST | `/events` | Create |
+| GET / PUT / DELETE | `/events/:id` | `PUT`/`DELETE` take `scope` (`all` \| `single`) and `occurrence` for recurring events |
+| PUT | `/events/:id/rsvp` | `{ status: accepted \| tentative \| declined }` |
+| GET / POST / PUT / DELETE | `/google/events` | The user's Google events (live) |
+
+Errors: `INVALID_RANGE`, `INVALID_DATE`, `TITLE_REQUIRED`, `INVALID_URL`, `PERSONAL`, `GOOGLE_NOT_CONNECTED`, `GOOGLE_REVOKED`, `GOOGLE_API`.

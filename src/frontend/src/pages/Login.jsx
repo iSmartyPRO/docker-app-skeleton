@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { isStandalone } from '../pwa/pwa';
 import { Button, Form, Input } from 'antd';
 import PublicLayout from '../layouts/PublicLayout';
 import BrandMark from '../components/BrandMark';
 import OtpInput from '../components/ui/OtpInput';
 import TelegramLoginButton from '../components/TelegramLoginButton';
-import { IconMail, IconTelegram, IconUser, IconWhatsapp } from '../components/icons/AdminIcons';
+import { IconGoogle, IconMail, IconMattermost, IconTelegram, IconUser, IconWhatsapp } from '../components/icons/AdminIcons';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
 import { authErrorMessage } from '../lib/errors';
-import { requestSignInCode, verifySignInCode } from '../services/api';
+import { requestSignInCode, startGoogle, verifySignInCode } from '../services/api';
 
 const CODE_TTL = 5 * 60;
 const RESEND_AFTER = 60;
@@ -35,6 +36,7 @@ const CODE_CHANNELS = {
   whatsapp: { flag: 'whatsappCode', icon: IconWhatsapp, input: 'phone' },
   email: { flag: 'emailCode', icon: IconMail, input: 'email' },
   telegram: { flag: 'telegramCode', icon: IconTelegram, input: 'telegram' },
+  mattermost: { flag: 'mattermostCode', icon: IconMattermost, input: 'mattermost' },
 };
 
 function PasswordPane({ ldap, onSuccess }) {
@@ -90,6 +92,17 @@ function IdentifierField({ kind, value, onChange, onEnter }) {
         prefix={<span className="signin__prefix">+</span>}
         placeholder="996 700 123 456"
         onChange={(event) => onChange(event.target.value.replace(/[^\d\s()-]/g, ''))}
+      />
+    );
+  }
+  if (kind === 'mattermost') {
+    return (
+      <Input
+        {...common}
+        autoComplete="username"
+        prefix={<span className="signin__prefix">@</span>}
+        placeholder={t('signin.mattermostPlaceholder')}
+        onChange={(event) => onChange(event.target.value.replace(/^@/, ''))}
       />
     );
   }
@@ -166,7 +179,12 @@ function CodePane({ channel, magicLink, onSuccess }) {
     }
   };
 
-  const shown = spec.input === 'phone' ? `+${identifier.replace(/\D/g, '')}` : spec.input === 'telegram' ? `@${identifier}` : identifier;
+  const shown =
+    spec.input === 'phone'
+      ? `+${identifier.replace(/\D/g, '')}`
+      : spec.input === 'telegram' || spec.input === 'mattermost'
+        ? `@${identifier}`
+        : identifier;
 
   if (step === 'identify') {
     return (
@@ -221,6 +239,7 @@ function CodePane({ channel, magicLink, onSuccess }) {
           ) : (
             <p className="signin__hint signin__hint--center">{busy ? t('signin.checking') : t('signin.autoSubmit')}</p>
           )}
+          {resendIn === 0 && !error && <p className="signin__notice">{t(`signin.notReceived_${spec.input}`)}</p>}
         </>
       ) : (
         <p className="signin__hint">{t('signin.linkHint')}</p>
@@ -238,12 +257,48 @@ function CodePane({ channel, magicLink, onSuccess }) {
   );
 }
 
+/** Single sign-on buttons above the method tabs (Google today). */
+function SsoButtons({ google }) {
+  const { t } = useLocale();
+  const [busy, setBusy] = useState(false);
+  if (!google) return null;
+  return (
+    <div className="signin__sso">
+      <button
+        type="button"
+        className="sso-button"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          startGoogle('signin');
+        }}
+      >
+        <IconGoogle />
+        <span>{busy ? t('signin.redirecting') : t('signin.google')}</span>
+      </button>
+    </div>
+  );
+}
+
 export default function Login() {
   const { user, ready, setUser } = useAuth();
   const { t } = useLocale();
   const { settings } = useSettings();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const auth = settings?.auth || { password: true };
+  // Errors coming back from an OAuth redirect (?error=CODE), shown once.
+  const [redirectError] = useState(() => params.get('error'));
+  useEffect(() => {
+    if (params.get('error')) setParams({}, { replace: true });
+  }, [params, setParams]);
+  const redirectMessage = redirectError
+    ? (() => {
+        const key = `signin.errors.${redirectError}`;
+        const text = t(key);
+        return text === key ? t('signin.errors.GOOGLE_ERROR') : text;
+      })()
+    : '';
 
   const methods = useMemo(() => {
     const list = [];
@@ -251,6 +306,7 @@ export default function Login() {
     if (auth.whatsappCode) list.push({ id: 'whatsapp', icon: IconWhatsapp, label: 'WhatsApp' });
     if (auth.emailCode) list.push({ id: 'email', icon: IconMail, label: t('signin.tabEmail') });
     if (auth.telegram?.enabled || auth.telegramCode) list.push({ id: 'telegram', icon: IconTelegram, label: 'Telegram' });
+    if (auth.mattermostCode) list.push({ id: 'mattermost', icon: IconMattermost, label: 'Mattermost' });
     if (!list.length) list.push({ id: 'password', icon: IconUser, label: t('signin.tabPassword') });
     return list;
   }, [auth, t]);
@@ -290,6 +346,9 @@ export default function Login() {
         </div>
 
         <div className={`signin__card is-${active.id}`}>
+          {redirectMessage && <div className="signin__error signin__error--banner">{redirectMessage}</div>}
+          <SsoButtons google={auth.google} />
+          {auth.google && <div className="signin__divider">{t('signin.orOther')}</div>}
           {methods.length > 1 && (
             <div className="signin__tabs" role="tablist">
               {methods.map((item) => {
@@ -313,7 +372,7 @@ export default function Login() {
 
           <div className="signin__pane" key={active.id}>
             {active.id === 'password' && <PasswordPane ldap={auth.ldap} onSuccess={onSuccess} />}
-            {(active.id === 'whatsapp' || active.id === 'email') && (
+            {(active.id === 'whatsapp' || active.id === 'email' || active.id === 'mattermost') && (
               <CodePane channel={active.id} magicLink={auth.magicLink} onSuccess={onSuccess} />
             )}
             {active.id === 'telegram' && (
@@ -331,6 +390,11 @@ export default function Login() {
           </div>
         </div>
         <p className="signin__security">{t('signin.securityNote')}</p>
+        {!isStandalone() && (
+          <Link to="/install" className="signin__install">
+            📱 {t('pwa.install.menu')}
+          </Link>
+        )}
       </div>
     </PublicLayout>
   );

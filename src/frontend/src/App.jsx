@@ -18,6 +18,7 @@ import { LEGACY_ADMIN_ROUTES, SETTINGS_ITEMS } from './admin/navigation';
 import { SETTINGS_PAGES } from './admin/settingsPages';
 import { getSetupStatus } from './services/api';
 import { SETTINGS_VIEW } from './lib/access';
+import { MODULE_REGISTRY } from './modules/registry';
 
 // Public entry points stay in the main bundle; consoles load on demand.
 import Home from './pages/Home';
@@ -34,10 +35,15 @@ const AdminActivity = lazy(() => import('./pages/admin/Activity'));
 const AdminGroups = lazy(() => import('./pages/admin/Groups'));
 const AdminRoles = lazy(() => import('./pages/admin/Roles'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const AppsPage = lazy(() => import('./pages/Apps'));
+const PublicShare = lazy(() => import('./modules/kb/PublicShare'));
+const InstallPage = lazy(() => import('./pwa/InstallPage'));
 const SettingsHome = lazy(() => import('./pages/admin/settings/SettingsHome'));
 const AccountProfile = lazy(() => import('./pages/account/Profile'));
 const AccountAppearance = lazy(() => import('./pages/account/Appearance'));
 const AccountSecurity = lazy(() => import('./pages/account/Security'));
+const AccountNotifications = lazy(() => import('./pages/account/Notifications'));
+const AccountConnections = lazy(() => import('./pages/account/Connections'));
 
 function Screen() {
   return (
@@ -103,6 +109,14 @@ function Allow({ any, children }) {
   return canAny(any) ? children : <Navigate to="/admin" replace />;
 }
 
+/** A module route: hidden (redirect to /apps) when the module is switched off. */
+function ModuleGate({ id, children }) {
+  const { settings, ready } = useSettings();
+  if (!ready) return <Screen />;
+  if (!settings?.modules?.[id]?.enabled) return <Navigate to="/apps" replace />;
+  return children;
+}
+
 /** /admin/<old path> → new location, so bookmarks keep working. */
 function LegacyAdminRedirect() {
   const params = useParams();
@@ -121,6 +135,18 @@ function ThemedRoutes() {
     document.documentElement.lang = locale;
   }, [mode, locale]);
 
+  // Installed app (PWA): status-bar colour follows the theme; custom icon and name on iOS.
+  useEffect(() => {
+    const setMeta = (selector, attr, value) => {
+      const node = document.head.querySelector(selector);
+      if (node && value) node.setAttribute(attr, value);
+    };
+    setMeta('meta[name="theme-color"]', 'content', mode === 'dark' ? '#0B1220' : '#F8FAFC');
+    setMeta('meta[name="apple-mobile-web-app-status-bar-style"]', 'content', mode === 'dark' ? 'black-translucent' : 'default');
+    setMeta('meta[name="apple-mobile-web-app-title"]', 'content', settings?.appearance?.shortName || settings?.appName);
+    setMeta('link[rel="apple-touch-icon"]', 'href', settings?.appearance?.appIconUrl || '/pwa/apple-touch-icon.png');
+  }, [mode, settings]);
+
   useEffect(() => {
     if (settings?.appName) document.title = settings.appName;
   }, [settings?.appName]);
@@ -133,6 +159,40 @@ function ThemedRoutes() {
             <Route path="/setup" element={<SetupWizard />} />
             <Route path="/auth/magic" element={<AuthCallback kind="magic" />} />
             <Route path="/auth/telegram" element={<AuthCallback kind="telegram" />} />
+            <Route path="/s/:slug/*" element={<PublicShare />} />
+            <Route
+              path="/install"
+              element={
+                <SetupGate>
+                  <InstallPage />
+                </SetupGate>
+              }
+            />
+            <Route
+              path="/apps"
+              element={
+                <SetupGate>
+                  <AuthGate>
+                    <AppsPage />
+                  </AuthGate>
+                </SetupGate>
+              }
+            />
+            {MODULE_REGISTRY.map((module) => (
+              <Route
+                key={module.id}
+                path={`${module.path}/*`}
+                element={
+                  <SetupGate>
+                    <AuthGate>
+                      <ModuleGate id={module.id}>
+                        <module.App />
+                      </ModuleGate>
+                    </AuthGate>
+                  </SetupGate>
+                }
+              />
+            ))}
             <Route
               path="/login"
               element={
@@ -192,6 +252,8 @@ function ThemedRoutes() {
               <Route index element={<AccountProfile />} />
               <Route path="appearance" element={<AccountAppearance />} />
               <Route path="security" element={<AccountSecurity />} />
+              <Route path="notifications" element={<AccountNotifications />} />
+              <Route path="connections" element={<AccountConnections />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

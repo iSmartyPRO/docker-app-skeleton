@@ -5,6 +5,9 @@ import authRoutes from './auth.routes.js';
 import setupRoutes from './setup.routes.js';
 import adminRoutes from './admin.routes.js';
 import accountRoutes from './account.routes.js';
+import notificationRoutes from './notifications.routes.js';
+import pwaRoutes from './pwa.routes.js';
+import { moduleRouter } from '../modules/index.js';
 
 const router = Router();
 
@@ -12,6 +15,10 @@ router.use('/auth', authRoutes);
 router.use('/setup', setupRoutes);
 router.use('/admin', adminRoutes);
 router.use('/account', accountRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/pwa', pwaRoutes);
+// Modules: /api/apps, /api/app/<id>/…, public prefixes such as /api/s/<slug>
+router.use(moduleRouter());
 
 router.get('/status', async (req, res, next) => {
   try {

@@ -46,6 +46,25 @@ import {
   updateRole,
 } from '../services/rbac.js';
 
+import { disconnectGmailSender, publicBase, redirectUri } from '../services/google.js';
+import { readFile as readIconFile, unlink as removeIconFile } from 'fs/promises';
+
+/** App icons (PWA / home screen): square PNG, 192–4096 px. */
+async function verifyAppIcon(file) {
+  const fail = async (message) => {
+    await removeIconFile(file.path).catch(() => {});
+    const error = new Error(message);
+    error.statusCode = 400;
+    throw error;
+  };
+  if (!/\.png$/i.test(file.filename)) return fail('The app icon must be a PNG image');
+  const head = (await readIconFile(file.path)).subarray(0, 24);
+  const width = head.readUInt32BE(16);
+  const height = head.readUInt32BE(20);
+  if (width !== height) return fail('The app icon must be square');
+  if (width < 192 || width > 4096) return fail('The app icon must be between 192 and 4096 pixels');
+  return null;
+}
 const router = Router();
 router.use(requireConsole);
 
@@ -124,6 +143,7 @@ router.post('/settings/logo', generalSettings, (req, res, next) => {
     if (!req.file) return res.status(400).json({ success: false, error: 'Logo file is required' });
     try {
       await verifyUploadedFile(req.file, 'logo');
+      if (req.query.variant === 'icon') await verifyAppIcon(req.file);
       const settings = await setProjectLogo(req.file.filename, req.query.variant);
       return res.json({ success: true, settings });
     } catch (error) {
@@ -140,6 +160,16 @@ const integrationSettings = requirePermission('settings.integrations');
 
 router.post('/integrations/:kind/test', integrationSettings, wrap(async (req, res) => {
   res.json({ success: true, ...(await testIntegration(req.params.kind, req.body || {})) });
+}));
+
+// Google: values the admin copies into Google Cloud Console; disconnecting the Gmail sender.
+router.get('/integrations/google/info', integrationSettings, wrap(async (req, res) => {
+  res.json({ success: true, redirectUri: redirectUri(), origin: publicBase() });
+}));
+
+router.delete('/integrations/google/gmail', integrationSettings, wrap(async (req, res) => {
+  await disconnectGmailSender();
+  res.json({ success: true });
 }));
 
 // Channel picker for the Wazzup screen; accepts an unsaved API key in the body.

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import api, { getMe, login as loginRequest, logout as logoutRequest } from '../services/api';
+import { disablePush } from '../pwa/push';
 import { can, canAny } from '../lib/access';
 
 const AuthContext = createContext(null);
@@ -42,6 +43,9 @@ export function AuthProvider({ children }) {
       },
       async logout() {
         try {
+          // A shared device must not keep receiving this person's push notifications.
+          await disablePush().catch(() => {});
+          navigator.clearAppBadge?.().catch?.(() => {});
           await logoutRequest();
         } finally {
           setUser(null);

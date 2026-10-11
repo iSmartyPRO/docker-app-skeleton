@@ -16,6 +16,8 @@ export const EVENT_KINDS = [
   'ip_blocked',
   'ip_denied',
   'rate_limited',
+  'code_unknown',
+  'code_delivery_failed',
 ];
 
 export const EVENT_TAG = {
@@ -26,6 +28,8 @@ export const EVENT_TAG = {
   ip_blocked: 'error',
   ip_denied: 'error',
   rate_limited: 'warning',
+  code_unknown: 'warning',
+  code_delivery_failed: 'error',
 };
 
 const SUMMARY = [

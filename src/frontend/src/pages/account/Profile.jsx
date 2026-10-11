@@ -22,8 +22,9 @@ export default function AccountProfile() {
       email: user?.email || '',
       phone: user?.phone || '',
       instagram: user?.instagram || '',
+      mattermost: user?.mattermost || '',
     }),
-    [user?.displayName, user?.email, user?.phone, user?.instagram]
+    [user?.displayName, user?.email, user?.phone, user?.instagram, user?.mattermost]
   );
   const { dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async (values) => {
     const res = await updateAccountProfile({
@@ -31,6 +32,7 @@ export default function AccountProfile() {
       email: values.email || null,
       phone: values.phone || null,
       instagram: values.instagram || null,
+      mattermost: values.mattermost || null,
     });
     setUser(res.data.user);
   });
@@ -84,8 +86,18 @@ export default function AccountProfile() {
         </SettingsSection>
         <SettingsSection title={t('users.contacts')} description={t('account.contactsDesc')}>
           <SettingRow label={t('users.phone')} description={t('users.phoneDesc')}>
-            <Form.Item name="phone" style={{ margin: 0 }}>
+            <Form.Item
+              name="phone"
+              style={{ margin: 0 }}
+              validateStatus={user?.phoneValid === false ? 'error' : undefined}
+              help={user?.phoneValid === false ? t('users.phoneInvalid') : undefined}
+            >
               <Input placeholder="+996 700 123 456" inputMode="tel" />
+            </Form.Item>
+          </SettingRow>
+          <SettingRow label="Mattermost" description={t('users.mattermostDesc')}>
+            <Form.Item name="mattermost" style={{ margin: 0 }}>
+              <Input prefix="@" placeholder="username" />
             </Form.Item>
           </SettingRow>
           <SettingRow label="Instagram">

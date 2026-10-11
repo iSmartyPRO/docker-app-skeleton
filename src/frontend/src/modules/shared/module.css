@@ -1,0 +1,335 @@
+/* ── Module shell shared by Tasks and Calendar (KB keeps its own kb-*) ───── */
+
+.mod-shell {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.mod-shell__side {
+  border-right: 1px solid var(--da-hairline);
+  background: color-mix(in srgb, var(--da-bg) 55%, transparent);
+}
+
+.mod-side {
+  position: sticky;
+  top: var(--da-header-h);
+  max-height: calc(100vh - var(--da-header-h));
+  overflow-y: auto;
+  padding: 18px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+}
+
+.mod-side__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  color: inherit;
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.mod-side__brand .da-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.mod-side__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 10px 6px -2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--da-faint);
+}
+
+.mod-side__label button {
+  border: 0;
+  background: transparent;
+  color: var(--da-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.mod-side__label button:hover {
+  background: var(--da-tint);
+  color: var(--da-primary);
+}
+
+.mod-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mod-nav__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 10px;
+  color: inherit;
+  font-size: 14px;
+  transition: background 0.15s var(--da-ease);
+}
+
+.mod-nav__link:hover {
+  background: var(--da-tint);
+  color: inherit;
+}
+
+.mod-nav__link.active {
+  background: var(--da-surface);
+  color: var(--da-primary);
+  font-weight: 650;
+  box-shadow: var(--da-shadow-sm), inset 0 0 0 1px var(--da-hairline);
+}
+
+.mod-nav__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mod-nav__count {
+  min-width: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--da-tint);
+  color: var(--da-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.mod-nav__count.is-alert {
+  background: color-mix(in srgb, var(--da-error) 14%, transparent);
+  color: var(--da-error);
+}
+
+.mod-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--c, var(--da-primary));
+}
+
+.mod-shell__main {
+  min-width: 0;
+  padding: 26px clamp(16px, 3vw, 40px) 120px;
+}
+
+.mod-shell__menu {
+  display: none !important;
+  margin-bottom: 14px;
+}
+
+.mod-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 20px 24px;
+  margin-bottom: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--da-hairline);
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--c, var(--da-primary)) 12%, transparent), transparent 60%),
+    var(--da-surface);
+  box-shadow: var(--da-shadow-sm);
+}
+
+.mod-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--c, var(--da-primary)) 14%, transparent);
+  color: var(--c, var(--da-primary));
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.mod-hero__text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.mod-hero__text h1 {
+  margin: 0;
+  font-size: clamp(22px, 2.6vw, 30px);
+  line-height: 1.15;
+}
+
+.mod-hero__text p {
+  margin: 6px 0 0;
+  color: var(--da-muted);
+}
+
+.mod-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mod-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.mod-toolbar__grow {
+  flex: 1;
+}
+
+.swatches--sm .swatch {
+  width: 24px;
+  height: 24px;
+}
+
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.person > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acl-hint {
+  margin-top: 10px;
+  color: var(--da-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .mod-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mod-shell__side {
+    display: none;
+  }
+
+  .mod-shell__menu {
+    display: inline-flex !important;
+  }
+
+  .mod-shell__main {
+    padding: 16px 14px 100px;
+  }
+
+  .mod-hero {
+    padding: 16px;
+    border-radius: 16px;
+  }
+}
+
+.mod-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: middle;
+  color: var(--da-muted);
+  background: color-mix(in srgb, var(--da-text) 6%, transparent);
+}
+
+/* Shared form and list bits */
+.toolbar-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--da-muted);
+  white-space: nowrap;
+}
+
+.prio-label,
+.status-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-pip {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c, #94a3b8);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c, #94a3b8) 22%, transparent);
+}
+
+.visibility-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.visibility-options .ant-radio-wrapper {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--da-hairline);
+}
+
+.visibility-options .ant-radio-wrapper-checked {
+  border-color: var(--da-primary);
+  background: var(--da-tint);
+}
+
+.visibility-options strong {
+  display: block;
+}
+
+.visibility-options span span {
+  color: var(--da-muted);
+  font-size: 13px;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.dialog-lead,
+.dialog-note {
+  color: var(--da-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .form-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

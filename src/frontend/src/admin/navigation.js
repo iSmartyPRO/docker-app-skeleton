@@ -155,10 +155,55 @@ export const SETTINGS_GROUPS = [
         keywords: 'wazzup wazzup24 whatsapp telegram instagram avito messenger омниканал мессенджеры',
       },
       {
+        id: 'mattermost',
+        integration: 'mattermost',
+        defaultIcon: 'mattermost',
+        keywords: 'mattermost chat bot team messenger alerts notifications чат бот уведомления',
+      },
+      {
+        id: 'google',
+        integration: 'google',
+        defaultIcon: 'google',
+        keywords: 'google oauth sign-in calendar gmail workspace sso гугл вход календарь почта',
+      },
+      {
+        id: 'documents',
+        integration: 'documents',
+        defaultIcon: 'file',
+        keywords: 'collabora libreoffice office word excel powerpoint pdf conversion preview конвертация документы просмотр',
+      },
+      {
         id: 'ad',
         integration: 'activeDirectory',
         defaultIcon: 'directory',
         keywords: 'active directory ldap ad домен каталог',
+      },
+    ],
+  },
+  {
+    id: 'modules',
+    labelKey: 'settings.groups.modules',
+    permission: 'settings.modules',
+    items: [
+      {
+        id: 'modules',
+        defaultIcon: 'apps',
+        keywords: 'modules apps applications enable модули приложения включить',
+      },
+      {
+        id: 'kb',
+        defaultIcon: 'book',
+        keywords: 'knowledge base kb documents files folders sharing база знаний документы папки ссылки',
+      },
+      {
+        id: 'tasks',
+        defaultIcon: 'tasks',
+        keywords: 'tasks projects kanban board todo задачи проекты канбан доска',
+      },
+      {
+        id: 'calendar',
+        defaultIcon: 'calendar',
+        keywords: 'calendar events meetings reminders календарь события встречи напоминания',
       },
     ],
   },
@@ -222,3 +267,6 @@ export const LEGACY_ADMIN_ROUTES = {
   'security/ip': 'settings/ip',
   'security/history': 'activity',
 };
+
+/** Pretty settings URL for a module: /admin/settings/<moduleId>. */
+export const MODULE_SETTINGS_PATH = (id) => `${SETTINGS_ROOT}/${id}`;

@@ -123,6 +123,9 @@ async function start() {
       },
       standardHeaders: 'draft-7',
       legacyHeaders: false,
+      // File streams (images in a gallery, PDF pages, video ranges) are access-checked
+      // per request and would exhaust the API budget in seconds.
+      skip: (req) => req.method === 'GET' && /\/items\/\d+\/(file|preview\.pdf)$/.test(req.path),
       message: { success: false, error: 'Too many requests. Try again later.' },
     })
   );

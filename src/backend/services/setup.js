@@ -164,8 +164,10 @@ export async function completeSetup(body) {
 
   await bootstrapSchema();
   const user = await createAdminUser({ username, email, password });
-  // Groups are named in the language the wizard was completed in.
-  await seedRbac({ locale: body.locale === 'ru' ? 'ru' : 'en' });
+  // Groups (and module starter content) use the language of the wizard.
+  const locale = body.locale === 'ru' ? 'ru' : 'en';
+  await query(`UPDATE users SET locale = $2 WHERE id = $1`, [user.id, locale]);
+  await seedRbac({ locale });
   const demoUsers = body.demoUsers === false ? 0 : await seedDemoUsers();
 
   await query(

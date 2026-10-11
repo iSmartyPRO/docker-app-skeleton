@@ -188,6 +188,37 @@ export function IconWazzup({ variant = 'colored' } = {}) {
   );
 }
 
+export function IconMattermost({ variant = 'colored' } = {}) {
+  return (
+    <Tile color="#1E325C" variant={variant}>
+      <path
+        fill="#fff"
+        d="M15.6 5.2l.1 1.6a6.3 6.3 0 1 1-7.4 0l.1-1.6A7.8 7.8 0 1 0 15.6 5.2z"
+      />
+      <path fill="#fff" data-accent d="M13.7 4.6l-.1 4.8a1.6 1.6 0 1 1-3.2 0l-.1-4.8 1.7 1z" />
+    </Tile>
+  );
+}
+
+/** Google "G": four brand colours on a white tile; a single-colour G in mono. */
+export function IconGoogle({ variant = 'colored', size = 20 } = {}) {
+  const mono = variant === 'mono';
+  const paths = [
+    ['#4285F4', 'M19.6 12.2c0-.6-.1-1.1-.2-1.6H12v3.1h4.3a3.7 3.7 0 0 1-1.6 2.4v2h2.6c1.5-1.4 2.3-3.4 2.3-5.9Z'],
+    ['#34A853', 'M12 20c2.2 0 4-.7 5.3-1.9l-2.6-2c-.7.5-1.6.8-2.7.8-2.1 0-3.9-1.4-4.5-3.3H4.8v2.1A8 8 0 0 0 12 20Z'],
+    ['#FBBC05', 'M7.5 13.6a4.8 4.8 0 0 1 0-3.1V8.3H4.8a8 8 0 0 0 0 7.3l2.7-2Z'],
+    ['#EA4335', 'M12 7.2c1.2 0 2.3.4 3.1 1.2l2.3-2.3A8 8 0 0 0 4.8 8.3l2.7 2.1c.6-1.9 2.4-3.2 4.5-3.2Z'],
+  ];
+  return (
+    <svg className={`da-icon da-icon--tile ${mono ? 'is-mono' : ''}`} width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      {!mono && <rect x=".5" y=".5" width="23" height="23" rx="6.5" fill="#fff" stroke="#E2E8F0" />}
+      {paths.map(([color, d]) => (
+        <path key={color} d={d} fill={mono ? 'currentColor' : color} />
+      ))}
+    </svg>
+  );
+}
+
 export function IconDirectory({ variant = 'colored' } = {}) {
   return (
     <Tile color="#0078D4" variant={variant}>

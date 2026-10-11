@@ -1,0 +1,115 @@
+# Knowledge Base (`/app/kb`)
+
+The first [module](modules.md). It is a structured library of folders and materials, with per-folder access rules, public links, and in-browser viewers for PDF, images and Microsoft Office documents. It works on desktop and mobile.
+
+## What's inside
+
+- **Folders of any depth**, each with an icon and a colour. Folders without their own icon or colour use the defaults from the module settings. A tree in the sidebar (a drawer on mobile), breadcrumbs, grid and list views, and search across folders and materials.
+- **Materials** come in three kinds:
+  - **Files**, uploaded with the button or by drag & drop, several at once.
+  - **Articles**, written in Markdown with a toolbar and write / split / preview modes.
+  - **Links**, to external pages (http/https only).
+- **Viewers:**
+
+| Type | Viewer |
+|------|--------|
+| PDF | pdf.js: lazy page rendering, selectable text, thumbnails, fit width / fit page, zoom, page jump, keyboard, full screen |
+| Images | Lightbox gallery: zoom, pan, pinch and swipe, keyboard, thumbnail strip |
+| Word `.docx` | Rendered in the browser (docx-preview), or as an exact PDF when conversion is configured |
+| Excel `.xlsx`, `.csv` | Spreadsheet grid with sheets, merged cells and basic styles (first 3,000 rows) |
+| `.doc`, `.ppt`, `.pptx`, `.xls`, `.odt`, `.ods`, `.odp`, `.rtf` | Converted to PDF by the [document conversion](integrations.md#document-conversion-collabora--libreoffice) integration, then shown in the PDF viewer |
+| Text, Markdown, JSON, XML, logs | Text or rendered Markdown (sanitised with DOMPurify) |
+| Video and audio | Native players |
+
+Anything else gets a file card with a download button.
+
+## Access
+
+Access is set separately for the whole base, for each folder and for each material. There are three levels, and each one includes the ones below it:
+
+| Level | Allows |
+|-------|--------|
+| **View** | Open folders and materials |
+| **Edit** | Create, upload, edit, move and delete content |
+| **Manage** | Edit, plus change access and create public links |
+
+Rules can be granted to **everyone signed in**, a **user**, a **group** or a **role**.
+
+- **The base** (*Access to base* on the home page) holds the root rules. The defaults are *Everyone: view* and *Administrators group: edit*.
+- **A folder** inherits its parent's rules. You can add rules to a folder or turn inheritance off, which makes it private to the listed people. Subfolders inherit from it.
+- **A material** inherits from its folder or gets its own list.
+- Users with the `kb.admin` permission (super administrators by default) have *manage* everywhere.
+- Hidden content stays hidden: it does not show up in the tree, search or counts, and a direct URL returns `404`.
+- Nobody can lock themselves out. When someone saves rules that would remove their own *manage*, they keep it.
+
+## Public links (`/s/<slug>`)
+
+**Share** on a folder creates a link that opens the folder and everything that **inherits** from it, without signing in. Private subfolders and materials are never exposed.
+
+| Option | Notes |
+|--------|-------|
+| Title | Shown to visitors instead of the folder name |
+| Address | Custom slug, e.g. `/s/onboarding`. Availability is checked as you type. If the slug is taken, the next free one is suggested (`onboarding-2`). Cyrillic and Kazakh titles are transliterated. Reserved words (`admin`, `api`, `app` …) are refused |
+| Password | Optional. Visitors enter it once per browser tab. Unlocking is rate-limited (10 attempts per 15 minutes per IP and link) |
+| Expiry | Presets or a date. Expired links show *This link has expired* |
+| Downloads | Can be disabled, which leaves viewing only |
+
+You can keep several links per folder with different settings. Each link shows its view count. Links can be **revoked** (and restored) or deleted. Changing the password or revoking a link invalidates every visitor token that was already issued.
+
+Module settings can switch public links off entirely, require a password on every link, and cap the lifetime (*maximum days*).
+
+## Module settings (Admin → Settings → Modules → Knowledge base)
+
+| Setting | Default |
+|---------|---------|
+| Enabled | on |
+| Default folder colour and icon | `#3B82F6`, `folder` |
+| Maximum upload size | 50 MB (1–1024) |
+| Allowed file types | images, PDF, office, text, media, archives |
+| Public links / require password / maximum days | on / off / 0 (unlimited) |
+
+Office conversion shows its status here. Its URL is configured under **Integrations → Document conversion**.
+
+## Storage and security
+
+- Files live in `UPLOAD_DIR/kb/` under random names. PDF previews are cached in `UPLOAD_DIR/kb/.previews/` and keyed by the material's update time.
+- Uploads are checked against the allowed extensions and the size limit. PDF and image files must also match their magic bytes, so a renamed executable is rejected.
+- Files are served by the API rather than as static files, with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Only safe types are shown inline; everything else is sent as an attachment.
+- Article Markdown is sanitised before rendering, and links open with `rel="noopener noreferrer"`.
+- Back up `UPLOAD_DIR` together with the database.
+
+### Reverse proxy
+
+Uploads go to `/api/app/`, which has its own body limit in `nginx.conf` (`client_max_body_size 1024m`, streamed with `proxy_request_buffering off`). If another proxy sits in front, give `/api/app/` the same limit there. The PDF viewer needs `'wasm-unsafe-eval'` in `script-src` and `worker-src 'self' blob:` in the CSP. The bundled config already sets both.
+
+## API
+
+All under `/api/app/kb`, signed-in users only:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/` | Home: root folders, recent materials, module config |
+| GET | `/tree` | Visible folders with levels and counts |
+| GET | `/search?q=` | Folders and materials |
+| GET / POST / PUT / DELETE | `/folders[/:id]` | Folder CRUD; `PUT` with `parentId` moves |
+| POST | `/folders/:id/files` | Multipart upload (`files[]`) |
+| POST / GET / PUT / DELETE | `/items[/:id]` | Articles and links; file metadata |
+| GET | `/items/:id/file[?download=1]` | File content |
+| GET | `/items/:id/preview.pdf` | Office → PDF preview (cached) |
+| GET | `/subjects` | Users, groups and roles for access rules |
+| GET / PUT | `/access/:type/:id` | Rules for `root`, `folder` or `item` |
+| GET | `/shares/check?slug=` or `?from=` | Slug availability and suggestion |
+| GET / POST | `/folders/:id/shares` | Folder links |
+| PUT / DELETE | `/shares/:id` | Edit, revoke or delete a link |
+
+Public API, no session (`X-Share-Token` header or `?t=`):
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/api/s/:slug/unlock` | `{ password }` → `{ token }` |
+| GET | `/api/s/:slug[?folder=]` | Shared folder contents |
+| GET | `/api/s/:slug/items/:id` | Material |
+| GET | `/api/s/:slug/items/:id/file` | File (downloads only if allowed) |
+| GET | `/api/s/:slug/items/:id/preview.pdf` | Office preview |
+
+Error codes: `NOT_FOUND`, `FORBIDDEN`, `MODULE_DISABLED`, `PASSWORD_REQUIRED` (401), `WRONG_PASSWORD`, `RATE_LIMITED`, `EXPIRED` (410), `NO_DOWNLOAD`, `SHARING_DISABLED`, `EXPIRY_LIMIT`, `FILE_TYPE`, `FILE_CONTENT`, `FILE_TOO_LARGE`, `FILE_MISSING`, `NO_PREVIEW`, `NO_CONVERTER`. Slug checks return `available: false` with `reason` `TAKEN`, `RESERVED` or `FORMAT`.

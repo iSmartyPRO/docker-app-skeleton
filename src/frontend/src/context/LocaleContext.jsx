@@ -1,3 +1,6 @@
+import dayjs from 'dayjs';
+import 'dayjs/locale/ru';
+import 'dayjs/locale/en-gb';
 import { createContext, useContext, useMemo, useState } from 'react';
 import { dictionaries, translate } from '../i18n/translations';
 
@@ -26,6 +29,9 @@ export function LocaleProvider({ children, userLocale }) {
     if (userLocale) return userLocale;
     return navigator.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
   });
+
+  // Date pickers, calendars and relative dates follow the UI language (ru: week starts on Monday).
+  dayjs.locale(locale === 'ru' ? 'ru' : 'en-gb');
 
   const value = useMemo(() => {
     const dict = dictionaries[locale] || dictionaries.en;

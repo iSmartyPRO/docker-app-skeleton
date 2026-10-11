@@ -17,6 +17,8 @@ import {
   updateUser,
 } from '../services/users.js';
 
+import { disconnectGoogle, googleStatus, listGoogleCalendars, setGoogleCalendarSelection } from '../services/google.js';
+import { getPrefs, savePrefs } from '../services/notifications.js';
 const router = Router();
 router.use(requireAuth);
 
@@ -85,6 +87,40 @@ router.post('/telegram', wrap(async (req, res) => {
 router.delete('/telegram', wrap(async (req, res) => {
   await unlinkTelegram(req.user.id);
   res.json({ success: true, user: await freshUser(req.user.id) });
+}));
+
+// ── Google (linked account, Calendar access) ────────────────────────────────
+
+router.get('/google', wrap(async (req, res) => {
+  res.json({ success: true, google: await googleStatus(req.user.id) });
+}));
+
+router.get('/google/calendars', wrap(async (req, res) => {
+  const status = await googleStatus(req.user.id);
+  if (!status.calendar) return res.json({ success: true, calendars: [], selected: [] });
+  const calendars = await listGoogleCalendars(req.user.id);
+  // Nothing chosen yet: show the primary calendar.
+  const selected = status.calendars.length ? status.calendars : calendars.filter((item) => item.primary).map((item) => item.id);
+  return res.json({ success: true, calendars, selected });
+}));
+
+router.put('/google/calendars', wrap(async (req, res) => {
+  res.json({ success: true, selected: await setGoogleCalendarSelection(req.user.id, req.body?.selected) });
+}));
+
+router.delete('/google', wrap(async (req, res) => {
+  await disconnectGoogle(req.user.id);
+  res.json({ success: true, google: await googleStatus(req.user.id) });
+}));
+
+// ── Notification preferences ────────────────────────────────────────────────
+
+router.get('/notifications', wrap(async (req, res) => {
+  res.json({ success: true, ...(await getPrefs(req.user.id)) });
+}));
+
+router.put('/notifications', wrap(async (req, res) => {
+  res.json({ success: true, ...(await savePrefs(req.user.id, req.body || {})) });
 }));
 
 router.post('/avatar', (req, res, next) => {

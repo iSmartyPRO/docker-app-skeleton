@@ -45,6 +45,7 @@ function UserForm({ user, onUpdated, roles, groups }) {
       email: user.email || '',
       phone: user.phone || '',
       instagram: user.instagram || '',
+      mattermost: user.mattermost || '',
       groupIds: user.groupIds || [],
       roleIds: user.roleIds || [],
       isActive: user.isActive,
@@ -57,7 +58,7 @@ function UserForm({ user, onUpdated, roles, groups }) {
   const { form, dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async (values) => {
     const patch = { ...values };
     if (!patch.password) delete patch.password;
-    for (const key of ['email', 'phone', 'instagram']) if (!patch[key]) patch[key] = null;
+    for (const key of ['email', 'phone', 'instagram', 'mattermost']) if (!patch[key]) patch[key] = null;
     if (isSelf) {
       delete patch.groupIds;
       delete patch.roleIds;
@@ -138,8 +139,18 @@ function UserForm({ user, onUpdated, roles, groups }) {
 
         <SettingsSection title={t('users.contacts')} description={t('users.contactsDesc')}>
           <SettingRow label={t('users.phone')} description={t('users.phoneDesc')}>
-            <Form.Item name="phone" style={{ margin: 0 }}>
+            <Form.Item
+              name="phone"
+              style={{ margin: 0 }}
+              validateStatus={user.phoneValid === false ? 'error' : undefined}
+              help={user.phoneValid === false ? t('users.phoneInvalid') : undefined}
+            >
               <Input placeholder="+996 700 123 456" inputMode="tel" />
+            </Form.Item>
+          </SettingRow>
+          <SettingRow label="Mattermost" description={t('users.mattermostDesc')}>
+            <Form.Item name="mattermost" style={{ margin: 0 }}>
+              <Input prefix="@" placeholder="username" />
             </Form.Item>
           </SettingRow>
           <SettingRow label="Instagram">

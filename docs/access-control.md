@@ -57,8 +57,14 @@ Built-in roles are inserted once by key and never overwritten, so permission cha
 | `settings.general` | Name, logos, theme, typography, icons |
 | `settings.security` | Site access, lockouts, sessions, IP filtering |
 | `settings.auth` | Sign-in methods |
-| `settings.integrations` | Email, Telegram, WhatsApp, Wazzup, Active Directory |
+| `settings.integrations` | Email, Telegram, WhatsApp, Wazzup, Mattermost, document conversion, Active Directory |
 | `settings.system` | API rate limit |
+| `settings.modules` | Turning modules on and off and their settings |
+| `kb.admin` | *Manage* on everything in the Knowledge Base, whatever its access rules |
+| `tasks.admin` | *Manage* on every task project |
+| `calendar.admin` | *Manage* on every shared calendar (personal calendars stay private) |
+
+Modules add their own permissions from `modules/catalog.js`, grouped under *Module: <name>* in the role editor. Inside the Knowledge Base, access to content is governed by its own [view / edit / manage rules](knowledge-base.md#access).
 
 `PUT /api/admin/settings` checks each top-level key of the patch against the matching permission, so an administrator can save branding but not, say, the IP policy.
 
@@ -99,12 +105,13 @@ Configured in **Settings → Security → Sign-in methods**. Each method beyond 
 | Username + password | — | username |
 | Active Directory / LDAP | Active Directory | `sAMAccountName`, `userPrincipalName`, `uid` or `mail` in the directory |
 | Telegram Login | Telegram (token + bot username) | linked Telegram account |
-| Code in WhatsApp | Wazzup with a WhatsApp channel | phone number in the profile |
+| Code in WhatsApp | WhatsApp Gateway and/or Wazzup (with fallback) | phone number in the profile |
 | Code by email | Email (SMTP) | email in the profile |
 | Code in Telegram | Telegram | linked Telegram account (`@username`) |
+| Code in Mattermost | Mattermost (server URL + bot token) | Mattermost username in the profile |
 | Magic link | any code channel | as above |
 
-The sign-in page shows only the methods that are both enabled and ready. User profiles carry the identifiers these methods need: **phone**, **Instagram**, **email** and a **linked Telegram** account.
+The sign-in page shows only the methods that are both enabled and ready. User profiles carry the identifiers these methods need: **phone**, **email**, **Mattermost username**, **Instagram** and a **linked Telegram** account.
 
 ## One-time codes and magic links
 
@@ -142,10 +149,16 @@ An admin can pre-create an account without a password; the first directory sign-
 
 The widget uses redirect mode (`/auth/telegram`), so the CSP does not need `unsafe-eval`. nginx allows `https://telegram.org` scripts and `https://oauth.telegram.org` frames for it.
 
-### WhatsApp via Wazzup
+### WhatsApp (Gateway or Wazzup)
 
-1. **Integrations → Wazzup**: API key, then pick the channel to use for WhatsApp.
-2. Enable *Code in WhatsApp*. Users need a phone number in their profile (international format).
+1. Configure **Integrations → WhatsApp Gateway** (URL + API key) and/or **Integrations → Wazzup** (API key + WhatsApp channel).
+2. Enable *Code in WhatsApp*, choose the main provider and, if both are set up, turn on fallback.
+3. Users need a valid phone number in their profile — it is validated against international numbering plans on save.
+
+### Mattermost
+
+1. Configure **Integrations → Mattermost** (server URL + bot token) — see [integrations.md](integrations.md#mattermost).
+2. Enable *Code in Mattermost*. Users need their Mattermost username in the profile; the code arrives as a direct message from the bot.
 
 ### Email
 

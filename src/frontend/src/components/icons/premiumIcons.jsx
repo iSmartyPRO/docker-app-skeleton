@@ -20,6 +20,32 @@ function icon(color, render) {
 }
 
 export const PREMIUM_ICONS = {
+  tasks: icon('#0CA678', () => (
+    <>
+      <rect x="5.4" y="5.4" width="13.2" height="13.2" rx="3" fill="#fff" />
+      <path d="m8.2 9.4 1.3 1.3 2.3-2.4M13.4 9.6h2.6M8.2 14.2l1.3 1.3 2.3-2.4M13.4 14.4h2.6" stroke="var(--da-icon-hole)" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  )),
+  kanban: icon('#7048E8', () => (
+    <>
+      <rect x="5.2" y="5.6" width="3.8" height="12.8" rx="1.2" fill="#fff" />
+      <rect x="10.1" y="5.6" width="3.8" height="8.6" rx="1.2" fill="#fff" />
+      <rect x="15" y="5.6" width="3.8" height="10.6" rx="1.2" fill="#fff" />
+    </>
+  )),
+  folder: icon('#3B82F6', () => (
+    <path
+      fill="#fff"
+      d="M5.2 8.1c0-.9.7-1.6 1.6-1.6h3.1c.5 0 .9.2 1.2.5l1 1.1h5.1c.9 0 1.6.7 1.6 1.6v6.8c0 .9-.7 1.6-1.6 1.6H6.8c-.9 0-1.6-.7-1.6-1.6V8.1Z"
+    />
+  )),
+  book: icon('#4F46E5', () => (
+    <>
+      <path fill="#fff" d="M6.4 6.2c0-.7.6-1.2 1.2-1.2h8.9c.5 0 .9.4.9.9v10.4c0 .5-.4.9-.9.9H8a1.6 1.6 0 0 0 0 3.2h9.4" />
+      <path d="M8 17.2a1.6 1.6 0 0 0 0 3.2h9.4M6.4 6.2v12.6" {...S} />
+      <path d="M9.6 8.6h5.2M9.6 11h3.6" stroke="var(--da-icon-hole)" strokeWidth="1.4" strokeLinecap="round" />
+    </>
+  )),
   compass: icon('#1C7ED6', () => (
     <>
       <circle cx="12" cy="12" r="5.7" {...S} />

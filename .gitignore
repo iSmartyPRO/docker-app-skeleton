@@ -45,3 +45,6 @@ temp/
 # Uploads (runtime)
 data/uploads/
 uploads/
+
+# Copied from node_modules at build time
+src/frontend/public/pdfjs/

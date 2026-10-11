@@ -3,6 +3,7 @@ import { basename, join } from 'path';
 import { query } from '../config/database.js';
 import { logoDir } from '../config/paths.js';
 import { APP_VERSION } from '../config/version.js';
+import { resolveModules, sanitizeModules } from '../modules/catalog.js';
 
 export const DEFAULTS = {
   app_name: 'docker-app-skeleton',
@@ -57,6 +58,32 @@ export const DEFAULTS = {
       // Default channel per transport, e.g. { whatsapp: '<channelId>', instagram: '<channelId>' }
       channels: {},
     },
+    // Office → PDF conversion for previews (Collabora Online / LibreOffice convert-to API).
+    documents: {
+      enabled: false,
+      serverUrl: '',
+    },
+    mattermost: {
+      enabled: false,
+      serverUrl: '',
+      botToken: '',
+      // Optional channel for security alerts (lockouts, IP blocks, delivery failures).
+      notifyChannelId: '',
+      notifySecurity: false,
+    },
+    // Google OAuth client: sign-in, Google Calendar per user, Gmail as the mail sender.
+    google: {
+      enabled: false,
+      clientId: '',
+      clientSecret: '',
+      // Comma-separated Google Workspace domains allowed to sign in (empty = any account).
+      allowedDomains: '',
+      calendar: true,
+      gmailSend: false,
+      // Connected sender account; the refresh token is sealed (services/crypto.js).
+      gmailSender: '',
+      gmailToken: '',
+    },
     activeDirectory: {
       enabled: false,
       host: '',
@@ -72,9 +99,12 @@ export const DEFAULTS = {
     password: { enabled: true },
     ldap: { enabled: false, autoProvision: true, groupMap: [] },
     telegram: { enabled: false, autoProvision: false },
+    google: { enabled: false, autoProvision: false },
     emailCode: { enabled: false },
-    whatsappCode: { enabled: false },
+    // provider: 'gateway' (WhatsApp Gateway) or 'wazzup'; fallback tries the other one.
+    whatsappCode: { enabled: false, provider: 'gateway', fallback: true },
     telegramCode: { enabled: false },
+    mattermostCode: { enabled: false },
     // Lets code channels send a one-click sign-in link instead of a code.
     magicLink: { enabled: false },
   }),
@@ -92,6 +122,9 @@ const SECRET_PATHS = [
   ['telegram', 'botToken'],
   ['whatsapp', 'apiKey'],
   ['wazzup', 'apiKey'],
+  ['mattermost', 'botToken'],
+  ['google', 'clientSecret'],
+  ['google', 'gmailToken'],
   ['activeDirectory', 'bindPassword'],
 ];
 
@@ -216,6 +249,8 @@ export function parseSettings(raw) {
   const appearance = parseJson(raw.appearance, JSON.parse(DEFAULTS.appearance));
   appearance.logoUrl = safeLogoUrl(appearance.logoUrl);
   appearance.logoDarkUrl = safeLogoUrl(appearance.logoDarkUrl);
+  appearance.appIconUrl = safeLogoUrl(appearance.appIconUrl);
+  appearance.shortName = String(appearance.shortName || '').slice(0, 24);
   appearance.logoHeight = clampInt(appearance.logoHeight, 20, 64, 32);
   // Merge stored groups over defaults so integrations added in later versions
   // appear in existing installations without a migration.
@@ -252,6 +287,7 @@ export function parseSettings(raw) {
     integrations,
     security,
     auth,
+    modules: resolveModules(parseJson(raw.modules, {})),
   };
 }
 
@@ -262,21 +298,32 @@ export function parseSettings(raw) {
 export function authAvailability(parsed) {
   const { integrations: i, auth } = parsed;
   const ready = {
+    google: Boolean(i.google?.enabled && i.google?.clientId && i.google?.clientSecret),
+    gmail: Boolean(
+      i.google?.enabled && i.google?.clientId && i.google?.clientSecret && i.google?.gmailSend && i.google?.gmailToken
+    ),
     ldap: Boolean(i.activeDirectory?.enabled && i.activeDirectory?.host && i.activeDirectory?.baseDn),
     telegram: Boolean(i.telegram?.enabled && i.telegram?.botToken && i.telegram?.botUsername),
-    emailCode: Boolean(i.email?.enabled && i.email?.host),
-    whatsappCode: Boolean(i.wazzup?.enabled && i.wazzup?.apiKey && i.wazzup?.channels?.whatsapp),
+    smtp: Boolean(i.email?.enabled && i.email?.host),
+    whatsappGateway: Boolean(i.whatsapp?.enabled && i.whatsapp?.serverUrl && i.whatsapp?.apiKey),
+    whatsappWazzup: Boolean(i.wazzup?.enabled && i.wazzup?.apiKey && i.wazzup?.channels?.whatsapp),
     telegramCode: Boolean(i.telegram?.enabled && i.telegram?.botToken),
+    mattermostCode: Boolean(i.mattermost?.enabled && i.mattermost?.serverUrl && i.mattermost?.botToken),
   };
-  ready.magicLink = ready.emailCode || ready.whatsappCode || ready.telegramCode;
+  // Email goes through SMTP or, when connected, through Gmail.
+  ready.emailCode = ready.smtp || ready.gmail;
+  ready.whatsappCode = ready.whatsappGateway || ready.whatsappWazzup;
+  ready.magicLink = ready.emailCode || ready.whatsappCode || ready.telegramCode || ready.mattermostCode;
   return {
     ready,
     password: auth.password?.enabled !== false,
     ldap: Boolean(auth.ldap?.enabled && ready.ldap),
     telegram: Boolean(auth.telegram?.enabled && ready.telegram),
+    google: Boolean(auth.google?.enabled && ready.google),
     emailCode: Boolean(auth.emailCode?.enabled && ready.emailCode),
     whatsappCode: Boolean(auth.whatsappCode?.enabled && ready.whatsappCode),
     telegramCode: Boolean(auth.telegramCode?.enabled && ready.telegramCode),
+    mattermostCode: Boolean(auth.mattermostCode?.enabled && ready.mattermostCode),
     magicLink: Boolean(auth.magicLink?.enabled),
   };
 }
@@ -284,9 +331,11 @@ export function authAvailability(parsed) {
 const AUTH_INTEGRATION = {
   ldap: 'Active Directory',
   telegram: 'Telegram bot (token and bot username)',
-  emailCode: 'Email (SMTP)',
-  whatsappCode: 'Wazzup (with a WhatsApp channel)',
+  google: 'Google (OAuth client ID and secret)',
+  emailCode: 'Email (SMTP) or Gmail',
+  whatsappCode: 'WhatsApp Gateway or Wazzup (with a WhatsApp channel)',
   telegramCode: 'Telegram bot',
+  mattermostCode: 'Mattermost',
 };
 
 export function sanitizeAuth(current, incoming, readiness) {
@@ -298,7 +347,12 @@ export function sanitizeAuth(current, incoming, readiness) {
   };
   for (const method of Object.keys(next)) flag(method, 'enabled');
   flag('ldap', 'autoProvision');
+  flag('whatsappCode', 'fallback');
+  if (src.whatsappCode?.provider === 'gateway' || src.whatsappCode?.provider === 'wazzup') {
+    next.whatsappCode.provider = src.whatsappCode.provider;
+  }
   flag('telegram', 'autoProvision');
+  flag('google', 'autoProvision');
   if (Array.isArray(src.ldap?.groupMap)) {
     next.ldap.groupMap = src.ldap.groupMap
       .filter((rule) => rule && String(rule.adGroup || '').trim() && Number.isInteger(Number(rule.groupId)))
@@ -330,6 +384,10 @@ export function toPublicSettings(parsed) {
     appDescription: parsed.appDescription,
     accessMode: parsed.accessMode || 'closed',
     appearance: parsed.appearance,
+    // Only on/off — module system settings stay admin-only.
+    modules: Object.fromEntries(
+      Object.entries(parsed.modules).map(([id, state]) => [id, { enabled: state.enabled }])
+    ),
     auth: (() => {
       const available = authAvailability(parsed);
       return {
@@ -338,11 +396,14 @@ export function toPublicSettings(parsed) {
         telegram: available.telegram
           ? { enabled: true, botUsername: parsed.integrations.telegram.botUsername }
           : { enabled: false },
+        google: available.google,
         emailCode: available.emailCode,
         whatsappCode: available.whatsappCode,
         telegramCode: available.telegramCode,
+        mattermostCode: available.mattermostCode,
         magicLink:
-          available.magicLink && (available.emailCode || available.whatsappCode || available.telegramCode),
+          available.magicLink &&
+          (available.emailCode || available.whatsappCode || available.telegramCode || available.mattermostCode),
       };
     })(),
     integrations: {
@@ -350,6 +411,12 @@ export function toPublicSettings(parsed) {
       telegram: { enabled: Boolean(parsed.integrations.telegram?.enabled) },
       whatsapp: { enabled: Boolean(parsed.integrations.whatsapp?.enabled) },
       wazzup: { enabled: Boolean(parsed.integrations.wazzup?.enabled) },
+      mattermost: { enabled: Boolean(parsed.integrations.mattermost?.enabled) },
+      documents: { enabled: Boolean(parsed.integrations.documents?.enabled) },
+      google: {
+        enabled: authAvailability(parsed).ready.google,
+        calendar: Boolean(authAvailability(parsed).ready.google && parsed.integrations.google.calendar),
+      },
       activeDirectory: {
         enabled: Boolean(parsed.integrations.activeDirectory?.enabled),
       },
@@ -364,6 +431,7 @@ export function toAdminSettings(parsed) {
     rateLimit: parsed.rateLimit,
     security: parsed.security,
     authMethods: parsed.auth,
+    modules: parsed.modules,
     authReady: authAvailability(parsed).ready,
     integrations: maskIntegrations(parsed.integrations),
   };
@@ -394,7 +462,21 @@ export function sanitizeRateLimit(current, incoming) {
   };
 }
 
-const INTEGRATION_GROUPS = ['email', 'telegram', 'whatsapp', 'wazzup', 'activeDirectory'];
+const INTEGRATION_GROUPS = ['email', 'telegram', 'whatsapp', 'wazzup', 'mattermost', 'documents', 'google', 'activeDirectory'];
+
+/** "Example.com, @corp.kz" → "example.com,corp.kz". */
+export function normalizeDomains(value) {
+  return [
+    ...new Set(
+      String(value || '')
+        .split(/[\s,;]+/)
+        .map((domain) => domain.trim().toLowerCase().replace(/^@/, ''))
+        .filter((domain) => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain))
+    ),
+  ]
+    .slice(0, 20)
+    .join(',');
+}
 
 export function mergeKeepSecrets(current, incoming) {
   const next = structuredClone(current);
@@ -408,6 +490,12 @@ export function mergeKeepSecrets(current, incoming) {
       next[group][field] = current[group]?.[field] || '';
     }
   }
+  // The Gmail sender is set only by the OAuth flow (setGoogleSender), never by a patch.
+  if (!next.google) return next;
+  next.google.gmailToken = current.google?.gmailToken || '';
+  next.google.gmailSender = current.google?.gmailSender || '';
+  next.google.allowedDomains = normalizeDomains(next.google.allowedDomains);
+  for (const flagName of ['calendar', 'gmailSend', 'enabled']) next.google[flagName] = Boolean(next.google[flagName]);
   return next;
 }
 
@@ -455,6 +543,11 @@ export async function updateAdminSettings(patch) {
         patch.appearance.logoDarkUrl === undefined
           ? parsed.appearance.logoDarkUrl
           : safeLogoUrl(patch.appearance.logoDarkUrl),
+      appIconUrl:
+        patch.appearance.appIconUrl === undefined
+          ? parsed.appearance.appIconUrl
+          : safeLogoUrl(patch.appearance.appIconUrl),
+      shortName: String(patch.appearance.shortName ?? parsed.appearance.shortName ?? '').trim().slice(0, 24),
       logoHeight: clampInt(patch.appearance.logoHeight ?? parsed.appearance.logoHeight, 20, 64, 32),
       icons: patch.appearance.icons
         ? {
@@ -472,6 +565,9 @@ export async function updateAdminSettings(patch) {
     const merged = mergeKeepSecrets(parsed.integrations, patch.integrations);
     merged.wazzup = sanitizeWazzup(merged.wazzup);
     await setSetting('integrations', JSON.stringify(merged));
+  }
+  if (patch.modules) {
+    await setSetting('modules', JSON.stringify(sanitizeModules(parsed.modules, patch.modules)));
   }
   if (patch.auth) {
     await setSetting(
@@ -496,6 +592,7 @@ export async function updateAdminSettings(patch) {
 
 /** `primary` is used everywhere; `dark` replaces it in the dark theme when set. */
 function logoKey(variant) {
+  if (variant === 'icon') return 'appIconUrl';
   return variant === 'dark' ? 'logoDarkUrl' : 'logoUrl';
 }
 
@@ -518,4 +615,14 @@ export async function clearProjectLogo(variant = 'primary') {
     await unlink(join(logoDir, basename(parsed.appearance[key]))).catch(() => {});
   }
   return updateAdminSettings({ appearance: { [key]: null } });
+}
+
+/** Stores (or clears) the Gmail sender connected through Google OAuth. */
+export async function setGoogleSender({ email = '', sealedToken = '' } = {}) {
+  const parsed = parseSettings(await getSettings({ fresh: true }));
+  const integrations = structuredClone(parsed.integrations);
+  integrations.google.gmailSender = email;
+  integrations.google.gmailToken = sealedToken;
+  if (!sealedToken) integrations.google.gmailSend = false;
+  await setSetting('integrations', JSON.stringify(integrations));
 }

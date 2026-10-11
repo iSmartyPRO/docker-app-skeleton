@@ -29,10 +29,17 @@ const FIELDS = {
     { name: 'defaultChatId', label: 'chatId' },
   ],
   whatsapp: [
-    { name: 'serverUrl', label: 'server', placeholder: 'https://wa-gateway.example.com' },
+    { name: 'serverUrl', label: 'server', placeholder: 'https://wagw.example.com' },
     { name: 'apiKey', label: 'apiKey', secret: true },
   ],
   wazzup: [{ name: 'apiKey', label: 'apiKey', secret: true }],
+  documents: [{ name: 'serverUrl', label: 'documentsUrl', placeholder: 'http://collabora:9980' }],
+  mattermost: [
+    { name: 'serverUrl', label: 'mattermostUrl', placeholder: 'https://chat.example.com' },
+    { name: 'botToken', label: 'mattermostToken', secret: true },
+    { name: 'notifyChannelId', label: 'mattermostChannel', placeholder: 'e.g. 8zq1k3…' },
+    { name: 'notifySecurity', label: 'mattermostAlerts', type: 'switch' },
+  ],
   activeDirectory: [
     { name: 'host', label: 'host', placeholder: 'dc01.corp.local' },
     { name: 'port', label: 'port', type: 'number' },

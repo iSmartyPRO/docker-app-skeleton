@@ -2,10 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta name="description" content="Application console" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/pwa/favicon-48.png" />
+    <!-- Installable app (PWA): manifest is built from settings by the API. -->
+    <link rel="manifest" href="/api/pwa/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/pwa/apple-touch-icon.png" />
+    <meta name="theme-color" content="#1E3A6E" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Portal" />
+    <meta name="format-detection" content="telephone=no" />
     <title>docker-app-skeleton</title>
     <!-- The selected typeface is injected at runtime by FontLoader. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

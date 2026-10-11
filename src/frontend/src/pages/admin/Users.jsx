@@ -192,7 +192,7 @@ export default function AdminUsers() {
       if (group !== 'all' && !(user.groupIds || []).includes(group)) return false;
       if (status !== 'all' && statusOf(user) !== status) return false;
       if (!q) return true;
-      return [user.username, user.displayName, user.email, user.phone, user.instagram, user.telegram?.username]
+      return [user.username, user.displayName, user.email, user.phone, user.instagram, user.mattermost, user.telegram?.username]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(q));
     });
