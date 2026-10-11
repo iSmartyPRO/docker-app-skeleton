@@ -726,3 +726,242 @@ body.cal-loading .cal-toolbar__title::after {
 .cal-view .fc-daygrid-block-event .fc-ev {
   padding: 0 2px;
 }
+
+/* ── Create: event or task ─────────────────────────────────────────────── */
+
+.cal-create {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+.cal-gear {
+  font-size: 16px;
+}
+
+.cal-choose {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cal-choose button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px;
+  border: 1.5px solid var(--da-hairline);
+  border-radius: 16px;
+  background: var(--da-surface);
+  color: var(--da-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s var(--da-ease), transform 0.15s var(--da-ease), box-shadow 0.15s var(--da-ease);
+}
+
+.cal-choose button:hover {
+  border-color: var(--da-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--da-shadow);
+}
+
+.cal-choose span {
+  font-size: 24px;
+}
+
+.cal-choose strong {
+  font-size: 15px;
+}
+
+.cal-choose em {
+  color: var(--da-muted);
+  font-size: 12.5px;
+  font-style: normal;
+  line-height: 1.4;
+}
+
+.cal-qt {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cal-qt__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-qt__row > span:first-child {
+  width: 64px;
+  color: var(--da-muted);
+  font-size: 13px;
+}
+
+.cal-qt__switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cal-qt__note {
+  margin: 0;
+  color: var(--da-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* ── Tasks without a deadline ──────────────────────────────────────────── */
+
+.cal-undated .mod-side__label em {
+  margin-left: auto;
+  color: var(--da-muted);
+  font-style: normal;
+  font-size: 11px;
+}
+
+.cal-undated__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-undated__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px dashed color-mix(in srgb, #0ca678 45%, var(--da-hairline));
+  border-radius: 10px;
+  background: color-mix(in srgb, #0ca678 5%, var(--da-surface));
+  color: var(--da-text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+}
+
+.cal-undated__item:hover {
+  border-style: solid;
+}
+
+.cal-undated__grip {
+  color: var(--da-muted);
+  letter-spacing: -2px;
+  line-height: 1.4;
+}
+
+.cal-undated__text {
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.cal-undated__text em {
+  display: block;
+  color: var(--da-muted);
+  font-style: normal;
+  font-size: 11px;
+}
+
+.cal-undated__hint {
+  margin: 6px 2px 0;
+  color: var(--da-muted);
+  font-size: 11.5px;
+}
+
+/* ── Task events ───────────────────────────────────────────────────────── */
+
+.fc-ev__ref {
+  flex: none;
+  opacity: 0.7;
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+.fc .is-task.is-done .fc-ev__title {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+.fc .is-task.is-overdue {
+  box-shadow: inset 3px 0 0 #ef4444;
+}
+
+/* ── Settings drawer ───────────────────────────────────────────────────── */
+
+.calp-h {
+  margin: 18px 0 4px;
+  color: var(--da-muted);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.calp-h:first-child {
+  margin-top: 0;
+}
+
+.calp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--da-hairline);
+}
+
+.calp-row strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.calp-row > div:first-child span {
+  display: block;
+  color: var(--da-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.calp-hours {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.calp-hours .ant-picker {
+  width: 92px;
+}
+
+.calp-foot {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 700px) {
+  .cal-toolbar .ant-segmented {
+    order: 10;
+    flex-basis: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .cal-toolbar .ant-segmented-group {
+    flex-wrap: nowrap;
+  }
+
+  .cal-toolbar .ant-segmented-item {
+    flex: none;
+  }
+}

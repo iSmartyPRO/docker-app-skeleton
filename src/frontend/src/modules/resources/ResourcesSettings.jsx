@@ -7,6 +7,7 @@ import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection
 import { useAdminSettings } from '../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { useLocale } from '../../context/LocaleContext';
+import { HintLabel } from '../../help/Hint';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
 
 function ResourcesForm({ settings, save }) {
@@ -57,7 +58,7 @@ function ResourcesForm({ settings, save }) {
             <Switch />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('resourcesSettings.personalize')} description={t('resourcesSettings.personalizeDesc')}>
+        <SettingRow label={<HintLabel id="resources.personalize">{t('resourcesSettings.personalize')}</HintLabel>} description={t('resourcesSettings.personalizeDesc')}>
           <Form.Item name="personalize" valuePropName="checked" noStyle>
             <Switch />
           </Form.Item>

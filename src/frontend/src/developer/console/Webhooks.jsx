@@ -7,6 +7,7 @@ import { formatDateTime, formatRelative } from '../../lib/format';
 import { consoleApi } from '../client';
 import { AreaIcon, CodeBlock, EmptyState, GlyphIcon, LimitsPicker, SecretModal, eventLabel, statusClass } from '../components';
 import { areaKey } from '../policy';
+import { HintLabel } from '../../help/Hint';
 
 function WebhookEditor({ open, webhook, meta, me, onClose, onSaved, onSecret }) {
   const { t } = useLocale();
@@ -131,7 +132,7 @@ function WebhookEditor({ open, webhook, meta, me, onClose, onSaved, onSecret }) 
         </section>
         <section className="ax-sec">
           <label className="ax-field">
-            <span>{t('api.webhooks.runAs')}</span>
+            <span><HintLabel id="api.runAs">{t('api.webhooks.runAs')}</HintLabel></span>
             <Select
               size="large"
               showSearch

@@ -13,6 +13,7 @@ import {
   saveAccountGoogleCalendars,
   startGoogle,
 } from '../../services/api';
+import { HintLabel } from '../../help/Hint';
 
 function GoogleCalendars() {
   const { t } = useLocale();
@@ -97,7 +98,7 @@ export default function AccountConnections() {
         </SettingsSection>
       ) : (
         <>
-          <SettingsSection title="Google" description={t('connections.googleDesc')}>
+          <SettingsSection title={<HintLabel id="account.google">Google</HintLabel>} description={t('connections.googleDesc')}>
             <div className="connection">
               <span className="connection__logo"><IconGoogle size={40} /></span>
               <div className="connection__text">

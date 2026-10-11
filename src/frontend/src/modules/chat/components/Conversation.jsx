@@ -7,6 +7,7 @@ import { errorMessage } from '../../../lib/errors';
 import { initials } from '../../../lib/format';
 import ImageViewer from '../../kb/viewers/ImageViewer';
 import { UserAvatar } from '../../shared/People';
+import { Hint, HintLabel } from '../../../help/Hint';
 import { chatApi, formatSize } from '../api';
 import { useChat, useChatEvents } from '../ChatContext';
 import Composer from './Composer';
@@ -142,7 +143,7 @@ function SidePanel({ room, tab, setTab, members, reloadMembers, onJump, onClose 
             </ul>
             <Modal
               open={adding}
-              title={t('chat.addMembers')}
+              title={<HintLabel id="chat.addMembers">{t('chat.addMembers')}</HintLabel>}
               onCancel={() => setAdding(false)}
               okText={t('chat.add')}
               cancelText={t('common.cancel')}
@@ -516,10 +517,20 @@ export default function Conversation({ roomId, entity, header = true, placeholde
         ? t('chat.membersN', { n: members.length || room.memberCount })
         : room.entityInfo?.subtitle || t('chat.membersN', { n: members.length });
 
+  // A hint inside a menu item; the click stays on the hint and does not run the item.
+  const withHint = (text, id) => (
+    <span className="hp-label">
+      {text}
+      <span onClick={(event) => event.stopPropagation()}>
+        <Hint id={id} placement="left" />
+      </span>
+    </span>
+  );
+
   const moreMenu = {
     items: [
-      { key: 'mute', label: room.muted ? `🔔 ${t('chat.unmute')}` : `🔕 ${t('chat.mute')}`, onClick: () => setPref({ muted: !room.muted }) },
-      room.kind !== 'entity' && { key: 'pin', label: room.pinned ? `📌 ${t('chat.unpin')}` : `📌 ${t('chat.pin')}`, onClick: () => setPref({ pinned: !room.pinned }) },
+      { key: 'mute', label: withHint(room.muted ? `🔔 ${t('chat.unmute')}` : `🔕 ${t('chat.mute')}`, 'chat.mute'), onClick: () => setPref({ muted: !room.muted }) },
+      room.kind !== 'entity' && { key: 'pin', label: withHint(room.pinned ? `📌 ${t('chat.unpin')}` : `📌 ${t('chat.pin')}`, 'chat.pin'), onClick: () => setPref({ pinned: !room.pinned }) },
       room.kind === 'entity' && room.entityInfo?.link && { key: 'open', label: <Link to={room.entityInfo.link}>↗ {t('chat.openRecord')}</Link> },
       room.can?.manage && { key: 'rename', label: `✎ ${t('chat.rename')}`, onClick: rename },
       room.kind === 'group' && { type: 'divider' },
@@ -536,7 +547,7 @@ export default function Conversation({ roomId, entity, header = true, placeholde
             onOk: () => chatApi.removeMember(room.id, user.id).then(() => window.history.back()),
           }),
       },
-      room.kind !== 'entity' && { key: 'hide', label: t('chat.hide'), onClick: () => setPref({ hidden: true }).then(() => window.history.back()) },
+      room.kind !== 'entity' && { key: 'hide', label: withHint(t('chat.hide'), 'chat.hide'), onClick: () => setPref({ hidden: true }).then(() => window.history.back()) },
     ].filter(Boolean),
   };
 

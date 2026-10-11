@@ -4,6 +4,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { ColorSwatches } from '../../shared/People';
 import { tasksApi } from '../api';
+import { HintLabel } from '../../../help/Hint';
 
 /**
  * Create or edit a project. The short key (HR, SALES…) prefixes task numbers
@@ -97,7 +98,7 @@ export default function ProjectDialog({ open, project, onClose }) {
         {!editing && (
           <Form.Item
             name="key"
-            label={t('tasks.projectKey')}
+            label={<HintLabel id="tasks.projectKey">{t('tasks.projectKey')}</HintLabel>}
             help={keyHelp}
             normalize={(value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)}
             rules={[{ required: true, message: t('common.required') }]}
@@ -118,7 +119,7 @@ export default function ProjectDialog({ open, project, onClose }) {
           <ColorSwatches small />
         </Form.Item>
         {!editing && (
-          <Form.Item name="visibility" label={t('tasks.visibility')}>
+          <Form.Item name="visibility" label={<HintLabel id="tasks.projectAccess">{t('tasks.visibility')}</HintLabel>}>
             <Radio.Group className="visibility-options">
               {['team', 'readonly', 'private'].map((value) => (
                 <Radio key={value} value={value}>

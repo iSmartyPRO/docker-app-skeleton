@@ -11,6 +11,7 @@ import { useLocale } from '../../context/LocaleContext';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
 import { FOLDER_COLORS } from './fileTypes';
 import { FolderIcon } from './components/Icons';
+import { HintLabel } from '../../help/Hint';
 
 const GROUPS = ['images', 'pdf', 'office', 'text', 'media', 'archives'];
 
@@ -86,12 +87,12 @@ function KbForm({ settings, save }) {
             <InputNumber min={1} max={1024} suffix="MB" />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('kbSettings.types')} stacked>
+        <SettingRow label={<HintLabel id="kb.fileTypes">{t('kbSettings.types')}</HintLabel>} stacked>
           <Form.Item name="fileGroups" noStyle>
             <Checkbox.Group className="type-groups" options={GROUPS.map((group) => ({ value: group, label: t(`kbSettings.group_${group}`) }))} />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('kbSettings.conversion')} description={t('kbSettings.conversionDesc')}>
+        <SettingRow label={<HintLabel id="kb.conversion">{t('kbSettings.conversion')}</HintLabel>} description={t('kbSettings.conversionDesc')}>
           {conversion?.enabled && conversion?.serverUrl ? (
             <span className="readiness is-ready">● {t('signinSettings.integrationReady')}</span>
           ) : (
@@ -111,7 +112,7 @@ function KbForm({ settings, save }) {
             <Switch />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('kbSettings.maxDays')} description={t('kbSettings.maxDaysDesc')}>
+        <SettingRow label={<HintLabel id="kb.maxShareDays">{t('kbSettings.maxDays')}</HintLabel>} description={t('kbSettings.maxDaysDesc')}>
           <Form.Item name="maxShareDays" noStyle>
             <InputNumber min={0} max={3650} suffix={t('settings.login.days')} />
           </Form.Item>

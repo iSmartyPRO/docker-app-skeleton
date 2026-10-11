@@ -8,6 +8,7 @@ import { useSettings } from '../../../context/SettingsContext';
 import { FilePicker } from '../../files/components/dialogs';
 import { FileIcon } from './Icons';
 import { formatSize } from '../fileTypes';
+import { Hint } from '../../../help/Hint';
 
 const IMAGE = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']);
 
@@ -176,7 +177,7 @@ export default function ItemDialog({ open, kind, item, folderId, onClose, onSave
         {isArticle && filesOn && (
           <div className="kb-attach-edit">
             <div className="kb-attach-edit__head">
-              <strong>{t('kb.attachmentsTitle')}</strong>
+              <strong>{t('kb.attachmentsTitle')} <Hint id="kb.attachments" /></strong>
               <Button size="small" onClick={() => setPicker({ mode: 'attach' })}>+ {t('kb.attachFiles')}</Button>
             </div>
             {attachments.length === 0 ? (

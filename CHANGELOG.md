@@ -52,9 +52,43 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
   - OpenAPI 3.1 download for Postman and code generators;
   - can be made public.
 
+### Added (help, notifications, calendar)
+
+- **In-app help** on three levels: ⓘ hints next to form fields (about 115 across the modules), a quick guide in a side panel (*?* in the header or the **?** key), and the help center `/help` with full guides, steps, examples, Q&A and search for every module. See [docs/help.md](docs/help.md).
+- **Notification preferences rebuilt** (*Profile → Notifications*):
+  - channel cards with status and fixes;
+  - a test through every channel with per-channel results;
+  - an events × channels table with presets;
+  - quiet hours and pause, in the person's time zone (reminders always come through);
+  - subscriptions to task projects and shared calendars;
+  - a delivery history showing where each notification went and why it did not arrive.
+- **Calendar:**
+  - shows every task you take part in (not only as assignee);
+  - drag a task to move its deadline;
+  - a "Without a deadline" list to schedule tasks by dragging;
+  - create a task or an event from an empty slot;
+  - a work-week view;
+  - personal settings (view, hours, grid step, weekends, which tasks, defaults for new events);
+  - follow a shared calendar.
+- After creating a task, the note shows its deadline with an *In the calendar* link to that day.
+- **Reminder time picker:**
+  - quick presets, with date and time chosen separately;
+  - a live "fires … — in …" line;
+  - warnings when a chosen channel (push, Telegram/Mattermost, e-mail) is not connected.
+
 ### Fixed
 
-- Background jobs no longer time out right after a start: the scheduler runs at most three jobs at once, so they no longer exhaust the database pool.
+- Background jobs no longer time out right after a start: the scheduler runs at most three jobs at once and stops waiting for a job after 5 minutes.
+- **Security:**
+  - API token scopes could be bypassed by changing the letter case of a path (`/api/Account/API/tokens`). Paths are now compared case-insensitively, with repeated slashes collapsed.
+  - Requests that change data are refused when a browser marks them as coming from another site (`Origin` check).
+  - `/uploads` serves only avatars and logos; every other file goes through its module's access check.
+  - Webhooks check the resolved address at connect time and recognise every IPv6 form of private IPv4 addresses.
+  - The sign-in return path rejects backslash tricks.
+  - `nodemailer` upgraded to 10 and DOMPurify patched.
+- **Installed app (PWA):**
+  - headers, panels, dialogs, toasts and full-screen viewers leave room for the clock, the notch or Dynamic Island and the status bar;
+  - a back button appears in the header.
 
 ### Added (chat)
 

@@ -1,5 +1,5 @@
 import { query } from '../../config/database.js';
-import { notify, resolvePrefs } from '../../services/notifications.js';
+import { eventAllows, notify, quietState, resolvePrefs } from '../../services/notifications.js';
 import { pushToUser } from '../../services/push.js';
 import { isWatching } from './realtime.js';
 
@@ -55,7 +55,8 @@ export async function deliverMessage(room, message, recipients, { authorId, ment
   for (const person of people) {
     if (tagged.includes(person) && !system) continue;
     if (person.muted || isWatching(person.id, room.id)) continue;
-    if (!resolvePrefs(person.notify_prefs).push) continue;
+    const prefs = resolvePrefs(person.notify_prefs);
+    if (!eventAllows(prefs, 'chat.message', 'push') || quietState(prefs)) continue;
     const lang = person.locale === 'ru' ? 'ru' : 'en';
     const text = preview(message, lang);
     pushToUser(person.id, {

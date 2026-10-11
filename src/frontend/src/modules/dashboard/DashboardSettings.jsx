@@ -7,6 +7,7 @@ import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection
 import { useAdminSettings } from '../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { useLocale } from '../../context/LocaleContext';
+import { HintLabel } from '../../help/Hint';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
 
 function DashboardForm({ settings, save }) {
@@ -27,7 +28,7 @@ function DashboardForm({ settings, save }) {
             <Input maxLength={60} placeholder={t('apps.dashboard.name')} style={{ width: 280 }} />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('dashboardSettings.personalize')} description={t('dashboardSettings.personalizeDesc')}>
+        <SettingRow label={<HintLabel id="dashboard.personalize">{t('dashboardSettings.personalize')}</HintLabel>} description={t('dashboardSettings.personalizeDesc')}>
           <Form.Item name="personalize" valuePropName="checked" noStyle>
             <Switch />
           </Form.Item>

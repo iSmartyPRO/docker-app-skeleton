@@ -6,6 +6,7 @@ import { errorMessage } from '../../../lib/errors';
 import { cmpApi } from '../api';
 import { CompanyPicker } from './pickers';
 import { TITLES } from './PersonForm';
+import { HintLabel } from '../../../help/Hint';
 
 const dateProps = {
   getValueProps: (value) => ({ value: value ? dayjs(value) : null }),
@@ -30,7 +31,7 @@ function JobFields({ prefix = [], withCompany = true, excludeId }) {
       <Form.Item name={[...prefix, 'startedOn']} label={t('companies.p.startedOn')} {...dateProps}>
         <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
       </Form.Item>
-      <Form.Item name={[...prefix, 'isDecisionMaker']} valuePropName="checked" label={t('companies.p.decisionMaker')}>
+      <Form.Item name={[...prefix, 'isDecisionMaker']} valuePropName="checked" label={<HintLabel id="companies.decisionMaker">{t('companies.p.decisionMaker')}</HintLabel>}>
         <Switch />
       </Form.Item>
       <Form.Item name={[...prefix, 'workPhone']} label={t('companies.p.workPhone')}>
@@ -133,7 +134,7 @@ export function LeaveDialog({ open, position, onClose }) {
             <Input.TextArea autoSize={{ minRows: 1 }} />
           </Form.Item>
         </div>
-        <Form.Item name="next" label={t('companies.whereNext')}>
+        <Form.Item name="next" label={<HintLabel id="companies.leaveNext">{t('companies.whereNext')}</HintLabel>}>
           <Radio.Group
             className="cmp-next"
             options={[

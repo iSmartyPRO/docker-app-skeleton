@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -7,7 +7,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import ruLocale from '@fullcalendar/core/locales/ru';
-import { App, Button, Calendar as MiniCalendar, Drawer, Dropdown, Result, Segmented, Spin } from 'antd';
+import { App, Button, Calendar as MiniCalendar, Drawer, Dropdown, Modal, Result, Segmented, Spin } from 'antd';
 import Chrome from '../../components/Chrome';
 import { MenuIcon } from '../../components/icons/menuIcons';
 import { IconGoogle } from '../../components/icons/AdminIcons';
@@ -19,11 +19,17 @@ import { calendarApi, calendarLabel } from './api';
 import EventDialog from './components/EventDialog';
 import EventDetails from './components/EventDetails';
 import CalendarDialog from './components/CalendarDialog';
+import CalendarPrefs from './components/CalendarPrefs';
+import QuickTaskDialog from './components/QuickTaskDialog';
+import UndatedTasks from './components/UndatedTasks';
+import { HelpButton } from '../../help/Hint';
 import { askScope } from './components/scope';
 import '../shared/module.css';
 import './calendar.css';
 
-const VIEWS = { month: 'dayGridMonth', week: 'timeGridWeek', day: 'timeGridDay', agenda: 'listWeek' };
+const VIEWS = { month: 'dayGridMonth', week: 'timeGridWeek', workweek: 'timeGridWorkWeek', day: 'timeGridDay', agenda: 'listWeek' };
+// A work week is the week view without Saturday and Sunday.
+const VIEW_OPTIONS = { timeGridWorkWeek: { type: 'timeGridWeek', weekends: false } };
 const HIDDEN_KEY = 'cal_hidden';
 
 function useHidden() {
@@ -82,17 +88,21 @@ function toFcEvent(item, kind) {
   };
 }
 
-function taskToFc(task) {
+function taskToFc(task, minutes = 30) {
   const due = dayjs(task.dueAt);
-  const done = task.statusCategory === 'done';
+  const done = task.statusCategory === 'done' || Boolean(task.completedAt);
+  const timed = Boolean(task.dueTime);
   return {
     id: `task:${task.id}`,
-    title: `${task.ref} · ${task.title}`,
-    start: task.dueTime ? due.toISOString() : due.format('YYYY-MM-DD'),
-    allDay: !task.dueTime,
-    editable: false,
-    classNames: ['is-task', done ? 'is-done' : '', task.overdue ? 'is-overdue' : ''].filter(Boolean),
-    extendedProps: { kind: 'task', data: task, color: task.project.color || '#64748B' },
+    title: `${task.important ? '🔥 ' : ''}${task.title}`,
+    // A timed deadline ends at that moment, so the block sits just before it.
+    start: timed ? due.subtract(minutes, 'minute').toISOString() : due.format('YYYY-MM-DD'),
+    end: timed ? due.toISOString() : undefined,
+    allDay: !timed,
+    editable: !done,
+    durationEditable: false,
+    classNames: ['is-task', done ? 'is-done' : '', task.overdue && !done ? 'is-overdue' : ''].filter(Boolean),
+    extendedProps: { kind: 'task', data: task, color: task.project?.personal ? '#0CA678' : task.project?.color || '#0CA678' },
   };
 }
 
@@ -102,7 +112,8 @@ function EventContent({ arg }) {
   const list = view.type.startsWith('list');
   return (
     <div className="fc-ev">
-      {kind === 'task' && <span className="fc-ev__mark">✓</span>}
+      {kind === 'task' && <span className="fc-ev__mark">{event.classNames.includes('is-done') ? '✓' : '☐'}</span>}
+      {kind === 'task' && !list && <span className="fc-ev__ref">{data.ref}</span>}
       {kind === 'google' && <span className="fc-ev__g"><IconGoogle size={12} /></span>}
       {!list && timeText && !event.allDay && <span className="fc-ev__time">{timeText}</span>}
       <span className="fc-ev__title">{event.title}</span>
@@ -131,6 +142,11 @@ function Shell() {
   const [details, setDetails] = useState(null);
   const [calendarDialog, setCalendarDialog] = useState(null);
   const [accessFor, setAccessFor] = useState(null);
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [quickTask, setQuickTask] = useState(null);
+  const [undatedVersion, setUndatedVersion] = useState(0);
+  const [following, setFollowing] = useState(() => new Set());
+  const [params, setParams] = useSearchParams();
   const state = useRef({});
 
   const loadHome = useCallback(async () => {
@@ -143,13 +159,32 @@ function Shell() {
     loadHome()
       .then((data) => {
         const narrow = window.innerWidth < 700;
-        const preferred = data.config.defaultView === 'week' && narrow ? 'day' : data.config.defaultView;
+        const wanted = data.prefs?.defaultView || data.config.defaultView;
+        const preferred = (wanted === 'week' || wanted === 'workweek') && narrow ? 'day' : wanted;
         setView(VIEWS[preferred] || 'timeGridWeek');
       })
       .catch(setError);
   }, [loadHome]);
 
   state.current = { home, hidden };
+
+  // Calendars I follow (notifications about their events).
+  useEffect(() => {
+    api
+      .get('/account/notifications/subscriptions')
+      .then((res) => setFollowing(new Set(res.data.subscriptions.filter((item) => item.type === 'calendar.calendar').map((item) => item.id))))
+      .catch(() => {});
+  }, []);
+
+  // ?date=2026-10-19 (e.g. "Show in the calendar" after creating a task) opens that day.
+  useEffect(() => {
+    const date = params.get('date');
+    if (!date || !home || !view) return;
+    setTimeout(() => calendarRef.current?.getApi().gotoDate(date), 0);
+    params.delete('date');
+    setParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [home, view]);
   const refetch = useCallback(() => calendarRef.current?.getApi().refetchEvents(), []);
   useEffect(() => {
     refetch();
@@ -173,7 +208,13 @@ function Shell() {
     const visible = data.calendars.filter((calendar) => !off.has(`c:${calendar.id}`)).map((calendar) => calendar.id);
     calendarApi
       .events({ from: info.startStr, to: info.endStr, calendars: visible.join(',') || '0', invitations: off.has('invited') ? '0' : '1' })
-      .then((res) => success(res.data.events.filter((item) => !(item.invited && off.has('invited'))).map((item) => toFcEvent(item, 'portal'))))
+      .then((res) =>
+        success(
+          res.data.events
+            .filter((item) => !(item.invited && off.has('invited')) && !(data.prefs?.showDeclined === false && item.myStatus === 'declined'))
+            .map((item) => toFcEvent(item, 'portal'))
+        )
+      )
       .catch(failure);
     return undefined;
   }, []);
@@ -197,10 +238,11 @@ function Shell() {
 
   const taskSource = useCallback((info, success) => {
     const { home: data, hidden: off } = state.current;
-    if (!data?.config?.showTasks || off.has('tasks')) return success([]);
+    const prefs = data?.prefs || {};
+    if (!data?.config?.showTasks || prefs.showTasks === false || off.has('tasks')) return success([]);
     api
-      .get('/app/tasks/calendar', { params: { from: info.startStr, to: info.endStr, mine: '1' } })
-      .then((res) => success(res.data.tasks.map(taskToFc)))
+      .get('/app/tasks/calendar', { params: { from: info.startStr, to: info.endStr, scope: prefs.taskScope || 'participant', done: prefs.showDoneTasks === false ? '0' : '1' } })
+      .then((res) => success(res.data.tasks.map((task) => taskToFc(task, prefs.taskDuration || 30))))
       .catch(() => success([]));
     return undefined;
   }, []);
@@ -217,8 +259,10 @@ function Shell() {
     setView('timeGridDay');
     calendarRef.current?.getApi().changeView('timeGridDay', date);
   }, []);
+  const prefs = home?.prefs || home?.config || {};
   const businessHours = useMemo(
-    () => (home ? { daysOfWeek: [1, 2, 3, 4, 5], startTime: home.config.dayStart, endTime: home.config.dayEnd } : null),
+    () => (home ? { daysOfWeek: [1, 2, 3, 4, 5], startTime: prefs.dayStart || home.config.dayStart, endTime: prefs.dayEnd || home.config.dayEnd } : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [home]
   );
   const plugins = useMemo(() => [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin], []);
@@ -238,15 +282,81 @@ function Shell() {
     setDetails(data);
   };
 
+  /** A task moved to another day or time gets that deadline. */
+  const moveTask = async ({ event, revert }) => {
+    const { data } = event.extendedProps;
+    const minutes = home?.prefs?.taskDuration || 30;
+    const body = event.allDay
+      ? { dueAt: dayjs(event.start).endOf('day').toISOString(), dueTime: false }
+      : { dueAt: dayjs(event.start).add(minutes, 'minute').toISOString(), dueTime: true };
+    try {
+      await api.put(`/app/tasks/tasks/${data.ref}`, body);
+      message.success(t('calendarTasks.moved', { ref: data.ref }));
+      refetch();
+    } catch (err) {
+      revert();
+      message.error(errorMessage(err));
+    }
+  };
+
+  /** A task dragged in from "Without a deadline". */
+  const onDrop = async (info) => {
+    const ref = info.draggedEl.dataset.ref;
+    if (!ref) return;
+    const minutes = home?.prefs?.taskDuration || 30;
+    const body = info.allDay ? { dueAt: dayjs(info.date).endOf('day').toISOString(), dueTime: false } : { dueAt: dayjs(info.date).add(minutes, 'minute').toISOString(), dueTime: true };
+    try {
+      await api.put(`/app/tasks/tasks/${ref}`, body);
+      message.success(t('calendarTasks.scheduled', { ref }));
+      setUndatedVersion((v) => v + 1);
+      refetch();
+    } catch (err) {
+      message.error(errorMessage(err));
+    }
+  };
+
+  const toggleFollow = async (calendar) => {
+    const on = !following.has(calendar.id);
+    try {
+      await api.put('/account/notifications/subscriptions', { type: 'calendar.calendar', id: calendar.id, on });
+      setFollowing((prev) => {
+        const next = new Set(prev);
+        if (on) next.add(calendar.id);
+        else next.delete(calendar.id);
+        return next;
+      });
+      message.success(on ? t('calendarTasks.followOn', { name: calendar.name }) : t('calendarTasks.followOff', { name: calendar.name }));
+    } catch (err) {
+      message.error(errorMessage(err));
+    }
+  };
+
+  const [chooser, setChooser] = useState(null);
+  /** An empty slot: choose between an event and a task. */
   const onSelect = ({ start, end, allDay }) => {
-    if (!writable.length && !googleCalendars.some((calendar) => calendar.writable)) return;
-    setEditor({ draft: { start: start.toISOString(), end: end.toISOString(), allDay } });
     calendarRef.current?.getApi().unselect();
+    const canEvent = writable.length > 0 || googleCalendars.some((calendar) => calendar.writable);
+    const canTask = Boolean(home?.config?.showTasks);
+    if (canEvent && canTask) setChooser({ start, end, allDay });
+    else if (canEvent) newEvent({ start, end, allDay });
+    else if (canTask) setQuickTask({ start, allDay });
+  };
+  const newEvent = ({ start, end, allDay }) => {
+    const duration = home?.prefs?.defaultDuration || 60;
+    // A click (30-minute slot) gets the person's usual duration.
+    const short = !allDay && dayjs(end).diff(dayjs(start), 'minute') <= (home?.prefs?.slotMinutes || 30);
+    const finish = short ? dayjs(start).add(duration, 'minute').toDate() : end;
+    const preferred = home?.prefs?.defaultCalendarId;
+    setEditor({ draft: { start: start.toISOString(), end: finish.toISOString(), allDay, ...(preferred && writable.some((c) => c.id === preferred) ? { target: `c:${preferred}` } : {}) } });
   };
 
   /** Drag & drop / resize: portal (with scope for series) or Google. */
   const onMoveEvent = async ({ event, oldEvent, revert }) => {
     const { kind, data } = event.extendedProps;
+    if (kind === 'task') {
+      moveTask({ event, revert });
+      return;
+    }
     const allDay = event.allDay;
     const start = allDay ? dayjs(event.start).format('YYYY-MM-DD') : event.start.toISOString();
     const endValue = event.end || dayjs(event.start).add(1, allDay ? 'day' : 'hour').toDate();
@@ -310,14 +420,22 @@ function Shell() {
   const { config, google } = home;
 
   const calendarMenu = (calendar) => {
-    if (calendar.level !== 'manage') return null;
+    const canFollow = !(calendar.personal && calendar.mine);
+    if (calendar.level !== 'manage' && !canFollow) return null;
     const items = [
-      { key: 'edit', label: t('calendar.editCalendar') },
-      { key: 'access', label: t('kb.accessMenu') },
-      ...(!calendar.personal ? [{ type: 'divider' }, { key: 'delete', danger: true, label: t('common.delete') }] : []),
+      ...(canFollow ? [{ key: 'follow', label: following.has(calendar.id) ? `🔕 ${t('calendarTasks.unfollow')}` : `🔔 ${t('calendarTasks.follow')}` }] : []),
+      ...(calendar.level === 'manage'
+        ? [
+            ...(canFollow ? [{ type: 'divider' }] : []),
+            { key: 'edit', label: t('calendar.editCalendar') },
+            { key: 'access', label: t('kb.accessMenu') },
+            ...(!calendar.personal ? [{ type: 'divider' }, { key: 'delete', danger: true, label: t('common.delete') }] : []),
+          ]
+        : []),
     ];
     const onClick = ({ key, domEvent }) => {
       domEvent.stopPropagation();
+      if (key === 'follow') toggleFollow(calendar);
       if (key === 'edit') setCalendarDialog({ calendar });
       if (key === 'access') setAccessFor(calendar);
       if (key === 'delete') {
@@ -347,18 +465,33 @@ function Shell() {
       <div className="mod-side__brand">
         <MenuIcon name="calendar" />
         <span>{t('apps.calendar.name')}</span>
+        <span style={{ flex: 1 }} />
+        <HelpButton id="calendar" />
       </div>
-      <Button
-        type="primary"
-        block
-        size="large"
-        onClick={() => {
-          onNavigate?.();
-          setEditor({ draft: { start: dayjs().add(1, 'hour').startOf('hour').toISOString(), end: dayjs().add(2, 'hour').startOf('hour').toISOString(), allDay: false } });
-        }}
-      >
-        + {t('calendar.newEvent')}
-      </Button>
+      <div className="cal-create">
+        <Button
+          type="primary"
+          size="large"
+          onClick={() => {
+            onNavigate?.();
+            const start = dayjs().add(1, 'hour').startOf('hour');
+            newEvent({ start: start.toDate(), end: start.add(30, 'minute').toDate(), allDay: false });
+          }}
+        >
+          + {t('calendarTasks.newEvent')}
+        </Button>
+        {config.showTasks && (
+          <Button
+            size="large"
+            onClick={() => {
+              onNavigate?.();
+              setQuickTask({ start: dayjs().add(1, 'day').hour(19).minute(0).toDate(), allDay: false });
+            }}
+          >
+            ☐ {t('calendarTasks.newTask')}
+          </Button>
+        )}
+      </div>
       <div className="cal-mini">
         <MiniCalendar
           fullscreen={false}
@@ -399,7 +532,8 @@ function Shell() {
       ))}
       <div className="mod-side__label"><span>{t('calendar.more')}</span></div>
       <CalendarToggle id="invited" color="#8B5CF6" name={t('calendar.invitations')} hidden={hidden} onToggle={toggleHidden} />
-      {config.showTasks && <CalendarToggle id="tasks" color="#0CA678" name={t('calendar.taskDeadlines')} hidden={hidden} onToggle={toggleHidden} />}
+      {config.showTasks && prefs.showTasks !== false && <CalendarToggle id="tasks" color="#0CA678" name={t(`calendarTasks.toggle.${prefs.taskScope || 'participant'}`)} hidden={hidden} onToggle={toggleHidden} />}
+      {config.showTasks && prefs.showTasks !== false && <UndatedTasks version={undatedVersion} onOpen={(task) => navigate(`/app/tasks/${task.ref}`)} />}
 
       {google.available && (
         <>
@@ -450,6 +584,9 @@ function Shell() {
             onChange={changeView}
             options={Object.entries(VIEWS).map(([key, value]) => ({ value, label: t(`calendar.view.${key}`) }))}
           />
+          <Button className="cal-gear" onClick={() => setPrefsOpen(true)} aria-label={t('calendarPrefs.title')} title={t('calendarPrefs.title')}>
+            ⚙
+          </Button>
         </div>
         <div className={`cal-view is-${view}`}>
           <FullCalendar
@@ -459,18 +596,23 @@ function Shell() {
             headerToolbar={false}
             locales={locales}
             locale={locale === 'ru' ? 'ru' : 'en-gb'}
-            firstDay={config.weekStart}
+            firstDay={prefs.weekStart ?? config.weekStart}
+            views={VIEW_OPTIONS}
+            weekends={prefs.showWeekends !== false}
+            weekNumbers={Boolean(prefs.showWeekNumbers)}
+            droppable
+            drop={onDrop}
             height="100%"
             nowIndicator
-            selectable={writable.length > 0}
+            selectable={writable.length > 0 || Boolean(config.showTasks)}
             selectMirror
             editable
             dayMaxEvents
             navLinks
             navLinkDayClick={onNavLinkDay}
-            scrollTime={`${config.dayStart}:00`}
+            scrollTime={`${prefs.dayStart || config.dayStart}:00`}
             businessHours={businessHours}
-            slotDuration="00:30:00"
+            slotDuration={prefs.slotMinutes === 60 ? '01:00:00' : `00:${String(prefs.slotMinutes || 30).padStart(2, '0')}:00`}
             eventTimeFormat={TIME_FORMAT}
             slotLabelFormat={TIME_FORMAT}
             eventSources={eventSources}
@@ -487,13 +629,71 @@ function Shell() {
         </div>
       </main>
 
+      <Modal open={Boolean(chooser)} onCancel={() => setChooser(null)} footer={null} width={420} title={chooser ? dayjs(chooser.start).format(chooser.allDay ? 'dddd, D MMMM' : 'dddd, D MMMM · HH:mm') : ''} destroyOnHidden>
+        <div className="cal-choose">
+          <button
+            type="button"
+            onClick={() => {
+              newEvent(chooser);
+              setChooser(null);
+            }}
+          >
+            <span>📅</span>
+            <strong>{t('calendar.newEvent')}</strong>
+            <em>{t('calendarTasks.eventHint')}</em>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setQuickTask({ start: chooser.allDay ? dayjs(chooser.start).hour(19).toDate() : chooser.start, allDay: chooser.allDay });
+              setChooser(null);
+            }}
+          >
+            <span>☑️</span>
+            <strong>{t('calendarTasks.newTask')}</strong>
+            <em>{t('calendarTasks.taskHint')}</em>
+          </button>
+        </div>
+      </Modal>
+      <QuickTaskDialog
+        open={Boolean(quickTask)}
+        start={quickTask?.start}
+        allDay={quickTask?.allDay}
+        onClose={() => setQuickTask(null)}
+        onCreated={(task) => {
+          setQuickTask(null);
+          refetch();
+          message.success({
+            content: (
+              <span>
+                {t('calendarTasks.created', { ref: task.ref })}{' '}
+                <button type="button" className="cal-link" onClick={() => navigate(`/app/tasks/${task.ref}`)}>
+                  {t('calendarTasks.open')}
+                </button>
+              </span>
+            ),
+            duration: 5,
+          });
+        }}
+      />
+      <CalendarPrefs
+        open={prefsOpen}
+        prefs={home.prefs}
+        calendars={home.calendars}
+        tasksAvailable={Boolean(config.showTasks)}
+        onClose={() => setPrefsOpen(false)}
+        onSaved={(next) => {
+          setHome((prev) => ({ ...prev, prefs: next }));
+          setTimeout(refetch, 0);
+        }}
+      />
       <EventDialog
         open={Boolean(editor)}
         draft={editor?.draft}
         event={editor?.event}
         calendars={home.calendars}
         googleCalendars={googleCalendars}
-        config={config}
+        config={{ ...config, defaultReminder: prefs.defaultReminder ?? config.defaultReminder }}
         onClose={(saved) => {
           setEditor(null);
           if (saved) refetch();

@@ -23,6 +23,7 @@ import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
 import { addIpRule, deleteIpRule, listIpRules } from '../../../services/api';
 import SettingsPageHeader from './SettingsPageHeader';
+import { HintLabel } from '../../../help/Hint';
 
 const { Text } = Typography;
 
@@ -48,7 +49,7 @@ function PolicyForm({ settings, save }) {
             <Switch />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('settings.ip.whitelistEnabled')} description={t('settings.ip.whitelistEnabledDesc')}>
+        <SettingRow label={<HintLabel id="admin.whitelist">{t('settings.ip.whitelistEnabled')}</HintLabel>} description={t('settings.ip.whitelistEnabledDesc')}>
           <Form.Item name="whitelistEnabled" valuePropName="checked" noStyle>
             <Switch />
           </Form.Item>
@@ -113,7 +114,7 @@ function RulesSection() {
 
   return (
     <SettingsSection
-      title={t('settings.ip.rules')}
+      title={<HintLabel id="admin.ipRules">{t('settings.ip.rules')}</HintLabel>}
       description={t('settings.ip.rulesDesc')}
       extra={
         <Segmented

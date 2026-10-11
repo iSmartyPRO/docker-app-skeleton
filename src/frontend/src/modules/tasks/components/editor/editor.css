@@ -1630,3 +1630,14 @@
     display: none !important;
   }
 }
+
+/* "Task created · deadline … → In the calendar" toast */
+.tk-created__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--da-primary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}

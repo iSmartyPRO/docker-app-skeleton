@@ -14,8 +14,8 @@ function lockId(name) {
   return createHash('sha256').update(`job:${name}`).digest().readInt32BE(0);
 }
 
-export function registerJob({ name, everyMs = 60_000, run }) {
-  jobs.set(name, { name, everyMs, run, lastRun: 0, running: false });
+export function registerJob({ name, everyMs = 60_000, run, timeoutMs }) {
+  jobs.set(name, { name, everyMs, run, timeoutMs, lastRun: 0, running: false });
 }
 
 async function runJob(job) {
@@ -27,7 +27,16 @@ async function runJob(job) {
     const { rows } = await client.query('SELECT pg_try_advisory_lock($1) AS ok', [lockId(job.name)]);
     if (!rows[0]?.ok) return;
     try {
-      await job.run();
+      // A job that hangs (an unreachable server, a stuck query) gives its slot
+      // back after a while instead of blocking reminders and everything else.
+      let timer;
+      await Promise.race([
+        job.run(),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error('timed out')), job.timeoutMs || 5 * 60 * 1000);
+          timer.unref?.();
+        }),
+      ]).finally(() => clearTimeout(timer));
     } finally {
       await client.query('SELECT pg_advisory_unlock($1)', [lockId(job.name)]).catch(() => {});
     }

@@ -6,6 +6,10 @@ import { useSettings } from '../../../context/SettingsContext';
 import { enabledModules, moduleLabel } from '../../registry';
 import { WIDGET_CATALOG, withDefaults } from '../catalog';
 import { useOptions } from '../options';
+import { Hint } from '../../../help/Hint';
+
+/** Settings that have a help hint (help/content/dashboard.js → fields). */
+const HINTED = new Set(['scope', 'period']);
 
 /** Settings form of one widget, built from its catalog fields. */
 export default function WidgetSettings({ widget, onClose }) {
@@ -61,7 +65,9 @@ export default function WidgetSettings({ widget, onClose }) {
     >
       <div className="dash-settings">
         <div className="dash-field">
-          <span>{t('dashboard.labels.title')}</span>
+          <span>
+            {t('dashboard.labels.title')} <Hint id="dashboard.widgetTitle" />
+          </span>
           <Input value={values.title || ''} maxLength={60} placeholder={t(`dashboard.widgets.${widget.type}.name`)} onChange={(event) => set('title', event.target.value)} allowClear />
         </div>
         {def.fields
@@ -144,7 +150,10 @@ export default function WidgetSettings({ widget, onClose }) {
             }
             return (
               <div key={field.key} className="dash-field">
-                <span>{label}</span>
+                <span>
+                  {label}
+                  {HINTED.has(field.key) && <> <Hint id={`dashboard.${field.key}`} /></>}
+                </span>
                 {control}
               </div>
             );

@@ -7,6 +7,8 @@ import { dashboardEn, dashboardRu } from './dashboard.js';
 import { chatEn, chatRu } from './chat.js';
 import { tasks2En, tasks2Ru } from './tasks2.js';
 import { apiEn, apiRu } from './api.js';
+import { helpEn, helpRu } from './help.js';
+import { notifyEn, notifyRu } from './notify.js';
 
 const en = {
   brand: 'docker-app-skeleton',
@@ -1926,6 +1928,10 @@ mergeDeep(en, chatEn);
 mergeDeep(ru, chatRu);
 mergeDeep(en, apiEn);
 mergeDeep(ru, apiRu);
+mergeDeep(en, helpEn);
+mergeDeep(ru, helpRu);
+mergeDeep(en, notifyEn);
+mergeDeep(ru, notifyRu);
 mergeDeep(en, tasks2En);
 mergeDeep(ru, tasks2Ru);
 mergeDeep(en, resourcesEn);

@@ -8,6 +8,7 @@ import { useAccessData } from '../../hooks/useAccessData';
 import { errorMessage } from '../../lib/errors';
 import { isSubset, permKey, roleDescription, roleLabel } from '../../lib/access';
 import { createRole, deleteRole, getPermissionCatalog, updateRole } from '../../services/api';
+import { HintLabel } from '../../help/Hint';
 
 const ROLE_TONE = {
   superadmin: 'tone-gold',
@@ -140,7 +141,7 @@ function RoleDrawer({ role, catalog, open, onClose, onSaved }) {
         <Form.Item name="description" label={t('roles.description')}>
           <Input.TextArea rows={2} maxLength={300} disabled={role?.isSystem} />
         </Form.Item>
-        <Form.Item name="permissions" label={t('roles.permissions')}>
+        <Form.Item name="permissions" label={<HintLabel id="admin.permissions">{t('roles.permissions')}</HintLabel>}>
           <PermissionMatrix catalog={catalog} disabled={!editable} holder={user?.permissions || []} />
         </Form.Item>
       </Form>

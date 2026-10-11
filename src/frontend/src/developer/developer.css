@@ -2276,7 +2276,7 @@ button.ax-kpi:hover {
 /* ── Developer portal ─────────────────────────────────────────────────── */
 
 .dv {
-  --dv-top: 60px;
+  --dv-top: calc(60px + var(--safe-top, 0px));
   min-height: 100vh;
   background: var(--da-bg, var(--da-surface));
   color: var(--da-text);

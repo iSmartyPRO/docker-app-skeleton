@@ -6,6 +6,7 @@ import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
 import { copyText, driveApi } from '../api';
 import { EntryIcon } from './EntryList';
+import { Hint } from '../../../help/Hint';
 
 export const linkUrl = (link) => `${window.location.origin}/d/${link.token}`;
 
@@ -79,7 +80,7 @@ function LinkForm({ config, onCreate }) {
   return (
     <div className="fs-linkform dv-linkform">
       <div className="fs-linkform__row">
-        <span>{t('drive.audience.title')}</span>
+        <span>{t('drive.audience.title')} <Hint id="drive.linkAudience" /></span>
         <Segmented
           block
           value={audience}
@@ -96,7 +97,7 @@ function LinkForm({ config, onCreate }) {
         <Input.Password value={password} onChange={(event) => setPassword(event.target.value)} placeholder={config.requireLinkPassword ? t('files.passwordRequired') : t('files.passwordOptional')} autoComplete="new-password" />
       </div>
       <div className="fs-linkform__row">
-        <span>{t('files.linkExpires')}</span>
+        <span>{t('files.linkExpires')} <Hint id="drive.linkExpires" /></span>
         <div className="fs-linkform__expiry">
           <DatePicker
             value={expires}

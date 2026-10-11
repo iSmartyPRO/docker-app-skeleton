@@ -60,8 +60,17 @@ async function cacheFirst(request) {
   const hit = await cache.match(request);
   if (hit) return hit;
   const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
+  if (response.ok) {
+    await cache.put(request, response.clone());
+    trim(cache, 300);
+  }
   return response;
+}
+
+/** Hashed build files pile up with every deploy: keep the newest `max`. */
+async function trim(cache, max) {
+  const keys = await cache.keys();
+  for (let i = 0; i < keys.length - max; i += 1) await cache.delete(keys[i]);
 }
 
 async function staleWhileRevalidate(request) {

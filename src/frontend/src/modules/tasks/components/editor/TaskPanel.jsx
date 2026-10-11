@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { App, Button, Dropdown, Input, Modal, Popover, Select, Skeleton, Tooltip } from 'antd';
 import { useAuth } from '../../../../context/AuthContext';
@@ -34,6 +34,8 @@ import {
   useTicking,
 } from './blocks2';
 import { DeadlinePicker, PeopleSelect, PersonPill, defaultDeadline, usePeople } from './pickers';
+import { createdToast } from './createdToast';
+import { Hint, HintLabel } from '../../../../help/Hint';
 import './editor.css';
 
 export const CHIPS = [
@@ -225,6 +227,7 @@ function overdueText(task, t) {
  */
 export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChanged, onDeleted, onRefChange }) {
   const { t, locale } = useLocale();
+  const navigate = useNavigate();
   const { message, modal } = App.useApp();
   const { user, can: canDo } = useAuth();
   const { settings } = useSettings();
@@ -381,7 +384,7 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
       if (draft.recurrence && shown('recurring')) payload.recurrence = draft.recurrence;
       const res = await tasksApi.createTask(payload);
       const created = res.data.task;
-      message.success(created.copies?.length ? t('tasks.v2.createdMany', { n: created.copies.length + 1 }) : t('tasks.created', { ref: created.ref }));
+      createdToast(message, t, locale, created, navigate, created.copies?.length ? t('tasks.v2.createdMany', { n: created.copies.length + 1 }) : null);
       refreshHome();
       onChanged?.(created);
       setCurrent({ ref: created.ref });
@@ -565,6 +568,7 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
                     }}
                   />
                   <Flame on={value.important} disabled={!editable} onClick={() => change({ important: !value.important })} />
+                  <Hint id="tasks.important" />
                 </div>
 
                 <RichText
@@ -583,14 +587,14 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
                 />
 
                 <div className="te-base">
-                  <BaseRow label={t('tasks.v2.originator')}>
+                  <BaseRow label={<HintLabel id="tasks.originator">{t('tasks.v2.originator')}</HintLabel>}>
                     {pick === 'originator' ? (
                       <PeopleSelect autoFocus open value={value.originatorId} allowClear={false} onChange={(id) => { change({ originatorId: id }); setPick(null); }} onDropdownVisibleChange={(visible) => !visible && setPick(null)} />
                     ) : (
                       <PersonPill user={mode === 'task' ? task.originator : personOf(value.originatorId)} placeholder={t('tasks.v2.choosePerson')} disabled={!editable || (mode === 'task' && task.myRole !== 'originator' && !config?.isAdmin)} onClick={() => setPick('originator')} />
                     )}
                   </BaseRow>
-                  <BaseRow label={t('tasks.fields.assignee')}>
+                  <BaseRow label={<HintLabel id="tasks.assignee">{t('tasks.fields.assignee')}</HintLabel>}>
                     {mode === 'new' && multi ? (
                       <PeopleSelect multiple autoFocus value={draft.assigneeIds} onChange={(assigneeIds) => setDraft((prev) => ({ ...prev, assigneeIds }))} placeholder={t('tasks.v2.severalAssignees')} />
                     ) : pick === 'assignee' ? (
@@ -619,7 +623,7 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
                     )}
                   </BaseRow>
                   {mode === 'new' && multi && draft.assigneeIds.length > 1 && <div className="te-hint te-hint--row">{t('tasks.v2.copiesHint', { n: draft.assigneeIds.length })}</div>}
-                  <BaseRow label={t('tasks.fields.due')}>
+                  <BaseRow label={<HintLabel id="tasks.deadline">{t('tasks.fields.due')}</HintLabel>}>
                     <DeadlinePicker value={value.dueAt} disabled={!can.changeDeadline} open={dueOpen} onOpenChange={(next) => !next && setDueOpen(undefined)} onChange={(dueAt) => change({ dueAt, dueTime: Boolean(dueAt) })} />
                     <Tooltip title={t('tasks.v2.chips.planning')}>
                       <button type="button" className={`te-plus${shown('planning') ? ' is-on' : ''}`} onClick={() => toggleChip('planning')}>🗓</button>
@@ -700,10 +704,10 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
                   )}
                   {shown('project') && <ProjectBlock value={value.projectId} disabled={!editable} onChange={(projectId) => change({ projectId })} onCreate={() => setCreatingProject(true)} onRemove={hide('project')} />}
                   {shown('coassignees') && (
-                    <PeopleBlock icon="👥" title={t('tasks.v2.chips.coassignees')} value={value.coassigneeIds} disabled={!editable} onChange={(coassigneeIds) => change({ coassigneeIds })} onRemove={hide('coassignees')} hint={t('tasks.v2.coassigneesHint')} />
+                    <PeopleBlock icon="👥" title={<HintLabel id="tasks.coassignees">{t('tasks.v2.chips.coassignees')}</HintLabel>} value={value.coassigneeIds} disabled={!editable} onChange={(coassigneeIds) => change({ coassigneeIds })} onRemove={hide('coassignees')} hint={t('tasks.v2.coassigneesHint')} />
                   )}
                   {shown('auditors') && (
-                    <PeopleBlock icon="👁" title={t('tasks.v2.chips.auditors')} value={value.auditorIds} disabled={!editable} onChange={(auditorIds) => change({ auditorIds })} onRemove={hide('auditors')} hint={t('tasks.v2.auditorsHint')} />
+                    <PeopleBlock icon="👁" title={<HintLabel id="tasks.auditors">{t('tasks.v2.chips.auditors')}</HintLabel>} value={value.auditorIds} disabled={!editable} onChange={(auditorIds) => change({ auditorIds })} onRemove={hide('auditors')} hint={t('tasks.v2.auditorsHint')} />
                   )}
                   {shown('flow') && <FlowBlock value={value.flowId} disabled={!editable} onChange={(flowId) => change({ flowId })} onRemove={hide('flow')} />}
                   {shown('tags') && <TagsBlock value={value.labels} known={labels} disabled={!editable} onChange={(next) => change({ labels: next })} onRemove={hide('tags')} />}

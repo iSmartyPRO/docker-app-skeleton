@@ -10,6 +10,7 @@ import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
 import { cmpApi, relationLabel } from './api';
+import { HintLabel } from '../../help/Hint';
 import './companies.css';
 
 function RelationsEditor({ value = [], onChange }) {
@@ -127,13 +128,13 @@ function CompaniesForm({ settings, save }) {
         </SettingRow>
       </SettingsSection>
       <SettingsSection title={t('companiesSettings.access')} description={t('companiesSettings.accessDesc')}>
-        <SettingRow label={t('companiesSettings.editPolicy')}>
+        <SettingRow label={<HintLabel id="companies.editPolicy">{t('companiesSettings.editPolicy')}</HintLabel>}>
           <Form.Item name="editPolicy" noStyle>
             <Radio.Group optionType="button" options={[{ value: 'everyone', label: t('companiesSettings.everyone') }, { value: 'owners', label: t('companiesSettings.owners') }]} />
           </Form.Item>
         </SettingRow>
       </SettingsSection>
-      <SettingsSection title={t('companiesSettings.relations')} description={t('companiesSettings.relationsDesc')}>
+      <SettingsSection title={<HintLabel id="companies.relationTypes">{t('companiesSettings.relations')}</HintLabel>} description={t('companiesSettings.relationsDesc')}>
         <Form.Item name="relations" noStyle><RelationsEditor /></Form.Item>
       </SettingsSection>
       <SettingsSection title={t('companiesSettings.fields')} description={t('companiesSettings.fieldsDesc')}>
@@ -157,7 +158,7 @@ export default function CompaniesSettings({ itemId }) {
             <div className="cmp-registries">
               <div className="cmp-registry"><strong>🇰🇬 {t('companiesSettings.kg')}</strong><span>{t('companiesSettings.kgDesc')}</span><Tag color="green" bordered={false}>{t('companiesSettings.noKey')}</Tag></div>
               <div className="cmp-registry"><strong>🇷🇺 {t('companiesSettings.egrul')}</strong><span>{t('companiesSettings.egrulDesc')}</span><Tag color="green" bordered={false}>{t('companiesSettings.noKey')}</Tag></div>
-              <div className="cmp-registry"><strong>🇷🇺 DaData</strong><span>{t('companiesSettings.dadataDesc')}</span><DadataKey /></div>
+              <div className="cmp-registry"><strong><HintLabel id="companies.dadataKey">🇷🇺 DaData</HintLabel></strong><span>{t('companiesSettings.dadataDesc')}</span><DadataKey /></div>
             </div>
           </SettingsSection>
         )}

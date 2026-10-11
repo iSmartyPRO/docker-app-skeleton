@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { App, Button, Dropdown, Input, Modal, Progress } from 'antd';
 import { useAuth } from '../../../../context/AuthContext';
 import { useLocale } from '../../../../context/LocaleContext';
@@ -6,8 +7,10 @@ import { errorMessage } from '../../../../lib/errors';
 import { tasksApi } from '../../api';
 import { useTasks } from '../../TasksContext';
 import { uid } from './blocks1';
+import { createdToast } from './createdToast';
 import { DeadlinePicker, PeopleSelect, PersonPill, ProjectSelect, defaultDeadline, usePeople } from './pickers';
 import { draftFromPayload, draftPayload, emptyDraft } from './TaskPanel';
+import { HintLabel } from '../../../../help/Hint';
 
 /**
  * Quick form: title (with the "important" flame), a one-line description that
@@ -15,7 +18,8 @@ import { draftFromPayload, draftPayload, emptyDraft } from './TaskPanel';
  * chips — Files, Checklist, Project. "Full form" carries everything over.
  */
 export default function QuickTask({ open, initial, onClose, onCreated, onFull }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const navigate = useNavigate();
   const { message } = App.useApp();
   const { user } = useAuth();
   const { refresh } = useTasks();
@@ -77,7 +81,7 @@ export default function QuickTask({ open, initial, onClose, onCreated, onFull })
     setSaving(true);
     try {
       const res = await tasksApi.createTask(draftPayload(draft, user.id));
-      message.success(t('tasks.created', { ref: res.data.task.ref }));
+      createdToast(message, t, locale, res.data.task, navigate);
       refresh();
       onCreated?.(res.data.task);
     } catch (err) {
@@ -123,13 +127,13 @@ export default function QuickTask({ open, initial, onClose, onCreated, onFull })
         placeholder={t('tasks.v2.descShort')}
       />
       <div className="tq__row">
-        <span className="tq__label">{t('tasks.fields.assignee')}</span>
+        <span className="tq__label"><HintLabel id="tasks.assignee">{t('tasks.fields.assignee')}</HintLabel></span>
         {pickAssignee ? (
           <PeopleSelect autoFocus open value={draft.assigneeId} onChange={(id) => { set({ assigneeId: id || null }); setPickAssignee(false); }} onDropdownVisibleChange={(visible) => !visible && setPickAssignee(false)} />
         ) : (
           <PersonPill user={assignee} placeholder={t('tasks.unassigned')} onClick={() => setPickAssignee(true)} />
         )}
-        <span className="tq__label">{t('tasks.fields.due')}</span>
+        <span className="tq__label"><HintLabel id="tasks.deadline">{t('tasks.fields.due')}</HintLabel></span>
         <DeadlinePicker value={draft.dueAt} onChange={(dueAt) => set({ dueAt })} />
       </div>
 

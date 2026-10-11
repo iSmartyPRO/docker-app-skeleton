@@ -10,6 +10,18 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { listWazzupChannels, testAdminIntegration } from '../../../services/api';
 import SettingsPageHeader from './SettingsPageHeader';
+import { HintLabel } from '../../../help/Hint';
+
+/** Help hint per integration group (help/content/admin.js → fields). */
+const HINTS = {
+  email: 'admin.smtp',
+  telegram: 'admin.telegramBot',
+  whatsapp: 'admin.whatsappGateway',
+  wazzup: 'admin.wazzup',
+  mattermost: 'admin.mattermost',
+  documents: 'admin.documents',
+  activeDirectory: 'admin.activeDirectory',
+};
 
 const { Text } = Typography;
 
@@ -236,7 +248,7 @@ function IntegrationForm({ group, settings, save }) {
         </SettingRow>
       </SettingsSection>
       <SettingsSection
-        title={t('settings.integration.connection')}
+        title={HINTS[group] ? <HintLabel id={HINTS[group]}>{t('settings.integration.connection')}</HintLabel> : t('settings.integration.connection')}
         description={t('settings.integration.connectionDesc')}
         extra={
           <Button onClick={onTest} loading={testing}>

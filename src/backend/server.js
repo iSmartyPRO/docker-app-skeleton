@@ -6,7 +6,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import config from './config/app.js';
-import { ensureUploadDirs, uploadRoot } from './config/paths.js';
+import { avatarDir, ensureUploadDirs, logoDir } from './config/paths.js';
 import { closePool, tryConnectDB } from './config/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { ipGuard } from './middleware/ipGuard.js';
@@ -71,17 +71,19 @@ app.get('/ready', async (req, res) => {
 });
 
 app.use(ipGuard);
-app.use(
-  '/uploads',
-  express.static(uploadRoot, {
-    fallthrough: false,
-    setHeaders(res) {
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('X-Frame-Options', 'DENY');
-      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'none'; script-src 'none'");
-    },
-  })
-);
+// Only avatars and logos are public; every other upload (files, chat, tasks,
+// counterparties, knowledge base) is served by its module after an access check.
+const publicUploads = {
+  fallthrough: false,
+  setHeaders(res) {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'none'; script-src 'none'");
+  },
+};
+app.use('/uploads/avatars', express.static(avatarDir, publicUploads));
+app.use('/uploads/logos', express.static(logoDir, publicUploads));
+app.use('/uploads', (req, res) => res.status(404).json({ success: false, error: 'Not found' }));
 
 async function bootstrapFromDatabase() {
   const db = await tryConnectDB();
@@ -168,6 +170,27 @@ async function start() {
       },
     })
   );
+
+  // Cross-site request forgery: a browser marks every state-changing request
+  // with its Origin; one from another site never reaches the routes. Tokens
+  // and clients without an Origin (scripts, curl, server-to-server) are not
+  // affected. Ports are ignored: the proxy may hide the public one.
+  const hostOf = (value) => {
+    try {
+      return new URL(value).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  };
+  app.use('/api', (req, res, next) => {
+    if (req.apiToken || ['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+    const origin = req.get('origin');
+    if (!origin) return next();
+    const from = hostOf(origin);
+    const allowed = new Set([String(req.hostname || '').toLowerCase(), hostOf(config.frontend.url), hostOf(process.env.PUBLIC_URL || '')].filter(Boolean));
+    if (from && allowed.has(from)) return next();
+    return res.status(403).json({ success: false, code: 'ORIGIN_DENIED', error: 'Cross-site request blocked' });
+  });
 
   app.use('/api', apiRoutes);
 

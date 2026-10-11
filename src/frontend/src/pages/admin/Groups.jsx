@@ -9,6 +9,7 @@ import { errorMessage } from '../../lib/errors';
 import { initials } from '../../lib/format';
 import { isSubset, roleDescription, roleLabel } from '../../lib/access';
 import { createGroup, deleteGroup, listAdminUsers, updateGroup } from '../../services/api';
+import { HintLabel } from '../../help/Hint';
 
 /** Role picker as a list of checkboxes with explanations. */
 function RoleChecklist({ roles, value = [], onChange, holder, disabled }) {
@@ -117,13 +118,13 @@ function GroupDrawer({ group, roles, users, open, onClose, onSaved }) {
         </Form.Item>
         <Form.Item
           name="isDefault"
-          label={t('groups.default')}
+          label={<HintLabel id="admin.defaultGroup">{t('groups.default')}</HintLabel>}
           extra={group?.isDefault ? t('groups.defaultLocked') : t('groups.defaultHint')}
           valuePropName="checked"
         >
           <Switch disabled={!editable || group?.isDefault} />
         </Form.Item>
-        <Form.Item name="roleIds" label={t('groups.roles')} extra={t('groups.rolesHint')}>
+        <Form.Item name="roleIds" label={<HintLabel id="admin.groupRoles">{t('groups.roles')}</HintLabel>} extra={t('groups.rolesHint')}>
           <RoleChecklist roles={roles} holder={me?.permissions || []} disabled={!editable} />
         </Form.Item>
         <Form.Item name="memberIds" label={t('groups.members')}>

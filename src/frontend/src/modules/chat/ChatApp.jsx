@@ -10,6 +10,7 @@ import { chatApi } from './api';
 import { useChat, useChatEvents } from './ChatContext';
 import Conversation, { RoomAvatar } from './components/Conversation';
 import { systemView } from './system';
+import { Hint } from '../../help/Hint';
 
 function lastText(room, t, locale) {
   const last = room.lastMessage;
@@ -127,7 +128,8 @@ function NewChat({ open, onClose, allowGroups }) {
         </>
       ) : (
         <div className="cl-group">
-          <Input autoFocus value={title} maxLength={200} placeholder={t('chat.groupName')} onChange={(event) => setTitle(event.target.value)} />
+          <Input autoFocus value={title} maxLength={200} placeholder={t('chat.groupName')} onChange={(event) => setTitle(event.target.value)} suffix={<Hint id="chat.groupName" />} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Select
             mode="multiple"
             value={chosen}
@@ -137,8 +139,10 @@ function NewChat({ open, onClose, allowGroups }) {
             onSearch={find}
             placeholder={t('chat.addPeople')}
             options={(people || []).map((person) => ({ value: person.id, label: person.name }))}
-            style={{ width: '100%' }}
+            style={{ flex: 1, minWidth: 0 }}
           />
+          <Hint id="chat.groupMembers" />
+          </div>
         </div>
       )}
     </Modal>

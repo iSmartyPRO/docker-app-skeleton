@@ -329,6 +329,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Modules](docs/modules.md) | The app platform: `/apps`, `/app/<id>`, enabling modules, writing a new one |
 | [Tasks](docs/tasks.md) | Projects, roles, quick and full forms, blocks, task chat, templates and recurring tasks, flows, API |
 | [Chat](docs/chat.md) | Direct, group and record conversations, real time, push, adapters for modules, API |
+| [In-app help](docs/help.md) | Field hints, quick guides, the help center and how to write guides for a module |
 | [Public API](docs/public-api.md) | Tokens, access templates, rules and limits, webhooks, request log, developer portal, OpenAPI |
 | [Calendar](docs/calendar.md) | Calendars, recurrence, attendees, reminders, Google Calendar, API |
 | [Notifications](docs/notifications.md) | Notification center, channels, Web Push, scheduler, sealed secrets |

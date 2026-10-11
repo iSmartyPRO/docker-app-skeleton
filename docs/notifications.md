@@ -28,9 +28,15 @@ await notify({
   | **Telegram** | The bot is configured and Telegram is linked |
   | **Mattermost** | Mattermost is configured and the profile has a Mattermost username |
 
-- **Preferences:**
-  - each user switches channels in **Profile → Notifications** (`users.notify_prefs`, all on by default);
-  - unreachable channels explain how to fix them.
+- **Preferences** (*Profile → Notifications*, stored in `users.notify_prefs`):
+  - **channels**: a master switch per channel; each card shows *On / Off / Not connected / Unavailable* and how to fix it. *Send a test* delivers a test through every connected channel at once and shows the result per channel (including the error text);
+  - **events × channels**: a table of every kind of notification (from `services/notificationCatalog.js`) against the bell and each channel, with presets *Recommended*, *Only important*, *Everything everywhere*, *Bell only*. Unticking the bell column drops the event entirely;
+  - **quiet hours** (e.g. 22:00–08:00, optionally all weekend) and **pause** (1 h, 3 h, until tomorrow, until Monday): push, e-mail and messengers wait; the bell still collects everything. Computed in the person's time zone (saved from the browser);
+  - **urgent** kinds — reminders the person or a colleague set (`tasks.reminder`, `calendar.reminder`) — ignore quiet hours and the pause and cannot be muted per event; the reminder itself chooses its channels;
+  - **subscriptions**: follow a task project (🔔 on the project page → new and completed tasks, kind `tasks.project`) or a shared calendar (⋯ → *Notify me about changes* → new, changed and removed events, kind `calendar.subscribed`). Followers are checked against their current access each time;
+  - **delivery history**: every notification stores where it went (`notifications.delivery`: `sent`, `failed: …`, `off`, `unreachable`, `quiet`, `paused`, `skipped`); the last ones are listed with a mark per channel.
+- **Chat messages** are pushes only (kind `chat.message`), never sent to someone looking at that chat or who muted it; mentions are full notifications (`chat.mention`).
+- **Delivery** runs in batches of ten recipients so a notification to a whole department never exhausts the database pool or opens hundreds of SMTP sessions.
 - **Email:** an HTML template with the product name and an *Open* button, plus a plain-text part. Links use `PUBLIC_URL` / `FRONTEND_URL`.
 - **App badge:** the unread count shows on the app icon (Badging API), from the page and from push messages.
 
@@ -41,7 +47,12 @@ await notify({
 | GET | `/api/notifications?limit&before&unread=1` | Inbox page, unread count |
 | GET | `/api/notifications/unread` | Counter only |
 | POST | `/api/notifications/read` | `{ ids: [] }` or `{ all: true }` |
-| GET / PUT | `/api/account/notifications` | Channel preferences and reachability |
+| GET / PUT | `/api/account/notifications` | Preferences, reachability, configured channels and the event catalog. `PUT` takes `{ channels, events: { kind: { inbox, push, … } }, resetEvents, quiet: { enabled, from, to, weekends }, pausedUntil, tz }` |
+| POST | `/api/account/notifications/test` | Send a test through every connected channel → per-channel report |
+| GET | `/api/account/notifications/history` | Last notifications with their delivery report |
+| GET / PUT | `/api/account/notifications/subscriptions` | Followed projects and calendars / `{ type: 'tasks.project' \| 'calendar.calendar', id, on }` (only things the person can see) |
+
+A module adding a notification kind lists it in `services/notificationCatalog.js` (group, default channels, `urgent`, `channels` it can use) and adds `notifyPrefs.events.<kind>` texts to `i18n/notify.js`.
 
 ## Web Push
 

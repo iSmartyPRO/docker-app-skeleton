@@ -7,6 +7,7 @@ import { errorMessage } from '../../../lib/errors';
 import { cmpApi, relationLabel } from '../api';
 import { useCompanies } from '../CompaniesContext';
 import { formatDate } from './ui';
+import { HintLabel } from '../../../help/Hint';
 
 const dateProps = {
   getValueProps: (value) => ({ value: value ? dayjs(value) : null }),
@@ -152,13 +153,13 @@ export default function CompanyForm({ open, company, onClose }) {
       <Form form={form} layout="vertical" requiredMark={false} className="cmp-form" initialValues={EMPTY}>
         <section className="cmp-lookup">
           <div className="cmp-lookup__row">
-            <Form.Item name="country" label={t('companies.f.country')} className="cmp-lookup__country">
+            <Form.Item name="country" label={<HintLabel id="companies.country">{t('companies.f.country')}</HintLabel>} className="cmp-lookup__country">
               <Select options={countryOptions} showSearch optionFilterProp="label" onChange={() => setRegistry(null)} />
             </Form.Item>
             {primary && (
               <Form.Item
                 name={['ids', primary.key]}
-                label={primary.label[locale] || primary.label.en}
+                label={<HintLabel id="companies.primaryId">{primary.label[locale] || primary.label.en}</HintLabel>}
                 extra={primary.hint ? primary.hint[locale] || primary.hint.en : null}
                 className="cmp-lookup__id"
                 rules={primary.pattern ? [{ pattern: new RegExp(primary.pattern), message: t('companies.invalidId') }] : []}
@@ -192,7 +193,7 @@ export default function CompanyForm({ open, company, onClose }) {
               type="warning"
               showIcon
               className="cmp-lookup__dup"
-              message={t('companies.duplicateTitle')}
+              message={<HintLabel id="companies.duplicates">{t('companies.duplicateTitle')}</HintLabel>}
               description={
                 <div className="cmp-dups">
                   {duplicates.map((item) => (
@@ -234,7 +235,7 @@ export default function CompanyForm({ open, company, onClose }) {
                   <Form.Item name="kind" label={t('companies.f.kind')}>
                     <Select options={['legal', 'individual', 'branch', 'government', 'other'].map((value) => ({ value, label: t(`companies.kind.${value}`) }))} />
                   </Form.Item>
-                  <Form.Item name="relations" label={t('companies.f.relations')} className="is-wide">
+                  <Form.Item name="relations" label={<HintLabel id="companies.relations">{t('companies.f.relations')}</HintLabel>} className="is-wide">
                     <Select
                       mode="multiple"
                       allowClear
@@ -249,7 +250,7 @@ export default function CompanyForm({ open, company, onClose }) {
                       }}
                     />
                   </Form.Item>
-                  <Form.Item name="owner_id" label={t('companies.f.owner')}>
+                  <Form.Item name="owner_id" label={<HintLabel id="companies.owner">{t('companies.f.owner')}</HintLabel>}>
                     <Select allowClear showSearch optionFilterProp="label" options={staff.map((user) => ({ value: user.id, label: user.name }))} placeholder={t('companies.nobody')} />
                   </Form.Item>
                   <Form.Item name="tags" label={t('companies.f.tags')}>

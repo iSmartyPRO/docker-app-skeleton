@@ -43,8 +43,12 @@ const FREE = [/^\/apps$/, /^\/status$/, /^\/settings$/, /^\/developer(\/|$)/, /^
 
 const MODULE_IDS = new Set(MODULE_CATALOG.map((module) => module.id));
 
+/**
+ * The path as the gate compares it: lower case (Express routes ignore case,
+ * so /api/Admin must be judged like /api/admin), repeated slashes collapsed.
+ */
 export function normalizePath(raw) {
-  let path = String(raw || '/').split('?')[0];
+  let path = String(raw || '/').split('?')[0].toLowerCase().replace(/\/{2,}/g, '/');
   if (path.startsWith('/api/v1/')) path = path.slice(7);
   else if (path.startsWith('/api/')) path = path.slice(4);
   if (path.length > 1) path = path.replace(/\/+$/, '');
@@ -77,7 +81,7 @@ export function cleanRules(list) {
   const out = [];
   for (const rule of Array.isArray(list) ? list : []) {
     const effect = rule?.effect === 'allow' ? 'allow' : rule?.effect === 'deny' ? 'deny' : null;
-    let path = String(rule?.path || '').trim();
+    let path = String(rule?.path || '').trim().toLowerCase();
     if (!effect || !path) continue;
     if (path.startsWith('/api/v1/')) path = path.slice(7);
     else if (path.startsWith('/api/')) path = path.slice(4);
@@ -94,7 +98,7 @@ export function cleanRules(list) {
 const patternCache = new Map();
 function patternOf(path) {
   if (!patternCache.has(path)) {
-    const source = path
+    const source = path.toLowerCase()
       .split('/')
       .map((part) => (part === '**' ? '\u0000' : part === '*' ? '[^/]+' : part.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/:[A-Za-z]\w*/g, '[^/]+')))
       .join('/')
@@ -107,7 +111,7 @@ function patternOf(path) {
 
 export function ruleMatches(rule, method, path) {
   if (rule.methods.length && !rule.methods.includes(String(method).toUpperCase())) return false;
-  return patternOf(rule.path).test(path);
+  return patternOf(String(rule.path).toLowerCase()).test(String(path).toLowerCase());
 }
 
 // ── Scopes ──────────────────────────────────────────────────────────────────

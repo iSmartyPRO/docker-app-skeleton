@@ -10,6 +10,10 @@ import {
   deleteEvent,
   deleteGoogleItem,
   eventWebhook,
+  getPrefs as getCalendarPrefs,
+  resetPrefs as resetCalendarPrefs,
+  savePrefs as saveCalendarPrefs,
+  notifyCalendarFollowers,
   forgetGoogleCalendars,
   getCalendarAccess,
   getEvent,
@@ -35,8 +39,10 @@ export function privateRoutes() {
     const parsed = parseSettings(await getSettings());
     const settings = parsed.modules.calendar.settings;
     const google = await googleStatus(req.user.id);
+    const prefs = await getCalendarPrefs(req.cal, settings);
     res.json({
       success: true,
+      prefs,
       calendars: await listCalendars(req.cal, req.locale),
       google: { available: google.calendarFeature, connected: google.connected, calendar: google.calendar, email: google.email },
       config: {
@@ -49,6 +55,20 @@ export function privateRoutes() {
         showTasks: Boolean(settings.showTasks && parsed.modules.tasks?.enabled),
       },
     });
+  }));
+
+  // Personal view settings
+  router.get('/prefs', wrap(async (req, res) => {
+    const settings = parseSettings(await getSettings()).modules.calendar.settings;
+    res.json({ success: true, prefs: await getCalendarPrefs(req.cal, settings) });
+  }));
+  router.put('/prefs', wrap(async (req, res) => {
+    const settings = parseSettings(await getSettings()).modules.calendar.settings;
+    res.json({ success: true, prefs: await saveCalendarPrefs(req.cal, req.body || {}, settings) });
+  }));
+  router.delete('/prefs', wrap(async (req, res) => {
+    const settings = parseSettings(await getSettings()).modules.calendar.settings;
+    res.json({ success: true, prefs: await resetCalendarPrefs(req.cal, settings) });
   }));
 
   // Calendars
@@ -92,6 +112,7 @@ export function privateRoutes() {
     const event = await createEvent(req.cal, req.body || {});
     res.status(201).json({ success: true, event });
     eventWebhook('calendar.event.created', event, req.user.id);
+    notifyCalendarFollowers('followNew', event, req.user.id);
   }));
   router.get('/events/:id', wrap(async (req, res) => {
     res.json({ success: true, event: await getEvent(req.cal, intId(req.params.id), req.query.occurrence) });
@@ -101,11 +122,13 @@ export function privateRoutes() {
     const event = await updateEvent(req.cal, intId(req.params.id), body, { scope, occurrence });
     res.json({ success: true, event });
     eventWebhook('calendar.event.updated', event, req.user.id);
+    notifyCalendarFollowers('followUpdated', event, req.user.id);
   }));
   router.delete('/events/:id', wrap(async (req, res) => {
     const before = await getEvent(req.cal, intId(req.params.id)).catch(() => null);
     await deleteEvent(req.cal, intId(req.params.id), { scope: req.query.scope, occurrence: req.query.occurrence });
     res.json({ success: true });
+    notifyCalendarFollowers('followDeleted', before, req.user.id);
     eventWebhook('calendar.event.deleted', before && { ...before, deletedScope: req.query.scope === 'single' ? 'single' : 'all', deletedOccurrence: req.query.occurrence || null }, req.user.id);
   }));
   router.put('/events/:id/rsvp', wrap(async (req, res) => {

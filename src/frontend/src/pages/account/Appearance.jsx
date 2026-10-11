@@ -8,6 +8,7 @@ import { useLocale } from '../../context/LocaleContext';
 import { useThemeMode } from '../../context/ThemeContext';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { updateAccountProfile } from '../../services/api';
+import { HintLabel } from '../../help/Hint';
 
 export default function AccountAppearance() {
   const { user, setUser } = useAuth();
@@ -30,7 +31,7 @@ export default function AccountAppearance() {
       <PageHeader title={t('account.appearance')} description={t('account.appearanceLead')} />
       <Form {...formProps}>
         <SettingsSection>
-          <SettingRow label={t('account.language')} description={t('account.languageDesc')}>
+          <SettingRow label={<HintLabel id="account.language">{t('account.language')}</HintLabel>} description={t('account.languageDesc')}>
             <Form.Item name="locale" noStyle>
               <Segmented
                 options={[
@@ -41,7 +42,7 @@ export default function AccountAppearance() {
               />
             </Form.Item>
           </SettingRow>
-          <SettingRow label={t('header.theme')} description={t('account.themeDesc')}>
+          <SettingRow label={<HintLabel id="account.theme">{t('header.theme')}</HintLabel>} description={t('account.themeDesc')}>
             <Form.Item name="theme" noStyle>
               <Segmented
                 options={[

@@ -10,6 +10,7 @@ import { SettingsSection } from '../../components/ui/SettingsSection';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { changeAccountPassword, revokeOtherSessions, unlinkAccountTelegram } from '../../services/api';
+import { HintLabel } from '../../help/Hint';
 
 export default function AccountSecurity() {
   const { t } = useLocale();
@@ -75,7 +76,7 @@ export default function AccountSecurity() {
               <Input.Password autoComplete="current-password" />
             </Form.Item>
           )}
-          <Form.Item name="password" label={t('account.newPassword')} rules={[{ required: true, min: 10 }]}>
+          <Form.Item name="password" label={<HintLabel id="account.password">{t('account.newPassword')}</HintLabel>} rules={[{ required: true, min: 10 }]}>
             <Input.Password autoComplete="new-password" />
           </Form.Item>
           <Form.Item
@@ -100,7 +101,7 @@ export default function AccountSecurity() {
         </Form>
       </SettingsSection>
       {(botUsername || user?.telegram) && (
-        <SettingsSection title="Telegram" description={t('account.telegramDesc')}>
+        <SettingsSection title={<HintLabel id="account.telegram">Telegram</HintLabel>} description={t('account.telegramDesc')}>
           {user?.telegram ? (
             <div className="linked-account">
               <IconTelegram />
@@ -114,7 +115,7 @@ export default function AccountSecurity() {
           )}
         </SettingsSection>
       )}
-      <SettingsSection title={t('account.sessions')} description={t('account.sessionsDesc')}>
+      <SettingsSection title={<HintLabel id="account.sessions">{t('account.sessions')}</HintLabel>} description={t('account.sessionsDesc')}>
         <Button onClick={onRevoke} loading={revoking}>
           {t('account.revokeOthers')}
         </Button>

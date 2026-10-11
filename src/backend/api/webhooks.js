@@ -1,5 +1,8 @@
 import crypto from 'node:crypto';
 import dns from 'node:dns/promises';
+import { lookup as dnsLookup } from 'node:dns';
+import http from 'node:http';
+import https from 'node:https';
 import net from 'node:net';
 import { query } from '../config/database.js';
 import { seal, unseal } from '../services/crypto.js';
@@ -39,14 +42,37 @@ export function signature(secret, timestamp, body) {
 
 // ── Address safety ──────────────────────────────────────────────────────────
 
-function isPrivateAddress(ip) {
-  if (net.isIPv4(ip)) {
-    const [a, b] = ip.split('.').map(Number);
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
-  }
-  const v6 = ip.toLowerCase();
-  if (v6.startsWith('::ffff:')) return isPrivateAddress(v6.slice(7));
-  return v6 === '::1' || v6 === '::' || v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe80');
+// Loopback, private, link-local, carrier-grade NAT, benchmark and multicast.
+// IPv4 and IPv6 are kept apart: a BlockList matches IPv4 against ::ffff:/96.
+const PRIVATE_V4 = new net.BlockList();
+for (const [address, prefix] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15], ['224.0.0.0', 3]]) {
+  PRIVATE_V4.addSubnet(address, prefix, 'ipv4');
+}
+const PRIVATE_V6 = new net.BlockList();
+for (const [address, prefix] of [['::', 127], ['fc00::', 7], ['fe80::', 10], ['ff00::', 8]]) {
+  PRIVATE_V6.addSubnet(address, prefix, 'ipv6');
+}
+
+/** IPv6 forms that wrap an IPv4 address (::ffff:a.b.c.d, ::ffff:7f00:1, 64:ff9b::…). */
+function embeddedV4(ip) {
+  const lower = ip.toLowerCase();
+  const tail = lower.match(/^(?:::ffff:|64:ff9b::)(.+)$/);
+  if (!tail) return null;
+  if (net.isIPv4(tail[1])) return tail[1];
+  const hex = tail[1].split(':');
+  if (hex.length !== 2) return null;
+  const [high, low] = hex.map((part) => parseInt(part, 16));
+  if (Number.isNaN(high) || Number.isNaN(low)) return null;
+  return [high >> 8, high & 255, low >> 8, low & 255].join('.');
+}
+
+export function isPrivateAddress(ip) {
+  const family = net.isIP(ip);
+  if (!family) return true;
+  if (family === 4) return PRIVATE_V4.check(ip, 'ipv4');
+  const v4 = embeddedV4(ip);
+  if (v4) return PRIVATE_V4.check(v4, 'ipv4');
+  return PRIVATE_V6.check(ip, 'ipv6');
 }
 
 async function checkUrl(raw, { allowPrivate }) {
@@ -211,19 +237,41 @@ async function enqueueEvent(type, data, { visible }) {
 }
 setEventSink(enqueueEvent);
 
+/** POST with a DNS lookup that refuses private addresses at connect time (no rebinding). */
+function post(url, headers, body, { allowPrivate }) {
+  return new Promise((resolve, reject) => {
+    const target = new URL(url);
+    const lib = target.protocol === 'https:' ? https : http;
+    const lookup = (hostname, options, callback) =>
+      dnsLookup(hostname, { ...options, all: false }, (err, address, family) => {
+        if (err) return callback(err);
+        if (!allowPrivate && isPrivateAddress(address)) return callback(new Error('The address resolves to a private network'));
+        return callback(null, address, family);
+      });
+    const request = lib.request(target, { method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) }, lookup, timeout: TIMEOUT_MS }, (response) => {
+      let text = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        if (text.length < 4000) text += chunk;
+      });
+      response.on('end', () => resolve({ status: response.statusCode, text: text.slice(0, 2000) }));
+    });
+    request.on('timeout', () => request.destroy(new Error('Timed out after 10 s')));
+    request.on('error', reject);
+    request.end(body);
+  });
+}
+
 async function send(hook, payload, deliveryId) {
   const body = JSON.stringify(payload);
   const timestamp = Math.floor(Date.now() / 1000);
   const secret = unseal(hook.secret);
   const started = Date.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const { webhooksPrivate } = await apiConfig();
   try {
-    const response = await fetch(hook.url, {
-      method: 'POST',
-      redirect: 'manual',
-      signal: controller.signal,
-      headers: {
+    const response = await post(
+      hook.url,
+      {
         'Content-Type': 'application/json',
         'User-Agent': 'Portal-Webhooks/1.0',
         'X-Portal-Event': payload.type,
@@ -231,13 +279,11 @@ async function send(hook, payload, deliveryId) {
         'X-Portal-Signature': `t=${timestamp},v1=${signature(secret, timestamp, body)}`,
       },
       body,
-    });
-    const text = (await response.text().catch(() => '')).slice(0, 2000);
-    return { ok: response.status >= 200 && response.status < 300, status: response.status, body: text, ms: Date.now() - started };
+      { allowPrivate: webhooksPrivate }
+    );
+    return { ok: response.status >= 200 && response.status < 300, status: response.status, body: response.text, ms: Date.now() - started };
   } catch (err) {
-    return { ok: false, status: null, error: err.name === 'AbortError' ? 'Timed out after 10 s' : err.message, ms: Date.now() - started };
-  } finally {
-    clearTimeout(timer);
+    return { ok: false, status: null, error: err.message, ms: Date.now() - started };
   }
 }
 

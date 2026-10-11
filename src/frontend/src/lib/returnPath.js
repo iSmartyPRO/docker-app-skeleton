@@ -1,6 +1,7 @@
 const RETURN_KEY = 'portal_return_to';
 
-const safe = (path) => Boolean(path) && path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/login');
+// Same-site paths only: no //host, no /\host (browsers read a backslash as a slash), no control characters.
+const safe = (path) => Boolean(path) && path.startsWith('/') && !/^\/[\/\\]/.test(path) && !/[\\\u0000-\u001f]/.test(path) && !path.startsWith('/login');
 
 /** Remembers ?next=/app/… from the sign-in URL; it survives OAuth redirects. */
 export function rememberReturnPath() {

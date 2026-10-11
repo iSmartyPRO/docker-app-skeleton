@@ -1,0 +1,48 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { eventAllows, inboxAllows, quietState, resolvePrefs } from '../services/notifications.js';
+
+test('notification prefs: first-version flat flags are read as channels', () => {
+  const prefs = resolvePrefs({ push: false, email: true });
+  assert.equal(prefs.channels.push, false);
+  assert.equal(prefs.channels.email, true);
+  assert.equal(prefs.channels.telegram, true);
+  assert.deepEqual(prefs.events, {});
+});
+
+test('notification prefs: event defaults, overrides and master switches', () => {
+  const prefs = resolvePrefs({ channels: { telegram: false }, events: { 'tasks.status': { push: false, email: true } } });
+  assert.equal(eventAllows(prefs, 'tasks.assigned', 'email'), true);
+  assert.equal(eventAllows(prefs, 'tasks.status', 'push'), false);
+  assert.equal(eventAllows(prefs, 'tasks.status', 'email'), true);
+  // The master switch wins over the event.
+  assert.equal(eventAllows(prefs, 'tasks.assigned', 'telegram'), false);
+  // A chat message is a push only.
+  assert.equal(eventAllows(prefs, 'chat.message', 'email'), false);
+});
+
+test('notification prefs: reminders are urgent and cannot be muted per event', () => {
+  const prefs = resolvePrefs({ events: { 'tasks.reminder': { inbox: false, push: false } } });
+  assert.equal(inboxAllows(prefs, 'tasks.reminder'), true);
+  assert.equal(eventAllows(prefs, 'tasks.reminder', 'push'), true);
+  assert.equal(inboxAllows(resolvePrefs({ events: { 'tasks.status': { inbox: false } } }), 'tasks.status'), false);
+});
+
+test('notification prefs: quiet hours across midnight, weekends and pause', () => {
+  const prefs = resolvePrefs({ quiet: { enabled: true, from: '22:00', to: '08:00' }, tz: 'UTC' });
+  assert.equal(quietState(prefs, new Date('2026-10-13T23:30:00Z')), 'quiet');
+  assert.equal(quietState(prefs, new Date('2026-10-13T07:59:00Z')), 'quiet');
+  assert.equal(quietState(prefs, new Date('2026-10-13T12:00:00Z')), null);
+  const weekends = resolvePrefs({ quiet: { enabled: true, from: '22:00', to: '08:00', weekends: true }, tz: 'UTC' });
+  assert.equal(quietState(weekends, new Date('2026-10-17T12:00:00Z')), 'quiet');
+  const paused = resolvePrefs({ pausedUntil: new Date(Date.now() + 3600000).toISOString() });
+  assert.equal(quietState(paused), 'paused');
+  assert.equal(resolvePrefs({ pausedUntil: '2000-01-01T00:00:00Z' }).pausedUntil, null);
+});
+
+test('notification prefs: quiet hours follow the person time zone', () => {
+  const bishkek = resolvePrefs({ quiet: { enabled: true, from: '22:00', to: '08:00' }, tz: 'Asia/Bishkek' });
+  // 17:00 UTC is 23:00 in Bishkek (UTC+6).
+  assert.equal(quietState(bishkek, new Date('2026-10-13T17:00:00Z')), 'quiet');
+  assert.equal(quietState(bishkek, new Date('2026-10-13T06:00:00Z')), null);
+});

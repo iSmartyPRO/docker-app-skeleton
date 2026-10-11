@@ -3,6 +3,7 @@ import { Input, Modal } from 'antd';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
 import { CATEGORIES, WIDGET_CATALOG } from '../catalog';
+import { HintLabel } from '../../../help/Hint';
 
 /** Little sketches of what a widget shows, for the gallery cards. */
 function Preview({ kind, color }) {
@@ -113,7 +114,7 @@ export default function Gallery({ open, available, onAdd, onClose }) {
       (!text || `${t(`dashboard.widgets.${type}.name`)} ${t(`dashboard.widgets.${type}.desc`)}`.toLowerCase().includes(text))
   );
   return (
-    <Modal open={open} onCancel={onClose} footer={null} width={980} title={t('dashboard.gallery.title')} className="dash-gallery-modal" destroyOnHidden>
+    <Modal open={open} onCancel={onClose} footer={null} width={980} title={<HintLabel id="dashboard.gallery">{t('dashboard.gallery.title')}</HintLabel>} className="dash-gallery-modal" destroyOnHidden>
       <div className="dash-gallery">
         <nav className="dash-gallery__cats">
           <Input.Search allowClear placeholder={t('dashboard.gallery.search')} value={q} onChange={(event) => setQ(event.target.value)} />

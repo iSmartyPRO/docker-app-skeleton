@@ -10,10 +10,13 @@ The third [module](modules.md) covers:
 
 ## Views
 
-The views are **Month**, **Week**, **Day** and **Agenda** (FullCalendar).
+The views are **Month**, **Week**, **Work week** (no weekends), **Day** and **Agenda** (FullCalendar).
 
-- **Creating and moving events:**
-  - drag over the grid to create an event;
+- **Creating:** click an empty slot (or drag over the grid for a length) and choose **Event** or **Task**. A click gives the event the person's usual length. *+ Event* and *Task* buttons are in the sidebar too.
+- **Tasks:** every task the person takes part in that has a deadline is shown on its date and time (☐ open, ✓ crossed out done, a red edge when overdue). Dragging a task moves its deadline (`PUT /api/app/tasks/tasks/:ref`, the task's own rules apply, e.g. a locked deadline is refused and the task jumps back). The sidebar lists **Without a deadline** — the person's open tasks without one; dragging one onto the calendar schedules it. *Task* creates a task assigned to the person with the chosen deadline.
+- **Following a calendar:** ⋯ → *Notify me about changes* (see [notifications.md](notifications.md)).
+- **Personal settings** (⚙ in the toolbar, stored in `cal_user_prefs`): view on open, week start, working hours, grid step (15/30/60 min), weekends, week numbers, declined events, tasks (on/off, which: *I am doing* / *All my tasks* / *All visible tasks*, completed, block length), and defaults for new events (calendar, length, reminder). *Reset to defaults* returns to the portal settings.
+- **Moving events:**
   - drag an event to move it, or drag its edge to resize it;
   - click an event to see details.
 - **Sidebar:**
@@ -114,7 +117,8 @@ This needs the [Google integration](integrations.md#google) with *Google Calenda
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/` | Calendars (creates the personal one), Google status, config |
+| GET | `/` | Calendars (creates the personal one), Google status, config, the person's `prefs` |
+| GET / PUT / DELETE | `/prefs` | The person's calendar settings (see above); `DELETE` resets them |
 | POST / PUT / DELETE | `/calendars[/:id]` | Shared calendars; personal ones cannot be deleted |
 | GET / PUT | `/calendars/:id/access` | Access list |
 | GET | `/events?from&to&calendars=1,2&invitations=0\|1` | Occurrences in a range (max 120 days) |

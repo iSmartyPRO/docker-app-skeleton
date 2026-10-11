@@ -73,3 +73,13 @@ test('api events: groups and wildcards', () => {
   assert.equal(eventMatches(['*'], 'user.deleted'), true);
   assert.deepEqual(cleanEvents(['task.created', 'task.*', 'nope', 'calendar.*', 'zzz.*']), ['task.created', 'task.*', 'calendar.*']);
 });
+
+test('api paths: letter case and doubled slashes cannot dodge the gate', () => {
+  const p = effectivePolicy({ scopes: { tasks: 'read' } }, { rules: [{ effect: 'deny', methods: [], path: '/app/tasks/projects/**' }] });
+  assert.equal(decide(p, 'POST', normalizePath('/api/Account/API/tokens')).code, 'ROUTE_NOT_AVAILABLE');
+  assert.equal(decide(p, 'GET', normalizePath('/api/v1/Admin/Users')).ok, false);
+  assert.equal(decide(p, 'PUT', normalizePath('/api/ACCOUNT/password')).code, 'ROUTE_NOT_AVAILABLE');
+  assert.equal(decide(p, 'GET', normalizePath('/api/App/Tasks/Projects/WEB')).ok, false);
+  assert.equal(decide(p, 'GET', normalizePath('/api//app//tasks/projects/web')).ok, false);
+  assert.equal(decide(p, 'GET', normalizePath('/api/App/Tasks/Tasks/WEB-1')).ok, true);
+});

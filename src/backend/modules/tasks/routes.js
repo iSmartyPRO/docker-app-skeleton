@@ -115,7 +115,7 @@ export function privateRoutes() {
   // Tasks
   router.get('/tasks', wrap(async (req, res) => res.json({ success: true, tasks: await listTasks(req.tasks, req.query) })));
   router.get('/calendar', wrap(async (req, res) => {
-    res.json({ success: true, tasks: await calendarFeed(req.tasks, { from: req.query.from, to: req.query.to, mine: req.query.mine === '1' }) });
+    res.json({ success: true, tasks: await calendarFeed(req.tasks, { from: req.query.from, to: req.query.to, mine: req.query.mine === '1', scope: ['doing', 'participant', 'all'].includes(req.query.scope) ? req.query.scope : undefined, done: req.query.done !== '0' }) });
   }));
   router.post('/tasks', wrap(async (req, res) => {
     const body = req.body || {};

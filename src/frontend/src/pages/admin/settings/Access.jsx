@@ -8,6 +8,7 @@ import { useSettingsForm } from '../../../hooks/useSettingsForm';
 import { useLocale } from '../../../context/LocaleContext';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import SettingsPageHeader from './SettingsPageHeader';
+import { HintLabel } from '../../../help/Hint';
 import { MODULE_REGISTRY, moduleLabel } from '../../../modules/registry';
 
 /** What "/" shows: the landing page or one of the modules. */
@@ -85,7 +86,7 @@ function AccessForm({ settings, save }) {
   const { dirty, saving, submit, reset, formProps } = useSettingsForm(initial, save);
   return (
     <Form {...formProps}>
-      <SettingsSection title={t('settings.access.mode')} description={t('settings.access.modeDesc')}>
+      <SettingsSection title={<HintLabel id="admin.accessMode">{t('settings.access.mode')}</HintLabel>} description={t('settings.access.modeDesc')}>
         <Form.Item name="accessMode" noStyle>
           <ModeCards />
         </Form.Item>

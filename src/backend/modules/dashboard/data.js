@@ -68,21 +68,33 @@ const tasksCtx = (req) => contextFromRequest(req, 'tasks.admin');
 /** WHERE for the tasks a widget looks at: visible projects, optional "mine" and one project. */
 async function taskScope(req, settings, params) {
   const ctx = tasksCtx(req);
-  params.push(await visibleProjectIds(ctx), ctx.userId);
-  const me = `$${params.length}`;
+  // Every pushed parameter must be used, or Postgres cannot type it: push on first use.
+  let meIndex = 0;
+  const meRef = () => {
+    if (!meIndex) {
+      params.push(ctx.userId);
+      meIndex = params.length;
+    }
+    return `$${meIndex}`;
+  };
+  let visibleRef = '';
+  if (!ctx.isAdmin) {
+    params.push(await visibleProjectIds(ctx));
+    visibleRef = `$${params.length}`;
+  }
   // Projects the person sees, plus any task they take part in (tasks without a project too).
   const where = [
     ctx.isAdmin
       ? 'TRUE'
-      : `(t.project_id = ANY($${params.length - 1}) OR t.assignee_id = ${me} OR COALESCE(t.originator_id, t.created_by) = ${me}
-         OR EXISTS (SELECT 1 FROM task_members tm WHERE tm.task_id = t.id AND tm.user_id = ${me}))`,
+      : `(t.project_id = ANY(${visibleRef}) OR t.assignee_id = ${meRef()} OR COALESCE(t.originator_id, t.created_by) = ${meRef()}
+         OR EXISTS (SELECT 1 FROM task_members tm WHERE tm.task_id = t.id AND tm.user_id = ${meRef()}))`,
     'p.archived_at IS NULL',
   ];
   if (ctx.limits?.task_acl) {
     params.push([...ctx.limits.task_acl]);
     where.push(`t.project_id = ANY($${params.length})`);
   }
-  if (settings.scope !== 'all') where.push(`t.assignee_id = ${me}`);
+  if (settings.scope !== 'all') where.push(`t.assignee_id = ${meRef()}`);
   const project = Number(settings.project);
   if (Number.isInteger(project) && project > 0) {
     params.push(project);

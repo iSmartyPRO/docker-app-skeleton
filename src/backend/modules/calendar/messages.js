@@ -32,6 +32,18 @@ const TEXTS = {
     en: { title: `${p.actor} ${{ accepted: 'accepted', declined: 'declined', tentative: 'may attend' }[p.status]}: ${p.title}`, body: p.when.en },
     ru: { title: `${p.actor} ${{ accepted: 'примет участие', declined: 'отказался(-ась)', tentative: 'возможно, придёт' }[p.status]}: ${p.title}`, body: p.when.ru },
   }),
+  followNew: (p) => ({
+    en: { title: `New in “${p.calendar}”: ${p.title}`, body: `${p.when.en}${p.location ? ` · ${p.location}` : ''}${p.actor ? `\n${p.actor}` : ''}` },
+    ru: { title: `Новое в «${p.calendar}»: ${p.title}`, body: `${p.when.ru}${p.location ? ` · ${p.location}` : ''}${p.actor ? `\n${p.actor}` : ''}` },
+  }),
+  followUpdated: (p) => ({
+    en: { title: `Changed in “${p.calendar}”: ${p.title}`, body: `${p.when.en}${p.location ? ` · ${p.location}` : ''}${p.actor ? `\n${p.actor}` : ''}` },
+    ru: { title: `Изменено в «${p.calendar}»: ${p.title}`, body: `${p.when.ru}${p.location ? ` · ${p.location}` : ''}${p.actor ? `\n${p.actor}` : ''}` },
+  }),
+  followDeleted: (p) => ({
+    en: { title: `Removed from “${p.calendar}”: ${p.title}`, body: `${p.when.en}${p.actor ? `\n${p.actor}` : ''}` },
+    ru: { title: `Удалено из «${p.calendar}»: ${p.title}`, body: `${p.when.ru}${p.actor ? `\n${p.actor}` : ''}` },
+  }),
   reminder: (p) => ({
     en: { title: `${p.minutes === 0 ? 'Starting now' : `In ${p.lead.en}`}: ${p.title}`, body: `${p.when.en}${p.location ? ` · ${p.location}` : ''}` },
     ru: { title: `${p.minutes === 0 ? 'Начинается' : `Через ${p.lead.ru}`}: ${p.title}`, body: `${p.when.ru}${p.location ? ` · ${p.location}` : ''}` },

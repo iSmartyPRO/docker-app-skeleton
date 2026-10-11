@@ -6,6 +6,7 @@ import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
 import { Person, UserAvatar } from '../../shared/People';
 import { filesApi } from '../api';
+import { Hint, HintLabel } from '../../../help/Hint';
 
 function People({ node, onChanged }) {
   const { t } = useLocale();
@@ -141,11 +142,11 @@ function LinkForm({ config, onCreate }) {
   return (
     <div className="fs-linkform">
       <div className="fs-linkform__row">
-        <span>{t('files.linkPassword')}</span>
+        <span>{t('files.linkPassword')} <Hint id="files.linkPassword" /></span>
         <Input.Password value={password} onChange={(event) => setPassword(event.target.value)} placeholder={config.requireLinkPassword ? t('files.passwordRequired') : t('files.passwordOptional')} autoComplete="new-password" />
       </div>
       <div className="fs-linkform__row">
-        <span>{t('files.linkExpires')}</span>
+        <span>{t('files.linkExpires')} <Hint id="files.linkExpires" /></span>
         <div className="fs-linkform__expiry">
           <DatePicker
             value={expires}
@@ -161,7 +162,7 @@ function LinkForm({ config, onCreate }) {
         </div>
       </div>
       <div className="fs-linkform__row">
-        <span>{t('files.allowDownload')}</span>
+        <span>{t('files.allowDownload')} <Hint id="files.allowDownload" /></span>
         <Switch checked={download} onChange={setDownload} />
       </div>
       <Button
@@ -254,7 +255,7 @@ export default function ShareDialog({ open, node, config, onClose }) {
     <Modal open={open} title={t('files.shareTitle', { name: node.name })} onCancel={() => onClose(changed)} footer={null} width={640} destroyOnHidden>
       <Tabs
         items={[
-          { key: 'people', label: t('files.people'), children: <People node={node} onChanged={() => setChanged(true)} /> },
+          { key: 'people', label: <HintLabel id="files.sharePeople">{t('files.people')}</HintLabel>, children: <People node={node} onChanged={() => setChanged(true)} /> },
           ...(owner ? [{ key: 'links', label: t('files.publicLinks'), children: <Links node={node} config={config} onChanged={() => setChanged(true)} /> }] : []),
         ]}
       />

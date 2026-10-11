@@ -10,6 +10,7 @@ import { useSettingsForm } from '../../../hooks/useSettingsForm';
 import { useAccessData } from '../../../hooks/useAccessData';
 import { useLocale } from '../../../context/LocaleContext';
 import SettingsPageHeader from './SettingsPageHeader';
+import { HintLabel } from '../../../help/Hint';
 
 /** Shows whether the integration a method depends on is ready, with a shortcut. */
 function Readiness({ ready, to }) {
@@ -138,7 +139,7 @@ function SignInForm({ settings, save, groups }) {
             </SettingRow>
             <div className="setting-row is-stacked">
               <div className="setting-row__text">
-                <span className="setting-row__label">{t('signinSettings.groupMap')}</span>
+                <span className="setting-row__label"><HintLabel id="admin.groupMap">{t('signinSettings.groupMap')}</HintLabel></span>
                 <div className="setting-row__desc">{t('signinSettings.groupMapDesc')}</div>
               </div>
               <Form.List name="ldapGroupMap">
@@ -243,7 +244,7 @@ function SignInForm({ settings, save, groups }) {
         <MethodHead icon={IconMattermost} title={t('signinSettings.mattermostCode')} description={t('signinSettings.mattermostCodeHint')} ready={ready.mattermostCode} to="/admin/settings/mattermost">
           {toggle('mattermostCodeEnabled', ready.mattermostCode)}
         </MethodHead>
-        <SettingRow label={t('signinSettings.magicLink')} description={t('signinSettings.magicLinkHint')}>
+        <SettingRow label={<HintLabel id="admin.magicLink">{t('signinSettings.magicLink')}</HintLabel>} description={t('signinSettings.magicLinkHint')}>
           <Form.Item name="magicLinkEnabled" valuePropName="checked" noStyle>
             <Switch />
           </Form.Item>

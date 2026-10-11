@@ -8,6 +8,7 @@ import { useAdminSettings } from '../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { useLocale } from '../../context/LocaleContext';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
+import { HintLabel } from '../../help/Hint';
 
 const GROUPS = ['images', 'pdf', 'office', 'text', 'media', 'archives'];
 
@@ -49,7 +50,7 @@ function FilesForm({ settings, save }) {
             <InputNumber min={1} max={4096} addonAfter="MB" style={{ width: 160 }} />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('filesSettings.quota')} description={t('filesSettings.quotaDesc')}>
+        <SettingRow label={<HintLabel id="files.quota">{t('filesSettings.quota')}</HintLabel>} description={t('filesSettings.quotaDesc')}>
           <Form.Item name="quotaMb" noStyle>
             <InputNumber min={0} max={10000000} addonAfter="MB" style={{ width: 180 }} />
           </Form.Item>
@@ -89,7 +90,7 @@ function FilesForm({ settings, save }) {
             <Switch />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('filesSettings.requirePassword')}>
+        <SettingRow label={<HintLabel id="files.requirePassword">{t('filesSettings.requirePassword')}</HintLabel>}>
           <Form.Item name="requireLinkPassword" valuePropName="checked" noStyle>
             <Switch disabled={!links} />
           </Form.Item>

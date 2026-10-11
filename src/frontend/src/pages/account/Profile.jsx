@@ -9,6 +9,7 @@ import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { errorMessage } from '../../lib/errors';
 import { initials } from '../../lib/format';
 import { updateAccountProfile, uploadAccountAvatar } from '../../services/api';
+import { Hint, HintLabel } from '../../help/Hint';
 
 export default function AccountProfile() {
   const { user, setUser } = useAuth();
@@ -47,7 +48,7 @@ export default function AccountProfile() {
         <div className="profile-hero__text">
           <div className="profile-hero__name">{user?.displayName || user?.username}</div>
           <div className="profile-hero__meta">@{user?.username}</div>
-          <div className="profile-hero__meta">{t('account.avatarHint')}</div>
+          <div className="profile-hero__meta">{t('account.avatarHint')} <Hint id="account.avatar" /></div>
         </div>
         <Upload
           accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
@@ -78,14 +79,14 @@ export default function AccountProfile() {
               <Input maxLength={128} />
             </Form.Item>
           </SettingRow>
-          <SettingRow label={t('users.email')}>
+          <SettingRow label={<HintLabel id="account.email">{t('users.email')}</HintLabel>}>
             <Form.Item name="email" rules={[{ type: 'email' }]} style={{ margin: 0 }}>
               <Input />
             </Form.Item>
           </SettingRow>
         </SettingsSection>
         <SettingsSection title={t('users.contacts')} description={t('account.contactsDesc')}>
-          <SettingRow label={t('users.phone')} description={t('users.phoneDesc')}>
+          <SettingRow label={<HintLabel id="account.phone">{t('users.phone')}</HintLabel>} description={t('users.phoneDesc')}>
             <Form.Item
               name="phone"
               style={{ margin: 0 }}
@@ -95,7 +96,7 @@ export default function AccountProfile() {
               <Input placeholder="+996 700 123 456" inputMode="tel" />
             </Form.Item>
           </SettingRow>
-          <SettingRow label="Mattermost" description={t('users.mattermostDesc')}>
+          <SettingRow label={<HintLabel id="account.mattermost">Mattermost</HintLabel>} description={t('users.mattermostDesc')}>
             <Form.Item name="mattermost" style={{ margin: 0 }}>
               <Input prefix="@" placeholder="username" />
             </Form.Item>

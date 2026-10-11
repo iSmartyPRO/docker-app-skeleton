@@ -10,6 +10,7 @@ import { useLocale } from '../../context/LocaleContext';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
 import { driveApi, driveError } from './api';
 import { LinkRow } from './components/LinkDialog';
+import { HintLabel } from '../../help/Hint';
 import './drive.css';
 import '../files/files.css';
 
@@ -105,7 +106,7 @@ function GeneralForm({ settings, save }) {
         description={t('driveSettings.activityDesc')}
         extra={state.enabled && <Link to="/app/drive/activity">{t('driveSettings.openActivity')} →</Link>}
       >
-        <SettingRow label={t('driveSettings.activityLog')}>
+        <SettingRow label={<HintLabel id="drive.activityLog">{t('driveSettings.activityLog')}</HintLabel>}>
           <Form.Item name="activityLog" valuePropName="checked" noStyle>
             <Switch />
           </Form.Item>
@@ -209,7 +210,7 @@ function ServerDialog({ open, server, defaultDomain, onClose }) {
             <InputNumber min={1} max={65535} style={{ width: '100%' }} />
           </Form.Item>
         </div>
-        <Form.Item name="auth" label={t('driveSettings.auth')}>
+        <Form.Item name="auth" label={<HintLabel id="drive.authMode">{t('driveSettings.auth')}</HintLabel>}>
           <Radio.Group className="dv-auth-choice">
             <Radio value="user">
               <strong>{t('driveSettings.authUser')}</strong>

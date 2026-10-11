@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, Dropdown, Tooltip } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
@@ -14,6 +14,7 @@ import { enabledModules, moduleLabel } from '../modules/registry';
 import NotificationBell from './NotificationBell';
 import ChatButton from '../modules/chat/components/ChatButton';
 import { isStandalone } from '../pwa/pwa';
+import { useHelp } from '../help/HelpContext';
 
 /** Grid button listing every enabled module (the "app launcher"). */
 function AppsLauncher() {
@@ -118,9 +119,21 @@ export default function Chrome({ dense }) {
   const { t } = useLocale();
   const { settings } = useSettings();
   const name = settings?.appName || t('brand');
+  const location = useLocation();
+  const navigate = useNavigate();
+  // An installed app has no browser back button: offer one away from the home page.
+  const { openHelp } = useHelp();
+  const showBack = isStandalone() && location.pathname !== '/' && window.history.length > 1;
 
   return (
     <header className={`chrome ${dense ? 'chrome--dense' : ''}`}>
+      {showBack && (
+        <button type="button" className="chrome__back" onClick={() => navigate(-1)} aria-label={t('common.back')}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+        </button>
+      )}
       <Link to="/" className="chrome__brand">
         <BrandMark />
         <span className="chrome__name">{name}</span>
@@ -130,6 +143,15 @@ export default function Chrome({ dense }) {
         <ThemeSwitch />
         {user ? (
           <>
+            <Tooltip title={`${t('help.title')} · ?`} mouseEnterDelay={0.3}>
+              <button type="button" className="chrome__icon chrome__help" onClick={() => openHelp()} aria-label={t('help.title')}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6" />
+                  <circle cx="12" cy="17" r="0.6" fill="currentColor" />
+                </svg>
+              </button>
+            </Tooltip>
             <ChatButton />
             <NotificationBell />
             <AppsLauncher />

@@ -1,5 +1,5 @@
 import { query, withTransaction } from '../../config/database.js';
-import { notify } from '../../services/notifications.js';
+import { notify, subscribersOf } from '../../services/notifications.js';
 import {
   createGoogleEvent,
   deleteGoogleEvent,
@@ -9,7 +9,7 @@ import {
   publicBase,
   updateGoogleEvent,
 } from '../../services/google.js';
-import { emitEvent } from '../../api/events.js';
+import { emitEvent, requestAs } from '../../api/events.js';
 import {
   HEX,
   LEVEL,
@@ -716,4 +716,89 @@ export async function eventWebhook(type, event, actorId) {
   } catch (err) {
     console.warn(`[calendar] webhook ${type} failed:`, err.message);
   }
+}
+
+/** People following a calendar (who still see it) hear about its events. */
+export async function notifyCalendarFollowers(kind, event, actorId) {
+  if (!event) return;
+  try {
+    const calendar = await loadCalendar(event.calendarId).catch(() => null);
+    if (!calendar) return;
+    const attendees = (event.attendees || []).map((person) => person.id);
+    const ids = (await subscribersOf('calendar.calendar', calendar.id)).filter((id) => id !== actorId && !attendees.includes(id));
+    const allowed = [];
+    for (const id of ids) {
+      const req = await requestAs(id);
+      if (req && (await calendarLevel(contextFromRequest(req, 'calendar.admin'), calendar)) >= LEVEL.view) allowed.push(id);
+    }
+    if (!allowed.length) return;
+    const actor = actorId ? await actorName({ userId: actorId }) : '';
+    await notify({
+      userIds: allowed,
+      kind: 'calendar.subscribed',
+      module: 'calendar',
+      link: kind === 'followDeleted' ? '/app/calendar' : eventLink(event.id),
+      actorId,
+      render: eventMessage(kind, { title: event.title, location: event.location, start: event.start, allDay: event.allDay, timezone: event.timezone, actor, calendar: calendar.name }),
+    });
+  } catch (err) {
+    console.warn('[calendar] followers:', err.message);
+  }
+}
+
+// ── Personal view settings ─────────────────────────────────────────────────
+
+const VIEWS = ['month', 'week', 'workweek', 'day', 'agenda'];
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** A person's calendar settings over the portal defaults. */
+export function cleanPrefs(input = {}, defaults = {}) {
+  const pick = (value, list, fallback) => (list.includes(value) ? value : fallback);
+  const bool = (value, fallback) => (typeof value === 'boolean' ? value : fallback);
+  const int = (value, min, max, fallback) => (Number.isInteger(Number(value)) && Number(value) >= min && Number(value) <= max ? Number(value) : fallback);
+  return {
+    defaultView: pick(input.defaultView, VIEWS, defaults.defaultView || 'week'),
+    weekStart: int(input.weekStart, 0, 6, defaults.weekStart ?? 1),
+    dayStart: TIME_RE.test(input.dayStart || '') ? input.dayStart : defaults.dayStart || '08:00',
+    dayEnd: TIME_RE.test(input.dayEnd || '') ? input.dayEnd : defaults.dayEnd || '20:00',
+    slotMinutes: pick(Number(input.slotMinutes), [15, 30, 60], 30),
+    showWeekends: bool(input.showWeekends, true),
+    showWeekNumbers: bool(input.showWeekNumbers, false),
+    showTasks: bool(input.showTasks, true),
+    taskScope: pick(input.taskScope, ['doing', 'participant', 'all'], 'participant'),
+    showDoneTasks: bool(input.showDoneTasks, true),
+    taskDuration: pick(Number(input.taskDuration), [0, 15, 30, 60], 30),
+    showDeclined: bool(input.showDeclined, true),
+    defaultDuration: pick(Number(input.defaultDuration), [15, 30, 45, 60, 90, 120], 60),
+    defaultReminder: int(input.defaultReminder, -1, 10080, defaults.defaultReminder ?? 15),
+    defaultCalendarId: Number.isInteger(Number(input.defaultCalendarId)) && Number(input.defaultCalendarId) > 0 ? Number(input.defaultCalendarId) : null,
+    compact: bool(input.compact, false),
+  };
+}
+
+export async function getPrefs(ctx, defaults) {
+  const { rows } = await query(`SELECT prefs FROM cal_user_prefs WHERE user_id = $1`, [ctx.userId]);
+  return cleanPrefs(rows[0]?.prefs || {}, defaults);
+}
+
+export async function savePrefs(ctx, input, defaults) {
+  const current = await getPrefs(ctx, defaults);
+  const next = cleanPrefs({ ...current, ...input }, defaults);
+  await query(
+    `INSERT INTO cal_user_prefs (user_id, prefs) VALUES ($1, $2)
+     ON CONFLICT (user_id) DO UPDATE SET prefs = EXCLUDED.prefs, updated_at = NOW()`,
+    [ctx.userId, JSON.stringify(next)]
+  );
+  return next;
+}
+
+export async function resetPrefs(ctx, defaults) {
+  await query(`DELETE FROM cal_user_prefs WHERE user_id = $1`, [ctx.userId]);
+  return cleanPrefs({}, defaults);
+}
+
+/** May this person see the calendar (personal calendars of others stay private even for admins)? */
+export async function canViewCalendar(ctx, id) {
+  const calendar = await loadCalendar(id).catch(() => null);
+  return Boolean(calendar) && (await calendarLevel(ctx, calendar)) >= LEVEL.view;
 }

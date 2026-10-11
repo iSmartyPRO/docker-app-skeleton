@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { App, Checkbox, DatePicker, Form, Input, InputNumber, Modal, Radio, Select, Switch, TimePicker } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
+import { HintLabel } from '../../../help/Hint';
 import { errorMessage } from '../../../lib/errors';
 import { ColorSwatches, userOptions } from '../../shared/People';
 import { calendarApi, calendarLabel, localTimeZone } from '../api';
@@ -283,7 +284,7 @@ export default function EventDialog({ open, draft, event, calendars, googleCalen
           )}
         </div>
         {!isGoogle && (
-          <Form.Item name="reminders" label={t('calendar.reminders')}>
+          <Form.Item name="reminders" label={<HintLabel id="calendar.reminders">{t('calendar.reminders')}</HintLabel>}>
             <Select mode="multiple" placeholder={t('calendar.noReminders')} options={REMINDER_PRESETS.map((value) => ({ value, label: reminderLabel(value, t) }))} maxCount={5} />
           </Form.Item>
         )}

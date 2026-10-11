@@ -170,7 +170,7 @@ Moving the deadline re-arms both deadline reminders; deferred tasks get none. Th
 | PUT | `/projects/:key/statuses` | Replace the workflow |
 | GET / PUT | `/projects/:key/access` | Access list |
 | GET | `/subjects` | People who can be given a task |
-| GET | `/tasks` | Filters: `project`, `role` (`doing`, `helping`, `assigned`, `auditing`, `all`), `assignee` (`me`, `none`, id), `status`, `priority`, `label`, `important`, `flow`, `parent`, `deferred`, `q` (text or `KEY-12`), `open=1`, `dueFrom`, `dueTo`, `doneSince`, `sort`, `limit` |
+| GET | `/tasks` | Filters: `project`, `role` (`doing`, `helping`, `assigned`, `auditing`, `all`), `assignee` (`me`, `none`, id), `status`, `priority`, `label`, `important`, `flow`, `parent`, `deferred`, `nodue=1` (no deadline), `q` (text or `KEY-12`), `open=1`, `dueFrom`, `dueTo`, `doneSince`, `sort`, `limit` |
 | POST | `/tasks` | Create from the form payload: `title`, `description`, `descriptionFormat`, `important`, `projectId`, `assigneeIds[]`, `originatorId`, `coassigneeIds[]`, `auditorIds[]`, `dueAt`, `checklists[]`, `fileIds[]`, `reminders[]`, `links[]`, `deps[]`, `parentId`, `flowId`, `resultRequired`, planning and time fields, `custom`; with `recurrence` creates a recurring template instead |
 | GET / PUT / DELETE | `/tasks/:ref` | `ref` = `KEY-12` or id. `PUT` is partial; `complete: true` moves the task to the first *done* status; `projectId` moves it; `deferred`; `move: { beforeId, afterId }` positions it on the board |
 | GET | `/tasks/:ref/form` | The task as a form payload (copy, template) |
@@ -188,6 +188,6 @@ Moving the deadline re-arms both deadline reminders; deferred tasks get none. Th
 | GET / POST / PUT / DELETE | `/templates[/:id]` | Templates and recurring tasks |
 | GET / POST / PUT / DELETE | `/flows[/:id]` | Flows |
 | GET / POST / DELETE | `/fields[/:id]` | Custom fields |
-| GET | `/calendar?from&to&mine=1` | Tasks due in a range (used by the Calendar) |
+| GET | `/calendar?from&to&scope=doing\|participant\|all&done=0` | Tasks due in a range (used by the Calendar); `participant` (default) = any role of mine; other people's tasks without a project are never included |
 
 Errors: `NOT_FOUND`, `FORBIDDEN`, `KEY_TAKEN`, `KEY_FORMAT`, `TITLE_REQUIRED`, `ASSIGNEE_ACCESS`, `STATUS_UNKNOWN`, `ARCHIVED`, `RESULT_REQUIRED`, `DEADLINE_LOCKED`, `PARENT_LOOP`, `NOT_DONE` (rating an open task), `SELF`.

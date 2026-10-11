@@ -7,6 +7,7 @@ import { useAdminSettings } from '../../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../../hooks/useSettingsForm';
 import { useLocale } from '../../../context/LocaleContext';
 import SettingsPageHeader from './SettingsPageHeader';
+import { HintLabel } from '../../../help/Hint';
 
 function LoginForm({ settings, save }) {
   const { t } = useLocale();
@@ -25,7 +26,7 @@ function LoginForm({ settings, save }) {
 
   return (
     <Form {...formProps}>
-      <SettingsSection title={t('settings.login.lockout')} description={t('settings.login.lockoutDesc')}>
+      <SettingsSection title={<HintLabel id="admin.lockout">{t('settings.login.lockout')}</HintLabel>} description={t('settings.login.lockoutDesc')}>
         <SettingRow label={t('settings.login.maxAttempts')}>
           <Form.Item name="maxLoginAttempts" noStyle>
             <InputNumber min={3} max={30} />
@@ -38,7 +39,7 @@ function LoginForm({ settings, save }) {
         </SettingRow>
       </SettingsSection>
       <SettingsSection title={t('settings.login.sessions')} description={t('settings.login.sessionsDesc')}>
-        <SettingRow label={t('settings.login.sessionDays')}>
+        <SettingRow label={<HintLabel id="admin.sessionDays">{t('settings.login.sessionDays')}</HintLabel>}>
           <Form.Item name="sessionDays" noStyle>
             <InputNumber min={1} max={90} suffix={t('settings.login.days')} />
           </Form.Item>

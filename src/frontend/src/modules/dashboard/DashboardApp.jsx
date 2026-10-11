@@ -303,7 +303,7 @@ function Dashboard() {
           <div className="dash-head__actions">
             {editing ? (
               <>
-                <span className={`dash-status is-${status}`}>{status === 'idle' ? t('dashboard.editHint') : t(`dashboard.status.${status}`)}</span>
+                <span className={`dash-status is-${status}`}>{status === 'idle' ? t('dashboard.editHint') : t(`dashboard.saveStatus.${status}`)}</span>
                 <Button onClick={resetMine}>↺ {t('dashboard.reset')}</Button>
                 {adminMenu && (
                   <Dropdown menu={adminMenu} trigger={['click']}>

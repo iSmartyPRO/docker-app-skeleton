@@ -6,6 +6,7 @@ import { errorMessage } from '../../../lib/errors';
 import { kbApi } from '../api';
 import { FOLDER_COLORS } from '../fileTypes';
 import { FolderIcon } from './Icons';
+import { HintLabel } from '../../../help/Hint';
 
 /** Create or edit a folder: name, description, icon and colour with live preview. */
 export default function FolderDialog({ open, folder, parentId, config, onClose, onSaved }) {
@@ -104,7 +105,7 @@ export default function FolderDialog({ open, folder, parentId, config, onClose, 
             />
           </div>
         </Form.Item>
-        <Form.Item label={t('kb.icon')} extra={t('kb.iconHint')}>
+        <Form.Item label={<HintLabel id="kb.folderIcon">{t('kb.icon')}</HintLabel>} extra={t('kb.iconHint')}>
           <div>
             <Input.Search size="small" placeholder={t('common.search')} value={query} onChange={(event) => setQuery(event.target.value)} allowClear style={{ marginBottom: 8 }} />
             <div className="icon-catalog icon-catalog--wide">

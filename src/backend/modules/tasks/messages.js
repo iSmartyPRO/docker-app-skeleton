@@ -30,6 +30,14 @@ export const TASK_MESSAGES = {
     en: { title: `${ref} is due within 24 hours`, body: title },
     ru: { title: `Срок задачи ${ref} истекает в течение суток`, body: title },
   }),
+  projectNew: ({ ref, title, actor, project }) => ({
+    en: { title: `New task in ${project}: ${ref}`, body: `${title}${actor ? `\n${actor}` : ''}` },
+    ru: { title: `Новая задача в «${project}»: ${ref}`, body: `${title}${actor ? `\n${actor}` : ''}` },
+  }),
+  projectDone: ({ ref, title, actor, project }) => ({
+    en: { title: `${ref} is done (${project})`, body: `${title}${actor ? `\n${actor}` : ''}` },
+    ru: { title: `Задача ${ref} завершена («${project}»)`, body: `${title}${actor ? `\n${actor}` : ''}` },
+  }),
   overdue: ({ ref, title }) => ({
     en: { title: `${ref} is overdue`, body: title },
     ru: { title: `Задача ${ref} просрочена`, body: title },

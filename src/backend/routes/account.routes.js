@@ -18,7 +18,10 @@ import {
 } from '../services/users.js';
 
 import { disconnectGoogle, googleStatus, listGoogleCalendars, setGoogleCalendarSelection } from '../services/google.js';
-import { getPrefs, savePrefs } from '../services/notifications.js';
+import { deliveryHistory, getPrefs, listSubscriptions, savePrefs, sendTest, setSubscription } from '../services/notifications.js';
+import { contextFromRequest, levelOn } from '../modules/shared/acl.js';
+import { query } from '../config/database.js';
+import { canViewCalendar } from '../modules/calendar/service.js';
 const router = Router();
 router.use(requireAuth);
 
@@ -121,6 +124,42 @@ router.get('/notifications', wrap(async (req, res) => {
 
 router.put('/notifications', wrap(async (req, res) => {
   res.json({ success: true, ...(await savePrefs(req.user.id, req.body || {})) });
+}));
+
+router.post('/notifications/test', wrap(async (req, res) => {
+  res.json({ success: true, ...(await sendTest(req.user.id)) });
+}));
+
+router.get('/notifications/history', wrap(async (req, res) => {
+  res.json({ success: true, items: await deliveryHistory(req.user.id, req.query.limit) });
+}));
+
+/** Can the person (still) see what a subscription points at? */
+async function canFollow(req, type, id) {
+  if (!Number.isInteger(Number(id))) return false;
+  if (type === 'tasks.project') {
+    const { rows } = await query(`SELECT is_personal FROM task_projects WHERE id = $1`, [Number(id)]);
+    return Boolean(rows[0]) && !rows[0].is_personal && (await levelOn('task_acl', Number(id), contextFromRequest(req, 'tasks.admin'))) > 0;
+  }
+  if (type === 'calendar.calendar') return canViewCalendar(contextFromRequest(req, 'calendar.admin'), Number(id));
+  return false;
+}
+
+router.get('/notifications/subscriptions', wrap(async (req, res) => {
+  const list = await listSubscriptions(req.user.id);
+  const visible = [];
+  for (const item of list) if (await canFollow(req, item.type, item.id)) visible.push(item);
+  res.json({ success: true, subscriptions: visible });
+}));
+
+router.put('/notifications/subscriptions', wrap(async (req, res) => {
+  const { type, id, on } = req.body || {};
+  // Only things the person can see may be followed.
+  if (on && !(await canFollow(req, type, id))) {
+    res.status(404).json({ success: false, code: 'NOT_FOUND', error: 'Not found' });
+    return;
+  }
+  res.json({ success: true, subscribed: await setSubscription(req.user.id, type, id, Boolean(on)) });
 }));
 
 router.post('/avatar', (req, res, next) => {

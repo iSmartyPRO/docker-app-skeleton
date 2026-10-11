@@ -9,6 +9,8 @@ import { tasksApi } from '../../api';
 import { labelColor } from '../bits';
 import { Block } from './blocks1';
 import { PeopleSelect, ProjectSelect, TaskSelect } from './pickers';
+import WhenPicker, { ChannelWarnings, defaultWhen } from '../../../../components/ui/WhenPicker';
+import { HintLabel } from '../../../../help/Hint';
 
 const durationText = (from, to, t) => {
   if (!from || !to) return null;
@@ -49,7 +51,7 @@ export function FlowBlock({ value, onChange, onRemove, disabled }) {
   }, []);
   const current = flows.find((flow) => flow.id === value);
   return (
-    <Block icon="🌊" title={t('tasks.v2.chips.flow')} onRemove={onRemove}>
+    <Block icon="🌊" title={<HintLabel id="tasks.flow">{t('tasks.v2.chips.flow')}</HintLabel>} onRemove={onRemove}>
       <Select
         value={value || undefined}
         onChange={(next) => onChange(next || null)}
@@ -149,10 +151,10 @@ export function ReminderDialog({ open, onClose, onSave, hasDeadline }) {
   const { t } = useLocale();
   const [form, setForm] = useState({ targets: ['me'], mode: 'at', remindAt: null, amount: 1, unit: 'hour', channels: ['app'] });
   useEffect(() => {
-    if (open) setForm({ targets: ['me'], mode: hasDeadline ? 'before' : 'at', remindAt: dayjs().add(1, 'day').hour(10).minute(0), amount: 1, unit: 'hour', channels: ['app'] });
+    if (open) setForm({ targets: ['me'], mode: hasDeadline ? 'before' : 'at', remindAt: defaultWhen(), amount: 1, unit: 'hour', channels: ['app'] });
   }, [open, hasDeadline]);
   const minutes = form.amount * { minute: 1, hour: 60, day: 1440 }[form.unit];
-  const valid = form.targets.length && form.channels.length && (form.mode === 'at' ? Boolean(form.remindAt) : minutes > 0);
+  const valid = form.targets.length && form.channels.length && (form.mode === 'at' ? Boolean(form.remindAt) && form.remindAt.isAfter(dayjs()) : minutes > 0);
   return (
     <Modal
       open={open}
@@ -162,7 +164,7 @@ export function ReminderDialog({ open, onClose, onSave, hasDeadline }) {
       okButtonProps={{ disabled: !valid }}
       onOk={() => onSave({ targets: form.targets, mode: form.mode, remindAt: form.mode === 'at' ? form.remindAt.toISOString() : null, beforeMinutes: form.mode === 'before' ? minutes : null, channels: form.channels })}
       destroyOnHidden
-      width={480}
+      width={540}
     >
       <div className="te-formgrid">
         <div>
@@ -181,7 +183,7 @@ export function ReminderDialog({ open, onClose, onSave, hasDeadline }) {
           />
         </div>
         {form.mode === 'at' ? (
-          <DatePicker showTime={{ format: 'HH:mm', minuteStep: 5 }} format="DD.MM.YYYY HH:mm" value={form.remindAt} onChange={(remindAt) => setForm({ ...form, remindAt })} style={{ width: 240 }} />
+          <WhenPicker value={form.remindAt} onChange={(remindAt) => setForm({ ...form, remindAt })} />
         ) : (
           <div className="te-inline">
             <InputNumber min={1} max={999} value={form.amount} onChange={(amount) => setForm({ ...form, amount: amount || 1 })} />
@@ -190,8 +192,9 @@ export function ReminderDialog({ open, onClose, onSave, hasDeadline }) {
           </div>
         )}
         <div>
-          <label className="te-label">{t('tasks.v2.rem.how')}</label>
+          <label className="te-label"><HintLabel id="tasks.reminderChannels">{t('tasks.v2.rem.how')}</HintLabel></label>
           <Checkbox.Group value={form.channels} onChange={(channels) => setForm({ ...form, channels })} options={CHANNELS.map((key) => ({ value: key, label: t(`tasks.v2.rem.channels.${key}`) }))} />
+          {form.targets.includes('me') && <ChannelWarnings channels={form.channels} />}
         </div>
       </div>
     </Modal>
@@ -214,7 +217,7 @@ export function RemindersBlock({ reminders, onAdd, onDelete, onRemove, hasDeadli
   return (
     <Block
       icon="⏰"
-      title={t('tasks.v2.chips.reminders')}
+      title={<HintLabel id="tasks.reminders">{t('tasks.v2.chips.reminders')}</HintLabel>}
       onRemove={onRemove}
       extra={!disabled && <Button size="small" type="text" onClick={() => setOpen(true)}>＋ {t('tasks.v2.rem.add')}</Button>}
     >
@@ -307,7 +310,7 @@ export function GanttBlock({ deps, onAdd, onDelete, onRemove, disabled, exclude 
   const { t } = useLocale();
   const [kind, setKind] = useState('FS');
   return (
-    <Block icon="📊" title={t('tasks.v2.chips.gantt')} onRemove={onRemove}>
+    <Block icon="📊" title={<HintLabel id="tasks.gantt">{t('tasks.v2.chips.gantt')}</HintLabel>} onRemove={onRemove}>
       {deps.length > 0 && (
         <ul className="te-list">
           {deps.map((dep) => (
@@ -331,7 +334,7 @@ export function PlanningBlock({ value, onChange, onRemove, disabled }) {
   const { t } = useLocale();
   const duration = durationText(value.planStart, value.planEnd, t);
   return (
-    <Block icon="🗓" title={t('tasks.v2.chips.planning')} onRemove={onRemove}>
+    <Block icon="🗓" title={<HintLabel id="tasks.planning">{t('tasks.v2.chips.planning')}</HintLabel>} onRemove={onRemove}>
       <div className="te-plan">
         <label>
           <span>{t('tasks.v2.plan.start')}</span>
@@ -385,7 +388,7 @@ export function TimeBlock({ value, onChange, onRemove, disabled, task, onTimer }
   const hours = Math.floor((value.timeEstimate || 0) / 60);
   const minutes = (value.timeEstimate || 0) % 60;
   return (
-    <Block icon="⏱" title={t('tasks.v2.chips.time')} onRemove={onRemove}>
+    <Block icon="⏱" title={<HintLabel id="tasks.timeTracking">{t('tasks.v2.chips.time')}</HintLabel>} onRemove={onRemove}>
       <div className="te-switches">
         <label>
           <Switch size="small" checked={Boolean(value.timeTracking)} disabled={disabled} onChange={(on) => onChange({ timeTracking: on })} />
@@ -539,7 +542,7 @@ export function RecurringBlock({ mode, value, onChange, task, onRemove, onSaveTe
   const { t, locale } = useLocale();
   if (mode === 'task' && task?.template?.recurring) {
     return (
-      <Block icon="🔁" title={t('tasks.v2.chips.recurring')} onRemove={onRemove}>
+      <Block icon="🔁" title={<HintLabel id="tasks.recurring">{t('tasks.v2.chips.recurring')}</HintLabel>} onRemove={onRemove}>
         <RecurrenceForm value={task.template.recurrence} onChange={(rec) => onSaveTemplate({ ...task.template, recurrence: rec })} disabled={disabled} />
         <div className="te-hint">
           {task.template.active && task.template.nextRunAt
@@ -552,7 +555,7 @@ export function RecurringBlock({ mode, value, onChange, task, onRemove, onSaveTe
     );
   }
   return (
-    <Block icon="🔁" title={t('tasks.v2.chips.recurring')} onRemove={onRemove}>
+    <Block icon="🔁" title={<HintLabel id="tasks.recurring">{t('tasks.v2.chips.recurring')}</HintLabel>} onRemove={onRemove}>
       {mode === 'task' ? (
         <>
           <RecurrenceForm value={value} onChange={onChange} disabled={disabled} />

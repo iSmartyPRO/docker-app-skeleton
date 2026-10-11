@@ -4,6 +4,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { roleLabel } from '../../../lib/access';
 import { kbApi } from '../api';
+import { Hint, HintLabel } from '../../../help/Hint';
 
 const LEVELS = ['view', 'edit', 'manage'];
 
@@ -90,7 +91,7 @@ export default function AccessDialog({ open, type, id, title, onClose }) {
       okText={t('common.save')}
       cancelText={t('common.cancel')}
       confirmLoading={saving}
-      title={t('kb.access.title', { name: title })}
+      title={<HintLabel id="kb.accessLevels">{t('kb.access.title', { name: title })}</HintLabel>}
       width={620}
       destroyOnHidden
     >
@@ -101,7 +102,7 @@ export default function AccessDialog({ open, type, id, title, onClose }) {
           {type !== 'root' && (
             <div className="acl__inherit">
               <div>
-                <strong>{t('kb.access.inherit')}</strong>
+                <strong>{t('kb.access.inherit')} <Hint id="kb.inherit" /></strong>
                 <span>{inherit ? t('kb.access.inheritOn') : t('kb.access.inheritOff')}</span>
               </div>
               <Switch checked={inherit} onChange={setInherit} />

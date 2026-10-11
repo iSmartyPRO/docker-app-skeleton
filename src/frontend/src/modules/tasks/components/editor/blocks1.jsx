@@ -10,6 +10,7 @@ import FolderBrowser from '../../../files/components/FolderBrowser';
 import { driveApi } from '../../../drive/api';
 import { fileUrl, tasksApi } from '../../api';
 import { PeopleSelect } from './pickers';
+import { HintLabel } from '../../../../help/Hint';
 
 export const uid = () => `k${Math.random().toString(36).slice(2, 9)}`;
 const formatSize = (bytes) => {
@@ -597,7 +598,7 @@ export function ResultsBlock({ task, required, onRequired, disabled, mode, onAdd
   return (
     <Block
       icon="🏁"
-      title={t('tasks.v2.chips.results')}
+      title={<HintLabel id="tasks.results">{t('tasks.v2.chips.results')}</HintLabel>}
       onRemove={onRemove}
       tone={required && !results.length ? 'warn' : null}
       extra={

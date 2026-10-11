@@ -6,6 +6,7 @@ import { errorMessage } from '../../../lib/errors';
 import { cmpApi } from '../api';
 import { useCompanies } from '../CompaniesContext';
 import { CompanyPicker } from './pickers';
+import { HintLabel } from '../../../help/Hint';
 
 const dateProps = {
   getValueProps: (value) => ({ value: value ? dayjs(value) : null }),
@@ -121,7 +122,7 @@ export default function PersonForm({ open, person, companyId, onClose }) {
               <Form.Item name={['position', 'startedOn']} label={t('companies.p.startedOn')} {...dateProps}>
                 <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name={['position', 'isDecisionMaker']} valuePropName="checked" label={t('companies.p.decisionMaker')}>
+              <Form.Item name={['position', 'isDecisionMaker']} valuePropName="checked" label={<HintLabel id="companies.decisionMaker">{t('companies.p.decisionMaker')}</HintLabel>}>
                 <Switch />
               </Form.Item>
             </div>

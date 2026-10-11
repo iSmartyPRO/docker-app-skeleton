@@ -5,6 +5,7 @@ import { errorMessage } from '../../../lib/errors';
 import { cmpApi, fieldLabel } from '../api';
 import { useCompanies } from '../CompaniesContext';
 import { formatDate } from './ui';
+import { HintLabel } from '../../../help/Hint';
 
 const show = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -68,7 +69,7 @@ export default function VerifyDialog({ open, company, onClose }) {
       onCancel={() => onClose(null)}
       width={820}
       destroyOnHidden
-      title={t('companies.verifyTitle')}
+      title={<HintLabel id="companies.verify">{t('companies.verifyTitle')}</HintLabel>}
       footer={
         result && (
           <div className="cmp-verify__foot">

@@ -7,6 +7,7 @@ import { useAdminSettings } from '../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { useLocale } from '../../context/LocaleContext';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
+import { HintLabel } from '../../help/Hint';
 
 function ChatForm({ settings, save }) {
   const { t } = useLocale();
@@ -21,17 +22,17 @@ function ChatForm({ settings, save }) {
             <Switch />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('chatSettings.allowGroups')} description={t('chatSettings.allowGroupsDesc')}>
+        <SettingRow label={<HintLabel id="chat.allowGroups">{t('chatSettings.allowGroups')}</HintLabel>} description={t('chatSettings.allowGroupsDesc')}>
           <Form.Item name="allowGroups" valuePropName="checked" noStyle>
             <Switch />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('chatSettings.maxUpload')}>
+        <SettingRow label={<HintLabel id="chat.maxUploadMb">{t('chatSettings.maxUpload')}</HintLabel>}>
           <Form.Item name="maxUploadMb" noStyle>
             <InputNumber min={1} max={2048} addonAfter="MB" style={{ width: 170 }} />
           </Form.Item>
         </SettingRow>
-        <SettingRow label={t('chatSettings.callUrl')} description={t('chatSettings.callUrlDesc')}>
+        <SettingRow label={<HintLabel id="chat.callUrl">{t('chatSettings.callUrl')}</HintLabel>} description={t('chatSettings.callUrlDesc')}>
           <Form.Item name="callUrl" noStyle>
             <Input placeholder="https://meet.jit.si/{room}" style={{ width: 340 }} />
           </Form.Item>

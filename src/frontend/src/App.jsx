@@ -16,6 +16,7 @@ import { SettingsProvider, useSettings } from './context/SettingsContext';
 import FontLoader from './components/FontLoader';
 import { ThemeProvider, useThemeMode } from './context/ThemeContext';
 import { ChatProvider } from './modules/chat/ChatContext';
+import { HelpProvider } from './help/HelpContext';
 // Texts of task events in conversations (task chats show up on the chat page too).
 import './modules/tasks/chatEvents';
 import { LEGACY_ADMIN_ROUTES, SETTINGS_ITEMS } from './admin/navigation';
@@ -56,6 +57,7 @@ const AccountConnections = lazy(() => import('./pages/account/Connections'));
 const ApiConsole = lazy(() => import('./developer/ApiConsole'));
 const ApiTokensPage = lazy(() => import('./developer/ApiTokensPage'));
 const Developers = lazy(() => import('./developer/Developers'));
+const HelpCenter = lazy(() => import('./help/HelpCenter'));
 
 function Screen() {
   return (
@@ -187,6 +189,7 @@ function ThemedRoutes() {
     <ConfigProvider theme={antdConfig} locale={locale === 'ru' ? ruRU : enUS}>
       <AntApp className="ant-app-root">
         <AppErrorBoundary resetKey={location.pathname}>
+        <HelpProvider>
         <Suspense fallback={<Screen />}>
           <Routes>
             <Route path="/setup" element={<SetupWizard />} />
@@ -228,6 +231,16 @@ function ThemedRoutes() {
                 }
               />
             ))}
+            <Route
+              path="/help/:id?"
+              element={
+                <SetupGate>
+                  <AuthGate>
+                    <HelpCenter />
+                  </AuthGate>
+                </SetupGate>
+              }
+            />
             <Route
               path="/developers"
               element={
@@ -303,6 +316,7 @@ function ThemedRoutes() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
+        </HelpProvider>
         </AppErrorBoundary>
       </AntApp>
     </ConfigProvider>

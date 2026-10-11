@@ -4,6 +4,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { ColorSwatches } from '../../shared/People';
 import { filesApi } from '../api';
+import { HintLabel } from '../../../help/Hint';
 
 /** Create or edit a shared space (team storage with its own access list). */
 export default function SpaceDialog({ open, space, onClose }) {
@@ -53,7 +54,7 @@ export default function SpaceDialog({ open, space, onClose }) {
           <ColorSwatches small />
         </Form.Item>
         {!editing && (
-          <Form.Item name="visibility" label={t('tasks.visibility')}>
+          <Form.Item name="visibility" label={<HintLabel id="files.spaceVisibility">{t('tasks.visibility')}</HintLabel>}>
             <Radio.Group className="visibility-options">
               {['teamEdit', 'team', 'private'].map((value) => (
                 <Radio key={value} value={value}>

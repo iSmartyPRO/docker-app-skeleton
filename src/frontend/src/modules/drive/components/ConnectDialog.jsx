@@ -3,6 +3,7 @@ import { App, Alert, Button, Input, Modal } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatRelative } from '../../../lib/format';
 import { driveApi, driveError, tOr } from '../api';
+import { Hint } from '../../../help/Hint';
 
 /** Sign in to a file server with a domain account; checked by the server before it is saved. */
 export default function ConnectDialog({ open, connection, onClose }) {
@@ -71,7 +72,7 @@ export default function ConnectDialog({ open, connection, onClose }) {
       <p className="dv-connect__lead">{t('drive.connectLead')}</p>
       <div className="dv-connect__form">
         <label>
-          <span>{t('drive.username')}</span>
+          <span>{t('drive.username')} <Hint id="drive.username" /></span>
           <Input size="large" autoFocus value={username} onChange={(event) => setUsername(event.target.value)} placeholder="ivan.petrov  ·  DOMAIN\ivan.petrov  ·  ivan@corp.local" autoComplete="username" />
         </label>
         <label>
@@ -79,7 +80,7 @@ export default function ConnectDialog({ open, connection, onClose }) {
           <Input.Password size="large" value={password} onChange={(event) => setPassword(event.target.value)} onPressEnter={submit} autoComplete="current-password" status={error ? 'error' : undefined} />
         </label>
         <label>
-          <span>{t('drive.domain')} <em>{t('drive.optional')}</em></span>
+          <span>{t('drive.domain')} <em>{t('drive.optional')}</em> <Hint id="drive.domain" /></span>
           <Input value={domain} onChange={(event) => setDomain(event.target.value)} placeholder={t('drive.domainPlaceholder')} />
         </label>
         {error && <div className="signin__error">{error}</div>}

@@ -4,6 +4,9 @@ import SaveBar from '../../components/ui/SaveBar';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { consoleApi } from '../client';
+import { Hint } from '../../help/Hint';
+
+const HINTS = { webhooksPrivate: 'api.privateNetwork' };
 
 const SWITCHES = ['enabled', 'personalTokens', 'docsPublic', 'webhooks', 'webhooksPrivate'];
 const LABEL = { enabled: 'enabled', personalTokens: 'personalTokens', docsPublic: 'docsPublic', webhooks: 'webhooks', webhooksPrivate: 'private' };
@@ -32,7 +35,10 @@ export default function ApiSettings({ config, setOverview }) {
   const row = (key, control) => (
     <div className="ax-setting" key={key}>
       <div>
-        <strong>{t(`api.settings.${LABEL[key] || key}`)}</strong>
+        <strong>
+          {t(`api.settings.${LABEL[key] || key}`)}
+          {HINTS[key] && <Hint id={HINTS[key]} />}
+        </strong>
         <p>{t(`api.settings.${LABEL[key] || key}Desc`)}</p>
       </div>
       {control}

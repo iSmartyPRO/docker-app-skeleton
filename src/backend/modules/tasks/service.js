@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../../config/database.js';
-import { notify } from '../../services/notifications.js';
+import { notify, subscribersOf } from '../../services/notifications.js';
+import { requestAs } from '../../api/events.js';
 import {
   HEX,
   LEVEL,
@@ -488,6 +489,9 @@ export async function listTasks(ctx, filters = {}) {
     }
   }
   if (filters.open === '1') where.push('t.completed_at IS NULL');
+  if (filters.nodue === '1') where.push('t.due_at IS NULL');
+  // Other people's tasks without a project stay private even for administrators.
+  if (filters.foreignPersonal === '0') where.push(`(NOT p.is_personal OR ${PARTICIPANT_SQL(meParam())})`);
   if (filters.dueFrom) add('t.due_at >= $?', parseDue(filters.dueFrom));
   if (filters.dueTo) add('t.due_at < $?', parseDue(filters.dueTo));
   if (filters.doneSince) add('(t.completed_at IS NULL OR t.completed_at >= $?)', parseDue(filters.doneSince));
@@ -498,7 +502,7 @@ export async function listTasks(ctx, filters = {}) {
     updated: 't.updated_at DESC',
     created: 't.created_at DESC',
   }[filters.sort] || 's.sort, t.rank, t.id';
-  const limit = Math.min(Number(filters.limit) || 2000, 2000);
+  const limit = Math.max(1, Math.min(Number(filters.limit) || 2000, 2000));
 
   const { rows } = await query(`${TASK_SELECT} WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ${limit}`, params);
   return rows.map(taskShape);
@@ -524,6 +528,25 @@ export async function taskWebhook(type, taskOrId, extra = {}, actorId = null) {
     });
   } catch (err) {
     console.warn(`[tasks] webhook ${type} failed:`, err.message);
+  }
+}
+
+/** People following the project (who still see it), minus those already told. */
+async function notifyProjectFollowers(row, message, actorId, exclude = []) {
+  try {
+    if (row.project_personal) return;
+    const ids = (await subscribersOf('tasks.project', row.project_id)).filter((id) => id !== actorId && !exclude.includes(id));
+    const allowed = [];
+    for (const id of ids) {
+      const req = await requestAs(id);
+      if (req && (await taskLevel(contextFromRequest(req, 'tasks.admin'), row)) > LEVEL.none) allowed.push(id);
+    }
+    if (!allowed.length) return;
+    const actor = actorId ? (await query(`SELECT COALESCE(display_name, username) AS name FROM users WHERE id = $1`, [actorId])).rows[0]?.name : '';
+    const ref = taskRef(row.project_key, row.number);
+    await notify({ userIds: allowed, kind: 'tasks.project', module: 'tasks', link: link(ref), actorId, render: taskMessage(message, { ref, title: row.title, actor, project: row.project_name }) });
+  } catch (err) {
+    console.warn('[tasks] project followers:', err.message);
   }
 }
 
@@ -930,6 +953,7 @@ export async function createTask(ctx, input = {}) {
     const ref = taskRef(project.key, row.number);
     await taskEvent(row.id, ctx.userId, { event: 'task.created' });
     await taskWebhook('task.created', row, {}, ctx.userId);
+    notifyProjectFollowers(row, 'projectNew', ctx.userId, [row.assignee_id, ...coassignees, ...auditors]);
     const notifyIds = [row.assignee_id, ...coassignees, ...auditors].filter((uid) => uid && uid !== ctx.userId);
     if (notifyIds.length) {
       await notify({
@@ -1258,7 +1282,10 @@ export async function updateTask(ctx, refOrId, patch = {}) {
   if (changes.length || roleChanges.length) {
     const fresh = await loadTaskRow(row.id);
     await taskWebhook('task.updated', fresh, { changes: [...changes, ...roleChanges.map((change) => ({ field: change.role, added: change.added, removed: change.removed }))] }, ctx.userId);
-    if (!row.completed_at && fresh.completed_at) await taskWebhook('task.completed', fresh, {}, ctx.userId);
+    if (!row.completed_at && fresh.completed_at) {
+      await taskWebhook('task.completed', fresh, {}, ctx.userId);
+      notifyProjectFollowers(fresh, 'projectDone', ctx.userId);
+    }
     return taskShape(fresh);
   }
   return taskShape(await loadTaskRow(row.id));
@@ -1357,6 +1384,16 @@ export async function overview(ctx) {
 }
 
 /** Tasks with a due date inside [from, to) for the calendar module. */
-export async function calendarFeed(ctx, { from, to, mine }) {
-  return listTasks(ctx, { dueFrom: from, dueTo: to, assignee: mine ? 'me' : undefined, sort: 'due' });
+/**
+ * Tasks with a deadline in a range, for the calendar.
+ *   scope  doing — I work on it · participant — any role of mine (default) · all — every task I can see
+ *   done   false hides completed tasks
+ */
+export async function calendarFeed(ctx, { from, to, mine, scope, done = true }) {
+  const which = scope || (mine ? 'participant' : 'all');
+  const filters = { dueFrom: from, dueTo: to, sort: 'due', deferred: '0', foreignPersonal: '0' };
+  if (which === 'doing') filters.role = 'doing';
+  else if (which === 'participant') filters.role = 'all';
+  if (!done) filters.open = '1';
+  return listTasks(ctx, filters);
 }

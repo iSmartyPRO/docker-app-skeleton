@@ -1,4 +1,4 @@
-import { createElement, useMemo } from 'react';
+import { createElement, useMemo, useState } from 'react';
 import { useThemeMode } from '../../../context/ThemeContext';
 import { iconUrl } from '../api';
 import { MenuIcon } from '../../../components/icons/menuIcons';
@@ -55,10 +55,12 @@ export default function ResourceIcon({ icon = {}, size = 56, title = '', forceMo
     return { background: 'transparent', color };
   }, [style, color, icon.color2, icon.colorDark, dark]);
 
+  const file = (dark && icon.dark) || icon.light;
+  // A missing image file falls back to the first letter instead of a broken picture.
+  const [broken, setBroken] = useState(null);
   let body;
-  if (icon.type === 'image') {
-    const file = (dark && icon.dark) || icon.light;
-    body = <img className="rs-icon__img" src={iconUrl(file)} alt="" draggable="false" />;
+  if (icon.type === 'image' && broken !== file) {
+    body = <img className="rs-icon__img" src={iconUrl(file)} alt="" draggable="false" onError={() => setBroken(file)} />;
   } else if (icon.type === 'glyph') {
     body = <Glyph icon={icon} />;
   } else if (icon.type === 'menu') {

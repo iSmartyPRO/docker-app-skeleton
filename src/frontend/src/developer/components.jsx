@@ -7,6 +7,7 @@ import { MenuIcon } from '../components/icons/menuIcons';
 import { errorMessage } from '../lib/errors';
 import { areaKey, decide, effective } from './policy';
 import { rawCall } from './client';
+import { Hint, HintLabel } from '../help/Hint';
 import './developer.css';
 
 /* Building blocks shared by the API console, personal tokens and the developer portal. */
@@ -648,7 +649,7 @@ export function TokenEditor({ open, token, templates, areas, resources, resource
               </label>
               {people ? (
                 <label className="ax-field">
-                  <span>{t('api.editor.ownerLabel')}</span>
+                  <span><HintLabel id="api.owner">{t('api.editor.ownerLabel')}</HintLabel></span>
                   <Select
                     size="large"
                     showSearch
@@ -714,25 +715,25 @@ export function TokenEditor({ open, token, templates, areas, resources, resource
           </section>
 
           <section className="ax-sec">
-            <h3>{t('api.editor.templateTitle')}</h3>
+            <h3>{t('api.editor.templateTitle')} <Hint id="api.template" /></h3>
             <p className="ax-hint">{t('api.editor.templateHint')}</p>
             <TemplatePicker templates={templates} value={draft.templateId} onChange={(templateId) => set({ templateId })} />
           </section>
 
           <section className="ax-sec">
-            <h3>{t('api.editor.scopesTitle')}</h3>
+            <h3>{t('api.editor.scopesTitle')} <Hint id="api.scopes" /></h3>
             <p className="ax-hint">{t('api.editor.scopesHint')}</p>
             <ScopeMatrix areas={areas} value={levels} base={base} onChange={setLevel} />
           </section>
 
           <section className="ax-sec">
-            <h3>{t('api.editor.resourcesTitle')}</h3>
+            <h3>{t('api.editor.resourcesTitle')} <Hint id="api.resources" /></h3>
             <p className="ax-hint">{t('api.editor.resourcesHint')}</p>
             <LimitsPicker kinds={resourceKinds} options={resources} value={draft.limits} onChange={(limits) => set({ limits })} areas={areas} />
           </section>
 
           <section className="ax-sec">
-            <h3>{t('api.editor.rulesTitle')}</h3>
+            <h3>{t('api.editor.rulesTitle')} <Hint id="api.rules" /></h3>
             <p className="ax-hint">{t('api.editor.rulesHint')}</p>
             <RulesEditor value={draft.rules} onChange={(rules) => set({ rules })} />
           </section>
@@ -740,7 +741,7 @@ export function TokenEditor({ open, token, templates, areas, resources, resource
           <section className="ax-sec">
             <h3>{t('api.editor.networkTitle')}</h3>
             <label className="ax-field">
-              <span>{t('api.editor.ipAllow')}</span>
+              <span><HintLabel id="api.ipAllow">{t('api.editor.ipAllow')}</HintLabel></span>
               <Select mode="tags" value={draft.ipAllow} onChange={(ipAllow) => set({ ipAllow })} tokenSeparators={[',', ' ', ';']} placeholder={t('api.editor.ipPlaceholder')} open={false} suffixIcon={null} />
               <em className="ax-hint">{t('api.editor.ipAllowHint')}</em>
             </label>

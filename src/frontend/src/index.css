@@ -28,8 +28,11 @@
   --da-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 30px -18px rgba(15, 23, 42, 0.22);
   --da-shadow-lg: 0 24px 60px -24px rgba(15, 23, 42, 0.35);
   --da-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Notch / Dynamic Island / status bar of an installed app (0 elsewhere). */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* Header height follows the logo height (min: the 38px user button). */
-  --da-header-h: calc(max(var(--da-logo-h, 32px), 38px) + 21px);
+  --da-header-h: calc(max(var(--da-logo-h, 32px), 38px) + 21px + var(--safe-top));
 }
 
 :root[data-theme='dark'] {
@@ -3566,11 +3569,65 @@ h4,
 }
 
 /* ── Installed app (PWA): respect notches and the home indicator ── */
-@media (display-mode: standalone) {
-  .chrome {
-    padding-top: max(env(safe-area-inset-top), 0px);
-  }
+/* Everything that touches the top edge leaves room for the status bar.
+   A transparent border keeps each element's own padding intact while its
+   background still fills the area under the clock. */
+.chrome,
+.dv-top {
+  border-top: var(--safe-top) solid transparent;
+}
 
+.tp,
+.lightbox,
+.pdfs.is-presenting,
+.ant-drawer .ant-drawer-content {
+  padding-top: var(--safe-top);
+}
+
+.ant-drawer .ant-drawer-content {
+  padding-bottom: var(--safe-bottom);
+}
+
+.ant-modal-wrap,
+.signin,
+.app-error {
+  padding-top: var(--safe-top);
+}
+
+/* Toasts and pop-up notices appear below the clock and the Dynamic Island. */
+.ant-message {
+  top: calc(8px + var(--safe-top)) !important;
+}
+
+.ant-notification-topRight,
+.ant-notification-topLeft,
+.ant-notification-top {
+  top: calc(24px + var(--safe-top)) !important;
+}
+
+.save-bar {
+  margin-bottom: var(--safe-bottom);
+}
+
+.chrome__back {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  margin-right: -6px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.chrome__back:active {
+  background: color-mix(in srgb, var(--da-text) 8%, transparent);
+}
+
+@media (display-mode: standalone) {
   body {
     padding-bottom: env(safe-area-inset-bottom);
     overscroll-behavior-y: none;
@@ -3869,4 +3926,96 @@ h4,
   display: flex;
   justify-content: center;
   gap: 10px;
+}
+
+/* ── Reminder moment picker ─────────────────────────────────────────────── */
+
+.when {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.when__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.when__presets button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 999px;
+  background: var(--da-surface);
+  color: var(--da-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s var(--da-ease), background 0.15s var(--da-ease);
+}
+
+.when__presets button em {
+  color: var(--da-muted);
+  font-style: normal;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.when__presets button:hover {
+  border-color: color-mix(in srgb, var(--da-primary) 45%, var(--da-hairline));
+}
+
+.when__presets button.is-on {
+  border-color: var(--da-primary);
+  background: color-mix(in srgb, var(--da-primary) 10%, var(--da-surface));
+  color: var(--da-primary);
+}
+
+.when__exact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.when__exact .ant-picker:first-child {
+  flex: 1;
+  min-width: 200px;
+}
+
+.when__summary {
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #10b981 10%, transparent);
+  color: #047857;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.when__summary.is-past {
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+  color: #b91c1c;
+}
+
+[data-theme='dark'] .when__summary {
+  color: #6ee7b7;
+}
+
+[data-theme='dark'] .when__summary.is-past {
+  color: #fca5a5;
+}
+
+.when__warn {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: #b45309;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+[data-theme='dark'] .when__warn {
+  color: #fbbf24;
 }

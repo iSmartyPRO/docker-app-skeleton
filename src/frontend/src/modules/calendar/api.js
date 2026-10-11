@@ -4,6 +4,8 @@ const base = '/app/calendar';
 
 export const calendarApi = {
   home: () => api.get(base),
+  savePrefs: (prefs) => api.put(`${base}/prefs`, prefs),
+  resetPrefs: () => api.delete(`${base}/prefs`),
   createCalendar: (payload) => api.post(`${base}/calendars`, payload),
   updateCalendar: (id, payload) => api.put(`${base}/calendars/${id}`, payload),
   deleteCalendar: (id) => api.delete(`${base}/calendars/${id}`),

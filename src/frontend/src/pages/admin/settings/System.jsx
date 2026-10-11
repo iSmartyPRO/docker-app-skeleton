@@ -9,6 +9,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { formatBytes, formatDuration } from '../../../lib/format';
 import { getAdminSystem } from '../../../services/api';
 import SettingsPageHeader from './SettingsPageHeader';
+import { HintLabel } from '../../../help/Hint';
 
 function RateLimitForm({ settings, save }) {
   const { t } = useLocale();
@@ -26,7 +27,7 @@ function RateLimitForm({ settings, save }) {
   );
   return (
     <Form {...formProps}>
-      <SettingsSection title={t('settings.system.limits')} description={t('settings.system.limitsDesc')}>
+      <SettingsSection title={<HintLabel id="admin.rateLimit">{t('settings.system.limits')}</HintLabel>} description={t('settings.system.limitsDesc')}>
         <SettingRow label={t('settings.system.max')}>
           <Form.Item name="max" noStyle>
             <InputNumber min={20} max={100000} step={50} />

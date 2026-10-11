@@ -15,7 +15,7 @@ const BLOCKED = [
 const FREE = [/^\/apps$/, /^\/status$/, /^\/settings$/, /^\/developer(\/|$)/, /^\/pwa\/(manifest|vapid)/];
 
 export function normalizePath(raw) {
-  let path = String(raw || '/').trim().split('?')[0];
+  let path = String(raw || '/').trim().split('?')[0].toLowerCase().replace(/\/{2,}/g, '/');
   if (path.startsWith('/api/v1/')) path = path.slice(7);
   else if (path.startsWith('/api/')) path = path.slice(4);
   if (!path.startsWith('/')) path = `/${path}`;

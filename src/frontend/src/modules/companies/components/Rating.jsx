@@ -5,6 +5,7 @@ import { errorMessage } from '../../../lib/errors';
 import { formatRelative } from '../../../lib/format';
 import { cmpApi } from '../api';
 import { Avatar, Stars } from './ui';
+import { HintLabel } from '../../../help/Hint';
 
 const CRITERIA = { company: ['reliability', 'payment', 'quality', 'communication'], person: ['reliability', 'communication', 'quality'] };
 
@@ -69,7 +70,7 @@ export default function Rating({ type, id, onChange }) {
       </div>
 
       <div className="cmp-rating__form">
-        <strong>{t('companies.yourRating')}</strong>
+        <strong><HintLabel id="companies.rating">{t('companies.yourRating')}</HintLabel></strong>
         <Stars value={score} onChange={setScore} size={28} />
         <div className="cmp-rating__crit-input">
           {CRITERIA[type].map((key) => (

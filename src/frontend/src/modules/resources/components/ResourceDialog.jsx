@@ -8,6 +8,7 @@ import { MODULE_COLORS, itemText, resourcesApi } from '../api';
 import { useSettings } from '../../../context/SettingsContext';
 import { MODULE_REGISTRY, moduleLabel } from '../../registry';
 import IconPicker from './IconPicker';
+import { HintLabel } from '../../../help/Hint';
 import ResourceIcon from './ResourceIcon';
 
 const VISIBILITY = [
@@ -178,7 +179,7 @@ export default function ResourceDialog({ open, item, categories, onClose }) {
               />
             </Form.Item>
           ) : (
-            <Form.Item name="url" label={t('resources.fieldUrl')} extra={t('resources.urlHint')} rules={[{ required: true, message: t('resources.required') }]}>
+            <Form.Item name="url" label={<HintLabel id="resources.url">{t('resources.fieldUrl')}</HintLabel>} extra={t('resources.urlHint')} rules={[{ required: true, message: t('resources.required') }]}>
               <Input placeholder="https://mail.company.com" />
             </Form.Item>
           )}
@@ -216,7 +217,7 @@ export default function ResourceDialog({ open, item, categories, onClose }) {
             </div>
           ))}
           <div className="rs-dialog__grid">
-            <Form.Item name="categoryId" label={t('resources.fieldCategory')}>
+            <Form.Item name="categoryId" label={<HintLabel id="resources.category">{t('resources.fieldCategory')}</HintLabel>}>
               <Select allowClear placeholder={t('resources.noCategory')} options={categories.map((category) => ({ value: category.id, label: <span><span className="rs-chips__dot" style={{ '--c': category.color }} /> {category.name}</span> }))} />
             </Form.Item>
             <Form.Item name="target" label={t('resources.fieldTarget')}>
@@ -228,7 +229,7 @@ export default function ResourceDialog({ open, item, categories, onClose }) {
               />
             </Form.Item>
           </div>
-          <Form.Item name="visibility" label={t('resources.fieldVisibility')}>
+          <Form.Item name="visibility" label={<HintLabel id="resources.visibility">{t('resources.fieldVisibility')}</HintLabel>}>
             <ChoiceCards
               options={VISIBILITY.map((option) => ({ ...option, title: t(`resources.visibility.${option.id}`), text: t(`resources.visibility.${option.id}Desc`) }))}
             />
@@ -238,7 +239,7 @@ export default function ResourceDialog({ open, item, categories, onClose }) {
               <Select mode="multiple" allowClear loading={!subjects} options={subjectOptions} optionFilterProp="label" placeholder={t('resources.accessPlaceholder')} />
             </Form.Item>
           )}
-          <Form.Item name="active" valuePropName="checked" label={t('resources.fieldActive')} extra={t('resources.activeHint')}>
+          <Form.Item name="active" valuePropName="checked" label={<HintLabel id="resources.active">{t('resources.fieldActive')}</HintLabel>} extra={t('resources.activeHint')}>
             <Switch />
           </Form.Item>
         </div>

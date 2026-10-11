@@ -5,6 +5,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
 import { kbApi } from '../api';
+import { Hint } from '../../../help/Hint';
 
 const PRESETS = [
   { value: 'never', days: 0 },
@@ -107,7 +108,7 @@ function ShareForm({ folder, config, share, onDone }) {
     <div className="share-form">
       <label>{t('kb.share.name')}</label>
       <Input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} />
-      <label>{t('kb.share.link')}</label>
+      <label>{t('kb.share.link')} <Hint id="kb.shareSlug" /></label>
       <Input
         addonBefore={`${window.location.host}/s/`}
         value={slug}
@@ -119,7 +120,7 @@ function ShareForm({ folder, config, share, onDone }) {
 
       <div className="share-form__row">
         <div>
-          <strong>{t('kb.share.password')}</strong>
+          <strong>{t('kb.share.password')} <Hint id="kb.sharePassword" /></strong>
           <span>{config.requireSharePassword ? t('kb.share.passwordRequired') : t('kb.share.passwordDesc')}</span>
         </div>
         <Switch checked={usePassword} onChange={setUsePassword} disabled={config.requireSharePassword} />
@@ -135,7 +136,7 @@ function ShareForm({ folder, config, share, onDone }) {
 
       <div className="share-form__row">
         <div>
-          <strong>{t('kb.share.expiry')}</strong>
+          <strong>{t('kb.share.expiry')} <Hint id="kb.shareExpiry" /></strong>
           <span>{config.maxShareDays ? t('kb.share.expiryMax', { days: config.maxShareDays }) : t('kb.share.expiryDesc')}</span>
         </div>
       </div>

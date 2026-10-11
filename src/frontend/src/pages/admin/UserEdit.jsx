@@ -22,6 +22,7 @@ import {
   uploadAdminUserAvatar,
 } from '../../services/api';
 import { AccessTags, SourceBadge, UserStatusTag } from './Users';
+import { HintLabel } from '../../help/Hint';
 
 function UserForm({ user, onUpdated, roles, groups }) {
   const { t, locale } = useLocale();
@@ -184,7 +185,7 @@ function UserForm({ user, onUpdated, roles, groups }) {
 
         <SettingsSection title={t('users.access')} description={t('users.accessDesc')}>
           {isSelf && <div className="callout">{t('users.ownAccess')}</div>}
-          <SettingRow label={t('users.groups')} description={t('users.groupsDesc')}>
+          <SettingRow label={<HintLabel id="admin.groups">{t('users.groups')}</HintLabel>} description={t('users.groupsDesc')}>
             <Form.Item name="groupIds" noStyle>
               <Select
                 mode="multiple"
@@ -198,7 +199,7 @@ function UserForm({ user, onUpdated, roles, groups }) {
               />
             </Form.Item>
           </SettingRow>
-          <SettingRow label={t('users.directRoles')} description={t('users.directRolesHint')}>
+          <SettingRow label={<HintLabel id="admin.directRoles">{t('users.directRoles')}</HintLabel>} description={t('users.directRolesHint')}>
             <Form.Item name="roleIds" noStyle>
               <Select
                 mode="multiple"
@@ -230,7 +231,7 @@ function UserForm({ user, onUpdated, roles, groups }) {
               <Switch disabled={isSelf || !canManage} />
             </Form.Item>
           </SettingRow>
-          <SettingRow label={t('users.blocked')} description={t('users.blockedDesc')}>
+          <SettingRow label={<HintLabel id="admin.blocked">{t('users.blocked')}</HintLabel>} description={t('users.blockedDesc')}>
             <Form.Item name="isBlocked" valuePropName="checked" noStyle>
               <Switch disabled={isSelf || !canManage} />
             </Form.Item>
@@ -250,7 +251,7 @@ function UserForm({ user, onUpdated, roles, groups }) {
       </Form>
 
       {canManage && (
-        <SettingsSection title={t('users.sessions')} description={t('users.sessionsDesc')}>
+        <SettingsSection title={<HintLabel id="admin.sessions">{t('users.sessions')}</HintLabel>} description={t('users.sessionsDesc')}>
           <Button
             loading={busy}
             onClick={() =>

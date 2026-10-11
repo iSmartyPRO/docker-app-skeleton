@@ -71,6 +71,14 @@ export async function ensureCalendarSchema() {
     )
   `);
 
+  // Personal view settings of the calendar (view, hours, what to show).
+  await query(`
+    CREATE TABLE IF NOT EXISTS cal_user_prefs (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      prefs JSONB NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
   registerJob({ name: 'calendar:reminders', everyMs: 60 * 1000, run: runEventReminders });
   registerJob({
     name: 'calendar:cleanup',

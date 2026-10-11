@@ -12,6 +12,7 @@ import Board from '../components/Board';
 import TaskList from '../components/TaskList';
 import { useTaskEditor } from '../components/editor/EditorContext';
 import { CreateButton } from '../components/editor/QuickTask';
+import FollowButton from '../components/FollowButton';
 import ProjectDialog from '../components/ProjectDialog';
 import StatusesDialog from '../components/StatusesDialog';
 import { priorityOptions } from '../components/bits';
@@ -192,6 +193,7 @@ export default function ProjectPage({ projectKey, taskRef }) {
           <p>{project.description || t('tasks.projectStats', { open, total: tasks.length, members: members.length })}</p>
         </div>
         <div className="mod-hero__actions">
+          {!project.personal && <FollowButton projectId={project.id} />}
           {canManage && <Button onClick={() => setDialog('access')}>{t('kb.accessMenu')}</Button>}
           {menu.length > 0 && (
             <Dropdown trigger={['click']} menu={{ items: menu, onClick: onMenu }}>
