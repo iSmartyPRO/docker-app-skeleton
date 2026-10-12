@@ -245,6 +245,13 @@ export default {
   ],
   faq: [
     {
+      q: { ru: 'Как обновить приложение на телефоне?', en: 'How do I update the app on my phone?' },
+      a: {
+        ru: 'Портал обновляется сам. Когда выходит новая версия, внизу появляется плашка **«Вышла новая версия»** — нажмите «Обновить». Если приложение долго было свёрнуто, оно обновится само при возвращении, а иначе — при переходе на другую страницу.\n\nЕсли что-то всё же выглядит по-старому, полностью закройте приложение (смахните его из списка открытых) и откройте снова.',
+        en: 'The portal updates itself. When a new version is out, a **“A new version is out”** banner appears at the bottom — tap “Update”. If the app was in the background for a while it updates on its own when you come back, otherwise on the next page change.\n\nIf something still looks old, close the app completely (swipe it away from recent apps) and open it again.',
+      },
+    },
+    {
       q: { ru: 'Пишет «Неверный логин или пароль», хотя я ввожу правильно.', en: 'It says “Invalid username or password” although I type it correctly.' },
       a: {
         ru: 'Проверьте раскладку клавиатуры и Caps Lock. Если пароль действительно забыт — войдите по коду на почту или в Telegram (если эти способы включены) и задайте новый пароль в «Кабинет → Безопасность». Иначе попросите администратора сбросить пароль.',

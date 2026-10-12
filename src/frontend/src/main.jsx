@@ -3,10 +3,12 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 import { initPwa } from './pwa/pwa';
+import { initUpdates } from './pwa/update';
 import { installChunkRecovery } from './lib/chunkReload';
 
 // Before React renders: catches the browser's install prompt and registers the service worker.
 initPwa();
+initUpdates();
 // A tab opened before a deploy reloads itself instead of showing a blank page.
 installChunkRecovery();
 

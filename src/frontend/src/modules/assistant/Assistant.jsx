@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Dropdown } from 'antd';
 import { useAuth } from '../../context/AuthContext';
@@ -299,7 +300,8 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
 
   const displayMood = dragging ? 'surprised' : sleeping ? 'sleepy' : mood;
 
-  return (
+  // In <body>: a transformed ancestor would turn `position: fixed` into page coordinates.
+  return createPortal(
     <>
       <div
         ref={rootRef}
@@ -381,7 +383,8 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
           />
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }
 

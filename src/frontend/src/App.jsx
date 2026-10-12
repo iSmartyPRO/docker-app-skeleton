@@ -26,6 +26,7 @@ import AppErrorBoundary from './components/AppErrorBoundary';
 import { getSetupStatus } from './services/api';
 import { SETTINGS_VIEW } from './lib/access';
 import { MODULE_REGISTRY } from './modules/registry';
+import UpdateBanner from './pwa/UpdateBanner';
 import { applyAppIcon } from './pwa/appIcon';
 
 // Public entry points stay in the main bundle; consoles load on demand.
@@ -329,6 +330,7 @@ function ThemedRoutes() {
         <Suspense fallback={null}>
           <Assistant />
         </Suspense>
+        <UpdateBanner />
         </HelpProvider>
         </AppErrorBoundary>
       </AntApp>

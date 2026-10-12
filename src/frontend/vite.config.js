@@ -25,10 +25,25 @@ function readAppVersion() {
   return pkg.version || '0.0.1';
 }
 
+// Unique per build: the running app compares it with /version.json to notice a deploy.
+const BUILD_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+/** Writes dist/version.json next to index.html (served with no-cache). */
+function buildVersionFile() {
+  return {
+    name: 'build-version',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ build: BUILD_ID, version: readAppVersion() }) });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), buildVersionFile()],
   define: {
     __APP_VERSION__: JSON.stringify(readAppVersion()),
+    __BUILD_ID__: JSON.stringify(BUILD_ID),
   },
   server: {
     host: '0.0.0.0',
