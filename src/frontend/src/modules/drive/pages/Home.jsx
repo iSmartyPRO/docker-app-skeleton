@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { App, Button, Skeleton, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
+import { useAuth } from '../../../context/AuthContext';
 import { formatRelative } from '../../../lib/format';
 import { copyText, driveApi, fileUrl, folderUrl, formatBytes } from '../api';
 import { useDrive } from '../DriveContext';
@@ -106,6 +107,9 @@ export function loneShare(shares, connections) {
 export default function Home({ landing }) {
   const { t, locale } = useLocale();
   const navigate = useNavigate();
+  const { can } = useAuth();
+  // Drive administrators get the way to add folders right where they are missing.
+  const canManage = can('drive.admin') || can('settings.modules');
   const { shares, connections, refresh, config } = useDrive();
   const title = useDriveTitle();
   const [recent, setRecent] = useState(null);
@@ -179,7 +183,12 @@ export default function Home({ landing }) {
         <div className="fs-empty dv-empty-drive">
           <span className="fs-empty__icon"><DriveGlyph /></span>
           <strong>{t('drive.noShares')}</strong>
-          <span>{t('drive.noSharesText')}</span>
+          <span>{canManage ? t('drive.noSharesAdmin') : t('drive.noSharesText')}</span>
+          {canManage && (
+            <Button type="primary" onClick={() => navigate('/admin/settings/drive')}>
+              + {t('drive.addShares')}
+            </Button>
+          )}
         </div>
       )}
 

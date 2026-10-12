@@ -256,7 +256,7 @@ function ServerDialog({ open, server, defaultDomain, onClose }) {
   );
 }
 
-function ShareDialog({ open, server, share, groups, onClose }) {
+function ShareDialog({ open, server, share, preset, groups, onClose }) {
   const { t } = useLocale();
   const { message } = App.useApp();
   const [form] = Form.useForm();
@@ -287,10 +287,11 @@ function ShareDialog({ open, server, share, groups, onClose }) {
 
   useEffect(() => {
     if (!open) return;
-    form.setFieldsValue(share || { title: '', share: '', rootPath: '', description: '', color: COLORS[0], uncDisplay: '', groupIds: [], allowLinks: true });
+    form.setFieldsValue(share || { title: '', share: '', rootPath: '', description: '', color: COLORS[0], uncDisplay: '', groupIds: [], allowLinks: true, ...(preset || {}) });
     setAvailable(null);
     setBrowseUser({ username: '', password: '' });
     browse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, share, form, browse]);
 
   const browseAs = async () => {
@@ -382,6 +383,50 @@ function ShareDialog({ open, server, share, groups, onClose }) {
   );
 }
 
+/**
+ * A server without folders shows nothing in Drive although its connection
+ * test passes. Say so, and offer the server's own shares to add in one click.
+ */
+function NoSharesCallout({ server, onAdd }) {
+  const { t } = useLocale();
+  const [found, setFound] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const find = async () => {
+    setBusy(true);
+    try {
+      const { data } = await driveApi.testServer({ id: server.id });
+      setFound({ shares: (data.shares || []).filter((item) => !item.special), hidden: Boolean(data.sharesError) });
+    } catch (err) {
+      setFound({ shares: [], error: driveError(err, t) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="dv-noshares">
+      <strong>⚠ {t('driveSettings.noSharesTitle')}</strong>
+      <span>{t('driveSettings.noSharesText')}</span>
+      {!found ? (
+        <Button size="small" loading={busy} onClick={find}>
+          🔎 {t('driveSettings.findShares')}
+        </Button>
+      ) : found.error ? (
+        <span className="dv-noshares__error">✕ {found.error}</span>
+      ) : found.shares.length ? (
+        <div className="dv-noshares__list">
+          {found.shares.map((item) => (
+            <Button key={item.name} size="small" onClick={() => onAdd({ share: item.name, title: item.remark || item.name })}>
+              + {item.name}
+            </Button>
+          ))}
+        </div>
+      ) : (
+        <span>{found.hidden ? t('driveSettings.sharesHidden') : t('driveSettings.noSharesFound')}</span>
+      )}
+    </div>
+  );
+}
+
 function ServersManager() {
   const { t } = useLocale();
   const { message } = App.useApp();
@@ -466,7 +511,8 @@ function ServersManager() {
                 </Popconfirm>
               </div>
             ))}
-            <Button type="dashed" block onClick={() => setDialog({ type: 'share', server })}>+ {t('driveSettings.addShareShort')}</Button>
+            {server.shares.length === 0 && <NoSharesCallout server={server} onAdd={(preset) => setDialog({ type: 'share', server, preset })} />}
+            <Button type={server.shares.length ? 'dashed' : 'primary'} block onClick={() => setDialog({ type: 'share', server })}>+ {t('driveSettings.addShareShort')}</Button>
           </div>
         </div>
       ))}
@@ -485,6 +531,7 @@ function ServersManager() {
           open
           server={dialog.server}
           share={dialog.share}
+          preset={dialog.preset}
           groups={data.groups}
           onClose={(saved) => {
             setDialog(null);
