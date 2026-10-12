@@ -62,6 +62,7 @@ router.put('/profile', wrap(async (req, res) => {
     displayName: req.body?.displayName,
     email: req.body?.email,
     phone: req.body?.phone,
+    mattermost: req.body?.mattermost,
     locale: req.body?.locale,
     theme: req.body?.theme,
   });
@@ -127,7 +128,7 @@ router.put('/notifications', wrap(async (req, res) => {
 }));
 
 router.post('/notifications/test', wrap(async (req, res) => {
-  res.json({ success: true, ...(await sendTest(req.user.id)) });
+  res.json({ success: true, ...(await sendTest(req.user.id, { channel: req.body?.channel })) });
 }));
 
 router.get('/notifications/history', wrap(async (req, res) => {

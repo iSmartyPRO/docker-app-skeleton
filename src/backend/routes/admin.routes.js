@@ -23,6 +23,7 @@ import {
 } from '../services/users.js';
 import { getOverview, getSystemInfo } from '../services/overview.js';
 import { emitEvent } from '../api/events.js';
+import { adminTest, notifyOverview, saveNotifyConfig } from '../services/notifications.js';
 import { listWazzupChannels, testIntegration } from '../services/integrations.js';
 import {
   addIpRule,
@@ -182,6 +183,12 @@ router.post('/integrations/wazzup/channels', integrationSettings, wrap(async (re
 
 const viewUsers = requirePermission('users.view');
 const manageUsers = requirePermission('users.manage');
+
+// ── Notification delivery (channels, WhatsApp provider, coverage, test) ────
+const notifySettings = requirePermission('settings.integrations', 'settings.view');
+router.get('/notifications', notifySettings, wrap(async (req, res) => res.json({ success: true, ...(await notifyOverview()) })));
+router.put('/notifications', requirePermission('settings.integrations'), wrap(async (req, res) => res.json({ success: true, ...(await saveNotifyConfig(req.body || {})) })));
+router.post('/notifications/test', requirePermission('settings.integrations'), wrap(async (req, res) => res.json({ success: true, result: await adminTest(req.body || {}) })));
 
 router.get('/users', viewUsers, wrap(async (req, res) => {
   res.json({ success: true, users: await listUsers() });

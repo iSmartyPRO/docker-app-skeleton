@@ -1,10 +1,10 @@
 import { query } from '../config/database.js';
 import { sendEmail, sendMattermostDirect, sendTelegram, sendWhatsapp } from './integrations.js';
-import { isValidPhone } from './users.js';
+import { isValidPhone, normalizePhone } from './users.js';
 import { publicBase } from './google.js';
 import { pushToUser } from './push.js';
 import { registerJob } from './scheduler.js';
-import { authAvailability, getSettings, localeFor, parseSettings } from './settings.js';
+import { authAvailability, getSettings, invalidateSettings, localeFor, parseSettings } from './settings.js';
 import { eventInfo, NOTIFICATION_EVENTS, NOTIFICATION_GROUPS } from './notificationCatalog.js';
 
 const KNOWN_KINDS = new Set(NOTIFICATION_EVENTS.map((event) => event.kind));
@@ -132,14 +132,53 @@ export function quietState(prefs, now = new Date()) {
   return inside ? 'quiet' : null;
 }
 
+/** Channels the portal can use for notifications: integration ready and allowed by the administrator. */
+export function channelsAvailable(ready) {
+  const allowed = ready.notify?.channels || {};
+  return {
+    push: allowed.push !== false,
+    email: Boolean(ready.emailCode) && allowed.email !== false,
+    telegram: Boolean(ready.telegramCode) && allowed.telegram !== false,
+    whatsapp: Boolean(ready.whatsappCode) && allowed.whatsapp !== false,
+    mattermost: Boolean(ready.mattermostCode) && allowed.mattermost !== false,
+  };
+}
+
 /** Which external channels can reach this user right now. */
 export function channelReach(user, ready) {
+  const available = channelsAvailable(ready);
   return {
-    push: Number(user.push_devices) > 0,
-    email: Boolean(ready.emailCode && user.email),
-    telegram: Boolean(ready.telegramCode && user.telegram_id),
-    whatsapp: Boolean(ready.whatsappCode && user.phone && isValidPhone(user.phone)),
-    mattermost: Boolean(ready.mattermostCode && user.mattermost),
+    push: available.push && Number(user.push_devices) > 0,
+    email: available.email && Boolean(user.email),
+    telegram: available.telegram && Boolean(user.telegram_id),
+    whatsapp: available.whatsapp && Boolean(user.phone && isValidPhone(user.phone)),
+    mattermost: available.mattermost && Boolean(user.mattermost),
+  };
+}
+
+// ── Administrator settings (settings key notify_config) ─────────────────────
+
+const NOTIFY_DEFAULTS = {
+  channels: { push: true, email: true, telegram: true, whatsapp: true, mattermost: true },
+  // WhatsApp for notifications: 'auto' follows Sign-in methods; or a fixed provider.
+  whatsapp: { provider: 'auto', fallback: true },
+};
+
+export function resolveNotifyConfig(raw) {
+  let stored = {};
+  try {
+    stored = typeof raw === 'string' ? JSON.parse(raw) : raw || {};
+  } catch {
+    stored = {};
+  }
+  const channels = { ...NOTIFY_DEFAULTS.channels };
+  for (const channel of CHANNELS) if (typeof stored.channels?.[channel] === 'boolean') channels[channel] = stored.channels[channel];
+  return {
+    channels,
+    whatsapp: {
+      provider: ['auto', 'gateway', 'wazzup'].includes(stored.whatsapp?.provider) ? stored.whatsapp.provider : 'auto',
+      fallback: typeof stored.whatsapp?.fallback === 'boolean' ? stored.whatsapp.fallback : true,
+    },
   };
 }
 
@@ -227,7 +266,7 @@ async function deliver(user, message, ready, appName, { force = false } = {}) {
       run('email', () => sendEmail({ to: user.email, subject: message.title, text: plain, html: emailHtml({ appName, title: message.title, body: message.body, url, locale: user.locale }) }));
     }
     if (channel === 'telegram') run('telegram', () => sendTelegram({ chatId: user.telegram_id, text: plain }));
-    if (channel === 'whatsapp') run('whatsapp', () => sendWhatsapp({ phone: user.phone, text: plain }));
+    if (channel === 'whatsapp') run('whatsapp', () => sendWhatsapp({ phone: user.phone, text: plain, provider: ready.notify?.whatsapp?.provider, fallback: ready.notify?.whatsapp?.fallback }));
     if (channel === 'mattermost') run('mattermost', () => sendMattermostDirect({ username: user.mattermost, text: [`**${message.title}**`, message.body, url].filter(Boolean).join('\n') }));
   }
   await Promise.all(jobs);
@@ -285,8 +324,7 @@ export async function notify({ userIds, kind, module = null, link = null, actorI
   if (external) {
     setImmediate(async () => {
       try {
-        const parsed = parseSettings(await getSettings());
-        const ready = authAvailability(parsed).ready;
+        const { parsed, ready } = await readiness();
         // The app-icon badge on phones shows the fresh unread count.
         const unread = await query(
           `SELECT user_id, COUNT(*)::int AS n FROM notifications WHERE user_id = ANY($1) AND read_at IS NULL GROUP BY user_id`,
@@ -378,8 +416,9 @@ async function userForDelivery(userId) {
 }
 
 async function readiness() {
-  const parsed = parseSettings(await getSettings());
-  return { parsed, ready: authAvailability(parsed).ready };
+  const settings = await getSettings();
+  const parsed = parseSettings(settings);
+  return { parsed, ready: { ...authAvailability(parsed).ready, notify: resolveNotifyConfig(settings.notify_config) } };
 }
 
 export async function getPrefs(userId) {
@@ -390,7 +429,8 @@ export async function getPrefs(userId) {
     // `prefs` keeps the first version's flat flags for older clients.
     prefs: { ...prefs.channels, ...prefs },
     reach: channelReach(user || {}, ready),
-    configured: { push: true, email: Boolean(ready.emailCode), telegram: Boolean(ready.telegramCode), whatsapp: Boolean(ready.whatsappCode), mattermost: Boolean(ready.mattermostCode) },
+    configured: channelsAvailable(ready),
+    contacts: { email: user?.email || '', phone: user?.phone || '', mattermost: user?.mattermost || '', telegram: Boolean(user?.telegram_id) },
     catalog: NOTIFICATION_GROUPS.map((group) => ({
       key: group.key,
       module: group.module,
@@ -441,7 +481,7 @@ export async function savePrefs(userId, incoming = {}) {
  * A test notification through every connected channel, delivered now, with
  * the result per channel (including the reason when a channel cannot work).
  */
-export async function sendTest(userId) {
+export async function sendTest(userId, { channel = null } = {}) {
   const user = await userForDelivery(userId);
   if (!user) return null;
   const { parsed, ready } = await readiness();
@@ -455,7 +495,8 @@ export async function sendTest(userId) {
     [userId, text.title, text.body]
   );
   const prefs = resolvePrefs(user.notify_prefs);
-  const report = await deliver(user, { kind: 'system.test', title: text.title, body: text.body, link: '/account/notifications' }, ready, parsed.appName, { force: true });
+  const only = CHANNELS.includes(channel) ? [channel] : null;
+  const report = await deliver(user, { kind: 'system.test', title: text.title, body: text.body, link: '/account/notifications', channels: only }, ready, parsed.appName, { force: true });
   await query(`UPDATE notifications SET delivery = $2 WHERE id = $1`, [rows[0].id, JSON.stringify(report)]);
   return { report, channels: prefs.channels, reach: channelReach(user, ready) };
 }
@@ -511,4 +552,72 @@ export async function listSubscriptions(userId) {
     [userId]
   ).catch(() => ({ rows: [] }));
   return rows.filter((row) => row.name).map((row) => ({ type: row.target_type, id: row.target_id, name: row.name, color: row.color, link: row.link, since: row.created_at }));
+}
+
+// ── Administration ──────────────────────────────────────────────────────────
+
+/** Settings plus, per channel: integration state and how many people it can reach. */
+export async function notifyOverview() {
+  const { parsed, ready } = await readiness();
+  const { rows } = await query(`
+    SELECT COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE email IS NOT NULL AND email <> '')::int AS email,
+           COUNT(*) FILTER (WHERE phone IS NOT NULL AND phone <> '')::int AS whatsapp,
+           COUNT(*) FILTER (WHERE telegram_id IS NOT NULL)::int AS telegram,
+           COUNT(*) FILTER (WHERE mattermost IS NOT NULL AND mattermost <> '')::int AS mattermost,
+           COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM push_subscriptions p WHERE p.user_id = users.id))::int AS push
+    FROM users WHERE is_active IS NOT FALSE AND is_blocked IS NOT TRUE`);
+  const integration = {
+    push: true,
+    email: Boolean(ready.emailCode),
+    telegram: Boolean(ready.telegramCode),
+    whatsapp: Boolean(ready.whatsappCode),
+    mattermost: Boolean(ready.mattermostCode),
+  };
+  const providers = { gateway: Boolean(ready.whatsappGateway), wazzup: Boolean(ready.whatsappWazzup) };
+  return {
+    config: ready.notify,
+    integration,
+    providers,
+    signinWhatsapp: parsed.auth?.whatsappCode || {},
+    coverage: { total: rows[0].total, ...Object.fromEntries(CHANNELS.map((channel) => [channel, rows[0][channel]])) },
+  };
+}
+
+export async function saveNotifyConfig(patch = {}) {
+  const current = resolveNotifyConfig((await getSettings()).notify_config);
+  const next = resolveNotifyConfig({
+    channels: { ...current.channels, ...(patch.channels || {}) },
+    whatsapp: { ...current.whatsapp, ...(patch.whatsapp || {}) },
+  });
+  await query(
+    `INSERT INTO app_settings (key, value) VALUES ('notify_config', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [JSON.stringify(next)]
+  );
+  invalidateSettings();
+  return notifyOverview();
+}
+
+/** A test message to any address: e-mail, phone (WhatsApp), Telegram chat id or Mattermost name. */
+export async function adminTest({ channel, to, provider }) {
+  const { parsed, ready } = await readiness();
+  const text = { title: `${parsed.appName}: проверка уведомлений / notification test`, body: 'Если вы видите это сообщение, канал работает. If you can read this, the channel works.' };
+  const plain = `${text.title}\n\n${text.body}`;
+  const target = String(to || '').trim();
+  if (!target) throw Object.assign(new Error('Enter a recipient'), { statusCode: 400, code: 'RECIPIENT_REQUIRED' });
+  const started = Date.now();
+  try {
+    let used = channel;
+    if (channel === 'email') await sendEmail({ to: target, subject: text.title, text: plain, html: emailHtml({ appName: parsed.appName, title: text.title, body: text.body, url: '', locale: 'ru' }) });
+    else if (channel === 'telegram') await sendTelegram({ chatId: target, text: plain });
+    else if (channel === 'mattermost') await sendMattermostDirect({ username: target.replace(/^@/, ''), text: `**${text.title}**\n${text.body}` });
+    else if (channel === 'whatsapp') {
+      const choice = provider || ready.notify.whatsapp.provider;
+      used = `whatsapp:${await sendWhatsapp({ phone: normalizePhone(target), text: plain, provider: choice, fallback: provider ? false : ready.notify.whatsapp.fallback })}`;
+    } else throw Object.assign(new Error('Unknown channel'), { statusCode: 400, code: 'CHANNEL_UNKNOWN' });
+    return { ok: true, via: used, ms: Date.now() - started };
+  } catch (err) {
+    if (['RECIPIENT_REQUIRED', 'CHANNEL_UNKNOWN'].includes(err.code)) throw err;
+    return { ok: false, error: String(err.message || err).slice(0, 300), ms: Date.now() - started };
+  }
 }

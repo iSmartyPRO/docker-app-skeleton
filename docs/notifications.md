@@ -42,6 +42,18 @@ await notify({
 - **Email:** an HTML template with the product name and an *Open* button, plus a plain-text part. Links use `PUBLIC_URL` / `FRONTEND_URL`.
 - **App badge:** the unread count shows on the app icon (Badging API), from the page and from push messages.
 
+### Administration (Settings → Integrations → Notifications)
+
+- **Channels for notifications**: each channel works when its integration is set up *and* it is switched on here (`settings.notify_config`). Each card shows how many active people the channel can reach (who has an e-mail, a phone, linked Telegram, a Mattermost name, push turned on).
+- **WhatsApp for notifications**: *as for sign-in codes* (follows *Sign-in methods*), *WhatsApp gateway* or *Wazzup*, with an optional fallback to the other provider — so codes and notifications can use different providers.
+- **Test message** to any phone, e-mail, Telegram chat id or Mattermost user, with the provider's answer.
+- People connect a missing channel in place: in *Profile → Notifications* and under a reminder's channel choice they type their phone (WhatsApp), Mattermost name or e-mail, save it and get a test at once. Only channels the portal offers are suggested; Telegram links to the official button in *Profile → Security*.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET / PUT | `/api/admin/notifications` | Settings, integration state, providers, coverage / `{ channels: {…}, whatsapp: { provider: auto\|gateway\|wazzup, fallback } }` (`settings.integrations`) |
+| POST | `/api/admin/notifications/test` | `{ channel, to, provider? }` → `{ ok, via \| error, ms }` |
+
 ### API
 
 | Method | Path | Purpose |
@@ -50,7 +62,7 @@ await notify({
 | GET | `/api/notifications/unread` | Counter only |
 | POST | `/api/notifications/read` | `{ ids: [] }` or `{ all: true }` |
 | GET / PUT | `/api/account/notifications` | Preferences, reachability, configured channels and the event catalog. `PUT` takes `{ channels, events: { kind: { inbox, push, … } }, resetEvents, quiet: { enabled, from, to, weekends }, pausedUntil, tz }` |
-| POST | `/api/account/notifications/test` | Send a test through every connected channel → per-channel report |
+| POST | `/api/account/notifications/test` | `{ channel? }` — a test through every connected channel (or one) → per-channel report |
 | GET | `/api/account/notifications/history` | Last notifications with their delivery report |
 | GET / PUT | `/api/account/notifications/subscriptions` | Followed projects and calendars / `{ type: 'tasks.project' \| 'calendar.calendar', id, on }` (only things the person can see) |
 

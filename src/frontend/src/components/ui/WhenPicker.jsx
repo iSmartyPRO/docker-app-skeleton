@@ -4,6 +4,8 @@ import dayjs from 'dayjs';
 import { DatePicker, TimePicker } from 'antd';
 import { useLocale } from '../../context/LocaleContext';
 import { getNotificationPrefs } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import QuickConnect from './QuickConnect';
 
 /*
  * Choosing the moment of a reminder: quick presets, a date and a time apart
@@ -102,26 +104,71 @@ export const forgetReach = () => {
   reachPromise = null;
 };
 
-/** Warnings under a channel choice: "Telegram is not linked — connect". */
+/**
+ * Under a channel choice: what will not arrive and how to fix it right here.
+ * Only channels the portal actually offers are suggested.
+ */
 export function ChannelWarnings({ channels }) {
   const { t } = useLocale();
+  const { can } = useAuth();
   const data = useReach();
+  const [, refresh] = useState(0);
   if (!data) return null;
   const reach = data.reach || {};
+  const available = data.configured || {};
   const prefs = data.prefs?.channels || data.prefs || {};
-  const notes = [];
-  if (channels.includes('app') && !reach.push) notes.push(['push', '/account/notifications']);
-  if (channels.includes('messenger') && !reach.telegram && !reach.whatsapp && !reach.mattermost) notes.push(['messenger', '/account/security']);
-  if (channels.includes('email') && !reach.email) notes.push(['email', '/account']);
-  if (channels.includes('messenger') && (reach.telegram || reach.whatsapp || reach.mattermost) && prefs.telegram === false && prefs.whatsapp === false && prefs.mattermost === false) notes.push(['messengerOff', '/account/notifications']);
-  if (!notes.length) return null;
-  return (
-    <ul className="when__warn">
-      {notes.map(([key, link]) => (
-        <li key={key}>
-          ⚠ {t(`when.warn.${key}`)} <Link to={link}>{t('when.warn.fix')}</Link>
+  const contacts = data.contacts || {};
+  const reload = () => {
+    forgetReach();
+    refresh((n) => n + 1);
+  };
+  const blocks = [];
+  if (channels.includes('app') && !reach.push) {
+    blocks.push(
+      <li key="push">
+        ⚠ {t('when.warn.push')} <Link to="/account/notifications">{t('when.warn.fix')}</Link>
+      </li>
+    );
+  }
+  if (channels.includes('email') && !reach.email) {
+    blocks.push(
+      <li key="email">
+        {available.email ? <QuickConnect channel="email" initial={contacts.email} onConnected={reload} compact /> : `⚠ ${t('when.warn.emailOff')}`}
+      </li>
+    );
+  }
+  if (channels.includes('messenger')) {
+    const messengers = ['whatsapp', 'telegram', 'mattermost'].filter((channel) => available[channel]);
+    const reached = messengers.filter((channel) => reach[channel]);
+    if (!messengers.length) {
+      blocks.push(
+        <li key="none">
+          ⚠ {t('when.warn.noMessengers')}
+          {can?.('settings.integrations') && (
+            <>
+              {' '}
+              <Link to="/admin/settings/notifications">{t('when.warn.setUp')}</Link>
+            </>
+          )}
         </li>
-      ))}
-    </ul>
-  );
+      );
+    } else if (!reached.length) {
+      blocks.push(
+        <li key="connect" className="when__connect">
+          <span>⚠ {t('when.warn.connectOne', { list: messengers.map((channel) => t(`notifications.channel_${channel}`)).join(', ') })}</span>
+          {messengers.map((channel) => (
+            <QuickConnect key={channel} channel={channel} initial={channel === 'whatsapp' ? contacts.phone : contacts.mattermost} onConnected={reload} compact />
+          ))}
+        </li>
+      );
+    } else if (reached.every((channel) => prefs[channel] === false)) {
+      blocks.push(
+        <li key="off">
+          ⚠ {t('when.warn.messengerOff')} <Link to="/account/notifications">{t('when.warn.fix')}</Link>
+        </li>
+      );
+    }
+  }
+  if (!blocks.length) return null;
+  return <ul className="when__warn">{blocks}</ul>;
 }

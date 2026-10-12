@@ -163,6 +163,11 @@ export const SETTINGS_GROUPS = [
         keywords: 'wazzup wazzup24 whatsapp telegram instagram avito messenger омниканал мессенджеры',
       },
       {
+        id: 'notifications',
+        defaultIcon: 'bell',
+        keywords: 'notifications delivery channels whatsapp wazzup telegram mattermost email push уведомления доставка каналы ватсап',
+      },
+      {
         id: 'mattermost',
         integration: 'mattermost',
         defaultIcon: 'mattermost',

@@ -232,9 +232,10 @@ export function whatsappProviders(parsed) {
  * Sends a WhatsApp text through the provider chosen in Sign-in methods,
  * falling back to the other one when enabled and configured.
  */
-export async function sendWhatsapp({ phone, text }) {
+export async function sendWhatsapp({ phone, text, provider, fallback }) {
   const parsed = parseSettings(await getSettings());
-  const options = parsed.auth?.whatsappCode || {};
+  // Callers (notifications) may choose their own provider; sign-in codes use Sign-in methods.
+  const options = provider && provider !== 'auto' ? { provider, fallback: fallback !== false } : parsed.auth?.whatsappCode || {};
   const ready = whatsappProviders(parsed);
   const primary = options.provider === 'wazzup' || options.provider === 'gateway'
     ? options.provider

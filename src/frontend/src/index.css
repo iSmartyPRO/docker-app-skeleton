@@ -4019,3 +4019,58 @@ h4,
 [data-theme='dark'] .when__warn {
   color: #fbbf24;
 }
+
+/* ── Connect a notification channel in place ──────────────────────────── */
+
+.qc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.qc__text {
+  color: var(--da-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.qc__row {
+  display: flex;
+  gap: 6px;
+}
+
+.qc__row .ant-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.qc__result {
+  font-size: 12.5px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.qc__result.is-ok {
+  color: #059669;
+}
+
+.qc__result.is-bad {
+  color: #dc2626;
+}
+
+.qc.is-compact {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--da-text) 3%, var(--da-surface));
+}
+
+.when__connect {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.when__warn > li + li {
+  margin-top: 6px;
+}

@@ -1,0 +1,124 @@
+.nd-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.nd-channel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 14px;
+  background: var(--da-surface);
+}
+
+.nd-channel.is-on {
+  border-color: color-mix(in srgb, #10b981 35%, var(--da-hairline));
+}
+
+.nd-channel.is-missing {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.nd-channel__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nd-channel__head strong {
+  flex: 1;
+  font-size: 14px;
+}
+
+.nd-channel__head svg {
+  width: 24px;
+  height: 24px;
+}
+
+.nd-emoji {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.nd-muted {
+  color: var(--da-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.nd-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--da-text) 8%, transparent);
+  overflow: hidden;
+}
+
+.nd-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--da-primary), #10b981);
+}
+
+.nd-note {
+  margin: 12px 0 0;
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+.nd-providers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 12px 0 4px;
+  font-size: 13px;
+}
+
+.nd-provider.is-ok {
+  color: #059669;
+}
+
+.nd-provider.is-off {
+  color: var(--da-muted);
+}
+
+.nd-test {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nd-result {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.nd-result.is-ok {
+  background: color-mix(in srgb, #10b981 12%, transparent);
+  color: #047857;
+}
+
+.nd-result.is-bad {
+  background: color-mix(in srgb, #ef4444 11%, transparent);
+  color: #b91c1c;
+}
+
+.nd-how {
+  margin: 0;
+  padding-left: 20px;
+  color: color-mix(in srgb, var(--da-text) 85%, var(--da-muted));
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.nd-how li + li {
+  margin-top: 6px;
+}

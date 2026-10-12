@@ -84,6 +84,31 @@ export default {
   ],
   sections: [
     {
+      id: 'notifications',
+      title: { ru: 'Доставка уведомлений', en: 'Notification delivery' },
+      body: {
+        ru: `**Настройки → Интеграции → Уведомления** собирает доставку в одном месте:
+- **Каналы для уведомлений** — включены ли почта, push, WhatsApp, Telegram и Mattermost для уведомлений, и сколько людей каждый канал может достать (у кого есть телефон, привязан Telegram и т. д.).
+- **WhatsApp для уведомлений** — через кого отправлять: как коды входа, только WhatsApp-шлюз или только Wazzup, и запасной провайдер.
+- **Тестовое сообщение** — на любой номер, почту, чат Telegram или пользователя Mattermost, с точным ответом провайдера.
+
+Сами интеграции (адрес шлюза, ключ Wazzup, бот Telegram) настраиваются на своих страницах в «Интеграциях». Что получать, решает каждый пользователь в Профиль → Уведомления — там же он может указать телефон и сразу получить тест.`,
+        en: `**Settings → Integrations → Notifications** gathers delivery in one place:
+- **Channels for notifications** — whether e-mail, push, WhatsApp, Telegram and Mattermost carry notifications, and how many people each can reach (who has a phone, linked Telegram and so on).
+- **WhatsApp for notifications** — the provider: as for sign-in codes, only the WhatsApp gateway or only Wazzup, plus a fallback.
+- **Test message** — to any number, e-mail, Telegram chat or Mattermost user, with the provider’s exact answer.
+
+The integrations themselves (gateway address, Wazzup key, Telegram bot) are set up on their own pages under Integrations. What to receive is each person’s choice in Profile → Notifications, where they can also add a phone and get a test at once.`,
+      },
+      example: {
+        title: { ru: 'Коды через шлюз, уведомления через Wazzup', en: 'Codes through the gateway, notifications through Wazzup' },
+        body: {
+          ru: 'Коды входа должны приходить мгновенно — оставьте для них WhatsApp-шлюз в «Способах входа». Для уведомлений выберите Wazzup и включите запасной провайдер: если Wazzup недоступен, сообщение уйдёт через шлюз. Отправьте тест на свой номер, чтобы убедиться.',
+          en: 'Sign-in codes must arrive instantly — keep the WhatsApp gateway for them in Sign-in methods. For notifications choose Wazzup and turn on the fallback: if Wazzup is down, the message goes through the gateway. Send a test to your number to be sure.',
+        },
+      },
+    },
+    {
       id: 'console',
       title: { ru: 'Как устроена консоль', en: 'How the console is organised' },
       body: {
@@ -350,6 +375,8 @@ export default {
     },
   ],
   fields: {
+    notifyChannels: { title: { ru: 'Каналы уведомлений', en: 'Notification channels' }, text: { ru: 'Канал доставляет уведомления, если его интеграция настроена и он включён здесь. Полоска показывает, сколько людей указали нужный контакт.', en: 'A channel delivers notifications when its integration is set up and it is on here. The bar shows how many people have the needed contact.' }, more: 'notifications' },
+    notifyWhatsapp: { title: { ru: 'WhatsApp для уведомлений', en: 'WhatsApp for notifications' }, text: { ru: 'Выберите провайдера отдельно от кодов входа: например, коды через шлюз, а уведомления через Wazzup, с запасным вариантом.', en: 'Choose the provider separately from sign-in codes: e.g. codes through the gateway and notifications through Wazzup, with a fallback.' }, more: 'notifications' },
     groups: {
       title: { ru: 'Группы', en: 'Groups' },
       text: {

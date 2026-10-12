@@ -13,6 +13,8 @@ import api, { getNotificationPrefs, saveNotificationPrefs } from '../../services
 import { currentSubscription, disablePush, enablePush, pushSupport } from '../../pwa/push';
 import { forgetReach } from '../../components/ui/WhenPicker';
 import { Hint } from '../../help/Hint';
+import QuickConnect from '../../components/ui/QuickConnect';
+import { useAuth } from '../../context/AuthContext';
 import './notifications.css';
 
 /*
@@ -24,7 +26,6 @@ import './notifications.css';
 
 const EXTERNAL = ['push', 'email', 'telegram', 'whatsapp', 'mattermost'];
 const CHANNEL_ICON = { email: IconMail, telegram: IconTelegram, whatsapp: IconWhatsapp, mattermost: IconMattermost };
-const FIX = { email: '/account', telegram: '/account/security', whatsapp: '/account', mattermost: '/account' };
 const key = (kind) => kind.replace(/\./g, '_');
 
 /** Presets for the events table. */
@@ -38,8 +39,9 @@ const PRESETS = {
   bellOnly: (catalog) => Object.fromEntries(catalog.flatMap((group) => group.events).filter((event) => !event.urgent).map((event) => [event.kind, Object.fromEntries(EXTERNAL.map((c) => [c, false]))])),
 };
 
-function ChannelCard({ id, data, onToggle, result }) {
+function ChannelCard({ id, data, onToggle, result, onConnected }) {
   const { t } = useLocale();
+  const { can } = useAuth();
   const Icon = CHANNEL_ICON[id];
   const configured = data.configured?.[id] !== false;
   const reach = data.reach[id];
@@ -55,17 +57,25 @@ function ChannelCard({ id, data, onToggle, result }) {
         <Switch size="small" checked={state === 'on'} disabled={state === 'admin' || state === 'disconnected'} onChange={(value) => onToggle(id, value)} />
       </div>
       <span className={`np-pill is-${state}`}>{t(`notifyPrefs.state.${state}`)}</span>
-      <p>
-        {state === 'disconnected' ? (
-          <>
-            {t(`notifications.unreachable_${id}`)} <Link to={FIX[id]}>{t('notifications.fix')} →</Link>
-          </>
-        ) : state === 'admin' ? (
-          t('notifyPrefs.notConfigured')
-        ) : (
-          t(`notifications.channel_${id}Desc`)
-        )}
-      </p>
+      {state === 'disconnected' ? (
+        <QuickConnect channel={id} initial={{ email: data.contacts?.email, whatsapp: data.contacts?.phone, mattermost: data.contacts?.mattermost }[id] || ''} onConnected={onConnected} compact />
+      ) : (
+        <p>
+          {state === 'admin' ? (
+            <>
+              {t('notifyPrefs.notConfigured')}
+              {can('settings.integrations') && (
+                <>
+                  {' '}
+                  <Link to="/admin/settings/notifications">{t('when.warn.setUp')} →</Link>
+                </>
+              )}
+            </>
+          ) : (
+            t(`notifications.channel_${id}Desc`)
+          )}
+        </p>
+      )}
       {result && <TestResult value={result} />}
     </div>
   );
@@ -273,7 +283,7 @@ export default function AccountNotifications() {
             {test?.push && <TestResult value={test.push} />}
           </div>
           {['email', 'telegram', 'whatsapp', 'mattermost'].map((id) => (
-            <ChannelCard key={id} id={id} data={data} result={test?.[id]} onToggle={(channel, value) => save({ channels: { [channel]: value } })} />
+            <ChannelCard key={id} id={id} data={data} result={test?.[id]} onConnected={load} onToggle={(channel, value) => save({ channels: { [channel]: value } })} />
           ))}
         </div>
         {test && <p className="np-test-note">{t('notifyPrefs.testNote')}</p>}

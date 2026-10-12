@@ -22,6 +22,7 @@ export const SETTINGS_PAGES = {
   mattermost: Integration,
   ad: Integration,
   system: lazy(() => import('../pages/admin/settings/System')),
+  notifications: lazy(() => import('../pages/admin/settings/NotificationDelivery')),
   modules: lazy(() => import('../pages/admin/settings/Modules')),
   kb: lazy(() => import('../modules/kb/KbSettings')),
   documents: Integration,
