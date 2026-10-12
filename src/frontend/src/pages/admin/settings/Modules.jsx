@@ -5,7 +5,7 @@ import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useAdminSettings } from '../../../hooks/useAdminSettings';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
-import { MODULE_REGISTRY } from '../../../modules/registry';
+import { FEATURE_MODULES, MODULE_REGISTRY } from '../../../modules/registry';
 import SettingsPageHeader from './SettingsPageHeader';
 
 /** All modules with an on/off switch; each links to its own settings and app. */
@@ -28,7 +28,7 @@ export default function ModulesSettings() {
       <SettingsPageHeader id="modules" />
       <LoadState ready={ready} error={error} onRetry={refresh}>
         <div className="module-list">
-          {MODULE_REGISTRY.map((module) => {
+          {[...MODULE_REGISTRY, ...FEATURE_MODULES].map((module) => {
             const state = settings?.modules?.[module.id] || {};
             return (
               <section key={module.id} className={`module-card${state.enabled ? ' is-on' : ''}`}>
@@ -41,12 +41,12 @@ export default function ModulesSettings() {
                     <Tag bordered={false} color={state.enabled ? 'green' : 'default'}>
                       {state.enabled ? t('settings.integration.on') : t('settings.integration.off')}
                     </Tag>
-                    <code>{module.path}</code>
+                    {module.path && <code>{module.path}</code>}
                   </div>
                   <p>{t(module.descKey)}</p>
                   <div className="module-card__links">
                     <Link to={`/admin/settings/${module.id}`}>{t('modules.settings')} →</Link>
-                    {state.enabled && <Link to={module.path}>{t('modules.open')} ↗</Link>}
+                    {state.enabled && module.path && <Link to={module.path}>{t('modules.open')} ↗</Link>}
                   </div>
                 </div>
                 <Switch checked={Boolean(state.enabled)} onChange={(value) => toggle(module.id, value)} />

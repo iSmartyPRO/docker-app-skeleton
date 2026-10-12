@@ -244,6 +244,11 @@ export const SETTINGS_GROUPS = [
         keywords: 'tasks projects kanban board todo задачи проекты канбан доска',
       },
       {
+        id: 'assistant',
+        defaultIcon: 'robot',
+        keywords: 'assistant robot helper avatar tips помощник робот подсказки аватар',
+      },
+      {
         id: 'calendar',
         defaultIcon: 'calendar',
         keywords: 'calendar events meetings reminders календарь события встречи напоминания',

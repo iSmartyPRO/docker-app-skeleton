@@ -10,6 +10,7 @@ import { apiEn, apiRu } from './api.js';
 import { helpEn, helpRu } from './help.js';
 import { notifyEn, notifyRu } from './notify.js';
 import { kbEditorEn, kbEditorRu } from './kbEditor.js';
+import { assistantEn, assistantRu } from './assistant.js';
 
 const en = {
   brand: 'docker-app-skeleton',
@@ -1935,6 +1936,8 @@ mergeDeep(en, notifyEn);
 mergeDeep(ru, notifyRu);
 mergeDeep(en, kbEditorEn);
 mergeDeep(ru, kbEditorRu);
+mergeDeep(en, assistantEn);
+mergeDeep(ru, assistantRu);
 mergeDeep(en, tasks2En);
 mergeDeep(ru, tasks2Ru);
 mergeDeep(en, resourcesEn);

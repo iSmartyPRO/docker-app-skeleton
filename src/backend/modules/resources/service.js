@@ -1,6 +1,6 @@
 import { query, withTransaction } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
-import { MODULE_IDS } from '../catalog.js';
+import { MODULE_CATALOG } from '../catalog.js';
 import { HEX, LEVEL, clean, contextFromRequest, httpError, intId, matches, readAcl, writeAcl } from '../shared/acl.js';
 import { cleanIcon, iconFiles, removeIconFiles } from './icons.js';
 
@@ -38,7 +38,7 @@ export function cleanUrl(value) {
 
 const LANGS = ['ru', 'en'];
 // Modules a resource can point to (not the resources board itself).
-export const LINKABLE_MODULES = MODULE_IDS.filter((id) => id !== 'resources');
+export const LINKABLE_MODULES = MODULE_CATALOG.filter((module) => !module.overlay && module.id !== 'resources').map((module) => module.id);
 
 function cleanI18n(input) {
   const out = {};

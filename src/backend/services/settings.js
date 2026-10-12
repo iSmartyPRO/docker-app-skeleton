@@ -3,7 +3,7 @@ import { basename, join } from 'path';
 import { query } from '../config/database.js';
 import { logoDir } from '../config/paths.js';
 import { APP_VERSION } from '../config/version.js';
-import { MODULE_IDS, resolveModules, sanitizeModules } from '../modules/catalog.js';
+import { MODULE_CATALOG, MODULE_IDS, resolveModules, sanitizeModules } from '../modules/catalog.js';
 
 export const DEFAULTS = {
   app_name: 'docker-app-skeleton',
@@ -407,7 +407,12 @@ export function toPublicSettings(parsed) {
       Object.entries(parsed.modules).map(([id, state]) => [
         id,
         // A module may carry a display name chosen by the administrator (e.g. "iSmarty Drive").
-        state.settings?.title ? { enabled: state.enabled, title: state.settings.title } : { enabled: state.enabled },
+        {
+          enabled: state.enabled,
+          ...(state.settings?.title ? { title: state.settings.title } : {}),
+          // Settings a module marks as public (e.g. the assistant's default robot).
+          ...Object.fromEntries((MODULE_CATALOG.find((entry) => entry.id === id)?.publicSettings || []).map((key) => [key, state.settings?.[key]])),
+        },
       ])
     ),
     auth: (() => {

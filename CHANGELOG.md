@@ -9,6 +9,7 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 ### Security and reliability (audit)
 
+- **Robot assistant** module: three animated robots (Pixel, Orbi, Kiko) with moods, draggable anywhere, offering help once per section and answering from the help (tips, guides, FAQ, search); on by default, each person can change or turn it off, administrators pick the default robot. See [docs/assistant.md](docs/assistant.md).
 - The browser tab icon follows *App icon* (`/api/pwa/icon`, `/favicon.ico` redirect, runtime `<link rel=icon>` update, versioned manifest); SVG app icons are accepted.
 - Knowledge base app icon is a graduation cap.
 - File server: when exactly one share is online it opens straight away (`?list=1` shows the list).

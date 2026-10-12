@@ -9,6 +9,7 @@ import { useThemeMode } from '../../context/ThemeContext';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { updateAccountProfile } from '../../services/api';
 import { HintLabel } from '../../help/Hint';
+import AccountAssistant from '../../modules/assistant/AccountAssistant';
 
 export default function AccountAppearance() {
   const { user, setUser } = useAuth();
@@ -55,6 +56,7 @@ export default function AccountAppearance() {
           </SettingRow>
         </SettingsSection>
       </Form>
+      <AccountAssistant />
       <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={reset} />
     </div>
   );

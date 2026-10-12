@@ -89,6 +89,20 @@ export const MODULE_REGISTRY = [
   },
 ];
 
+/**
+ * Modules without a page of their own (drawn over every page). They appear in
+ * Settings → Modules with an on/off switch and their own settings screen.
+ */
+export const FEATURE_MODULES = [
+  {
+    id: 'assistant',
+    icon: 'robot',
+    labelKey: 'apps.assistant.name',
+    descKey: 'apps.assistant.desc',
+    Settings: lazy(() => import('./assistant/AssistantSettings')),
+  },
+];
+
 /** A module's name: the administrator's choice when the module has one (Drive), else the translation. */
 export function moduleLabel(module, settings, t) {
   return settings?.modules?.[module.id]?.title || t(module.labelKey);

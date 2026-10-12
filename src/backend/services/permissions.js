@@ -41,7 +41,7 @@ export const PERMISSION_CATALOG = [
     ],
   },
   // Each module contributes its own permission group.
-  ...MODULE_CATALOG.map((module) => ({ group: `module_${module.id}`, permissions: module.permissions })),
+  ...MODULE_CATALOG.filter((module) => module.permissions.length).map((module) => ({ group: `module_${module.id}`, permissions: module.permissions })),
 ];
 
 export const PERMISSIONS = PERMISSION_CATALOG.flatMap((group) => group.permissions);

@@ -11,6 +11,7 @@ import resources from './resources/index.js';
 import companies from './companies/index.js';
 import dashboard from './dashboard/index.js';
 import chat from './chat/index.js';
+import assistant from './assistant/index.js';
 
 /*
  * Module platform.
@@ -28,7 +29,7 @@ import chat from './chat/index.js';
 
 // Files first: the knowledge base keeps its files there.
 // Chat before tasks: task conversations are entity rooms of the chat module.
-export const MODULES = [files, kb, chat, tasks, calendar, drive, resources, companies, dashboard];
+export const MODULES = [files, kb, chat, tasks, calendar, drive, resources, companies, dashboard, assistant];
 
 async function moduleState(id) {
   const parsed = parseSettings(await getSettings());
@@ -68,7 +69,7 @@ export function moduleRouter() {
       const parsed = parseSettings(await getSettings());
       res.json({
         success: true,
-        apps: MODULE_CATALOG.map((module) => ({ id: module.id, enabled: parsed.modules[module.id]?.enabled })).filter(
+        apps: MODULE_CATALOG.filter((module) => !module.overlay).map((module) => ({ id: module.id, enabled: parsed.modules[module.id]?.enabled })).filter(
           (app) => app.enabled
         ),
       });

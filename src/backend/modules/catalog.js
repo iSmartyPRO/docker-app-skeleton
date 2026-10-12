@@ -313,6 +313,27 @@ export const MODULE_CATALOG = [
       return next;
     },
   },
+  {
+    id: 'assistant',
+    // Not an app with its own page: a helper drawn over every page.
+    overlay: true,
+    defaultEnabled: true,
+    permissions: [],
+    // Shown to every signed-in person (public settings), not only administrators.
+    publicSettings: ['avatar', 'proactive'],
+    defaults: {
+      // Robot shown until a person picks their own: 'pixel' | 'orbi' | 'kiko'.
+      avatar: 'pixel',
+      // Offer help once when a person opens a section for the first time.
+      proactive: true,
+    },
+    sanitize(current, incoming = {}) {
+      const next = { ...current };
+      if (['pixel', 'orbi', 'kiko'].includes(incoming.avatar)) next.avatar = incoming.avatar;
+      if (typeof incoming.proactive === 'boolean') next.proactive = incoming.proactive;
+      return next;
+    },
+  },
 ];
 
 export const MODULE_IDS = MODULE_CATALOG.map((module) => module.id);

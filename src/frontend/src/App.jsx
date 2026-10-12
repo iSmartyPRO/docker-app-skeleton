@@ -32,6 +32,8 @@ import { applyAppIcon } from './pwa/appIcon';
 import Home from './pages/Home';
 import Login from './pages/Login';
 
+// The robot assistant loads after the page, never delaying it.
+const Assistant = lazy(() => import('./modules/assistant/Assistant'));
 const SetupWizard = lazy(() => import('./pages/SetupWizard'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const SettingsLayout = lazy(() => import('./layouts/SettingsLayout'));
@@ -323,6 +325,9 @@ function ThemedRoutes() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+        </Suspense>
+        <Suspense fallback={null}>
+          <Assistant />
         </Suspense>
         </HelpProvider>
         </AppErrorBoundary>
