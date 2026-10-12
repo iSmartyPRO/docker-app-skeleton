@@ -123,6 +123,133 @@
   }
 }
 
+/* New characters: capes flutter, the leopard's tail and the ponytail sway,
+   the retro gauge swings, chat dots run, the tiara star twinkles. */
+.rb-cape,
+.rb-tail,
+.rb-ponytail,
+.rb-gauge,
+.rb-star,
+.rb-bubble,
+.rb-chatdot {
+  transform-box: fill-box;
+}
+
+.rb-cape {
+  transform-origin: 50% 0%;
+  animation: rb-cape 2.8s ease-in-out infinite;
+}
+
+.rb-tail {
+  transform-origin: 0% 100%;
+  animation: rb-tail 3.2s ease-in-out infinite;
+}
+
+.rb-ponytail {
+  transform-origin: 0% 0%;
+  animation: rb-sway-small 3s ease-in-out infinite;
+}
+
+.rb-gauge {
+  transform-origin: 50% 100%;
+  animation: rb-gauge 2.4s ease-in-out infinite;
+}
+
+.rb-blinker {
+  animation: rb-bulb 1.4s steps(2, jump-none) infinite;
+}
+
+.rb-chatdot {
+  animation: rb-dot 1.1s ease-in-out infinite;
+}
+
+.rb-bubble {
+  transform-origin: 50% 100%;
+  animation: rb-sway-small 3.6s ease-in-out infinite;
+}
+
+.rb-star {
+  transform-origin: center;
+  animation: rb-star 2.6s ease-in-out infinite;
+}
+
+.rb.is-happy .rb-cape,
+.rb.is-wave .rb-cape {
+  animation-duration: 1s;
+}
+
+.rb.is-happy .rb-tail,
+.rb.is-wave .rb-tail {
+  animation-duration: 0.8s;
+}
+
+/* The owl waves with both wings. */
+.rb--uku.is-wave .rb-arm--left {
+  animation: rb-wave-left 0.5s ease-in-out 4 alternate;
+}
+
+.rb.is-still .rb-cape,
+.rb.is-still .rb-tail,
+.rb.is-still .rb-ponytail,
+.rb.is-still .rb-gauge,
+.rb.is-still .rb-blinker,
+.rb.is-still .rb-chatdot,
+.rb.is-still .rb-bubble,
+.rb.is-still .rb-star {
+  animation: none;
+}
+
+@keyframes rb-cape {
+  0%,
+  100% {
+    transform: skewX(0deg) scaleY(1);
+  }
+  50% {
+    transform: skewX(-5deg) scaleY(1.03);
+  }
+}
+
+@keyframes rb-tail {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes rb-gauge {
+  0%,
+  100% {
+    transform: rotate(-50deg);
+  }
+  50% {
+    transform: rotate(45deg);
+  }
+}
+
+@keyframes rb-star {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 0 rgba(251, 191, 36, 0));
+  }
+  50% {
+    transform: scale(1.15) rotate(8deg);
+    filter: drop-shadow(0 0 2px rgba(251, 191, 36, 0.9));
+  }
+}
+
+@keyframes rb-wave-left {
+  from {
+    transform: rotate(10deg);
+  }
+  to {
+    transform: rotate(70deg);
+  }
+}
+
 /* Moods */
 .rb.is-happy .rb-float {
   animation: rb-hop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 1, rb-float 3.4s ease-in-out 0.7s infinite;
@@ -1000,4 +1127,174 @@
   .asst-hello {
     animation: none !important;
   }
+}
+
+/* ── The cast: grouped characters and a colour row ─────────────────────── */
+.asst-castx {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.asst-castx__group h4,
+.asst-tints h4 {
+  margin: 0 0 8px;
+  color: var(--da-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.asst-castx__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.asst-castx.is-compact .asst-castx__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.asst-castx__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 12px 10px 14px;
+  border-radius: 18px;
+  border: 1.5px solid color-mix(in srgb, var(--da-border) 80%, transparent);
+  background:
+    radial-gradient(110% 75% at 50% 0%, color-mix(in srgb, var(--asst-accent) 17%, transparent) 0%, transparent 70%),
+    var(--da-surface);
+  color: var(--da-text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  animation: asst-cast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.asst-castx.is-compact .asst-castx__item {
+  padding: 6px 4px 8px;
+  border-radius: 15px;
+}
+
+.asst-castx__item:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--asst-accent) 50%, var(--da-border));
+  box-shadow: 0 14px 26px -16px var(--asst-accent);
+}
+
+.asst-castx__item.is-on {
+  border-color: var(--asst-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--asst-accent) 20%, transparent);
+}
+
+.asst-castx__stage {
+  display: grid;
+  place-items: center;
+  height: 90px;
+}
+
+.asst-castx.is-compact .asst-castx__stage {
+  height: 62px;
+}
+
+.asst-castx__item strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.asst-castx.is-compact .asst-castx__item strong {
+  font-size: 12.5px;
+}
+
+.asst-castx__item > span:last-child:not(.asst-castx__stage) {
+  color: var(--da-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.asst-castx__check {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--asst-accent);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+  box-shadow: 0 2px 6px -1px var(--asst-accent);
+}
+
+.asst-tints {
+  padding: 12px 12px 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--asst-accent) 7%, var(--da-surface));
+  border: 1px solid color-mix(in srgb, var(--asst-accent) 22%, transparent);
+}
+
+.asst-tints__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.asst-tints__swatch {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--sw), white 45%) 0%, var(--sw) 55%, color-mix(in srgb, var(--sw), black 25%) 100%);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12), 0 2px 5px -2px var(--sw);
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+}
+
+.asst-tints__swatch:hover {
+  transform: scale(1.14);
+}
+
+.asst-tints__swatch.is-on {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 2.5px var(--da-surface), 0 0 0 4.5px var(--sw), 0 6px 14px -6px var(--sw);
+}
+
+.asst-tints__swatch.is-original {
+  background: conic-gradient(from 200deg, var(--sw), #f472b6, #facc15, #34d399, #60a5fa, var(--sw));
+}
+
+.asst-tints__swatch.is-original::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: var(--da-surface);
+}
+
+.asst-cast__done {
+  align-self: stretch;
+  height: 40px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--asst-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 22px -12px var(--asst-accent);
+}
+
+.asst-cast__done:hover {
+  filter: brightness(1.06);
 }

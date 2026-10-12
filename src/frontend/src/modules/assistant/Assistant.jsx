@@ -9,6 +9,7 @@ import { useHelp } from '../../help/HelpContext';
 import { helpForPath, loadHelp, tr } from '../../help/registry';
 import Rich from '../../help/Rich';
 import { ROBOTS, Robot } from './robots';
+import Cast from './Cast';
 import { readPosition, savePrefs, searchHelp, useAssistantPrefs, writePosition } from './store';
 import './assistant.css';
 
@@ -104,6 +105,8 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
   const { openHelp } = useHelp();
   const kind = prefs.avatar || prefs.defaultAvatar || 'pixel';
   const robotMeta = ROBOTS.find((robot) => robot.id === kind) || ROBOTS[0];
+  // The panel and bubbles wear the character's colour (the person's own, if chosen).
+  const accent = prefs.colors?.[kind] || robotMeta.accent;
   const name = t(`assistant.robots.${kind}.name`);
   const [phone, setPhone] = useState(isPhone);
   const size = phone ? Math.min(56, SIZES[prefs.size] || 64) : SIZES[prefs.size] || 64;
@@ -317,7 +320,7 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
       <div
         ref={rootRef}
         className={`asst${dragging ? ' is-dragging' : ''}`}
-        style={{ left: pos.x, top: pos.y, width: size, height: size, '--asst-accent': robotMeta.accent }}
+        style={{ left: pos.x, top: pos.y, width: size, height: size, '--asst-accent': accent }}
       >
         <button
           type="button"
@@ -345,14 +348,14 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
           }}
         >
           <span key={kind} className="asst__swap">
-            <Robot kind={kind} mood={displayMood} blink={blink} look={sleeping ? { x: 0, y: 0.3 } : look} size={size} />
+            <Robot kind={kind} tint={prefs.colors?.[kind]} mood={displayMood} blink={blink} look={sleeping ? { x: 0, y: 0.3 } : look} size={size} />
           </span>
           {bubble && <span className="asst__dot" />}
         </button>
       </div>
 
       {bubble && !panel && (
-        <div className="asst-bubble" style={{ ...anchor, '--asst-accent': robotMeta.accent }} role="status">
+        <div className="asst-bubble" style={{ ...anchor, '--asst-accent': accent }} role="status">
           <div>
             {bubble.first ? t('assistant.helloFirst', { name, first: firstName(user) }) : t('assistant.offer', { section: bubble.title })}
           </div>
@@ -376,7 +379,7 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
       )}
 
       {panel && (
-        <div ref={panelRef} className={`asst-panel${armed ? ' is-armed' : ''}`} style={{ ...anchor, '--asst-accent': robotMeta.accent }} role="dialog" aria-label={name}>
+        <div ref={panelRef} className={`asst-panel${armed ? ' is-armed' : ''}`} style={{ ...anchor, '--asst-accent': accent }} role="dialog" aria-label={name}>
           <AssistantPanel
             user={user}
             prefs={prefs}
@@ -417,7 +420,6 @@ function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, on
 
   // A new robot introduces itself for a moment in the header.
   const pick = (avatar) => {
-    setView('main');
     if ((avatar || null) === (prefs.avatar || null)) return;
     const next = avatar || prefs.defaultAvatar;
     savePrefs({ avatar }).catch(() => {});
@@ -506,7 +508,7 @@ function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, on
           title={t('assistant.switch.open')}
         >
           <span key={kind} className="asst__swap">
-            <Robot kind={kind} mood={hello ? 'wave' : 'happy'} size={52} />
+            <Robot kind={kind} tint={prefs.colors?.[kind]} mood={hello ? 'wave' : 'happy'} size={52} />
           </span>
           <span className="asst-avatar__badge" aria-hidden="true">
             <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -544,36 +546,23 @@ function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, on
 
       {view === 'robots' ? (
         <div className="asst-panel__body">
-          <div className="asst-cast" role="radiogroup" aria-label={t('assistant.switch.title')}>
-            {ROBOTS.map((robot) => {
-              const on = (prefs.avatar || prefs.defaultAvatar) === robot.id;
-              return (
-                <button
-                  key={robot.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  className={`asst-cast__item${on ? ' is-on' : ''}`}
-                  style={{ '--asst-accent': robot.accent }}
-                  onClick={() => pick(robot.id)}
-                >
-                  {on && <span className="asst-cast__check">✓</span>}
-                  <span className="asst-cast__stage">
-                    <Robot kind={robot.id} mood={on ? 'happy' : 'idle'} size={64} />
-                  </span>
-                  <strong>{t(`assistant.robots.${robot.id}.name`)}</strong>
-                  <span>{t(`assistant.robots.${robot.id}.desc`)}</span>
-                </button>
-              );
-            })}
-          </div>
+          <Cast
+            compact
+            value={prefs.avatar || prefs.defaultAvatar}
+            colors={prefs.colors}
+            onPick={pick}
+            onTint={(avatar, color) => {
+              savePrefs({ colors: { [avatar]: color } }).catch(() => {});
+              setMood('happy', 1200);
+            }}
+          />
           {prefs.avatar && (
             <button type="button" className="asst-cast__default" onClick={() => pick(null)}>
               ↺ {t('assistant.switch.useDefault', { name: t(`assistant.robots.${prefs.defaultAvatar}.name`) })}
             </button>
           )}
-          <button type="button" className="asst-cast__back" onClick={() => setView('main')}>
-            ← {t('assistant.back')}
+          <button type="button" className="asst-cast__done" onClick={() => setView('main')}>
+            {t('assistant.switch.done')}
           </button>
         </div>
       ) : (

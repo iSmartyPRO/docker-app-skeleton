@@ -1,6 +1,7 @@
 import { query } from '../../config/database.js';
 
-export const AVATARS = ['pixel', 'orbi', 'kiko', 'ermek', 'aichurok'];
+export const AVATARS = ['pixel', 'orbi', 'kiko', 'classic', 'pro', 'boltik', 'ermek', 'aichurok', 'volt', 'nova', 'barsik', 'uku'];
+const HEX = /^#[0-9a-f]{6}$/i;
 const SECTION = /^[a-z][a-z0-9-]{0,31}$/;
 
 /**
@@ -9,6 +10,7 @@ const SECTION = /^[a-z][a-z0-9-]{0,31}$/;
  *   avatar    one of AVATARS, or null = the administrator's default
  *   size      'S' | 'M' | 'L'
  *   greeted   sections where the robot already offered help (it offers once)
+ *   colors    { [avatar]: '#rrggbb' } — a person's own colour per character
  */
 export function cleanPrefs(input = {}, current = {}) {
   const next = { ...current };
@@ -17,6 +19,16 @@ export function cleanPrefs(input = {}, current = {}) {
   if (['S', 'M', 'L'].includes(input.size)) next.size = input.size;
   if (Array.isArray(input.greeted)) next.greeted = [...new Set(input.greeted.filter((id) => SECTION.test(String(id))))].slice(0, 64);
   if (input.resetGreetings === true) next.greeted = [];
+  // { avatar: '#rrggbb' } sets a colour, { avatar: null } restores the design.
+  if (input.colors && typeof input.colors === 'object') {
+    const colors = { ...(current.colors || {}) };
+    for (const [avatar, color] of Object.entries(input.colors)) {
+      if (!AVATARS.includes(avatar)) continue;
+      if (color === null) delete colors[avatar];
+      else if (HEX.test(String(color))) colors[avatar] = String(color).toLowerCase();
+    }
+    next.colors = colors;
+  }
   return next;
 }
 
@@ -27,6 +39,7 @@ export function resolvePrefs(stored = {}, module = {}) {
     defaultAvatar: AVATARS.includes(module.avatar) ? module.avatar : 'pixel',
     size: ['S', 'M', 'L'].includes(stored.size) ? stored.size : 'M',
     greeted: Array.isArray(stored.greeted) ? stored.greeted : [],
+    colors: Object.fromEntries(Object.entries(stored.colors || {}).filter(([avatar, color]) => AVATARS.includes(avatar) && HEX.test(color))),
     proactive: module.proactive !== false,
   };
 }

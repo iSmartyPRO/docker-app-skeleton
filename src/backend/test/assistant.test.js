@@ -18,3 +18,12 @@ test('assistant is on by default and falls back to the organisation robot', () =
   assert.equal(prefs.proactive, false);
   assert.equal(resolvePrefs({ enabled: false }, {}).enabled, false);
 });
+
+test('assistant colours are kept per character and can be reset', () => {
+  let next = cleanPrefs({ colors: { pro: '#E11D48', evil: '#000000', kiko: 'red' } }, {});
+  assert.deepEqual(next.colors, { pro: '#e11d48' });
+  next = cleanPrefs({ colors: { pro: null, uku: '#22C55E' } }, next);
+  assert.deepEqual(next.colors, { uku: '#22c55e' });
+  assert.deepEqual(resolvePrefs({ colors: { uku: '#22c55e', bad: '#000000' } }, {}).colors, { uku: '#22c55e' });
+  assert.equal(cleanPrefs({ avatar: 'volt' }).avatar, 'volt');
+});

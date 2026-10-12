@@ -4,7 +4,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
-import RobotPicker from './RobotPicker';
+import Cast from './Cast';
 import { savePrefs, useAssistantPrefs, writePosition } from './store';
 import './assistant.css';
 
@@ -39,7 +39,12 @@ export default function AccountAssistant() {
               <Switch checked={prefs.enabled} onChange={(enabled) => change({ enabled })} />
             </SettingRow>
             <div className="asst-account-picker">
-              <RobotPicker value={prefs.avatar || orgAvatar} onChange={(avatar) => change({ avatar })} />
+              <Cast
+                value={prefs.avatar || orgAvatar}
+                colors={prefs.colors}
+                onPick={(avatar) => change({ avatar })}
+                onTint={(avatar, color) => change({ colors: { [avatar]: color } })}
+              />
               <p className="asst-account-note">
                 {prefs.avatar ? (
                   <>

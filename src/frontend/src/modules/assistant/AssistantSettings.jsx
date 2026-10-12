@@ -9,7 +9,7 @@ import { useLocale } from '../../context/LocaleContext';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
 import { Button } from 'antd';
 import { useAuth } from '../../context/AuthContext';
-import RobotPicker from './RobotPicker';
+import Cast from './Cast';
 import { savePrefs, useAssistantPrefs } from './store';
 import './assistant.css';
 
@@ -66,7 +66,7 @@ function OwnRobotNote() {
   );
 }
 
-const PickerField = ({ value, onChange }) => <RobotPicker value={value} onChange={onChange} />;
+const PickerField = ({ value, onChange }) => <Cast value={value} onPick={onChange} />;
 
 export default function AssistantSettings() {
   const { settings, ready, error, refresh, save } = useAdminSettings();

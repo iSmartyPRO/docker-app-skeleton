@@ -21,6 +21,9 @@ export const KB_FILE_GROUPS = {
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
+// Characters of the robot assistant (modules/assistant/service.js keeps the same list).
+const ASSISTANT_AVATARS = ['pixel', 'orbi', 'kiko', 'classic', 'pro', 'boltik', 'ermek', 'aichurok', 'volt', 'nova', 'barsik', 'uku'];
+
 export const MODULE_CATALOG = [
   {
     id: 'files',
@@ -322,14 +325,14 @@ export const MODULE_CATALOG = [
     // Shown to every signed-in person (public settings), not only administrators.
     publicSettings: ['avatar', 'proactive'],
     defaults: {
-      // Robot shown until a person picks their own: 'pixel' | 'orbi' | 'kiko' | 'ermek' | 'aichurok'.
+      // Robot shown until a person picks their own (one of ASSISTANT_AVATARS).
       avatar: 'pixel',
       // Offer help once when a person opens a section for the first time.
       proactive: true,
     },
     sanitize(current, incoming = {}) {
       const next = { ...current };
-      if (['pixel', 'orbi', 'kiko', 'ermek', 'aichurok'].includes(incoming.avatar)) next.avatar = incoming.avatar;
+      if (ASSISTANT_AVATARS.includes(incoming.avatar)) next.avatar = incoming.avatar;
       if (typeof incoming.proactive === 'boolean') next.proactive = incoming.proactive;
       return next;
     },

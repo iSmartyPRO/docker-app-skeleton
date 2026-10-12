@@ -11,7 +11,7 @@ export default {
     { icon: '💬', title: { ru: 'Помощь по разделу', en: 'Help for the section' }, text: { ru: 'Нажмите на робота: совет, краткая и полная справка, частые вопросы.', en: 'Click the robot: a tip, the short and full guide, frequent questions.' } },
     { icon: '🔎', title: { ru: 'Спросите', en: 'Ask' }, text: { ru: 'Напишите вопрос своими словами — робот найдёт ответ во всей справке.', en: 'Type a question in your own words — the robot finds the answer across all help.' } },
     { icon: '✋', title: { ru: 'Где удобно', en: 'Where it suits you' }, text: { ru: 'Перетащите робота мышью или пальцем — он запомнит место на этом устройстве.', en: 'Drag the robot with the mouse or a finger — it remembers the spot on this device.' } },
-    { icon: '🎨', title: { ru: 'Пять характеров', en: 'Five characters' }, text: { ru: 'Пиксель, Орби, Кико, а также Эрмек и Айчүрөк в кыргызском стиле — выберите своего в Профиль → Оформление.', en: 'Pixel, Orbi, Kiko, plus Ermek and Aichurok in Kyrgyz style — pick yours under Account → Appearance.' } },
+    { icon: '🎨', title: { ru: '12 персонажей и свой цвет', en: '12 characters and your colour' }, text: { ru: 'Роботы, герои в кыргызском стиле, супергерои и животные — нажмите на аватар в панели робота, выберите персонажа и при желании его цвет.', en: 'Robots, characters in Kyrgyz style, superheroes and animals — tap the avatar in the robot’s panel, pick a character and, if you like, its colour.' } },
   ],
   tips: [
     { ru: 'Робот мешает? Перетащите его к краю экрана или выберите размер «Маленький».', en: 'In the way? Drag the robot to the edge or choose the “Small” size.' },
