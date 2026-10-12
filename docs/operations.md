@@ -146,3 +146,7 @@ Override path: `make postgres-up POSTGRES_DIR=/path/to/postgres`.
 | AD users cannot sign in | *Test connection* in Integrations → Active Directory; check the base DN covers the users and the account is enabled in AD |
 | `409 LAST_SUPERADMIN` | Working as intended — make another super administrator first |
 | Locked out of the console completely | `make sql SQL="INSERT INTO user_roles SELECT u.id, r.id FROM users u, app_roles r WHERE u.username='name' AND r.key='superadmin' ON CONFLICT DO NOTHING"` |
+
+## Disk space and Docker build cache
+
+Every `make rebuild` leaves Docker build-cache layers behind (a few GB per build). Left alone they fill the disk; PostgreSQL then cannot start (`could not write lock file "postmaster.pid": No space left on device`) and the portal answers `Database is not connected` — the sign-in page falls back to the skeleton defaults. `make rebuild` now ends with `make prune-build`, which trims the build cache to 4 GB and removes untagged images. Check with `docker system df` and `df -h /`; `docker builder prune -a -f` frees all build cache at once (the next build is just slower).

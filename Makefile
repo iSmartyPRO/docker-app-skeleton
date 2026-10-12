@@ -186,6 +186,12 @@ rebuild: ## Rebuild image and recreate production
 	@$(MAKE) --no-print-directory env
 	@$(MAKE) --no-print-directory network
 	$(COMPOSE_PROD) up -d --build --force-recreate
+	@$(MAKE) --no-print-directory prune-build
+
+prune-build: ## Trim Docker build cache (keeps 4 GB) and untagged images, so rebuilds never fill the disk
+	@docker builder prune -f --max-used-space 4gb >/dev/null 2>&1 || true
+	@docker image prune -f >/dev/null 2>&1 || true
+	@df -h / | awk 'NR==2 {print "Disk: " $$3 " used, " $$4 " free (" $$5 ")"}'
 
 rebuild-clean: ## Rebuild production without Docker cache
 	@$(MAKE) --no-print-directory env
