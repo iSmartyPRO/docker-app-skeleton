@@ -379,6 +379,7 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
         <div ref={panelRef} className={`asst-panel${armed ? ' is-armed' : ''}`} style={{ ...anchor, '--asst-accent': robotMeta.accent }} role="dialog" aria-label={name}>
           <AssistantPanel
             user={user}
+            prefs={prefs}
             kind={kind}
             name={name}
             section={section}
@@ -403,7 +404,7 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
 
 const firstName = (user) => String(user?.displayName || user?.username || '').split(/\s+/)[0];
 
-function AssistantPanel({ user, kind, name, section, setMood, onClose, onHide, openHelp, go }) {
+function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, onHide, openHelp, go }) {
   const { t, locale } = useLocale();
   const [doc, setDoc] = useState(null);
   const [tip, setTip] = useState(0);
@@ -411,6 +412,23 @@ function AssistantPanel({ user, kind, name, section, setMood, onClose, onHide, o
   const [open, setOpen] = useState(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
+  const [view, setView] = useState('main');
+  const [hello, setHello] = useState(null);
+
+  // A new robot introduces itself for a moment in the header.
+  const pick = (avatar) => {
+    setView('main');
+    if ((avatar || null) === (prefs.avatar || null)) return;
+    const next = avatar || prefs.defaultAvatar;
+    savePrefs({ avatar }).catch(() => {});
+    setMood('wave', 1800);
+    setHello(next);
+  };
+  useEffect(() => {
+    if (!hello) return undefined;
+    const timer = setTimeout(() => setHello(null), 3200);
+    return () => clearTimeout(timer);
+  }, [hello]);
 
   useEffect(() => {
     let alive = true;
@@ -449,15 +467,7 @@ function AssistantPanel({ user, kind, name, section, setMood, onClose, onHide, o
   const title = doc ? tr(doc.title, locale) : '';
   const menu = {
     items: [
-      {
-        key: 'robot',
-        label: t('assistant.menu.robot'),
-        children: ROBOTS.map((robot) => ({
-          key: `robot:${robot.id}`,
-          label: t(`assistant.robots.${robot.id}.name`),
-          icon: <Robot kind={robot.id} size={22} still />,
-        })),
-      },
+      { key: 'robot', label: t('assistant.menu.robot') },
       {
         key: 'size',
         label: t('assistant.menu.size'),
@@ -469,7 +479,7 @@ function AssistantPanel({ user, kind, name, section, setMood, onClose, onHide, o
       { key: 'off', label: t('assistant.menu.off'), danger: true },
     ],
     onClick: ({ key }) => {
-      if (key.startsWith('robot:')) savePrefs({ avatar: key.slice(6) }).then(() => setMood('happy', 1500));
+      if (key === 'robot') setView('robots');
       else if (key.startsWith('size:')) savePrefs({ size: key.slice(5) });
       else if (key === 'corner') writePosition(null);
       else if (key === 'hide') {
@@ -488,10 +498,39 @@ function AssistantPanel({ user, kind, name, section, setMood, onClose, onHide, o
   return (
     <>
       <div className="asst-panel__head">
-        <Robot kind={kind} mood="happy" size={52} />
+        <button
+          type="button"
+          className={`asst-avatar${view === 'robots' ? ' is-on' : ''}`}
+          onClick={() => setView(view === 'robots' ? 'main' : 'robots')}
+          aria-label={t('assistant.switch.open')}
+          title={t('assistant.switch.open')}
+        >
+          <span key={kind} className="asst__swap">
+            <Robot kind={kind} mood={hello ? 'wave' : 'happy'} size={52} />
+          </span>
+          <span className="asst-avatar__badge" aria-hidden="true">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h9l-2.5-2.5M13 10H4l2.5 2.5" />
+            </svg>
+          </span>
+        </button>
         <div className="asst-panel__who">
-          <strong>{t(`assistant.greeting.${greetingKey()}`, { first: firstName(user) })}</strong>
-          <span>{title ? t('assistant.here', { name, section: title }) : t('assistant.intro', { name })}</span>
+          {hello ? (
+            <>
+              <strong className="asst-hello">{t('assistant.switch.hello', { name: t(`assistant.robots.${hello}.name`) })}</strong>
+              <span>{t('assistant.switch.helloText')}</span>
+            </>
+          ) : view === 'robots' ? (
+            <>
+              <strong>{t('assistant.switch.title')}</strong>
+              <span>{t('assistant.switch.subtitle')}</span>
+            </>
+          ) : (
+            <>
+              <strong>{t(`assistant.greeting.${greetingKey()}`, { first: firstName(user) })}</strong>
+              <span>{title ? t('assistant.here', { name, section: title }) : t('assistant.intro', { name })}</span>
+            </>
+          )}
         </div>
         <Dropdown menu={menu} trigger={['click']} placement="bottomRight">
           <button type="button" className="asst-icon-btn" aria-label={t('assistant.menu.title')}>
@@ -503,6 +542,41 @@ function AssistantPanel({ user, kind, name, section, setMood, onClose, onHide, o
         </button>
       </div>
 
+      {view === 'robots' ? (
+        <div className="asst-panel__body">
+          <div className="asst-cast" role="radiogroup" aria-label={t('assistant.switch.title')}>
+            {ROBOTS.map((robot) => {
+              const on = (prefs.avatar || prefs.defaultAvatar) === robot.id;
+              return (
+                <button
+                  key={robot.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  className={`asst-cast__item${on ? ' is-on' : ''}`}
+                  style={{ '--asst-accent': robot.accent }}
+                  onClick={() => pick(robot.id)}
+                >
+                  {on && <span className="asst-cast__check">✓</span>}
+                  <span className="asst-cast__stage">
+                    <Robot kind={robot.id} mood={on ? 'happy' : 'idle'} size={64} />
+                  </span>
+                  <strong>{t(`assistant.robots.${robot.id}.name`)}</strong>
+                  <span>{t(`assistant.robots.${robot.id}.desc`)}</span>
+                </button>
+              );
+            })}
+          </div>
+          {prefs.avatar && (
+            <button type="button" className="asst-cast__default" onClick={() => pick(null)}>
+              ↺ {t('assistant.switch.useDefault', { name: t(`assistant.robots.${prefs.defaultAvatar}.name`) })}
+            </button>
+          )}
+          <button type="button" className="asst-cast__back" onClick={() => setView('main')}>
+            ← {t('assistant.back')}
+          </button>
+        </div>
+      ) : (
       <div className="asst-panel__body">
         <label className="asst-search">
           <span className="asst-search__icon" aria-hidden="true">
@@ -604,6 +678,7 @@ function AssistantPanel({ user, kind, name, section, setMood, onClose, onHide, o
           </>
         )}
       </div>
+      )}
 
       <div className="asst-panel__foot">
         <span>{t('assistant.dragHint')}</span>

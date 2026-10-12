@@ -49,6 +49,14 @@ export const assistantEn = {
     },
     dragHint: 'Drag me anywhere on the screen',
     settings: 'Settings',
+    switch: {
+      open: 'Change robot',
+      title: 'Who will help you?',
+      subtitle: 'Your choice — only you see it',
+      hello: 'Hi, I’m {name}!',
+      helloText: 'Now I’m your assistant. Ask me anything.',
+      useDefault: 'Back to the default robot ({name})',
+    },
     menu: {
       title: 'Assistant options',
       robot: 'Change robot',
@@ -125,6 +133,14 @@ export const assistantRu = {
     },
     dragHint: 'Перетащите меня в любое место экрана',
     settings: 'Настройки',
+    switch: {
+      open: 'Сменить робота',
+      title: 'Кто будет помогать?',
+      subtitle: 'Это ваш выбор — видите только вы',
+      hello: 'Привет, я {name}!',
+      helloText: 'Теперь я ваш помощник. Спрашивайте!',
+      useDefault: 'Вернуть робота по умолчанию ({name})',
+    },
     menu: {
       title: 'Настройки помощника',
       robot: 'Сменить робота',
