@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { App, Button, Checkbox, Dropdown, Skeleton, Switch, TimePicker, Tooltip } from 'antd';
 import PageHeader from '../../components/ui/PageHeader';
-import { IconBell, IconMail, IconMattermost, IconTelegram } from '../../components/icons/AdminIcons';
+import { IconBell, IconMail, IconMattermost, IconTelegram, IconWhatsapp } from '../../components/icons/AdminIcons';
 import { MenuIcon } from '../../components/icons/menuIcons';
 import { useLocale } from '../../context/LocaleContext';
 import { useSettings } from '../../context/SettingsContext';
@@ -22,9 +22,9 @@ import './notifications.css';
  *   about what (events × channels, subscriptions).
  */
 
-const EXTERNAL = ['push', 'email', 'telegram', 'mattermost'];
-const CHANNEL_ICON = { email: IconMail, telegram: IconTelegram, mattermost: IconMattermost };
-const FIX = { email: '/account', telegram: '/account/security', mattermost: '/account' };
+const EXTERNAL = ['push', 'email', 'telegram', 'whatsapp', 'mattermost'];
+const CHANNEL_ICON = { email: IconMail, telegram: IconTelegram, whatsapp: IconWhatsapp, mattermost: IconMattermost };
+const FIX = { email: '/account', telegram: '/account/security', whatsapp: '/account', mattermost: '/account' };
 const key = (kind) => kind.replace(/\./g, '_');
 
 /** Presets for the events table. */
@@ -272,7 +272,7 @@ export default function AccountNotifications() {
             <DevicePush onChanged={load} />
             {test?.push && <TestResult value={test.push} />}
           </div>
-          {['email', 'telegram', 'mattermost'].map((id) => (
+          {['email', 'telegram', 'whatsapp', 'mattermost'].map((id) => (
             <ChannelCard key={id} id={id} data={data} result={test?.[id]} onToggle={(channel, value) => save({ channels: { [channel]: value } })} />
           ))}
         </div>

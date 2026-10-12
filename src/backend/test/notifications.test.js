@@ -46,3 +46,12 @@ test('notification prefs: quiet hours follow the person time zone', () => {
   assert.equal(quietState(bishkek, new Date('2026-10-13T17:00:00Z')), 'quiet');
   assert.equal(quietState(bishkek, new Date('2026-10-13T06:00:00Z')), null);
 });
+
+test('notification prefs: WhatsApp is a messenger channel with its own switch', () => {
+  const prefs = resolvePrefs({ channels: { whatsapp: false } });
+  assert.equal(prefs.channels.whatsapp, false);
+  assert.equal(eventAllows(prefs, 'tasks.assigned', 'whatsapp'), false);
+  assert.equal(eventAllows(resolvePrefs({}), 'tasks.assigned', 'whatsapp'), true);
+  assert.equal(eventAllows(resolvePrefs({}), 'tasks.status', 'whatsapp'), false);
+  assert.equal(eventAllows(resolvePrefs({}), 'chat.message', 'whatsapp'), false);
+});

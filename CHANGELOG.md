@@ -54,6 +54,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 ### Added (help, notifications, calendar)
 
+- **WhatsApp as a notification channel** (through the configured gateway or Wazzup, to the phone in the profile): its own card, switch and column in *Profile → Notifications*; reminders *to messengers* go to Telegram, WhatsApp and Mattermost.
+
 - **In-app help** on three levels: ⓘ hints next to form fields (about 115 across the modules), a quick guide in a side panel (*?* in the header or the **?** key), and the help center `/help` with full guides, steps, examples, Q&A and search for every module. See [docs/help.md](docs/help.md).
 - **Notification preferences rebuilt** (*Profile → Notifications*):
   - channel cards with status and fixes;

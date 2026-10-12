@@ -84,10 +84,10 @@ In the event card answer **Going**, **Maybe** or **Not going** — the organiser
       id: 'reminders',
       title: { ru: 'Напоминания', en: 'Reminders' },
       body: {
-        ru: `Напоминание приходит за выбранное время до начала: в колокольчик портала, push на телефон, на почту и в Telegram/Mattermost — по вашим [настройкам уведомлений](/account/notifications). Напоминание по умолчанию для новых событий задаётся в настройках календаря.
+        ru: `Напоминание приходит за выбранное время до начала: в колокольчик портала, push на телефон, на почту и в Telegram/WhatsApp/Mattermost — по вашим [настройкам уведомлений](/account/notifications). Напоминание по умолчанию для новых событий задаётся в настройках календаря.
 
 Если напоминание не пришло — откройте настройки уведомлений: внизу видно, куда ушло каждое уведомление и почему не дошло, а кнопка «Отправить тест» проверит каналы.`,
-        en: `A reminder arrives the chosen time before the start: in the portal bell, as a push, by e-mail and to Telegram/Mattermost — following your [notification settings](/account/notifications). The default reminder for new events is set in the calendar settings.
+        en: `A reminder arrives the chosen time before the start: in the portal bell, as a push, by e-mail and to Telegram/WhatsApp/Mattermost — following your [notification settings](/account/notifications). The default reminder for new events is set in the calendar settings.
 
 If a reminder did not arrive, open the notification settings: at the bottom you see where each notification went and why, and “Send a test” checks the channels.`,
       },

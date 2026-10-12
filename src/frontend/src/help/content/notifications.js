@@ -4,12 +4,12 @@ export default {
   title: { ru: 'Уведомления', en: 'Notifications' },
   tagline: { ru: 'Что, куда и когда вам сообщает портал', en: 'What the portal tells you, where and when' },
   summary: {
-    ru: 'Портал сообщает о задачах, встречах, упоминаниях и файлах. Всё всегда собирается в колокольчике, а дублировать ли в push, почту, Telegram и Mattermost — решаете вы: по каждому событию, с тихими часами и паузой. Подпишитесь на проект или календарь, чтобы следить за ними целиком.',
-    en: 'The portal tells you about tasks, meetings, mentions and files. Everything always lands in the bell, and you decide what else goes to push, e-mail, Telegram and Mattermost: per event, with quiet hours and a pause. Follow a project or a calendar to keep an eye on all of it.',
+    ru: 'Портал сообщает о задачах, встречах, упоминаниях и файлах. Всё всегда собирается в колокольчике, а дублировать ли в push, почту, Telegram, WhatsApp и Mattermost — решаете вы: по каждому событию, с тихими часами и паузой. Подпишитесь на проект или календарь, чтобы следить за ними целиком.',
+    en: 'The portal tells you about tasks, meetings, mentions and files. Everything always lands in the bell, and you decide what else goes to push, e-mail, Telegram, WhatsApp and Mattermost: per event, with quiet hours and a pause. Follow a project or a calendar to keep an eye on all of it.',
   },
   highlights: [
     { icon: '🔔', title: { ru: 'Колокольчик', en: 'The bell' }, text: { ru: 'Все уведомления в одном месте в шапке портала, непрочитанные — со счётчиком.', en: 'Every notification in one place in the header, with an unread counter.' } },
-    { icon: '📱', title: { ru: 'Push и мессенджеры', en: 'Push and messengers' }, text: { ru: 'Push на телефон и компьютер, почта, Telegram и Mattermost — какие подключены.', en: 'Push to phone and computer, e-mail, Telegram and Mattermost — whichever are connected.' } },
+    { icon: '📱', title: { ru: 'Push и мессенджеры', en: 'Push and messengers' }, text: { ru: 'Push на телефон и компьютер, почта, Telegram, WhatsApp и Mattermost — какие подключены.', en: 'Push to phone and computer, e-mail, Telegram, WhatsApp and Mattermost — whichever are connected.' } },
     { icon: '🎚️', title: { ru: 'По каждому событию', en: 'Per event' }, text: { ru: 'Таблица «событие × канал»: например, назначения — везде, смена статуса — только push.', en: 'An “event × channel” table: e.g. assignments everywhere, status changes push only.' } },
     { icon: '🌙', title: { ru: 'Тихие часы и пауза', en: 'Quiet hours and pause' }, text: { ru: 'Ночью и на выходных — без push и сообщений; пауза на час или до утра.', en: 'No pushes or messages at night or at weekends; pause for an hour or until morning.' } },
     { icon: '⭐', title: { ru: 'Подписки', en: 'Subscriptions' }, text: { ru: 'Следите за проектом или календарём целиком, не участвуя в каждой задаче.', en: 'Follow a whole project or calendar without taking part in each item.' } },
@@ -31,6 +31,7 @@ export default {
 - **Push** — всплывающие уведомления на телефоне и компьютере. Включаются на каждом устройстве отдельно в [настройках уведомлений](/account/notifications) («Push на этом устройстве»). На iPhone push работают только в установленном приложении (Поделиться → «На экран Домой»).
 - **Почта** — на адрес из [профиля](/account).
 - **Telegram** — привяжите аккаунт в [Профиль → Безопасность](/account/security).
+- **WhatsApp** — укажите мобильный телефон в [профиле](/account); сообщения придут на этот номер (если администратор подключил WhatsApp).
 - **Mattermost** — укажите своё имя в Mattermost в [профиле](/account).
 
 Карточка канала показывает его состояние: «Включено», «Выключено» (вами) или «Не подключено» — со ссылкой, где подключить. Выключенный канал не получает ничего.`,
@@ -38,6 +39,7 @@ export default {
 - **Push** — pop-up notifications on phone and computer. Turned on per device in [notification settings](/account/notifications) (“Push on this device”). On iPhone push works only in the installed app (Share → “Add to Home Screen”).
 - **E-mail** — to the address in your [profile](/account).
 - **Telegram** — link your account in [Profile → Security](/account/security).
+- **WhatsApp** — add your mobile phone in the [profile](/account); messages go to that number (if the administrator has connected WhatsApp).
 - **Mattermost** — enter your Mattermost name in your [profile](/account).
 
 A channel card shows its state: “On”, “Off” (by you) or “Not connected” — with a link to connect it. A switched-off channel gets nothing.`,

@@ -14,7 +14,12 @@ export const notifyEn = {
       },
     },
   },
-  notifications: { channel_push: 'Push to devices' },
+  notifications: {
+    channel_push: 'Push to devices',
+    channel_whatsapp: 'WhatsApp',
+    channel_whatsappDesc: 'To the phone number in your profile.',
+    unreachable_whatsapp: 'Add a mobile phone to your profile, or WhatsApp sending is not configured.',
+  },
   notifyPrefs: {
     lead: 'Choose where notifications reach you, when they keep quiet and what they are about. The bell in the portal always has everything.',
     whereTitle: 'Where',
@@ -26,7 +31,7 @@ export const notifyEn = {
     notConfigured: 'Not set up by the administrator yet.',
     state: { on: 'On', off: 'Off', disconnected: 'Not connected', admin: 'Unavailable', always: 'Always' },
     delivery: { sent: 'delivered', off: 'switched off by you', unreachable: 'not connected', quiet: 'held: quiet hours', paused: 'held: pause', skipped: 'not used' },
-    short: { inbox: 'Bell', push: 'Push', email: 'Mail', telegram: 'TG', mattermost: 'MM' },
+    short: { inbox: 'Bell', push: 'Push', email: 'Mail', telegram: 'TG', whatsapp: 'WA', mattermost: 'MM' },
     whenTitle: 'When',
     whenLead: 'Keep pushes and messages quiet at night or for a while. The bell still collects everything.',
     pauseButton: 'Pause',
@@ -164,7 +169,7 @@ export const notifyEn = {
     m: '{n} min',
     warn: {
       push: 'Push is not enabled on any of your devices: the reminder will wait in the bell.',
-      messenger: 'Telegram and Mattermost are not linked to your account (Telegram: Profile → Security; Mattermost: Profile).',
+      messenger: 'No messenger is connected: link Telegram (Profile → Security), or add a mobile phone for WhatsApp or a Mattermost name (Profile).',
       messengerOff: 'Messengers are switched off in your notification settings.',
       email: 'Your profile has no e-mail.',
       fix: 'Fix',
@@ -186,7 +191,12 @@ export const notifyRu = {
       },
     },
   },
-  notifications: { channel_push: 'Push на устройства' },
+  notifications: {
+    channel_push: 'Push на устройства',
+    channel_whatsapp: 'WhatsApp',
+    channel_whatsappDesc: 'На номер телефона из вашего профиля.',
+    unreachable_whatsapp: 'Укажите мобильный телефон в профиле — или отправка в WhatsApp не настроена администратором.',
+  },
   notifyPrefs: {
     lead: 'Выберите, куда приходят уведомления, когда им молчать и о чём сообщать. В колокольчике портала всё есть всегда.',
     whereTitle: 'Куда',
@@ -198,7 +208,7 @@ export const notifyRu = {
     notConfigured: 'Администратор ещё не настроил этот канал.',
     state: { on: 'Включено', off: 'Выключено', disconnected: 'Не подключено', admin: 'Недоступно', always: 'Всегда' },
     delivery: { sent: 'доставлено', off: 'выключено вами', unreachable: 'не подключено', quiet: 'отложено: тихие часы', paused: 'отложено: пауза', skipped: 'не используется' },
-    short: { inbox: 'Портал', push: 'Push', email: 'Почта', telegram: 'TG', mattermost: 'MM' },
+    short: { inbox: 'Портал', push: 'Push', email: 'Почта', telegram: 'TG', whatsapp: 'WA', mattermost: 'MM' },
     whenTitle: 'Когда',
     whenLead: 'Тишина ночью или на время: без push и сообщений в мессенджеры. Колокольчик всё равно всё соберёт.',
     pauseButton: 'Пауза',
@@ -336,7 +346,7 @@ export const notifyRu = {
     m: '{n} мин',
     warn: {
       push: 'Push не включены ни на одном вашем устройстве: напоминание будет ждать в колокольчике.',
-      messenger: 'К учётной записи не привязаны Telegram и Mattermost (Telegram — Профиль → Безопасность, Mattermost — Профиль).',
+      messenger: 'Не подключён ни один мессенджер: привяжите Telegram (Профиль → Безопасность) или укажите мобильный телефон для WhatsApp либо имя в Mattermost (Профиль).',
       messengerOff: 'Мессенджеры выключены в ваших настройках уведомлений.',
       email: 'В профиле не указана почта.',
       fix: 'Исправить',

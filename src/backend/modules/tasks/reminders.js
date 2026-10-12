@@ -111,7 +111,7 @@ export async function runCustomReminders() {
       module: 'tasks',
       link: `/app/tasks/${ref}`,
       // The in-app inbox always; outside it only the chosen channels.
-      channels: [...(channels.includes('app') ? ['push'] : []), ...(channels.includes('email') ? ['email'] : []), ...(channels.includes('messenger') ? ['telegram', 'mattermost'] : [])],
+      channels: [...(channels.includes('app') ? ['push'] : []), ...(channels.includes('email') ? ['email'] : []), ...(channels.includes('messenger') ? ['telegram', 'whatsapp', 'mattermost'] : [])],
       render: (locale) =>
         locale === 'ru'
           ? { title: `Напоминание: ${ref}`, body: `${reminder.title}${reminder.due_at ? `\nКрайний срок: ${new Date(reminder.due_at).toLocaleString('ru-RU')}` : ''}` }

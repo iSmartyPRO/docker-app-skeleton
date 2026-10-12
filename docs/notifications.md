@@ -26,12 +26,14 @@ await notify({
   | **Push** | They enabled *Push on this device* (installed app, see [pwa.md](pwa.md)) |
   | **Email** | SMTP or the Gmail sender is configured and the profile has an email |
   | **Telegram** | The bot is configured and Telegram is linked |
+  | **WhatsApp** | WhatsApp sending is configured (gateway or Wazzup, the provider and fallback chosen in *Sign-in methods*) and the profile has a valid mobile phone |
   | **Mattermost** | Mattermost is configured and the profile has a Mattermost username |
 
 - **Preferences** (*Profile → Notifications*, stored in `users.notify_prefs`):
   - **channels**: a master switch per channel; each card shows *On / Off / Not connected / Unavailable* and how to fix it. *Send a test* delivers a test through every connected channel at once and shows the result per channel (including the error text);
   - **events × channels**: a table of every kind of notification (from `services/notificationCatalog.js`) against the bell and each channel, with presets *Recommended*, *Only important*, *Everything everywhere*, *Bell only*. Unticking the bell column drops the event entirely;
   - **quiet hours** (e.g. 22:00–08:00, optionally all weekend) and **pause** (1 h, 3 h, until tomorrow, until Monday): push, e-mail and messengers wait; the bell still collects everything. Computed in the person's time zone (saved from the browser);
+  - **messengers** (Telegram, WhatsApp, Mattermost) share one default per event and can be switched separately; a reminder sent *to messengers* goes to all three;
   - **urgent** kinds — reminders the person or a colleague set (`tasks.reminder`, `calendar.reminder`) — ignore quiet hours and the pause and cannot be muted per event; the reminder itself chooses its channels;
   - **subscriptions**: follow a task project (🔔 on the project page → new and completed tasks, kind `tasks.project`) or a shared calendar (⋯ → *Notify me about changes* → new, changed and removed events, kind `calendar.subscribed`). Followers are checked against their current access each time;
   - **delivery history**: every notification stores where it went (`notifications.delivery`: `sent`, `failed: …`, `off`, `unreachable`, `quiet`, `paused`, `skipped`); the last ones are listed with a mark per channel.

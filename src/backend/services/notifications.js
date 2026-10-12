@@ -1,5 +1,6 @@
 import { query } from '../config/database.js';
-import { sendEmail, sendMattermostDirect, sendTelegram } from './integrations.js';
+import { sendEmail, sendMattermostDirect, sendTelegram, sendWhatsapp } from './integrations.js';
+import { isValidPhone } from './users.js';
 import { publicBase } from './google.js';
 import { pushToUser } from './push.js';
 import { registerJob } from './scheduler.js';
@@ -20,8 +21,8 @@ const KNOWN_KINDS = new Set(NOTIFICATION_EVENTS.map((event) => event.kind));
  * Delivery is asynchronous: a slow mail server never delays the request.
  */
 
-export const CHANNELS = ['push', 'email', 'telegram', 'mattermost'];
-const DEFAULT_CHANNELS = { push: true, email: true, telegram: true, mattermost: true };
+export const CHANNELS = ['push', 'email', 'telegram', 'whatsapp', 'mattermost'];
+const DEFAULT_CHANNELS = { push: true, email: true, telegram: true, whatsapp: true, mattermost: true };
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export async function ensureNotificationTables() {
@@ -137,6 +138,7 @@ export function channelReach(user, ready) {
     push: Number(user.push_devices) > 0,
     email: Boolean(ready.emailCode && user.email),
     telegram: Boolean(ready.telegramCode && user.telegram_id),
+    whatsapp: Boolean(ready.whatsappCode && user.phone && isValidPhone(user.phone)),
     mattermost: Boolean(ready.mattermostCode && user.mattermost),
   };
 }
@@ -225,6 +227,7 @@ async function deliver(user, message, ready, appName, { force = false } = {}) {
       run('email', () => sendEmail({ to: user.email, subject: message.title, text: plain, html: emailHtml({ appName, title: message.title, body: message.body, url, locale: user.locale }) }));
     }
     if (channel === 'telegram') run('telegram', () => sendTelegram({ chatId: user.telegram_id, text: plain }));
+    if (channel === 'whatsapp') run('whatsapp', () => sendWhatsapp({ phone: user.phone, text: plain }));
     if (channel === 'mattermost') run('mattermost', () => sendMattermostDirect({ username: user.mattermost, text: [`**${message.title}**`, message.body, url].filter(Boolean).join('\n') }));
   }
   await Promise.all(jobs);
@@ -249,7 +252,7 @@ export async function notify({ userIds, kind, module = null, link = null, actorI
   const ids = [...new Set((userIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0 && id !== Number(actorId)))];
   if (!ids.length) return 0;
   const { rows: users } = await query(
-    `SELECT id, email, locale, telegram_id, mattermost, notify_prefs,
+    `SELECT id, email, phone, locale, telegram_id, mattermost, notify_prefs,
             (SELECT COUNT(*) FROM push_subscriptions p WHERE p.user_id = users.id)::int AS push_devices
      FROM users
      WHERE id = ANY($1) AND is_active IS NOT FALSE AND is_blocked IS NOT TRUE`,
@@ -366,7 +369,7 @@ export async function markRead(userId, { ids, all }) {
 
 async function userForDelivery(userId) {
   const { rows } = await query(
-    `SELECT id, email, locale, telegram_id, mattermost, notify_prefs,
+    `SELECT id, email, phone, locale, telegram_id, mattermost, notify_prefs,
             (SELECT COUNT(*) FROM push_subscriptions p WHERE p.user_id = users.id)::int AS push_devices
      FROM users WHERE id = $1`,
     [userId]
@@ -387,7 +390,7 @@ export async function getPrefs(userId) {
     // `prefs` keeps the first version's flat flags for older clients.
     prefs: { ...prefs.channels, ...prefs },
     reach: channelReach(user || {}, ready),
-    configured: { push: true, email: Boolean(ready.emailCode), telegram: Boolean(ready.telegramCode), mattermost: Boolean(ready.mattermostCode) },
+    configured: { push: true, email: Boolean(ready.emailCode), telegram: Boolean(ready.telegramCode), whatsapp: Boolean(ready.whatsappCode), mattermost: Boolean(ready.mattermostCode) },
     catalog: NOTIFICATION_GROUPS.map((group) => ({
       key: group.key,
       module: group.module,

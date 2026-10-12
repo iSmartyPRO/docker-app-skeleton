@@ -12,8 +12,9 @@
  * "on everywhere".
  */
 
-const ALL = ['push', 'email', 'telegram', 'mattermost'];
-const on = (push, email, messenger) => ({ push, email, telegram: messenger, mattermost: messenger });
+const ALL = ['push', 'email', 'telegram', 'whatsapp', 'mattermost'];
+// Messengers (Telegram, WhatsApp, Mattermost) share one default per event.
+const on = (push, email, messenger) => ({ push, email, telegram: messenger, whatsapp: messenger, mattermost: messenger });
 
 export const NOTIFICATION_GROUPS = [
   {

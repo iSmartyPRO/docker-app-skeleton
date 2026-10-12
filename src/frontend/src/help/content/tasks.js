@@ -32,8 +32,8 @@ export default {
       icon: '⏰',
       title: { ru: 'Сроки и напоминания', en: 'Deadlines and reminders' },
       text: {
-        ru: 'Портал сам напомнит о сроке, а свои напоминания можно отправить в приложение, на почту, в Telegram или Mattermost.',
-        en: 'The portal reminds you of deadlines itself, and your own reminders can go to the app, e-mail, Telegram or Mattermost.',
+        ru: 'Портал сам напомнит о сроке, а свои напоминания можно отправить в приложение, на почту, в Telegram, WhatsApp или Mattermost.',
+        en: 'The portal reminds you of deadlines itself, and your own reminders can go to the app, e-mail, Telegram, WhatsApp or Mattermost.',
       },
     },
     {
@@ -197,7 +197,7 @@ If a task is not relevant for now, you can **defer** it (the «⋯» menu at the
 Свои напоминания добавляются в блоке **«Напоминания»** полной формы. Вы выбираете:
 - **Кому напомнить** — себе, исполнителю, постановщику или соисполнителям;
 - **Когда** — в конкретную дату и время или за какое-то время **до крайнего срока**;
-- **Как** — **В приложении** (колокольчик и push), **На e-mail**, **В мессенджеры** (Telegram и Mattermost).
+- **Как** — **В приложении** (колокольчик и push), **На e-mail**, **В мессенджеры** (Telegram, WhatsApp и Mattermost).
 
 **Чтобы напоминание дошло, канал должен быть подключён:**
 - для мессенджеров привяжите Telegram в [Профиль → Безопасность](/account/security) или укажите Mattermost в [Профиле](/account);
@@ -210,7 +210,7 @@ If a task is not relevant for now, you can **defer** it (the «⋯» menu at the
 Your own reminders are added in the **«Reminders»** block of the full form. You choose:
 - **Whom to remind**: yourself, the assignee, the originator or the co-assignees;
 - **When**: at a specific date and time, or some time **before the deadline**;
-- **How**: **In the app** (the bell and push), **E-mail**, **Messengers** (Telegram and Mattermost).
+- **How**: **In the app** (the bell and push), **E-mail**, **Messengers** (Telegram, WhatsApp and Mattermost).
 
 **For a reminder to arrive, the channel must be connected:**
 - for messengers, link Telegram in [Profile → Security](/account/security) or enter your Mattermost name in the [Profile](/account);

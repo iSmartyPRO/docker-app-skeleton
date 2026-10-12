@@ -111,9 +111,9 @@ export function ChannelWarnings({ channels }) {
   const prefs = data.prefs?.channels || data.prefs || {};
   const notes = [];
   if (channels.includes('app') && !reach.push) notes.push(['push', '/account/notifications']);
-  if (channels.includes('messenger') && !reach.telegram && !reach.mattermost) notes.push(['messenger', '/account/security']);
+  if (channels.includes('messenger') && !reach.telegram && !reach.whatsapp && !reach.mattermost) notes.push(['messenger', '/account/security']);
   if (channels.includes('email') && !reach.email) notes.push(['email', '/account']);
-  if (channels.includes('messenger') && (reach.telegram || reach.mattermost) && prefs.telegram === false && prefs.mattermost === false) notes.push(['messengerOff', '/account/notifications']);
+  if (channels.includes('messenger') && (reach.telegram || reach.whatsapp || reach.mattermost) && prefs.telegram === false && prefs.whatsapp === false && prefs.mattermost === false) notes.push(['messengerOff', '/account/notifications']);
   if (!notes.length) return null;
   return (
     <ul className="when__warn">

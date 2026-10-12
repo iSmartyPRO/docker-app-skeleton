@@ -63,7 +63,7 @@ const en = {
   rem: {
     title: 'Reminder', add: 'Add a reminder', save: 'Remind', whom: 'Whom to remind', when: 'When', at: 'At a date', before: 'Before the deadline', beforeDeadline: 'before the deadline',
     how: 'How', targets: { assignee: 'Assignee', originator: 'Originator', coassignees: 'Co-assignees', me: 'Me' },
-    channels: { app: 'In the app', email: 'E-mail', messenger: 'Messengers' }, beforeText: '{time} before the deadline', sent: 'sent', none: 'No reminders', added: 'Reminder set',
+    channels: { app: 'In the app', email: 'E-mail', messenger: 'Messengers (Telegram, WhatsApp, Mattermost)' }, beforeText: '{time} before the deadline', sent: 'sent', none: 'No reminders', added: 'Reminder set',
   },
   units: { minute: 'minutes', hour: 'hours', day: 'days', week: 'weeks', hShort: 'h', mShort: 'min' },
   plan: {
@@ -203,7 +203,7 @@ const ru = {
   rem: {
     title: 'Напоминание', add: 'Добавить напоминание', save: 'Напомнить', whom: 'Кому напомнить', when: 'Когда', at: 'В дату', before: 'До крайнего срока', beforeDeadline: 'до крайнего срока',
     how: 'Как', targets: { assignee: 'Исполнителю', originator: 'Постановщику', coassignees: 'Соисполнителям', me: 'Мне' },
-    channels: { app: 'В приложении', email: 'На e-mail', messenger: 'В мессенджеры' }, beforeText: 'за {time} до срока', sent: 'отправлено', none: 'Напоминаний нет', added: 'Напоминание добавлено',
+    channels: { app: 'В приложении', email: 'На e-mail', messenger: 'В мессенджеры (Telegram, WhatsApp, Mattermost)' }, beforeText: 'за {time} до срока', sent: 'отправлено', none: 'Напоминаний нет', added: 'Напоминание добавлено',
   },
   units: { minute: 'минут', hour: 'часов', day: 'дней', week: 'недель', hShort: 'ч', mShort: 'мин' },
   plan: {
