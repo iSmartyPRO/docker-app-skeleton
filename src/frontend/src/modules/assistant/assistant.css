@@ -352,6 +352,25 @@
   transition: left 0.3s ease, top 0.3s ease;
 }
 
+.asst__swap {
+  display: block;
+  animation: asst-swap 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes asst-swap {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-12deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.12) rotate(4deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
 .asst__dot {
   position: absolute;
   top: 6%;
@@ -758,7 +777,8 @@
   .rb,
   .asst-panel,
   .asst-bubble,
-  .asst__dot {
+  .asst__dot,
+  .asst__swap {
     animation: none !important;
   }
 }
@@ -773,4 +793,16 @@
 
 .asst-account-picker {
   padding: 14px 0 6px;
+}
+
+.asst-account-note {
+  margin: 10px 0 0;
+  color: var(--da-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.asst-account-note .ant-btn-link {
+  padding: 0 2px;
+  height: auto;
 }

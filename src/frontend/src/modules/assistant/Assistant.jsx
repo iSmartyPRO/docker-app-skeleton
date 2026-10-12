@@ -91,7 +91,11 @@ export default function Assistant() {
     }
   });
   if (!user || !moduleOn || !prefs?.enabled || hiddenNow || !SHOWN_ON.test(pathname)) return null;
-  return <FloatingRobot user={user} prefs={prefs} pathname={pathname} onHide={() => setHiddenNow(true)} />;
+  // The organisation's robot and offers come from public settings, which refresh
+  // as soon as an administrator saves them; a personal choice wins.
+  const org = settings.modules.assistant;
+  const live = { ...prefs, defaultAvatar: org.avatar || prefs.defaultAvatar, proactive: org.proactive ?? prefs.proactive };
+  return <FloatingRobot user={user} prefs={live} pathname={pathname} onHide={() => setHiddenNow(true)} />;
 }
 
 function FloatingRobot({ user, prefs, pathname, onHide }) {
@@ -106,6 +110,13 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
   const section = helpForPath(pathname);
 
   const [mood, setMood] = useMood();
+  // A new robot greets with a smile.
+  const firstKind = useRef(kind);
+  useEffect(() => {
+    if (firstKind.current === kind) return;
+    firstKind.current = kind;
+    setMood('happy', 1600);
+  }, [kind, setMood]);
   const [sleeping, setSleeping] = useState(false);
   const blink = useBlink(!sleeping && mood !== 'happy' && mood !== 'wave');
   const [look, setLook] = useState({ x: 0, y: 0 });
@@ -333,7 +344,9 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
             }
           }}
         >
-          <Robot kind={kind} mood={displayMood} blink={blink} look={sleeping ? { x: 0, y: 0.3 } : look} size={size} />
+          <span key={kind} className="asst__swap">
+            <Robot kind={kind} mood={displayMood} blink={blink} look={sleeping ? { x: 0, y: 0.3 } : look} size={size} />
+          </span>
           {bubble && <span className="asst__dot" />}
         </button>
       </div>

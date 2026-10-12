@@ -8,7 +8,9 @@ export const assistantEn = {
     proactive: 'Offer help in sections',
     proactiveDesc: 'When someone opens a section for the first time, the robot waves and offers to show what can be done there. Once per section.',
     avatar: 'Default robot',
-    avatarDesc: 'Who greets people until they choose their own.',
+    avatarDesc: 'Who greets people until they choose their own. A change applies at once to everyone who has not picked a robot.',
+    ownRobot: 'You see your own robot, {name}: a personal choice wins over the default.',
+    showDefault: 'Show me the default robot',
   },
   assistant: {
     robots: {
@@ -67,6 +69,9 @@ export const assistantEn = {
       againDesc: 'The robot offers help once in each section. Start over to see the offers again.',
       againButton: 'Offer again',
       againDone: 'The robot will offer help again',
+      ownChoice: 'This is your own choice.',
+      useDefault: 'Use the default robot ({name})',
+      defaultChoice: 'Now: the organisation’s default robot, {name}. Pick another one to keep it for yourself.',
     },
   },
 };
@@ -79,7 +84,9 @@ export const assistantRu = {
     proactive: 'Предлагать помощь в разделах',
     proactiveDesc: 'Когда человек впервые открывает раздел, робот машет рукой и предлагает показать, что здесь можно сделать. Один раз на раздел.',
     avatar: 'Робот по умолчанию',
-    avatarDesc: 'Кто встречает людей, пока они не выбрали своего.',
+    avatarDesc: 'Кто встречает людей, пока они не выбрали своего. Смена сразу применяется у всех, кто не выбирал робота сам.',
+    ownRobot: 'У вас выбран свой робот — {name}: личный выбор важнее робота по умолчанию.',
+    showDefault: 'Показывать мне робота по умолчанию',
   },
   assistant: {
     robots: {
@@ -138,6 +145,9 @@ export const assistantRu = {
       againDesc: 'Робот предлагает помощь один раз в каждом разделе. Начните заново, чтобы снова увидеть предложения.',
       againButton: 'Предлагать снова',
       againDone: 'Робот снова будет предлагать помощь',
+      ownChoice: 'Это ваш личный выбор.',
+      useDefault: 'Вернуть робота по умолчанию ({name})',
+      defaultChoice: 'Сейчас: робот организации по умолчанию — {name}. Выберите другого, чтобы оставить его себе.',
     },
   },
 };

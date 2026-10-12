@@ -17,6 +17,7 @@ export default function AccountAssistant() {
   const moduleOn = Boolean(settings?.modules?.assistant?.enabled);
   const prefs = useAssistantPrefs(moduleOn ? user?.id : null);
   if (!moduleOn) return null;
+  const orgAvatar = settings.modules.assistant.avatar || prefs?.defaultAvatar || 'pixel';
 
   const change = async (patch, done) => {
     try {
@@ -38,7 +39,19 @@ export default function AccountAssistant() {
               <Switch checked={prefs.enabled} onChange={(enabled) => change({ enabled })} />
             </SettingRow>
             <div className="asst-account-picker">
-              <RobotPicker value={prefs.avatar || prefs.defaultAvatar} onChange={(avatar) => change({ avatar })} />
+              <RobotPicker value={prefs.avatar || orgAvatar} onChange={(avatar) => change({ avatar })} />
+              <p className="asst-account-note">
+                {prefs.avatar ? (
+                  <>
+                    {t('assistant.account.ownChoice')}{' '}
+                    <Button size="small" type="link" onClick={() => change({ avatar: null })}>
+                      {t('assistant.account.useDefault', { name: t(`assistant.robots.${orgAvatar}.name`) })}
+                    </Button>
+                  </>
+                ) : (
+                  t('assistant.account.defaultChoice', { name: t(`assistant.robots.${orgAvatar}.name`) })
+                )}
+              </p>
             </div>
             <SettingRow label={t('assistant.account.size')}>
               <Segmented

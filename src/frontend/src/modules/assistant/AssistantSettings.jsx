@@ -7,7 +7,10 @@ import { useAdminSettings } from '../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { useLocale } from '../../context/LocaleContext';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
+import { Button } from 'antd';
+import { useAuth } from '../../context/AuthContext';
 import RobotPicker from './RobotPicker';
+import { savePrefs, useAssistantPrefs } from './store';
 import './assistant.css';
 
 function AssistantForm({ settings, save }) {
@@ -35,9 +38,26 @@ function AssistantForm({ settings, save }) {
         <Form.Item name="avatar" noStyle>
           <PickerField />
         </Form.Item>
+        <OwnRobotNote />
       </SettingsSection>
       <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={reset} />
     </Form>
+  );
+}
+
+/** The default does not replace a robot someone picked for themselves — say so to the admin. */
+function OwnRobotNote() {
+  const { t } = useLocale();
+  const { user } = useAuth();
+  const prefs = useAssistantPrefs(user?.id);
+  if (!prefs?.avatar) return null;
+  return (
+    <p className="asst-account-note">
+      {t('assistantSettings.ownRobot', { name: t(`assistant.robots.${prefs.avatar}.name`) })}{' '}
+      <Button size="small" type="link" onClick={() => savePrefs({ avatar: null })}>
+        {t('assistantSettings.showDefault')}
+      </Button>
+    </p>
   );
 }
 
