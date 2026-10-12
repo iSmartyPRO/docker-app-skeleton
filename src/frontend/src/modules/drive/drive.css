@@ -1849,3 +1849,29 @@
   text-overflow: ellipsis;
   vertical-align: middle;
 }
+
+/* Folders look like the yellow folders of a desktop file manager. */
+.dv-folder-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  flex: none;
+  filter: drop-shadow(0 1px 1px rgba(146, 96, 0, 0.18));
+}
+
+.dv-folder-icon > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Larger folders on cards, like a desktop icon view. */
+.fs-card__visual > .dv-folder-icon {
+  width: 72px !important;
+  height: 72px !important;
+}
+
+.fs-card__visual:has(> .dv-folder-icon) {
+  background: color-mix(in srgb, #f5b400 7%, transparent);
+}

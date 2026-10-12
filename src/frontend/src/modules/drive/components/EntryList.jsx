@@ -7,9 +7,14 @@ import { CAD, IMAGE, formatBytes } from '../api';
 
 export function EntryIcon({ entry, size = 40 }) {
   if (entry.dir) {
+    // The familiar yellow folder of desktop file managers.
     return (
-      <span className="fs-folder-icon" style={{ width: size, height: size }}>
-        <MenuIcon name="folder" variant="mono" />
+      <span className="dv-folder-icon" style={{ width: size, height: size }} aria-hidden="true">
+        <svg viewBox="0 0 40 32" width="100%" height="100%">
+          <path d="M2 5.5A3.5 3.5 0 0 1 5.5 2h9.3c.9 0 1.8.4 2.5 1l2.7 2.6h14.5A3.5 3.5 0 0 1 38 9.1v17.4a3.5 3.5 0 0 1-3.5 3.5h-29A3.5 3.5 0 0 1 2 26.5Z" fill="#E5A50A" />
+          <path d="M2 11.5A3.5 3.5 0 0 1 5.5 8h29a3.5 3.5 0 0 1 3.5 3.5v15a3.5 3.5 0 0 1-3.5 3.5h-29A3.5 3.5 0 0 1 2 26.5Z" fill="#FFC83D" />
+          <path d="M5.5 9.2h29a2.3 2.3 0 0 1 2.3 2.3" fill="none" stroke="#FFE08A" strokeWidth="1.2" strokeLinecap="round" />
+        </svg>
       </span>
     );
   }
