@@ -17,7 +17,7 @@ export function NodeIcon({ node, size = 40 }) {
   if (node.kind === 'folder') {
     return (
       <span className="fs-folder-icon" style={{ width: size, height: size }} data-system={node.systemTag || undefined}>
-        <MenuIcon name={node.systemTag === 'kb' ? 'book' : 'folder'} variant="mono" />
+        <MenuIcon name={node.systemTag === 'kb' ? 'graduation' : 'folder'} variant="mono" />
       </span>
     );
   }

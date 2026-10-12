@@ -18,6 +18,8 @@ export const driveApi = {
   stat: (shareId, path) => api.get(`${base}/shares/${shareId}/stat`, { params: { path } }),
   search: (shareId, path, q) => api.get(`${base}/shares/${shareId}/search`, { params: { path, q }, timeout: 30000 }),
   mkdir: (shareId, path, name) => api.post(`${base}/shares/${shareId}/folders`, { path, name }),
+  /** Folder uploads: makes (or reuses) these folder paths under `path`; [{ path, error }] in the same order. */
+  folderTree: (shareId, path, paths, signal) => api.post(`${base}/shares/${shareId}/folders/tree`, { path, paths }, { timeout: 120000, signal }),
   rename: (shareId, path, name) => api.put(`${base}/shares/${shareId}/rename`, { path, name }),
   remove: (shareId, paths) => api.post(`${base}/shares/${shareId}/delete`, { paths }, { timeout: 0 }),
   move: (shareId, payload) => api.post(`${base}/shares/${shareId}/move`, payload, { timeout: 0 }),

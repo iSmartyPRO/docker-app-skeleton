@@ -109,6 +109,7 @@ export const driveEn = {
     conflictKeepText: 'New files are saved as “Name (2)”',
     conflictSkip: 'Skip',
     conflictSkipText: 'Upload only files with new names',
+    conflictFolders: 'Folders with the same name are merged; the choice applies to the files inside them.',
     continue: 'Continue',
     toDrive: 'All folders',
     signIn: 'Sign in',
@@ -184,6 +185,8 @@ export const driveEn = {
       NOT_EMPTY: 'The folder is not empty',
       NO_CAD_CONVERTER: 'Drawing preview is not available on this server',
       CAD_UNREADABLE: 'This drawing could not be read',
+      NOT_A_FOLDER: 'A file with this name is in the way of the folder',
+      TOO_MANY_FOLDERS: 'Too many folders in one upload',
     },
     cad: {
       badge: 'CAD',
@@ -527,6 +530,7 @@ export const driveRu = {
     conflictKeepText: 'Новые файлы сохранятся как «Имя (2)»',
     conflictSkip: 'Пропустить',
     conflictSkipText: 'Загрузить только файлы с новыми именами',
+    conflictFolders: 'Папки с одинаковыми именами объединяются; выбор относится к файлам внутри них.',
     continue: 'Продолжить',
     toDrive: 'Все папки',
     signIn: 'Войти',
@@ -602,6 +606,8 @@ export const driveRu = {
       NOT_EMPTY: 'Папка не пуста',
       NO_CAD_CONVERTER: 'Просмотр чертежей недоступен на этом сервере',
       CAD_UNREADABLE: 'Не удалось прочитать чертёж',
+      NOT_A_FOLDER: 'На месте папки уже есть файл с таким именем',
+      TOO_MANY_FOLDERS: 'Слишком много папок за одну загрузку',
     },
     cad: {
       badge: 'CAD',

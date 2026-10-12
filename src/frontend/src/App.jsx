@@ -26,6 +26,7 @@ import AppErrorBoundary from './components/AppErrorBoundary';
 import { getSetupStatus } from './services/api';
 import { SETTINGS_VIEW } from './lib/access';
 import { MODULE_REGISTRY } from './modules/registry';
+import { applyAppIcon } from './pwa/appIcon';
 
 // Public entry points stay in the main bundle; consoles load on demand.
 import Home from './pages/Home';
@@ -178,8 +179,15 @@ function ThemedRoutes() {
     setMeta('meta[name="theme-color"]', 'content', mode === 'dark' ? '#0B1220' : '#F8FAFC');
     setMeta('meta[name="apple-mobile-web-app-status-bar-style"]', 'content', mode === 'dark' ? 'black-translucent' : 'default');
     setMeta('meta[name="apple-mobile-web-app-title"]', 'content', settings?.appearance?.shortName || settings?.appName);
-    setMeta('link[rel="apple-touch-icon"]', 'href', settings?.appearance?.appIconUrl || '/pwa/apple-touch-icon.png');
   }, [mode, settings]);
+
+  // Tab icon, touch icon and manifest follow "App icon" at once (also right
+  // after an admin uploads one). Until settings arrive index.html's
+  // /api/pwa/icon already points at the configured icon.
+  const appIconUrl = settings?.appearance?.appIconUrl;
+  useEffect(() => {
+    if (settings) applyAppIcon(appIconUrl);
+  }, [settings, appIconUrl]);
 
   useEffect(() => {
     if (settings?.appName) document.title = settings.appName;

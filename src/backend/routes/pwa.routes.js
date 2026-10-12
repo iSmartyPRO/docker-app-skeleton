@@ -31,8 +31,9 @@ function shortName(name) {
   return words[0].length <= 14 ? words[0] : value.slice(0, 14);
 }
 
-function iconType(url) {
+export function iconType(url) {
   if (/\.svg$/i.test(url)) return 'image/svg+xml';
+  if (/\.ico$/i.test(url)) return 'image/x-icon';
   if (/\.webp$/i.test(url)) return 'image/webp';
   if (/\.jpe?g$/i.test(url)) return 'image/jpeg';
   return 'image/png';
@@ -41,11 +42,18 @@ function iconType(url) {
 export function buildManifest(parsed, lang = 'en') {
   const appearance = parsed.appearance || {};
   const custom = appearance.appIconUrl;
+  // Uploaded icons get a fresh random file name on every upload, so the URL
+  // itself is the version: a changed icon is a new URL for every cache.
+  // An SVG scales to any size, which is how the manifest spells it.
+  const customIcons = () =>
+    iconType(custom) === 'image/svg+xml'
+      ? [{ src: custom, sizes: 'any', type: 'image/svg+xml', purpose: 'any' }]
+      : [
+          { src: custom, sizes: '192x192', type: iconType(custom), purpose: 'any' },
+          { src: custom, sizes: '512x512', type: iconType(custom), purpose: 'any' },
+        ];
   const icons = custom
-    ? [
-        { src: custom, sizes: '192x192', type: iconType(custom), purpose: 'any' },
-        { src: custom, sizes: '512x512', type: iconType(custom), purpose: 'any' },
-      ]
+    ? customIcons()
     : [
         { src: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
         { src: '/pwa/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
@@ -80,6 +88,31 @@ router.get('/manifest.webmanifest', wrap(async (req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.send(JSON.stringify(buildManifest(parsed, lang)));
 }));
+
+/** Bundled tab icon used while no app icon is configured. */
+export const DEFAULT_FAVICON = '/favicon.svg';
+
+export function faviconUrl(parsed) {
+  return parsed?.appearance?.appIconUrl || DEFAULT_FAVICON;
+}
+
+/*
+ * Browser tab icon (index.html's <link rel="icon">, and /favicon.ico via
+ * nginx for clients that never read the page). A redirect rather than the
+ * bytes: the icon file keeps its own validators, and since an uploaded icon
+ * gets a new file name, only this tiny hop has to be revalidated — no-cache
+ * makes a changed icon reach everyone on their next page load.
+ */
+router.get('/icon', async (req, res) => {
+  let target = DEFAULT_FAVICON;
+  try {
+    target = faviconUrl(parseSettings(await getSettings()));
+  } catch {
+    /* no database yet (setup mode): the bundled icon */
+  }
+  res.set('Cache-Control', 'no-cache');
+  res.redirect(302, target);
+});
 
 router.get('/vapid', requireAuth, wrap(async (req, res) => {
   res.json({ success: true, publicKey: (await vapidKeys()).publicKey });

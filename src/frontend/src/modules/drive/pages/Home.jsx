@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { App, Button, Skeleton, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatRelative } from '../../../lib/format';
@@ -84,8 +84,26 @@ function ShareTile({ share, onConnect }) {
   );
 }
 
-/** /app/drive — the network drive: every folder the person can reach. */
-export default function Home() {
+/**
+ * The one folder to open instead of the overview, or null. Only when the person has exactly one
+ * reachable ("ok") folder and nothing to act on here: a server waiting for their sign-in keeps the list,
+ * since its banner and tile live on this page. Offline / denied / missing folders don't count.
+ */
+export function loneShare(shares, connections) {
+  if (!shares) return null;
+  if ((connections || []).some((item) => item.status !== 'ok' && item.auth === 'user')) return null;
+  if (shares.some((share) => share.state === 'auth')) return null;
+  const online = shares.filter((share) => share.state === 'ok');
+  return online.length === 1 ? online[0] : null;
+}
+
+/**
+ * /app/drive — the network drive: every folder the person can reach.
+ * Entered with a single reachable folder, it opens that folder right away (`replace`, so Back leaves
+ * the drive instead of bouncing here). `landing` (from the shell) is true only for the page the drive was
+ * entered on; `?list=1` forces the list too.
+ */
+export default function Home({ landing }) {
   const { t, locale } = useLocale();
   const navigate = useNavigate();
   const { shares, connections, refresh, config } = useDrive();
@@ -93,12 +111,20 @@ export default function Home() {
   const [recent, setRecent] = useState(null);
   const [favorites, setFavorites] = useState(null);
   const [connecting, setConnecting] = useState(null);
+  const [params] = useSearchParams();
+  const lone = landing?.current && !params.has('list') ? loneShare(shares, connections) : null;
   const { drive } = useDrive();
 
   useEffect(() => {
+    if (lone) navigate(folderUrl(lone.id), { replace: true });
+    else if (shares && landing) landing.current = false; // the list was shown: later visits keep showing it
+  }, [shares, lone, landing, navigate]);
+
+  useEffect(() => {
+    if (lone) return;
     driveApi.recent().then((res) => setRecent(res.data.items)).catch(() => setRecent([]));
     driveApi.favorites().then((res) => setFavorites(res.data.items)).catch(() => setFavorites([]));
-  }, []);
+  }, [lone]);
 
   const needsSignIn = (connections || []).filter((item) => item.status !== 'ok' && item.auth === 'user');
   const openShortcut = (item) => {
@@ -109,6 +135,8 @@ export default function Home() {
       else navigate(`${folderUrl(item.shareId, parent)}?open=${encodeURIComponent(item.name)}`);
     }
   };
+
+  if (lone) return null; // about to open the folder: don't flash the overview
 
   return (
     <div className="dv-home">

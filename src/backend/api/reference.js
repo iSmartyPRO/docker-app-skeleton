@@ -208,6 +208,12 @@ export const DOCS = {
   'GET /app/files/folders/:id': { summary: L('Содержимое папки', 'Folder contents') },
   'GET /app/files/spaces/:id/files': { summary: L('Корень пространства', 'Space root') },
   'POST /app/files/folders': { summary: L('Создать папку', 'Create a folder'), body: [b('name', 'string', L('Название', 'Name'), { required: true }), b('parentId', 'integer', L('В папке', 'Inside a folder')), b('spaceId', 'integer', L('В корне пространства', 'At a space root'))] },
+  'POST /app/files/folders/tree': {
+    summary: L('Создать дерево папок (загрузка папки)', 'Create a folder tree (folder upload)'),
+    description: L('Создаёт недостающие папки по относительным путям; существующие папки с тем же именем используются повторно. Ответ `folders` — id папок в порядке `paths`. Затем файлы загружаются через `POST /app/files/upload?parentId=<id>`.', 'Creates the missing folders of relative paths; existing folders with the same name are reused. `folders` holds the folder ids in the order of `paths`. Files then go up via `POST /app/files/upload?parentId=<id>`.'),
+    body: [b('paths', 'string[]', L('Пути папок: "Фото", "Фото/2026" (до 1000, до 32 уровней)', 'Folder paths: "Photos", "Photos/2026" (up to 1000, 32 levels)'), { required: true }), b('parentId', 'integer', L('В папке', 'Inside a folder')), b('spaceId', 'integer', L('В корне пространства', 'At a space root')), b('bytes', 'integer', L('Общий размер файлов — заранее сверяется с квотой', 'Total size of the files, checked against the quota up front'))],
+    example: { parentId: 42, paths: ['Photos', 'Photos/2026'], bytes: 1048576 },
+  },
   'POST /app/files/upload': {
     summary: L('Загрузить файлы', 'Upload files'),
     description: L('`multipart/form-data`, поле `files`. Куда — параметрами `?parentId=` или `?spaceId=` (без них — в «Мои файлы»).', '`multipart/form-data`, field `files`. Target via `?parentId=` or `?spaceId=` (none = My files).'),
@@ -220,6 +226,11 @@ export const DOCS = {
   'GET /app/drive/': { summary: L('Серверы и папки', 'Servers and shares') },
   'GET /app/drive/shares/:id/list': { summary: L('Содержимое папки', 'Folder listing'), query: [q('path', 'string', L('Путь внутри папки', 'Path inside the share'))] },
   'GET /app/drive/shares/:id/file': { summary: L('Скачать файл', 'Download a file'), query: [q('path', 'string', L('Путь к файлу', 'File path'), { required: true })] },
+  'POST /app/drive/shares/:id/folders/tree': {
+    summary: L('Создать дерево папок (загрузка папки)', 'Create a folder tree (folder upload)'),
+    description: L('Создаёт недостающие папки под `path`; существующие используются повторно. Ответ `folders` — `{ path, error }` в порядке `paths`.', 'Creates the missing folders under `path`; existing ones are reused. `folders` holds `{ path, error }` in the order of `paths`.'),
+    body: [b('path', 'string', L('Папка, куда загружают', 'Folder to upload into')), b('paths', 'string[]', L('Относительные пути папок (до 1000, до 32 уровней)', 'Relative folder paths (up to 1000, 32 levels)'), { required: true })],
+  },
   'PUT /app/drive/shares/:id/upload': { summary: L('Загрузить файл', 'Upload a file'), query: [q('path', 'string', L('Путь к новому файлу', 'Path of the new file'), { required: true })] },
 
   // ── KB ──

@@ -138,7 +138,8 @@ async function start() {
     req.rateUser = id;
     return id;
   };
-  const FREE_READS = new Set(['/setup/status', '/settings', '/status', '/apps', '/notifications/unread']);
+  // The tab icon and the manifest are fetched by the browser on every page load.
+  const FREE_READS = new Set(['/setup/status', '/settings', '/status', '/apps', '/notifications/unread', '/pwa/icon', '/pwa/manifest.webmanifest']);
   const STREAM = /\/(app\/chat\/(stream|files\/\d+)|items\/\d+\/(file|preview\.pdf|attachments\/\d+(\/preview\.pdf)?)|nodes\/\d+\/(file|preview\.pdf)|shares\/\d+\/(file|thumb|preview\.pdf|cad)|d\/[\w-]+\/(file|thumb|preview\.pdf|cad)|res\/icons\/[\w.]+)$/;
   // API tokens are checked before the general limiter; they have their own per-token limit.
   app.use('/api', tokenGate);

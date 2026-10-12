@@ -575,6 +575,56 @@ def op_mkdir(req, _body):
     return {"entry": stat_shape(name, smbclient.stat(target, **kwargs))}
 
 
+def op_mkdirs(req, body):
+    """
+    Folder uploads: makes every folder of a tree below `path` ("a", "a/b", ...,
+    parents first). Existing folders are reused; a failure (a file in the way,
+    no rights) is reported for that folder and everything below it, the rest
+    go ahead. Returns one {created, error} per entry of `dirs`, in order.
+    """
+    kwargs = session_kwargs(req)
+    base = clean_parts(req.get("path"))
+    dirs = (body or {}).get("dirs")
+    if not isinstance(dirs, list) or len(dirs) > 5000:
+        raise GateError(400, "BAD_REQUEST", "Bad folder list")
+    known = {}
+    results = []
+    for raw in dirs:
+        parts = clean_parts(raw)
+        if not parts or len(parts) > 64:
+            raise GateError(400, "INVALID_PATH", "Invalid path")
+        for part in parts:
+            clean_name(part)
+        created = False
+        error = None
+        for depth in range(1, len(parts) + 1):
+            key = "/".join(parts[:depth]).lower()
+            if key not in known:
+                target = unc(req, path="/".join(base + parts[:depth]))
+                try:
+                    smbclient.mkdir(target, **kwargs)
+                    known[key] = None
+                    if depth == len(parts):
+                        created = True
+                except Exception as exc:  # noqa: BLE001 - reported per folder
+                    mapped = translate(exc)
+                    if mapped.status == 401 or mapped.code in ("SERVER_UNREACHABLE", "SHARE_NOT_FOUND"):
+                        raise mapped from exc
+                    if mapped.code == "EXISTS":
+                        try:
+                            st = smbclient.stat(target, **kwargs)
+                            known[key] = None if stat_shape("", st)["dir"] else "NOT_A_FOLDER"
+                        except Exception as exc2:  # noqa: BLE001
+                            known[key] = translate(exc2).code
+                    else:
+                        known[key] = mapped.code
+            error = known[key]
+            if error:
+                break
+        results.append({"created": created, "error": error})
+    return {"results": results}
+
+
 def op_rename(req, _body):
     kwargs = session_kwargs(req)
     source = unc(req)
@@ -769,6 +819,15 @@ class Handler(BaseHTTPRequestHandler):
                 if length:
                     self.rfile.read(length)
                 self.ok(JSON_OPS[op](req, None))
+            elif op == "mkdirs":
+                length = int(self.headers.get("Content-Length") or 0)
+                if length > 4 * 1024 * 1024:
+                    raise GateError(413, "TOO_LARGE", "Folder list too large")
+                try:
+                    body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                except Exception as exc:  # noqa: BLE001
+                    raise GateError(400, "BAD_REQUEST", "Bad folder list") from exc
+                self.ok(op_mkdirs(req, body))
             elif op == "read":
                 self.op_read(req)
             elif op == "write":

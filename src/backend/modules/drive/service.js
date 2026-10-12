@@ -10,6 +10,7 @@ import { httpError, intId } from '../shared/acl.js';
 import { CONVERTIBLE, FILE_CSP, INLINE, contentDisposition, extOf, mimeOf, officePreview, previewDir } from '../shared/storage.js';
 import { connectionStatus, credentialFor, driveSettings, isAuthFailure, parkCredential, serverParams } from './credentials.js';
 import { gateCall, gateReadAll, gateRequest } from './gate.js';
+import { folderTree } from '../shared/relpath.js';
 import { cleanName, cleanPath, joinPath, nameOf, parentOf, relativeTo } from './paths.js';
 
 /*
@@ -334,6 +335,42 @@ export async function createFolder(target, rel, name) {
   const path = cleanPath(rel);
   const result = await call(target, 'mkdir', { path: fullPath(target, path), name: cleanName(name), unique: true });
   return entryShape(result.entry, path);
+}
+
+/**
+ * Folder uploads: makes the folders of a dropped/picked folder under `rel`
+ * ("Photos", "Photos/2026", …) in one gateway call. Folders that already
+ * exist are reused (merged into); a file in the way fails that path (and its
+ * subfolders) with NOT_A_FOLDER, the rest go ahead. Write access on `rel` is
+ * checked first. Returns, in the order of `paths`, { path, error } where
+ * `path` is the folder's share-relative path as created.
+ */
+export async function ensureFolders(target, rel, paths) {
+  const base = cleanPath(rel);
+  const { list, keys } = folderTree(paths);
+  // The drive's own name rules on top of the shared ones (no : * ? " < > |, no trailing dot).
+  const named = list.map((item) => ({ ...item, parts: item.parts.map((part) => cleanName(part)) }));
+  const { access } = await statEntry(target, base, { access: true });
+  if (access && access.known && !access.write) throw httpError(403, 'You cannot write to this folder', 'ACCESS_DENIED');
+  // The folder list travels in the body: it can be far bigger than the parameter header allows.
+  const body = Buffer.from(JSON.stringify({ dirs: named.map((item) => item.parts.join('/')) }));
+  let result;
+  try {
+    const res = await gateRequest('mkdirs', params(target, { path: fullPath(target, base) }), { body });
+    const chunks = [];
+    for await (const chunk of res) chunks.push(chunk);
+    result = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch (err) {
+    throw await failure(target, err);
+  }
+  const byKey = new Map(named.map((item, index) => [item.key, { path: joinPath(base, item.parts.join('/')), ...(result.results?.[index] || { error: 'GATE_ERROR' }) }]));
+  return {
+    folders: keys.map((key) => {
+      const item = byKey.get(key);
+      return { path: item.path, error: item.error || null };
+    }),
+    created: named.map((item) => byKey.get(item.key)).filter((item) => item.created).map((item) => item.path),
+  };
 }
 
 export async function renameEntry(target, rel, name) {

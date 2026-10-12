@@ -103,7 +103,15 @@ export function clientLeft(req, res, err) {
  * turns the request (and the handler's result, when there is one) into one or
  * more events.
  */
-export function audited(action, describe, handler) {
+export function audited(action, rawDescribe, handler) {
+  // A request with a malformed path must still get its error answer (and a row), not crash the process.
+  const describe = (req, result) => {
+    try {
+      return rawDescribe(req, result);
+    } catch {
+      return { path: '' };
+    }
+  };
   return async (req, res, next) => {
     let result;
     try {

@@ -4,7 +4,6 @@ import { App, Button, Dropdown, Modal, Progress, Segmented, Skeleton } from 'ant
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import AccessDialog from '../../shared/AccessDialog';
-import UploadPanel from '../../kb/components/UploadPanel';
 import { filesApi, formatBytes, nodeSource } from '../api';
 import { useFiles } from '../FilesContext';
 import NodeList, { nodeLabel } from '../components/NodeList';
@@ -12,6 +11,9 @@ import NodeViewer from '../components/NodeViewer';
 import ShareDialog from '../components/ShareDialog';
 import { MoveDialog, NameDialog } from '../components/dialogs';
 import SpaceDialog from '../components/SpaceDialog';
+import TransferPanel from '../components/TransferPanel';
+import UploadButton from '../components/UploadButton';
+import { FolderUploadError, batchLabel, collectDrop, collectPicked, useFolderUploads } from '../folderUpload';
 
 const VIEW_KEY = 'files_view';
 const RANK = { none: 0, view: 1, edit: 2, manage: 3 };
@@ -130,6 +132,71 @@ export default function Browser({ place }) {
   const reload = () => {
     load().catch(setError);
     refreshHome();
+  };
+  // Folder uploads finish later, maybe after a move to another folder: refresh whatever is on screen then.
+  const reloadLatest = useRef(reload);
+  reloadLatest.current = reload;
+  const folderUploads = useFolderUploads();
+
+  const folderProblem = (err) => {
+    if (err instanceof FolderUploadError) message.error(t(err.code === 'TOO_DEEP' ? 'folderUpload.tooDeep' : 'folderUpload.tooMany', err.info));
+    else message.error(t('folderUpload.readFailed', { error: err?.message || '' }));
+  };
+
+  /** A scanned folder (drop or picker) → the folder tree first, then the files, a few at a time. */
+  const uploadFolder = (scan) => {
+    if (!target) return;
+    if (!scan.files.length && !scan.dirs.length) {
+      message.info(t('folderUpload.empty'));
+      return;
+    }
+    const place = target;
+    const bytes = scan.files.reduce((sum, item) => sum + (item.file.size || 0), 0);
+    folderUploads.start({
+      label: batchLabel(scan, t),
+      files: scan.files,
+      dirs: scan.dirs,
+      unreadable: scan.unreadable,
+      maxBytes: (config?.maxUploadMb || 200) * 1024 * 1024,
+      tooLarge: t('kb.upload.tooLarge', { mb: config?.maxUploadMb || 200 }),
+      root: place,
+      ensure: async (paths, first, signal) => (await filesApi.folderTree(place, paths, first ? bytes : 0, signal)).data.folders.map((id) => ({ ref: { parentId: id } })),
+      send: (file, ref, { signal, onProgress }) => filesApi.upload(ref, [file], onProgress, signal),
+      describe: (err) => (err ? errorMessage(err) : t('folderUpload.folderFailed')),
+      onDone: () => reloadLatest.current(),
+    });
+  };
+
+  const onDropItems = async (dataTransfer) => {
+    const drop = collectDrop(dataTransfer);
+    // Only files: exactly the single-file upload as before.
+    if (drop.hasFolders === false) {
+      upload(drop.plain);
+      return;
+    }
+    const key = 'fs-folder-scan';
+    message.open({ key, type: 'loading', content: t('folderUpload.scanning'), duration: 0 });
+    try {
+      const scan = await drop.scan();
+      message.destroy(key);
+      if (scan.hasFolders) uploadFolder(scan);
+      else upload(scan.files.map((item) => item.file));
+    } catch (err) {
+      message.destroy(key);
+      folderProblem(err);
+    }
+  };
+
+  const onPickFolder = (files) => {
+    if (!files.length) {
+      message.info(t('folderUpload.empty'));
+      return;
+    }
+    try {
+      uploadFolder(collectPicked(files));
+    } catch (err) {
+      folderProblem(err);
+    }
   };
 
   const upload = async (files) => {
@@ -286,7 +353,7 @@ export default function Browser({ place }) {
         if (!canEdit) return;
         event.preventDefault();
         setDragging(false);
-        upload([...(event.dataTransfer?.files || [])]);
+        onDropItems(event.dataTransfer);
       }}
     >
       {rootCrumb && (
@@ -376,11 +443,7 @@ export default function Browser({ place }) {
             </Button>
           )}
           {canEdit && <Button onClick={() => setDialog({ type: 'folder' })}>+ {t('files.newFolder')}</Button>}
-          {canEdit && (
-            <Button type="primary" onClick={() => fileInput.current?.click()}>
-              ⤒ {t('files.upload')}
-            </Button>
-          )}
+          {canEdit && <UploadButton onPickFiles={() => fileInput.current?.click()} onFolder={onPickFolder} />}
         </div>
       </header>
 
@@ -432,7 +495,15 @@ export default function Browser({ place }) {
         </div>
       )}
       <input ref={fileInput} type="file" multiple hidden onChange={(event) => { upload([...event.target.files]); event.target.value = ''; }} />
-      <UploadPanel uploads={uploads} onClear={() => setUploads([])} />
+      <TransferPanel
+        uploads={uploads}
+        batches={folderUploads.batches}
+        onCancel={folderUploads.cancel}
+        onClear={() => {
+          setUploads([]);
+          folderUploads.clear();
+        }}
+      />
 
       {viewing && (
         <NodeViewer node={viewing} siblings={items} src={src} conversion={config?.conversion} onNavigate={(next) => next && setViewing(items.find((item) => item.id === next.id))} onClose={() => setViewing(null)} />

@@ -5,7 +5,7 @@ import { mentionedUsernames } from '../modules/tasks/service.js';
 import { buildMime, domainAllowed } from '../services/google.js';
 import { seal, unseal } from '../services/crypto.js';
 import { normalizeDomains } from '../services/settings.js';
-import { buildManifest } from '../routes/pwa.routes.js';
+import { buildManifest, faviconUrl } from '../routes/pwa.routes.js';
 
 test('normalizeRule keeps a safe RRULE subset', () => {
   assert.equal(normalizeRule('RRULE:freq=weekly;byday=MO,WE;interval=2'), 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE');
@@ -84,6 +84,14 @@ test('PWA manifest follows settings and enabled modules', () => {
   assert.deepEqual(manifest.shortcuts.map((item) => item.url), ['/app/tasks', '/app/kb']);
   const custom = buildManifest({ ...parsed, appearance: { appIconUrl: '/uploads/logos/logo-x.png' } });
   assert.ok(custom.icons.every((icon) => icon.src === '/uploads/logos/logo-x.png'));
+  const svg = buildManifest({ ...parsed, appearance: { appIconUrl: '/uploads/logos/logo-y.svg' } });
+  assert.deepEqual(svg.icons, [{ src: '/uploads/logos/logo-y.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }]);
+});
+
+test('tab icon follows the app icon setting, default otherwise', () => {
+  assert.equal(faviconUrl({ appearance: { appIconUrl: '/uploads/logos/logo-x.png' } }), '/uploads/logos/logo-x.png');
+  assert.equal(faviconUrl({ appearance: { appIconUrl: null } }), '/favicon.svg');
+  assert.equal(faviconUrl({}), '/favicon.svg');
 });
 
 test('push subscriptions only reach real push services', async () => {

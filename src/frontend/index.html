@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta name="description" content="Application console" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="48x48" href="/pwa/favicon-48.png" />
+    <!-- Tab icon: the API redirects to the app icon from settings (or /favicon.svg),
+         and the app swaps in the direct URL once settings load (pwa/appIcon.js). -->
+    <link rel="icon" href="/api/pwa/icon" />
     <!-- Installable app (PWA): manifest is built from settings by the API. -->
     <link rel="manifest" href="/api/pwa/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/pwa/apple-touch-icon.png" />

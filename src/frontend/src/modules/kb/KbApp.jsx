@@ -40,7 +40,7 @@ function Sidebar({ onNavigate }) {
   return (
     <div className="kb-side">
       <Link to="/app/kb" className="kb-side__brand" onClick={onNavigate}>
-        <MenuIcon name="book" />
+        <MenuIcon name="graduation" />
         <span>{t('apps.kb.name')}</span>
       </Link>
       <Input.Search

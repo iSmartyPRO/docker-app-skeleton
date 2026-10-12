@@ -9,6 +9,11 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 ### Security and reliability (audit)
 
+- The browser tab icon follows *App icon* (`/api/pwa/icon`, `/favicon.ico` redirect, runtime `<link rel=icon>` update, versioned manifest); SVG app icons are accepted.
+- Knowledge base app icon is a graduation cap.
+- File server: when exactly one share is online it opens straight away (`?list=1` shows the list).
+- Files and File server: upload whole folders (drag and drop or *Upload folder*); the tree is recreated with existing folders reused, files go up three at a time with the usual checks, progress, cancel and per-file errors. Fixed a crash of the backend on Drive paths with invalid characters.
+- Knowledge base visual editor: pictures can be resized (handles and S/M/L/100%/Auto), placed left/center/right or wrapped by text, captioned, given alt text, linked, replaced, opened or downloaded from a floating toolbar; readers open pictures in a lightbox.
 - Knowledge base: a **visual article editor** next to Markdown — headings, marks, highlight, lists, checklists, alignment, links, tables, pictures and files pasted, dropped, uploaded or chosen from Files, full screen; new articles start visual, and an article can switch format at any time (`kb_items.content_format`).
 - Code review fixes:
   - **Access**: tasks no longer reveal linked, dependent, parent or template items the viewer cannot see; a subtask can be attached only to a task you can edit; reminders to other people need edit rights; entity chats drop people who lost access to the task; a view-only file cannot be put into the KB; calendar-limited API tokens no longer see invitations from other calendars.

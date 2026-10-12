@@ -34,9 +34,20 @@ export const PREMIUM_ICONS = {
   )),
   book: icon('#4F46E5', () => (
     <>
-      <path fill="#fff" d="M6.4 6.2c0-.7.6-1.2 1.2-1.2h8.9c.5 0 .9.4.9.9v10.4c0 .5-.4.9-.9.9H8a1.6 1.6 0 0 0 0 3.2h9.4" />
+      <path fill="#fff" d="M6.4 6.2c0-.7.6-1.2 1.2-1.2h8.9c.5 0 .9.4.9.9v10.4c0 .5-.4.9-.9.9H8a1.6 1.6 0 0 0-1.6 1.6V6.2Z" />
       <path d="M8 17.2a1.6 1.6 0 0 0 0 3.2h9.4M6.4 6.2v12.6" {...S} />
       <path d="M9.6 8.6h5.2M9.6 11h3.6" stroke="var(--da-icon-hole)" strokeWidth="1.4" strokeLinecap="round" />
+    </>
+  )),
+  // Mortarboard: the Knowledge base app icon. Board, cap and tassel are separate
+  // shapes so the gaps show the tile (or the page in mono) at 16px too.
+  graduation: icon('#4F46E5', () => (
+    <>
+      <path fill="#fff" d="M12 6.3 19.2 9.8 12 13.3 4.8 9.8 12 6.3Z" />
+      <path fill="#fff" d="M8.1 12.7 12 14.6l3.9-1.9v2.9c0 1.2-1.75 2.1-3.9 2.1s-3.9-.9-3.9-2.1v-2.9Z" />
+      <path d="m12 9.8 5.3 1" stroke="var(--da-icon-hole)" strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M17.3 10.8v3.6" {...S} />
+      <path fill="#fff" d="M16.5 14.6h1.6l.5 2.3h-2.6l.5-2.3Z" />
     </>
   )),
   compass: icon('#1C7ED6', () => (

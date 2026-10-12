@@ -38,18 +38,24 @@ export function fromEditorHtml(html) {
     const id = element.getAttribute('data-kbfile') || FILE_URL.exec(value)?.[1];
     element.removeAttribute('data-kbfile');
     if (id) element.setAttribute(attr, `kbfile:${id}`);
-    else if (/^blob:/i.test(value)) element.remove();
+    // A picture still uploading is dropped (with its figure: size, caption…).
+    else if (/^blob:/i.test(value)) (element.tagName === 'IMG' ? element.closest('figure') || element : element).remove();
   });
   return body.innerHTML;
 }
 
 /** Markdown → HTML for the visual editor (kbfile: links are kept as they are). */
 export function markdownToHtml(text) {
-  return text ? marked.parse(String(text), { gfm: true, breaks: false }) : '';
+  if (!text) return '';
+  // A picture alone in a paragraph becomes a picture block (no empty paragraph around it).
+  return marked.parse(String(text), { gfm: true, breaks: false }).replace(/<p>\s*(<img\b[^>]*>)\s*<\/p>/g, '$1');
 }
 
 let turndown;
-/** HTML → Markdown; what Markdown cannot express (tables, alignment) stays as HTML. */
+/**
+ * HTML → Markdown; what Markdown cannot express (tables, alignment, pictures
+ * with a size, layout, caption or link) stays as HTML. Plain pictures become ![alt](src).
+ */
 export function htmlToMarkdown(html) {
   if (!html) return '';
   if (!turndown) {
@@ -58,6 +64,10 @@ export function htmlToMarkdown(html) {
     turndown.addRule('taskItem', {
       filter: (node) => node.nodeName === 'LI' && node.getAttribute('data-type') === 'taskItem',
       replacement: (content, node) => `- [${node.getAttribute('data-checked') === 'true' ? 'x' : ' '}] ${content.trim().replace(/\n+/g, ' ')}\n`,
+    });
+    turndown.addRule('figure', {
+      filter: (node) => node.nodeName === 'FIGURE' && Boolean(node.querySelector('img')),
+      replacement: (content, node) => `\n\n${node.outerHTML.replace(/\sdata-kbfile="[^"]*"/g, '').replace(/\n+/g, ' ')}\n\n`,
     });
     turndown.addRule('alignedBlock', {
       filter: (node) => /^(P|H[1-6])$/.test(node.nodeName) && /text-align:\s*(center|right)/.test(node.getAttribute('style') || ''),

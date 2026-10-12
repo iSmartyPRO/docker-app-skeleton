@@ -7,6 +7,7 @@ The module is **off by default**. Turn it on under *Settings → Modules → Fil
 ## What people get
 
 - **Overview**: the drive's name and subtitle, a tile per folder with the person's rights (*Read & write* or *Read only*) and free space, plus favourites and recent files.
+  - **One folder opens directly**: when someone enters the drive and exactly one of their folders is reachable (others offline, denied or missing don't count), the drive skips the overview and opens that folder. It doesn't do this when a server is waiting for the person's sign-in, so they still see that prompt. The jump replaces the history entry, so *Back* leaves the drive. The overview is still there: the breadcrumb root, *Overview* in the menu, and `/app/drive?list=1` all show the list, and the drive only jumps on the page you first enter it on.
 - **Folders**:
   - breadcrumbs and grid or list views, sorted by name, date, size or type;
   - image thumbnails;
@@ -15,6 +16,7 @@ The module is **off by default**. Turn it on under *Settings → Modules → Fil
   - a *Copy network path* button (`\\server\share\…` or the DFS path you configure) for opening the item in Explorer.
 - **Changes**:
   - upload by button or drag & drop, with a *Replace / Keep both / Skip* choice when names clash;
+  - upload whole folders (drag & drop or *Upload ▾ → Upload folder*), see [Uploading folders](#uploading-folders);
   - new folder, rename, move or copy between folders of the same server, delete;
   - download a file, a folder or a selection as a ZIP.
 
@@ -37,6 +39,15 @@ The module is **off by default**. Turn it on under *Settings → Modules → Fil
 - **Favourites and recent files**, kept per person.
 - **Public links** (see below) and **My links** with the state of each one.
 - **Connections**: which account opens each server, and a way to sign in or switch accounts.
+
+## Uploading folders
+
+Dropping a folder (or picking one with *Upload ▾ → Upload folder*; not offered on iOS / Android) recreates its tree on the share and uploads every file into place:
+
+- The portal first checks that the person may write to the current folder (the server's own rights), then makes all folders in one gateway call. **Existing folders are reused** (merged into); empty folders are kept when dropped.
+- If a dropped top-level folder already exists, the usual *Replace / Keep both / Skip* question is asked once and applies to the files inside it (*Skip* leaves files that are already there untouched and counts them as skipped).
+- A file in the way of a folder fails that folder's files (`NOT_A_FOLDER`); a name the server does not accept (`: * ? " < > |`) fails only that file. Everything else goes on, and the panel lists each failure with its reason.
+- Three files upload at a time, the batch can be cancelled, the size limit applies per file. Up to 10,000 files and 32 folder levels per upload. Every created folder is recorded in the activity log (*created folder*).
 
 ## Signing in to file servers
 
@@ -163,6 +174,7 @@ All under `/api/app/drive`, signed-in users only (`:id` = folder id, `path` = pa
 | GET | `/shares/:id/list?path=&hidden=1` | Folder contents, rights, network path |
 | GET | `/shares/:id/stat?path=` · `/search?path=&q=` | Item details · recursive name search |
 | POST | `/shares/:id/folders` | `{ path, name }` |
+| POST | `/shares/:id/folders/tree` | Folder uploads: `{ path, paths: ["A", "A/B", …] }` → `{ folders: [{ path, error }] }` in the order of `paths`; existing folders are reused; `403 ACCESS_DENIED` without write access; at most 1000 paths, 32 levels |
 | PUT | `/shares/:id/rename` | `{ path, name }` |
 | POST | `/shares/:id/delete` | `{ paths }` |
 | POST | `/shares/:id/move` | `{ paths, toShareId?, toPath, copy? }` |

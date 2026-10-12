@@ -22,6 +22,7 @@ import {
   createFolder,
   deleteEntries,
   driveContext,
+  ensureFolders,
   forgetProbes,
   home,
   listFolder,
@@ -94,6 +95,22 @@ export function privateRoutes() {
     const entry = await createFolder(await target(req), req.body?.path, req.body?.name);
     res.json({ success: true, entry });
     return entry;
+  }));
+  // Folder uploads: the whole folder tree in one go (existing folders are reused); files then go up one by one.
+  const madeTree = (req, result) => {
+    if (result) return result.created.slice(0, 500).map((path) => ({ shareId: shareOf(req), path, isDir: true, details: { folderUpload: true } }));
+    let path = '';
+    try {
+      path = cleanPath(req.body?.path);
+    } catch {
+      /* an invalid path is the error itself */
+    }
+    return { shareId: shareOf(req), path, isDir: true, details: { folderUpload: true } };
+  };
+  router.post('/shares/:id/folders/tree', audited('mkdir', madeTree, async (req, res) => {
+    const result = await ensureFolders(await target(req), req.body?.path, req.body?.paths);
+    res.json({ success: true, folders: result.folders });
+    return result;
   }));
   const renamed = (req, entry) => {
     const path = cleanPath(req.body?.path);
@@ -324,7 +341,12 @@ function visit(handler, audit) {
   return async (req, res, next) => {
     let opened = null;
     const log = (extra) => {
-      const event = audit?.(req, opened);
+      let event;
+      try {
+        event = audit?.(req, opened);
+      } catch {
+        return; // a malformed path: the refusal itself is answered below
+      }
       if (!event) return;
       logActivity(req, {
         via: 'link',

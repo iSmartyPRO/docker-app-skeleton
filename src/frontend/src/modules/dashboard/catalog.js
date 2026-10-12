@@ -159,7 +159,7 @@ export const WIDGET_CATALOG = {
     Component: KbRecent,
     module: 'kb',
     category: 'content',
-    icon: 'book',
+    icon: 'graduation',
     color: '#0EA5E9',
     link: '/app/kb',
     size: { w: 4, h: 6, minW: 3, minH: 3 },

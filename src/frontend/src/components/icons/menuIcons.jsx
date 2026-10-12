@@ -122,10 +122,13 @@ export function resolveIconStyle(appearance) {
   return appearance?.icons?.style === 'mono' ? 'mono' : 'colored';
 }
 
+// Former default icons: a saved menu still holding one follows the new default.
+const RETIRED_DEFAULTS = { '/admin/settings/kb': 'book' };
+
 export function resolveIconId(appearance, slotKey) {
   const menu = appearance?.icons?.menu || {};
   const chosen = menu[slotKey] || menu[LEGACY_SLOT_KEYS[slotKey]];
-  if (chosen && ICON_CATALOG[chosen]) return chosen;
+  if (chosen && ICON_CATALOG[chosen] && RETIRED_DEFAULTS[slotKey] !== chosen) return chosen;
   return MENU_SLOTS.find((slot) => slot.key === slotKey)?.defaultIcon || 'dashboard';
 }
 

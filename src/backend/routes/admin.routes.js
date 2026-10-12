@@ -52,7 +52,12 @@ import {
 import { disconnectGmailSender, publicBase, redirectUri } from '../services/google.js';
 import { readFile as readIconFile, unlink as removeIconFile, unlink as removeUploadedFile } from 'fs/promises';
 
-/** App icons (PWA / home screen): square PNG, 192–4096 px. */
+/**
+ * App icons (browser tab, PWA, home screen): a square PNG of 192–4096 px, or a
+ * square SVG (scales to every size; already checked for scripts by
+ * verifyUploadedFile). JPEG/WebP are refused: browsers and iOS handle them
+ * poorly as icons.
+ */
 async function verifyAppIcon(file) {
   const fail = async (message) => {
     await removeIconFile(file.path).catch(() => {});
@@ -60,7 +65,15 @@ async function verifyAppIcon(file) {
     error.statusCode = 400;
     throw error;
   };
-  if (!/\.png$/i.test(file.filename)) return fail('The app icon must be a PNG image');
+  if (/\.svg$/i.test(file.filename)) {
+    const text = (await readIconFile(file.path)).toString('utf8');
+    const box = /<svg\b[^>]*\bviewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
+    if (box && Math.abs(Number(box[1]) - Number(box[2])) > 0.01 * Math.max(Number(box[1]), Number(box[2]))) {
+      return fail('The app icon must be square');
+    }
+    return null;
+  }
+  if (!/\.png$/i.test(file.filename)) return fail('The app icon must be a PNG or SVG image');
   const head = (await readIconFile(file.path)).subarray(0, 24);
   const width = head.readUInt32BE(16);
   const height = head.readUInt32BE(20);

@@ -43,7 +43,7 @@ export default {
     },
   ],
   tips: [
-    { ru: 'Перетащите файлы из проводника прямо в окно папки — они загрузятся туда.', en: 'Drag files from Explorer straight onto a folder window to upload them there.' },
+    { ru: 'Перетащите файлы или целую папку из проводника прямо в окно папки — всё загрузится туда вместе с вложенными папками.', en: 'Drag files or a whole folder from Explorer straight onto a folder window: everything uploads there, sub-folders included.' },
     { ru: 'Делитесь папкой, а не отдельными файлами: всё, что вы добавите в неё позже, станет доступно автоматически.', en: 'Share a folder rather than single files: everything you add later becomes available automatically.' },
     { ru: 'Для коллег отправляйте кнопку «Ссылка» со страницы файла, а не публичную ссылку — она откроется только тем, у кого есть доступ.', en: 'For colleagues, send the Link button from the file page, not a public link: it opens only for people with access.' },
     { ru: 'Публичным ссылкам на важные документы ставьте пароль и срок действия.', en: 'Give public links to important documents a password and an expiry date.' },
@@ -67,13 +67,13 @@ export default {
       id: 'upload',
       title: { ru: 'Загрузка и перетаскивание', en: 'Uploading and drag & drop' },
       body: {
-        ru: 'Загружайте файлы кнопкой **«Загрузить»** или просто перетащите их из проводника в окно папки — появится подсказка «Отпустите, чтобы загрузить». Можно загружать сразу много файлов.\n\nЕсли в папке уже есть файл с таким именем, ничего не перезапишется: новый файл получит имя вроде «Отчёт (2).pdf».',
-        en: 'Upload with the **Upload** button, or just drag files from Explorer onto the folder window; you will see a “Drop to upload” hint. Many files can go at once.\n\nIf the folder already has a file with that name, nothing is overwritten: the new file is saved as “Report (2).pdf”.',
+        ru: 'Загружайте файлы кнопкой **«Загрузить»** или просто перетащите их из проводника в окно папки — появится подсказка «Отпустите, чтобы загрузить». Можно загружать сразу много файлов.\n\n**Целые папки** тоже можно перетащить — или выбрать через стрелку у кнопки → **«Загрузить папку»**. Вложенные папки создадутся сами, а файлы лягут на свои места; папки с тем же именем объединяются, пустые папки сохраняются. Внизу справа видно, сколько файлов уже загружено, загрузку можно отменить, а если какие-то файлы не загрузились, там же будет список с причинами. На телефоне выбрать папку нельзя — это ограничение iOS и Android.\n\nЕсли в папке уже есть файл с таким именем, ничего не перезапишется: новый файл получит имя вроде «Отчёт (2).pdf».',
+        en: 'Upload with the **Upload** button, or just drag files from Explorer onto the folder window; you will see a “Drop to upload” hint. Many files can go at once.\n\n**Whole folders** can be dropped too, or picked with the arrow next to the button → **Upload folder**. Sub-folders are created for you and every file lands in its place; folders with the same name are merged, empty folders are kept. The panel in the bottom right shows how many files are done, lets you cancel, and lists any files that failed with the reason. Phones cannot pick folders (an iOS and Android limitation).\n\nIf the folder already has a file with that name, nothing is overwritten: the new file is saved as “Report (2).pdf”.',
       },
       steps: [
         { ru: 'Откройте нужную папку в «Моих файлах» или в общем пространстве.', en: 'Open the folder in My files or in a shared space.' },
         { ru: 'Нажмите «Новая папка», если нужно разложить файлы по папкам.', en: 'Press New folder if you want to sort files into folders.' },
-        { ru: 'Перетащите файлы в окно или нажмите «Загрузить» и выберите их.', en: 'Drag the files onto the window, or press Upload and pick them.' },
+        { ru: 'Перетащите файлы или целую папку в окно или нажмите «Загрузить» и выберите их.', en: 'Drag files or a whole folder onto the window, or press Upload and pick them.' },
       ],
       note: {
         ru: 'Администратор задаёт максимальный размер файла и допустимые типы. Если файл не загружается, проверьте его размер и формат.',

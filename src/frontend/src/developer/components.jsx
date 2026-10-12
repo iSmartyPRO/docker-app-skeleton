@@ -16,7 +16,7 @@ export const AREA_ICONS = {
   account: 'user',
   notifications: 'bell',
   files: 'folder',
-  kb: 'book',
+  kb: 'graduation',
   chat: 'chat',
   tasks: 'tasks',
   calendar: 'calendar',

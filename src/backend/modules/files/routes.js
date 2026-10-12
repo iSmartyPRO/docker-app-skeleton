@@ -11,6 +11,7 @@ import {
   createSpace,
   deleteSpace,
   emptyTrash,
+  ensureFolderTree,
   filesSettings,
   getNode,
   getShares,
@@ -109,6 +110,10 @@ export function privateRoutes() {
   // Nodes
   router.post('/folders', wrap(async (req, res) => {
     res.status(201).json({ success: true, node: await createFolder(req.fs, { ...place(req.body), name: req.body?.name }) });
+  }));
+  // Folder uploads: the folder tree first (existing folders are reused), then each file into its folder.
+  router.post('/folders/tree', wrap(async (req, res) => {
+    res.json({ success: true, ...(await ensureFolderTree(req.fs, place(req.body), req.body?.paths, { bytes: req.body?.bytes })) });
   }));
   // Upload: the target is checked before multer touches the disk.
   router.post('/upload', wrap(async (req, res) => {

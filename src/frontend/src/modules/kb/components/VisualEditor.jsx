@@ -6,7 +6,6 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import Image from '@tiptap/extension-image';
 import Table from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
@@ -17,6 +16,8 @@ import { App, Dropdown, Select, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { fromEditorHtml, toEditorHtml } from './articleHtml';
+import { KbImage } from './ImageNode';
+import ImageToolbar from './ImageToolbar';
 
 /*
  * Visual article editor (TipTap / ProseMirror) storing HTML. Files are kept in
@@ -25,7 +26,7 @@ import { fromEditorHtml, toEditorHtml } from './articleHtml';
  * Pictures and files can be pasted, dropped, uploaded or chosen from Files.
  */
 
-// `data-kbfile` survives editing on pictures and links.
+// `data-kbfile` survives editing on links (pictures: see ImageNode).
 const kbfileAttr = {
   kbfile: {
     default: null,
@@ -33,11 +34,6 @@ const kbfileAttr = {
     renderHTML: (attrs) => (attrs.kbfile ? { 'data-kbfile': attrs.kbfile } : {}),
   },
 };
-const KbImage = Image.extend({
-  addAttributes() {
-    return { ...this.parent?.(), ...kbfileAttr };
-  },
-});
 const KbLink = Link.extend({
   addAttributes() {
     return { ...this.parent?.(), ...kbfileAttr };
@@ -97,8 +93,11 @@ export default function VisualEditor({ value = '', onChange, fileUrl, upload, on
   const { message } = App.useApp();
   const [busy, setBusy] = useState(0);
   const [full, setFull] = useState(false);
+  const [scrollBox, setScrollBox] = useState(null);
   const imageInput = useRef(null);
   const fileInput = useRef(null);
+  const replaceInput = useRef(null);
+  const replaceAt = useRef(null);
   const previews = useRef(new Map());
   const last = useRef(value);
   const uploadRef = useRef(upload);
@@ -179,7 +178,18 @@ export default function VisualEditor({ value = '', onChange, fileUrl, upload, on
     (pos === null ? chain : chain.setTextSelection(pos)).insertContent(content).run();
   }
 
-  async function uploadFiles(list, pos = null) {
+  /** Puts another picture in place of the one at `pos` (size, layout, caption stay). */
+  function replaceImage(pos, node) {
+    if (!editor || typeof pos !== 'number' || !node) return;
+    const current = editor.state.doc.nodeAt(pos);
+    if (current?.type.name !== 'image') return;
+    const attrs = node.url
+      ? { src: node.url, kbfile: null }
+      : { src: urlOf(node.id), kbfile: String(node.id), alt: node.name.replace(/\.[^.]+$/, '') };
+    editor.chain().focus().setNodeSelection(pos).updateAttributes('image', attrs).run();
+  }
+
+  async function uploadFiles(list, pos = null, replace = false) {
     const files = [...(list || [])];
     if (!files.length || !uploadRef.current) return;
     setBusy((n) => n + files.length);
@@ -190,7 +200,8 @@ export default function VisualEditor({ value = '', onChange, fileUrl, upload, on
         const source = files[index];
         if (source && isImage(node)) previews.current.set(node.id, URL.createObjectURL(source));
       });
-      insertNodes(nodes, pos);
+      if (replace) replaceImage(pos, nodes.find(isImage));
+      else insertNodes(nodes, pos);
       if (nodes.length > 1) message.success(t('kb.ve.uploaded', { n: nodes.length }));
     } catch (err) {
       message.error(errorMessage(err));
@@ -221,6 +232,19 @@ export default function VisualEditor({ value = '', onChange, fileUrl, upload, on
     // eslint-disable-next-line no-alert
     const url = window.prompt(t('kb.ve.imageUrlPrompt'), 'https://');
     if (url && /^https?:\/\//i.test(url.trim())) editor.chain().focus().setImage({ src: url.trim() }).run();
+  };
+
+  const replaceSelected = (how) => {
+    const pos = editor.state.selection.from;
+    if (how === 'upload') {
+      replaceAt.current = pos;
+      replaceInput.current?.click();
+    } else if (how === 'files') onPickFiles?.('image', (nodes) => replaceImage(pos, nodes.find(isImage)));
+    else {
+      // eslint-disable-next-line no-alert
+      const url = window.prompt(t('kb.ve.imageUrlPrompt'), 'https://');
+      if (url && /^https?:\/\//i.test(url.trim())) replaceImage(pos, { url: url.trim() });
+    }
   };
 
   const block = editor.isActive('heading', { level: 2 }) ? 'h2' : editor.isActive('heading', { level: 3 }) ? 'h3' : 'p';
@@ -351,8 +375,9 @@ export default function VisualEditor({ value = '', onChange, fileUrl, upload, on
           {full ? '⤡' : '⤢'}
         </Tool>
       </div>
-      <div className="ve-scroll" onClick={(event) => event.target === event.currentTarget && editor.chain().focus('end').run()}>
+      <div ref={setScrollBox} className="ve-scroll" onClick={(event) => event.target === event.currentTarget && editor.chain().focus('end').run()}>
         <EditorContent editor={editor} />
+        {scrollBox && <ImageToolbar editor={editor} boundary={scrollBox} fileUrl={urlOf} onReplace={replaceSelected} canUpload={Boolean(upload)} canPick={Boolean(onPickFiles)} />}
       </div>
       <div className="ve-foot">
         <span>{t('kb.ve.words', { n: words })}</span>
@@ -366,6 +391,17 @@ export default function VisualEditor({ value = '', onChange, fileUrl, upload, on
         style={{ display: 'none' }}
         onChange={(event) => {
           uploadFiles(event.target.files);
+          event.target.value = '';
+        }}
+      />
+      <input
+        ref={replaceInput}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/bmp,image/svg+xml"
+        data-replace=""
+        style={{ display: 'none' }}
+        onChange={(event) => {
+          uploadFiles(event.target.files, replaceAt.current, true);
           event.target.value = '';
         }}
       />

@@ -54,7 +54,7 @@ export const MODULE_REGISTRY = [
   {
     id: 'kb',
     path: '/app/kb',
-    icon: 'book',
+    icon: 'graduation',
     labelKey: 'apps.kb.name',
     descKey: 'apps.kb.desc',
     App: lazy(() => import('./kb/KbApp')),

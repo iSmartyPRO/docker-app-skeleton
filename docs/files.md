@@ -5,6 +5,7 @@ A [module](modules.md) for personal and shared files. Every user has **My files*
 ## What's inside
 
 - **My files**: a personal tree of folders and files that only you see until you share it. You can upload with the button, by drag & drop or several files at once. Name clashes resolve automatically to `Report (2).pdf`.
+- **Folder uploads**: drop a whole folder (or several, mixed with files) from your computer, or use *Upload ▾ → Upload folder*. See [Uploading folders](#uploading-folders).
 - **Shared with me**: everything other people shared with you or your groups, with the owner shown.
 - **Shared spaces**: team drives with their own view / edit / manage rules, e.g. *Accounting* or *Marketing*.
 - **Recent**: your latest uploads and changes.
@@ -13,6 +14,19 @@ A [module](modules.md) for personal and shared files. Every user has **My files*
 - **Grid and list views**, thumbnails for images, multi-select (move or delete), a context menu (right-click or ⋯), and breadcrumbs. On mobile the places sit in a drawer.
 - **Viewers**: the same ones as the Knowledge Base (pdf.js, image gallery, Word, Excel, Office → PDF via [document conversion](integrations.md#document-conversion-collabora--libreoffice), text, Markdown, video, audio).
 - **Each file has its own page** (`/app/files/v/<id>`) by default, with ‹ › through the folder's files and a *Link* button. *Opening files* in the Files settings switches to a modal over the folder. PDFs can be viewed as slides or presented full screen.
+
+## Uploading folders
+
+Drag a folder from Explorer / Finder onto a folder view, or pick one with *Upload ▾ → Upload folder* (not offered on iOS and Android, which cannot pick folders). The portal recreates the folder tree in the current place and uploads every file into its folder:
+
+- **Folders are merged.** A folder that already exists with the same name (any case) is reused, so uploading `Photos` twice fills the same `Photos`. A *file* with that name in the way gets the new folder named `Photos (2)`.
+- **Files never overwrite.** A clashing file is saved as `Report (2).pdf`, exactly like a single upload.
+- **Empty folders are kept** when dropped (the folder picker of browsers skips them). `.DS_Store`, `Thumbs.db`, `desktop.ini` and `._*` files are left out.
+- **The same rules as any upload apply to every file**: edit access to the target, the maximum file size, allowed file types and, in *My files*, the personal quota (checked for the whole folder before anything is created, then again per file).
+- **Progress** is shown per folder: files done / total, bytes, failures with their reasons. Three files upload at a time; the batch can be cancelled (files already uploaded stay). A failed file does not stop the others. The folder view refreshes at the end.
+- **Limits**: up to 10,000 files and 32 folder levels per upload; folder names up to 255 characters, no `.` / `..`, control characters or reserved device names (`CON`, `NUL`, `COM1`…).
+
+The client first sends the folder list to `POST /folders/tree` (in chunks of 500, parents first; the server checks and cleans every path segment, takes a lock so two uploads cannot both create the same folder, and answers the folder ids in the same order), then uploads each file to `POST /upload?parentId=<id>` as usual.
 
 ## Sharing with people
 
@@ -112,6 +126,7 @@ All under `/api/app/files`, signed-in users only:
 | GET / PUT | `/spaces/:id/access` | Space rules |
 | GET | `/subjects` | Users, groups and roles |
 | POST | `/folders` | `{ name, parentId | spaceId }` |
+| POST | `/folders/tree` | Folder uploads: `{ paths: ["A", "A/B", …], parentId \| spaceId, bytes? }` → `{ folders: [id, …] }` in the order of `paths`; existing folders are reused; `bytes` is checked against the quota (`413 QUOTA_EXCEEDED`); at most 1000 paths, 32 levels (`400 INVALID_PATH`, `TOO_MANY_FOLDERS`) |
 | POST | `/upload?parentId=` or `?spaceId=` | Multipart (`files[]`) |
 | GET | `/nodes/:id` | Details, including Knowledge Base usage |
 | PUT | `/nodes/:id` | `{ name }` renames, `{ move: { parentId } | { spaceId } | {} }` moves (`{}` is the root of My files) |

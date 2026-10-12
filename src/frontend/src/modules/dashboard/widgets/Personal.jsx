@@ -240,7 +240,7 @@ export function Note({ widget, onSettings }) {
 
 // ── Notifications ───────────────────────────────────────────────────────────
 
-const MODULE_GLYPH = { tasks: 'tasks', calendar: 'calendar', kb: 'book', files: 'folder', drive: 'server', companies: 'building' };
+const MODULE_GLYPH = { tasks: 'tasks', calendar: 'calendar', kb: 'graduation', files: 'folder', drive: 'server', companies: 'building' };
 
 export function Notifications({ widget }) {
   const { t } = useLocale();

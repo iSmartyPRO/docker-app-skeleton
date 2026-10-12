@@ -1,5 +1,5 @@
-import { useId, useState } from 'react';
-import { NavLink, Navigate, Route, Routes, useMatch } from 'react-router-dom';
+import { useEffect, useId, useRef, useState } from 'react';
+import { NavLink, Navigate, Route, Routes, useLocation, useMatch } from 'react-router-dom';
 import { Button, Drawer, Result, Spin } from 'antd';
 import Chrome from '../../components/Chrome';
 import PageTransition from '../../components/ui/PageTransition';
@@ -109,6 +109,14 @@ function Shell() {
   const title = useDriveTitle();
   const [drawer, setDrawer] = useState(false);
   const fileRoute = useMatch('/app/drive/v/*');
+  // Only the page the drive was entered on may jump straight into a lone folder: coming back to the
+  // overview later (menu, breadcrumb, Back) always shows the list. Reset when the app is left and re-entered.
+  const { pathname } = useLocation();
+  const atHome = /^\/app\/drive\/?$/.test(pathname);
+  const landing = useRef(atHome);
+  useEffect(() => {
+    if (!atHome) landing.current = false;
+  }, [atHome]);
   if (error) return <Result status="warning" title={driveError(error, t)} />;
   if (!config) {
     return (
@@ -139,7 +147,7 @@ function Shell() {
         </Button>
         <PageTransition>
           <Routes>
-            <Route index element={<Home />} />
+            <Route index element={<Home landing={landing} />} />
             <Route path="s/:shareId/*" element={<Browser />} />
             <Route path="recent" element={<Shortcuts kind="recent" />} />
             <Route path="favorites" element={<Shortcuts kind="favorites" />} />

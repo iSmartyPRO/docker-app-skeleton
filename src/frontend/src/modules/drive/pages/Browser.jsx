@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { App, Button, Checkbox, Dropdown, Input, Modal, Radio, Segmented, Skeleton, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
-import UploadPanel from '../../kb/components/UploadPanel';
 import { NameDialog } from '../../files/components/dialogs';
+import TransferPanel from '../../files/components/TransferPanel';
+import UploadButton from '../../files/components/UploadButton';
+import { FolderUploadError, batchLabel, collectDrop, collectPicked, useFolderUploads } from '../../files/folderUpload';
 import { copyText, driveApi, driveError, fileUrl, folderUrl, shareSource } from '../api';
 import { useDrive } from '../DriveContext';
 import EntryList from '../components/EntryList';
@@ -47,6 +49,7 @@ function ConflictDialog({ state, onResolve }) {
   return (
     <Modal open title={t('drive.conflictTitle', { n: state.names.length })} onCancel={() => onResolve(null)} onOk={() => onResolve(choice)} okText={t('drive.continue')} cancelText={t('common.cancel')} width={520}>
       <p>{t('drive.conflictText')}</p>
+      {state.folders && <p className="dv-conflict__note" style={{ color: 'var(--da-muted)', fontSize: 13 }}>{t('drive.conflictFolders')}</p>}
       <ul className="dv-conflict__names">
         {state.names.slice(0, 6).map((name) => <li key={name}>{name}</li>)}
         {state.names.length > 6 && <li>… +{state.names.length - 6}</li>}
@@ -210,6 +213,92 @@ export default function Browser() {
     });
   };
 
+  // ── Folder uploads ──
+  // They finish later, maybe after a move to another folder: refresh whatever is on screen then.
+  const reloadLatest = useRef(reload);
+  reloadLatest.current = reload;
+  const folderUploads = useFolderUploads();
+
+  const folderProblem = (err) => {
+    if (err instanceof FolderUploadError) message.error(t(err.code === 'TOO_DEEP' ? 'folderUpload.tooDeep' : 'folderUpload.tooMany', err.info));
+    else message.error(t('folderUpload.readFailed', { error: err?.message || '' }));
+  };
+
+  // Files in a merged folder may clash: `mode` is the conflict choice (rename / replace / skip).
+  const runFolder = (scan, mode) => {
+    const base = path;
+    const max = (config?.maxUploadMb || 2048) * 1024 * 1024;
+    folderUploads.start({
+      label: batchLabel(scan, t),
+      files: scan.files,
+      dirs: scan.dirs,
+      unreadable: scan.unreadable,
+      maxBytes: max,
+      tooLarge: t('kb.upload.tooLarge', { mb: config?.maxUploadMb || 2048 }),
+      root: base,
+      ensure: async (paths, _first, signal) =>
+        (await driveApi.folderTree(shareId, base, paths, signal)).data.folders.map((item) => ({ ref: item.path, error: item.error ? driveError({ code: item.error }, t) : null })),
+      send: (file, ref, { signal, onProgress }) => driveApi.upload(shareId, ref, file, { conflict: mode === 'skip' ? 'fail' : mode, signal, onProgress }),
+      skipped: (err) => mode === 'skip' && err?.response?.data?.code === 'EXISTS',
+      describe: (err) => (err ? driveError(err, t) : t('folderUpload.folderFailed')),
+      onDone: () => reloadLatest.current(),
+    });
+  };
+
+  /** A scanned folder (drop or picker). Only a folder that is already here can hold clashing files: ask once. */
+  const uploadFolder = (scan) => {
+    if (!scan.files.length && !scan.dirs.length) {
+      message.info(t('folderUpload.empty'));
+      return;
+    }
+    const existing = new Set((data?.entries || []).map((entry) => entry.name.toLowerCase()));
+    const clashes = scan.tops.filter((name) => existing.has(name.toLowerCase()));
+    if (!clashes.length) {
+      runFolder(scan, 'rename');
+      return;
+    }
+    setConflict({
+      names: clashes,
+      folders: true,
+      resolve: (choice) => {
+        setConflict(null);
+        if (choice) runFolder(scan, choice);
+      },
+    });
+  };
+
+  const onDropItems = async (dataTransfer) => {
+    const drop = collectDrop(dataTransfer);
+    // Only files: exactly the single-file upload as before.
+    if (drop.hasFolders === false) {
+      upload(drop.plain.filter((file) => file.size > 0 || file.type));
+      return;
+    }
+    const key = 'dv-folder-scan';
+    message.open({ key, type: 'loading', content: t('folderUpload.scanning'), duration: 0 });
+    try {
+      const scan = await drop.scan();
+      message.destroy(key);
+      if (scan.hasFolders) uploadFolder(scan);
+      else upload(scan.files.map((item) => item.file));
+    } catch (err) {
+      message.destroy(key);
+      folderProblem(err);
+    }
+  };
+
+  const onPickFolder = (files) => {
+    if (!files.length) {
+      message.info(t('folderUpload.empty'));
+      return;
+    }
+    try {
+      uploadFolder(collectPicked(files));
+    } catch (err) {
+      folderProblem(err);
+    }
+  };
+
   // ── Actions ──
   const remove = (list) =>
     modal.confirm({
@@ -326,7 +415,7 @@ export default function Browser() {
         if (!canWrite) return;
         event.preventDefault();
         setDragging(false);
-        upload([...(event.dataTransfer?.files || [])].filter((file) => file.size > 0 || file.type));
+        onDropItems(event.dataTransfer);
       }}
     >
       <nav className="kb-crumbs fs-crumbs dv-crumbs">
@@ -381,11 +470,7 @@ export default function Browser() {
             onSearch={runSearch}
           />
           {canWrite && <Button onClick={() => setDialog({ type: 'folder' })}>+ {t('files.newFolder')}</Button>}
-          {canWrite && (
-            <Button type="primary" onClick={() => fileInput.current?.click()}>
-              ⤒ {t('files.upload')}
-            </Button>
-          )}
+          {canWrite && <UploadButton onPickFiles={() => fileInput.current?.click()} onFolder={onPickFolder} />}
           <Dropdown
             trigger={['click']}
             menu={{
@@ -464,7 +549,15 @@ export default function Browser() {
         </div>
       )}
       <input ref={fileInput} type="file" multiple hidden onChange={(event) => { upload([...event.target.files]); event.target.value = ''; }} />
-      <UploadPanel uploads={uploads} onClear={() => setUploads([])} />
+      <TransferPanel
+        uploads={uploads}
+        batches={folderUploads.batches}
+        onCancel={folderUploads.cancel}
+        onClear={() => {
+          setUploads([]);
+          folderUploads.clear();
+        }}
+      />
       <ConflictDialog state={conflict} onResolve={(choice) => conflict?.resolve(choice)} />
 
       {viewing && (

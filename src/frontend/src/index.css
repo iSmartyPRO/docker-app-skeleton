@@ -3625,6 +3625,196 @@ h4,
   margin: 0;
 }
 
+/* Pictures. A plain <img> of the visual editor is a centred block; a
+   <figure class="kb-figure"> carries a size (data-width, % of the text column,
+   step 5) and a layout (data-align: center | left | right | wrap-left |
+   wrap-right — wrap floats the picture so the text flows around it). */
+.kb-prose > img {
+  display: block;
+  margin: 1.4em auto;
+}
+
+.kb-prose--zoom img:not(a img) {
+  cursor: zoom-in;
+}
+
+.kb-prose .kb-figure {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 1.4em auto;
+  padding: 0;
+}
+
+.kb-prose .kb-figure > a {
+  display: block;
+}
+
+.kb-prose .kb-figure img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.kb-prose .kb-figure[data-width]:not([data-width='']) {
+  max-width: 100%;
+}
+
+.kb-prose .kb-figure[data-width]:not([data-width='']) img {
+  width: 100%;
+}
+
+.kb-prose .kb-figure[data-width='10'] {
+  width: 10%;
+}
+.kb-prose .kb-figure[data-width='15'] {
+  width: 15%;
+}
+.kb-prose .kb-figure[data-width='20'] {
+  width: 20%;
+}
+.kb-prose .kb-figure[data-width='25'] {
+  width: 25%;
+}
+.kb-prose .kb-figure[data-width='30'] {
+  width: 30%;
+}
+.kb-prose .kb-figure[data-width='35'] {
+  width: 35%;
+}
+.kb-prose .kb-figure[data-width='40'] {
+  width: 40%;
+}
+.kb-prose .kb-figure[data-width='45'] {
+  width: 45%;
+}
+.kb-prose .kb-figure[data-width='50'] {
+  width: 50%;
+}
+.kb-prose .kb-figure[data-width='55'] {
+  width: 55%;
+}
+.kb-prose .kb-figure[data-width='60'] {
+  width: 60%;
+}
+.kb-prose .kb-figure[data-width='65'] {
+  width: 65%;
+}
+.kb-prose .kb-figure[data-width='70'] {
+  width: 70%;
+}
+.kb-prose .kb-figure[data-width='75'] {
+  width: 75%;
+}
+.kb-prose .kb-figure[data-width='80'] {
+  width: 80%;
+}
+.kb-prose .kb-figure[data-width='85'] {
+  width: 85%;
+}
+.kb-prose .kb-figure[data-width='90'] {
+  width: 90%;
+}
+.kb-prose .kb-figure[data-width='95'] {
+  width: 95%;
+}
+.kb-prose .kb-figure[data-width='100'] {
+  width: 100%;
+}
+
+.kb-prose .kb-figure[data-align='left'] {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.kb-prose .kb-figure[data-align='right'] {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.kb-prose .kb-figure[data-align^='wrap'] {
+  max-width: 50%;
+  margin-top: 0.3em;
+  margin-bottom: 0.9em;
+}
+
+.kb-prose .kb-figure[data-align='wrap-left'] {
+  float: left;
+  margin-left: 0;
+  margin-right: 1.6em;
+}
+
+.kb-prose .kb-figure[data-align='wrap-right'] {
+  float: right;
+  margin-left: 1.6em;
+  margin-right: 0;
+}
+
+.kb-prose figcaption {
+  /* The caption never widens the picture. */
+  contain: inline-size;
+  margin-top: 0.6em;
+  padding: 0 4px;
+  font-size: 0.86em;
+  line-height: 1.45;
+  color: var(--da-muted);
+  text-align: center;
+}
+
+.kb-prose .kb-figure[data-align='left'] figcaption,
+.kb-prose .kb-figure[data-align^='wrap'] figcaption {
+  text-align: left;
+}
+
+.kb-prose .kb-figure[data-align='right'] figcaption {
+  text-align: right;
+}
+
+.kb-prose figcaption:empty {
+  display: none;
+}
+
+/* Blocks next to a wrapped picture keep their own box; new sections start below it. */
+.kb-prose ul,
+.kb-prose ol,
+.kb-prose blockquote {
+  display: flow-root;
+}
+
+.kb-prose h1,
+.kb-prose h2,
+.kb-prose hr {
+  clear: both;
+}
+
+.kb-prose::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+/* Phones: wrapped pictures become full-width blocks. */
+@media (max-width: 640px) {
+  .kb-prose .kb-figure[data-align^='wrap'],
+  .kb-prose .kb-figure[data-align^='wrap'][data-width]:not([data-width='']) {
+    float: none;
+    width: 100%;
+    max-width: 100%;
+    margin: 1.2em 0;
+  }
+
+  .kb-prose .kb-figure[data-align^='wrap'] img,
+  .kb-prose .kb-figure[data-align^='wrap'][data-width]:not([data-width='']) img {
+    width: auto;
+  }
+
+  .kb-prose .kb-figure[data-align^='wrap'] figcaption {
+    text-align: center;
+  }
+}
+
 /* ── Installed app (PWA): respect notches and the home indicator ── */
 /* Everything that touches the top edge leaves room for the status bar.
    A transparent border keeps each element's own padding intact while its

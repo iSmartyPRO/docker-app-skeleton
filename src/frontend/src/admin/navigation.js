@@ -235,7 +235,7 @@ export const SETTINGS_GROUPS = [
       },
       {
         id: 'kb',
-        defaultIcon: 'book',
+        defaultIcon: 'graduation',
         keywords: 'knowledge base kb documents files folders sharing база знаний документы папки ссылки',
       },
       {

@@ -21,12 +21,15 @@ export const filesApi = {
   subjects: () => api.get(`${base}/subjects`),
 
   createFolder: (payload) => api.post(`${base}/folders`, payload),
-  upload: (place, files, onProgress) => {
+  /** Folder uploads: makes (or reuses) these folder paths under the place; ids come back in the same order. */
+  folderTree: (place, paths, bytes, signal) => api.post(`${base}/folders/tree`, { ...place, paths, bytes }, { timeout: 120000, signal }),
+  upload: (place, files, onProgress, signal) => {
     const form = new FormData();
     files.forEach((file) => form.append('files', file, file.name));
     return api.post(`${base}/upload`, form, {
       params: place,
       timeout: 0,
+      signal,
       onUploadProgress: (event) => onProgress?.(event.total ? event.loaded / event.total : 0),
     });
   },

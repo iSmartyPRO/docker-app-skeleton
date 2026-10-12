@@ -4,6 +4,7 @@ import { query, withTransaction } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { notify } from '../../services/notifications.js';
 import { KB_FILE_GROUPS } from '../catalog.js';
+import { folderTree } from '../shared/relpath.js';
 import { HEX, LEVEL, LEVEL_NAMES, avatarOf, clean, httpError, levelMap, readAcl, requireLevel, writeAcl } from '../shared/acl.js';
 import { extOf, hasSignature, mimeOf, newStorageKey, originalName, readHead, removeBlob, signatureMatches, storagePath, verifyContent } from '../shared/storage.js';
 import { childLevels, nodeAccess, requireNode, spaceLevel } from './access.js';
@@ -305,6 +306,63 @@ export async function createFolder(ctx, input) {
     return rows[0];
   });
   return nodeShape(row, LEVEL.manage);
+}
+
+/**
+ * Folder uploads: recreates the folder paths of a dropped/picked folder under
+ * the target ("Photos", "Photos/2026", …). A folder that already exists with
+ * the same name (any case) is reused; a *file* in the way gets the folder
+ * renamed "Name (2)", as a new folder would. `bytes` (the whole upload) is
+ * checked against the personal quota up front so a full storage fails before
+ * any folder is made; every file is still checked again when it arrives.
+ * Returns the folder ids in the order of `paths`.
+ */
+export async function ensureFolderTree(ctx, place, paths, { bytes = 0 } = {}) {
+  const target = await resolveTarget(ctx, place);
+  const { list, keys } = folderTree(paths);
+  const names = new Map(list.map((item) => [item.key, item.parts.map((part) => safeName(part))]));
+  const incoming = Number(bytes) || 0;
+  if (!target.spaceId && incoming > 0) {
+    const { used, quota } = await usageOf(target.ownerId);
+    if (quota && used + incoming > quota) throw httpError(413, 'Your storage is full', 'QUOTA_EXCEEDED');
+  }
+  const ownerId = target.spaceId ? ctx.userId : target.ownerId;
+  const scopeKey = target.parentId ? `p${target.parentId}` : target.spaceId ? `s${target.spaceId}` : `u${target.ownerId}`;
+  let created = 0;
+  const ids = await withTransaction(async (client) => {
+    // Two uploads into the same place must not both create "Photos".
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`fs-tree:${scopeKey}`]);
+    const idOf = new Map();
+    for (const { key, parts } of list) {
+      const parentKey = parts.length > 1 ? parts.slice(0, -1).join('/').toLowerCase() : null;
+      const level = { parentId: parentKey ? idOf.get(parentKey) : target.parentId, spaceId: target.spaceId, ownerId };
+      const name = names.get(key).at(-1);
+      const [scope, value] = level.parentId
+        ? ['parent_id = $1', level.parentId]
+        : level.spaceId
+          ? ['parent_id IS NULL AND space_id = $1', level.spaceId]
+          : ['parent_id IS NULL AND space_id IS NULL AND owner_id = $1', level.ownerId];
+      const existing = await client.query(
+        `SELECT id FROM fs_nodes WHERE deleted_at IS NULL AND kind = 'folder' AND LOWER(name) = LOWER($2) AND ${scope}
+         ORDER BY id LIMIT 1`,
+        [value, name]
+      );
+      if (existing.rows[0]) {
+        idOf.set(key, existing.rows[0].id);
+        continue;
+      }
+      const free = await freeName(client, level, name, 'folder');
+      const { rows } = await client.query(
+        `INSERT INTO fs_nodes (kind, name, parent_id, owner_id, space_id, created_by, updated_by)
+         VALUES ('folder', $1, $2, $3, $4, $5, $5) RETURNING id`,
+        [free, level.parentId, level.ownerId, level.spaceId, ctx.userId]
+      );
+      idOf.set(key, rows[0].id);
+      created += 1;
+    }
+    return keys.map((key) => idOf.get(key));
+  });
+  return { folders: ids, created };
 }
 
 export async function usageOf(userId) {

@@ -80,7 +80,7 @@ function LogoSlot({ variant, title, description, url, fallbackUrl, height, onCha
   );
 }
 
-/** Home-screen icon of the installed app: square PNG, 512×512 recommended. */
+/** Tab, installed-app and home-screen icon: square PNG (512×512 recommended) or SVG. */
 function AppIconSlot({ url, onChanged }) {
   const { t } = useLocale();
   const { message } = App.useApp();
@@ -105,7 +105,7 @@ function AppIconSlot({ url, onChanged }) {
         <span>{t('settings.general.appIconDesc')}</span>
         <div className="logo-slot__actions">
           <Upload
-            accept=".png,image/png"
+            accept=".png,.svg,image/png,image/svg+xml"
             showUploadList={false}
             beforeUpload={(file) => {
               const form = new FormData();
