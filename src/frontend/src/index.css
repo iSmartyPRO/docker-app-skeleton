@@ -3568,6 +3568,63 @@ h4,
   border-radius: 10px;
 }
 
+.kb-prose img {
+  height: auto;
+}
+
+.kb-prose mark {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: #fde68a;
+  color: inherit;
+}
+
+.kb-prose hr {
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid var(--da-hairline);
+}
+
+.kb-prose ul[data-type='taskList'] {
+  padding-left: 4px;
+  list-style: none;
+}
+
+.kb-prose ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.kb-prose ul[data-type='taskList'] li > label {
+  flex: none;
+  margin-top: 0.3em;
+}
+
+.kb-prose ul[data-type='taskList'] li > div {
+  flex: 1;
+}
+
+.kb-prose ul[data-type='taskList'] li > div > p {
+  margin: 0;
+}
+
+.kb-prose ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--da-muted);
+  text-decoration: line-through;
+}
+
+/* Tables from the visual editor: full width, even columns. */
+.kb-prose table[style] {
+  display: table;
+  table-layout: fixed;
+}
+
+.kb-prose td p,
+.kb-prose th p {
+  margin: 0;
+}
+
 /* ── Installed app (PWA): respect notches and the home indicator ── */
 /* Everything that touches the top edge leaves room for the status bar.
    A transparent border keeps each element's own padding intact while its

@@ -15,7 +15,9 @@ export function FolderIcon({ folder, config, size = 40 }) {
 /** Document-shaped badge with the type colour and a short label. */
 export function FileIcon({ item, size = 40 }) {
   const type = itemType(item);
-  const style = TYPE_STYLE[type] || TYPE_STYLE.file;
+  const base = TYPE_STYLE[type] || TYPE_STYLE.file;
+  // Visual-editor articles are not Markdown.
+  const style = type === 'article' && item.format === 'html' ? { ...base, label: 'Aa' } : base;
   const label = item.kind === 'file' ? (item.file?.ext || style.label).toUpperCase().slice(0, 4) : style.label;
   return (
     <span className="kb-doc" style={{ '--c': style.color, width: size * 0.8, height: size }} aria-hidden="true">

@@ -52,6 +52,8 @@ export async function ensureKbSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Articles are Markdown ('md') or HTML from the visual editor ('html').
+  await query(`ALTER TABLE kb_items ADD COLUMN IF NOT EXISTS content_format VARCHAR(8) NOT NULL DEFAULT 'md'`);
   await query(`CREATE INDEX IF NOT EXISTS kb_items_folder_idx ON kb_items (folder_id, sort, title)`);
   await query(`CREATE INDEX IF NOT EXISTS kb_items_updated_idx ON kb_items (updated_at DESC)`);
 

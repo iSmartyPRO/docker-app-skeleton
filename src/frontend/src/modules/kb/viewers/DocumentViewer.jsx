@@ -56,7 +56,7 @@ export default function DocumentViewer({ item, src, conversion }) {
       body = (
         <>
           <article className="kb-article">
-            <Markdown text={item.content} fileUrl={src.attachment ? (nodeId) => src.attachment(item, nodeId) : undefined} />
+            <Markdown text={item.content} format={item.format} fileUrl={src.attachment ? (nodeId) => src.attachment(item, nodeId) : undefined} />
           </article>
           {item.attachments?.length > 0 && <Attachments item={item} src={src} conversion={conversion} />}
         </>

@@ -9,6 +9,7 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 ### Security and reliability (audit)
 
+- Knowledge base: a **visual article editor** next to Markdown — headings, marks, highlight, lists, checklists, alignment, links, tables, pictures and files pasted, dropped, uploaded or chosen from Files, full screen; new articles start visual, and an article can switch format at any time (`kb_items.content_format`).
 - Code review fixes:
   - **Access**: tasks no longer reveal linked, dependent, parent or template items the viewer cannot see; a subtask can be attached only to a task you can edit; reminders to other people need edit rights; entity chats drop people who lost access to the task; a view-only file cannot be put into the KB; calendar-limited API tokens no longer see invitations from other calendars.
   - **Sign-in**: AD never links to accounts created through Telegram or Google; lockouts use a normalised login and count IP failures in the window; magic-link failures lock the IP, not everyone; code requests answer without waiting for delivery; code attempts are counted atomically; a new code no longer voids the previous one, and sends are capped per IP; logout ends the session on the server; forwarded addresses are trusted only from the container's own nginx.

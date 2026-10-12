@@ -7,7 +7,7 @@ The first [module](modules.md). It is a structured library of folders and materi
 - **Folders of any depth**, each with an icon and a colour. Folders without their own icon or colour use the defaults from the module settings. A tree in the sidebar (a drawer on mobile), breadcrumbs, grid and list views, and search across folders and materials.
 - **Materials** come in three kinds:
   - **Files**, uploaded with the button or by drag & drop, several at once, or picked with **Add from Files**. They are stored in the [Files](files.md) module (see [Files from the Files module](#files-from-the-files-module)).
-  - **Articles**, written in Markdown with a toolbar and write / split / preview modes. An article can embed files (📎) and carry attachments.
+  - **Articles**, written in the **visual editor** (HTML: headings, marks, highlight, lists, checklists, alignment, links, tables, pictures and files pasted, dropped, uploaded or chosen from Files; full screen) or in **Markdown** with a toolbar and write / split / preview modes. New articles start visual; an article can switch format at any time (Markdown → HTML with `marked`, HTML → Markdown with `turndown`, keeping tables as HTML). An article can embed files and carry attachments.
   - **Links**, to external pages (http/https only).
 - **Viewers:**
 
@@ -64,7 +64,8 @@ With the [Files](files.md) module enabled:
 
 - Uploads are stored in the uploader's *My files → Knowledge base* folder, so they show up in Files as well.
 - **Add from Files** (folder menu) adds files from My files, Shared with me or a shared space without copying them.
-- In the article editor, **📎 File** embeds a file in the text: images are shown inline (`![name](kbfile:42)`), other files become a link (`[📎 name](kbfile:42)`). The *Files* section adds attachments below the article.
+- Both editors keep files as `kbfile:<id>`: in HTML as `<img src="kbfile:42">` / `<a href="kbfile:42">`, while editing they point at real URLs with `data-kbfile` and are turned back on save. Pictures pasted or dropped into the visual editor are uploaded with `POST /folders/:id/media` (new article) or `POST /items/:id/media` (edit rights required) into the author's *My files → Knowledge base* and attached when the article is saved.
+- In the Markdown editor, **📎 File** embeds a file in the text: images are shown inline (`![name](kbfile:42)`), other files become a link (`[📎 name](kbfile:42)`). The *Files* section adds attachments below the article.
 - Readers open these files through Knowledge Base access, including public links. They do not need access in Files.
 - A file used by the Knowledge Base cannot be moved to the trash in Files until it is removed from the materials that use it. Deleting a material keeps the file in Files.
 
@@ -85,7 +86,7 @@ Office conversion shows its status here. Its URL is configured under **Integrati
 - Files are stored by the [Files](files.md#storage-and-security) module: `UPLOAD_DIR/files/…`, plus `UPLOAD_DIR/kb/` for files uploaded before Files existed (moved into Files once, `kb_files_migrated`). PDF previews are cached in `UPLOAD_DIR/.previews/`.
 - Uploads are checked against the allowed extensions and the size limit. PDF and image files must also match their magic bytes, so a renamed executable is rejected.
 - Files are served by the API rather than as static files, with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Only safe types are shown inline; everything else is sent as an attachment.
-- Article Markdown is sanitised before rendering, and links open with `rel="noopener noreferrer"`.
+- Article Markdown and HTML are sanitised with DOMPurify before rendering (HTML articles use their own instance: scripts, handlers, style sheets and forms are removed, checklist boxes are shown read-only), and links open with `rel="noopener noreferrer"`.
 - Back up `UPLOAD_DIR` together with the database.
 
 ### Reverse proxy
@@ -104,7 +105,8 @@ All under `/api/app/kb`, signed-in users only:
 | GET / POST / PUT / DELETE | `/folders[/:id]` | Folder CRUD; `PUT` with `parentId` moves |
 | POST | `/folders/:id/files` | Multipart upload (`files[]`), stored in Files |
 | POST | `/folders/:id/from-files` | `{ nodeIds }` from Files |
-| POST / GET / PUT / DELETE | `/items[/:id]` | Articles (`attachments: [nodeId…]`, `kbfile:<id>` embeds) and links; file metadata |
+| POST / GET / PUT / DELETE | `/items[/:id]` | Articles (`format: md\|html`, `attachments: [nodeId…]`, `kbfile:<id>` embeds) and links; file metadata |
+| POST | `/folders/:id/media`, `/items/:id/media` | Upload pictures / files for an article being written (multipart `files`) → `{ files: [{ id, name, file }] }` |
 | GET | `/items/:id/attachments/:nodeId[/preview.pdf]` | An article's embedded or attached file |
 | GET | `/items/:id/file[?download=1]` | File content |
 | GET | `/items/:id/preview.pdf` | Office → PDF preview (cached) |

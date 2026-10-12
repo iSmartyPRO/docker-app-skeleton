@@ -226,7 +226,18 @@ export const DOCS = {
   'GET /app/kb/tree': { summary: L('Дерево папок', 'Folder tree') },
   'GET /app/kb/search': { summary: L('Поиск', 'Search'), query: [q('q', 'string', L('Текст', 'Text'), { required: true })] },
   'GET /app/kb/items/:id': { summary: L('Материал', 'Item') },
-  'POST /app/kb/items': { summary: L('Создать материал', 'Create an item') },
+  'POST /app/kb/items': {
+    summary: L('Создать материал', 'Create an item'),
+    body: [
+      b('folderId', 'integer', L('Папка', 'Folder'), { required: true }),
+      b('kind', 'string', L('article или link', 'article or link')),
+      b('title', 'string', L('Заголовок', 'Title'), { required: true }),
+      b('content', 'string', L('Текст статьи; файлы — kbfile:<id>', 'Article body; files as kbfile:<id>')),
+      b('format', 'string', L('md (Markdown, по умолчанию) или html (визуальный редактор)', 'md (Markdown, default) or html (visual editor)')),
+      b('url', 'string', L('Адрес для ссылки', 'Address of a link')),
+    ],
+  },
+  'POST /app/kb/folders/:id/media': { summary: L('Загрузить картинки и файлы для статьи', 'Upload pictures and files for an article'), description: L('multipart, поле files. Файлы прикрепляются к статье, когда она сохранена с kbfile:<id> в тексте.', 'multipart, field files. Files are attached when the article is saved with kbfile:<id> in its body.') },
 
   // ── Dashboard ──
   'GET /app/dashboard/': { summary: L('Мои виджеты', 'My widgets') },

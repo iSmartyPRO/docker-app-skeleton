@@ -18,6 +18,13 @@ export const kbApi = {
       onUploadProgress: (event) => onProgress?.(event.total ? event.loaded / event.total : 0),
     });
   },
+  // Pictures and files for the visual editor: `place` is { itemId } or { folderId }.
+  media: (place, files) => {
+    const form = new FormData();
+    files.forEach((file) => form.append('files', file, file.name));
+    const path = place.itemId ? `items/${place.itemId}` : `folders/${place.folderId}`;
+    return api.post(`${base}/${path}/media`, form, { timeout: 0 });
+  },
   item: (id) => api.get(`${base}/items/${id}`),
   createItem: (payload) => api.post(`${base}/items`, payload),
   updateItem: (id, payload) => api.put(`${base}/items/${id}`, payload),

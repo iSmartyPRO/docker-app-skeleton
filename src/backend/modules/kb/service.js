@@ -38,6 +38,7 @@ export function itemShape(row, level) {
       row.kind === 'file'
         ? { name: row.file_original, mime: row.file_mime, size: Number(row.file_size) || 0, ext: row.file_ext }
         : null,
+    format: row.kind === 'article' ? (row.content_format === 'html' ? 'html' : 'md') : undefined,
     inheritAccess: row.inherit_access,
     level: level !== undefined ? LEVEL_NAMES[level] : undefined,
     author: row.author_name || null,
@@ -48,7 +49,7 @@ export function itemShape(row, level) {
 
 const ITEM_SELECT = `
   i.id, i.folder_id, i.kind, i.title, i.description, i.url, i.file_original, i.file_mime,
-  i.file_size, i.file_ext, i.inherit_access, i.created_at, i.updated_at,
+  i.file_size, i.file_ext, i.content_format, i.inherit_access, i.created_at, i.updated_at,
   COALESCE(u.display_name, u.username) AS author_name
 `;
 
@@ -178,7 +179,7 @@ export async function search(ctx, text) {
     query(`SELECT * FROM kb_folders WHERE name ILIKE $1 OR description ILIKE $1 ORDER BY LOWER(name) LIMIT 50`, [like]),
     query(
       `SELECT ${ITEM_SELECT} FROM kb_items i LEFT JOIN users u ON u.id = COALESCE(i.updated_by, i.created_by)
-       WHERE i.title ILIKE $1 OR i.description ILIKE $1 OR i.file_original ILIKE $1 OR i.content ILIKE $1
+       WHERE i.title ILIKE $1 OR i.description ILIKE $1 OR i.file_original ILIKE $1 OR regexp_replace(i.content, '<[^>]*>', ' ', 'g') ILIKE $1
        ORDER BY i.updated_at DESC LIMIT 100`,
       [like]
     ),
@@ -281,6 +282,11 @@ function validUrl(value) {
   }
 }
 
+/** Article body format: Markdown by default, HTML from the visual editor. */
+export function contentFormat(value) {
+  return value === 'html' ? 'html' : 'md';
+}
+
 export async function createItem(ctx, input) {
   const folderId = Number(input.folderId);
   const access = await loadAccess(ctx);
@@ -289,8 +295,8 @@ export async function createItem(ctx, input) {
   const title = clean(input.title, 200);
   if (!title) throw httpError(400, 'Title is required');
   const result = await query(
-    `INSERT INTO kb_items (folder_id, kind, title, description, content, url, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING id`,
+    `INSERT INTO kb_items (folder_id, kind, title, description, content, url, created_by, updated_by, content_format)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8) RETURNING id`,
     [
       folderId,
       kind,
@@ -299,6 +305,7 @@ export async function createItem(ctx, input) {
       kind === 'article' ? String(input.content || '').slice(0, 500000) : null,
       kind === 'link' ? validUrl(input.url) : null,
       ctx.userId,
+      contentFormat(input.format),
     ]
   );
   const itemId = result.rows[0].id;
@@ -326,7 +333,7 @@ export async function updateItem(ctx, id, input) {
   if (!title) throw httpError(400, 'Title is required');
   await query(
     `UPDATE kb_items SET folder_id = $2, title = $3, description = $4, content = $5, url = $6,
-       updated_by = $7, updated_at = NOW() WHERE id = $1`,
+       updated_by = $7, content_format = $8, updated_at = NOW() WHERE id = $1`,
     [
       id,
       folderId,
@@ -335,6 +342,7 @@ export async function updateItem(ctx, id, input) {
       row.kind === 'article' ? String(input.content ?? row.content ?? '').slice(0, 500000) : null,
       row.kind === 'link' ? validUrl(input.url ?? row.url) : null,
       ctx.userId,
+      contentFormat(input.format ?? row.content_format),
     ]
   );
   if (row.kind === 'article' && (input.content !== undefined || input.attachments !== undefined)) {

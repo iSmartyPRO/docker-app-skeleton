@@ -20,11 +20,18 @@
     "@fullcalendar/list": "^6.1.21",
     "@fullcalendar/react": "^6.1.21",
     "@fullcalendar/timegrid": "^6.1.21",
+    "@tiptap/extension-highlight": "2.27.2",
+    "@tiptap/extension-image": "2.27.2",
     "@tiptap/extension-link": "2.27.2",
     "@tiptap/extension-mention": "2.27.2",
     "@tiptap/extension-placeholder": "2.27.2",
+    "@tiptap/extension-table": "2.27.2",
+    "@tiptap/extension-table-cell": "2.27.2",
+    "@tiptap/extension-table-header": "2.27.2",
+    "@tiptap/extension-table-row": "2.27.2",
     "@tiptap/extension-task-item": "2.27.2",
     "@tiptap/extension-task-list": "2.27.2",
+    "@tiptap/extension-text-align": "2.27.2",
     "@tiptap/extension-underline": "2.27.2",
     "@tiptap/pm": "2.27.2",
     "@tiptap/react": "2.27.2",
@@ -43,7 +50,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.1",
-    "simple-icons": "16.32.0"
+    "simple-icons": "16.32.0",
+    "turndown": "7.2.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { App, Button, Form, Input, Modal, Segmented, Tooltip } from 'antd';
+import VisualEditor from './VisualEditor';
+import { htmlToMarkdown, markdownToHtml } from './articleHtml';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { kbApi } from '../api';
@@ -101,11 +103,12 @@ function MarkdownEditor({ value = '', onChange, onInsertFile, fileUrl }) {
 /** New / edit article or link. */
 export default function ItemDialog({ open, kind, item, folderId, onClose, onSaved }) {
   const { t } = useLocale();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [picker, setPicker] = useState(null);
+  const [format, setFormat] = useState('html');
   const { settings } = useSettings();
   const filesOn = Boolean(settings?.modules?.files?.enabled);
   const isArticle = (item?.kind || kind) === 'article';
@@ -122,6 +125,8 @@ export default function ItemDialog({ open, kind, item, folderId, onClose, onSave
       content: item?.content || '',
       url: item?.url || '',
     });
+    // New articles start in the visual editor; existing ones keep their format.
+    setFormat(item?.id ? item.format || 'md' : 'html');
     setAttachments((item?.attachments || []).filter((file) => !file.inline).map((file) => ({ id: file.nodeId, name: file.name, file: { ext: file.ext, size: file.size } })));
   }, [open, item, form]);
 
@@ -129,7 +134,7 @@ export default function ItemDialog({ open, kind, item, folderId, onClose, onSave
     const values = await form.validateFields();
     setSaving(true);
     try {
-      const payload = isArticle ? { ...values, attachments: attachments.map((file) => file.id) } : values;
+      const payload = isArticle ? { ...values, format, attachments: attachments.map((file) => file.id) } : values;
       if (item?.id) {
         await kbApi.updateItem(item.id, payload);
         onSaved(item.id);
@@ -142,6 +147,30 @@ export default function ItemDialog({ open, kind, item, folderId, onClose, onSave
     } finally {
       setSaving(false);
     }
+  };
+
+  const switchFormat = (next) => {
+    if (next === format) return;
+    const content = form.getFieldValue('content') || '';
+    const apply = () => {
+      form.setFieldsValue({ content: next === 'html' ? markdownToHtml(content) : htmlToMarkdown(content) });
+      setFormat(next);
+    };
+    if (!content.trim()) {
+      apply();
+      return;
+    }
+    modal.confirm({
+      title: t(next === 'html' ? 'kb.format.toVisualTitle' : 'kb.format.toMarkdownTitle'),
+      content: t(next === 'html' ? 'kb.format.toVisualText' : 'kb.format.toMarkdownText'),
+      okText: t('kb.format.switch'),
+      cancelText: t('common.cancel'),
+      onOk: apply,
+    });
+  };
+  const uploadMedia = async (files) => {
+    const res = await kbApi.media(item?.id ? { itemId: item.id } : { folderId }, files);
+    return res.data.files;
   };
 
   return (
@@ -170,6 +199,30 @@ export default function ItemDialog({ open, kind, item, folderId, onClose, onSave
           <Input.TextArea rows={2} maxLength={1000} />
         </Form.Item>
         {isArticle && (
+          <div className="kb-format">
+            <Tooltip title={t('kb.format.hint')} mouseEnterDelay={0.5}>
+              <Segmented
+                size="small"
+                value={format}
+                onChange={switchFormat}
+                options={[
+                  { value: 'html', label: `✦ ${t('kb.format.visual')}` },
+                  { value: 'md', label: `M↓ ${t('kb.format.markdown')}` },
+                ]}
+              />
+            </Tooltip>
+          </div>
+        )}
+        {isArticle && format === 'html' && (
+          <Form.Item name="content" noStyle>
+            <VisualEditor
+              fileUrl={fileUrl}
+              upload={uploadMedia}
+              onPickFiles={filesOn ? (mode, insert) => setPicker({ mode: 'visual', kind: mode, insert }) : undefined}
+            />
+          </Form.Item>
+        )}
+        {isArticle && format === 'md' && (
           <Form.Item name="content" noStyle>
             <MarkdownEditor fileUrl={fileUrl} onInsertFile={filesOn ? (insert) => setPicker({ mode: 'insert', insert }) : undefined} />
           </Form.Item>
@@ -197,11 +250,13 @@ export default function ItemDialog({ open, kind, item, folderId, onClose, onSave
       </Form>
       <FilePicker
         open={Boolean(picker)}
-        title={picker?.mode === 'insert' ? t('kb.insertFile') : t('kb.attachFiles')}
-        okText={picker?.mode === 'insert' ? t('kb.insert') : t('kb.attach')}
+        title={picker?.mode === 'visual' ? t(picker.kind === 'image' ? 'kb.ve.image' : 'kb.ve.file') : picker?.mode === 'insert' ? t('kb.insertFile') : t('kb.attachFiles')}
+        okText={picker?.mode === 'attach' ? t('kb.attach') : t('kb.insert')}
+        accept={picker?.mode === 'visual' && picker.kind === 'image' ? (node) => IMAGE.has(node.file?.ext) : undefined}
         onClose={() => setPicker(null)}
         onPick={(nodes) => {
-          if (picker.mode === 'insert') picker.insert(nodes.map(fileMarkdown).join('\n\n'));
+          if (picker.mode === 'visual') picker.insert(nodes);
+          else if (picker.mode === 'insert') picker.insert(nodes.map(fileMarkdown).join('\n\n'));
           else setAttachments((list) => [...list, ...nodes.filter((node) => !list.some((entry) => entry.id === node.id))]);
           setPicker(null);
         }}

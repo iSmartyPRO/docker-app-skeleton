@@ -125,6 +125,23 @@ export function privateRoutes() {
     res.status(201).json({ success: true, items: created });
   }));
 
+  // Images and files dropped into the visual editor: stored like other KB
+  // uploads (the author's "My files / Knowledge base") and linked to the
+  // article when it is saved. Edit rights on the folder or the article first.
+  const mediaUpload = (levelOf) =>
+    wrap(async (req, res) => {
+      const access = await loadAccess(req.kb);
+      requireLevel(await levelOf(access, req), LEVEL.edit, 'this place');
+      const { module } = await kbSettings();
+      const nodes = await uploadForKb(req.kb, req, res, { maxUploadMb: module.maxUploadMb, fileGroups: module.fileGroups, locale: req.locale });
+      res.status(201).json({
+        success: true,
+        files: nodes.map((node) => ({ id: node.id, name: node.name, file: { name: node.name, mime: node.mime, size: Number(node.size) || 0, ext: node.ext } })),
+      });
+    });
+  router.post('/folders/:id/media', mediaUpload((access, req) => access.folderLevel(id(req.params.id))));
+  router.post('/items/:id/media', mediaUpload(async (access, req) => access.itemLevel(await loadItemRow(id(req.params.id)))));
+
   // Existing files from Files become materials of this folder.
   router.post('/folders/:id/from-files', wrap(async (req, res) => {
     const folderId = id(req.params.id);
