@@ -10,6 +10,7 @@ import { originalName } from '../kb/files.js';
 import { taskEvent } from './chat.js';
 import { taskMessage } from './messages.js';
 import { createTask, editableTask, getTask, insertReminder, loadTaskRow, taskLevel, taskRef, taskWebhook, touch, updateTask, viewableTask } from './service.js';
+import { FILE_CSP } from '../shared/storage.js';
 
 /*
  * The optional blocks of a task: checklists, files, results, related tasks,
@@ -265,6 +266,7 @@ export async function sendTaskFile(ctx, fileId, res, download) {
   const inline = !download && /^(image\/(png|jpe?g|gif|webp|bmp)|application\/pdf)$/.test(file.mime || '');
   res.setHeader('Content-Type', inline ? file.mime : 'application/octet-stream');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', FILE_CSP);
   res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`);
   res.sendFile(resolve(ROOT, file.storage_key));
 }
@@ -360,8 +362,18 @@ export async function removeDep(ctx, depId) {
 
 // ── Reminders ───────────────────────────────────────────────────────────────
 
+/** Does a reminder go to anyone but its author? (Same defaults as insertReminder: no targets = 'me'.) */
+export function remindsOthers(targets) {
+  return (Array.isArray(targets) ? targets : []).some((target) => ['assignee', 'originator', 'coassignees', 'auditors'].includes(target));
+}
+
 export async function addReminder(ctx, taskRefOrId, input = {}) {
   const row = await viewableTask(ctx, taskRefOrId);
+  // Reminding other people of the task (possibly through messengers) takes working on it;
+  // anyone who sees the task may remind themselves. Edit covers originator and managers.
+  if (remindsOthers(input.targets) && (await taskLevel(ctx, row)) < LEVEL.edit) {
+    throw httpError(403, 'Only those who work on the task can remind other people', 'FORBIDDEN');
+  }
   const id = await withTransaction((client) => insertReminder(client, row.id, ctx.userId, input));
   if (!id) throw httpError(400, 'Choose when to remind', 'REMINDER_TIME');
   return { id };
@@ -464,7 +476,13 @@ export async function formPayload(ctx, taskRefOrId) {
 export async function copyTask(ctx, taskRefOrId, overrides = {}) {
   const source = await loadTaskRow(taskRefOrId);
   const payload = await formPayload(ctx, source.id);
-  const task = await createTask(ctx, { ...payload, dueAt: source.due_at, dueTime: source.due_time, parentId: source.parent_id, ...overrides });
+  // The copy stays under the same parent only when the person may edit that parent.
+  let parentId = null;
+  if (source.parent_id) {
+    const parent = await loadTaskRow(source.parent_id).catch(() => null);
+    if (parent && (await taskLevel(ctx, parent)) >= LEVEL.edit) parentId = parent.id;
+  }
+  const task = await createTask(ctx, { ...payload, dueAt: source.due_at, dueTime: source.due_time, parentId, ...overrides });
   // Uploaded files are shared between the copies (same stored blob).
   await query(
     `INSERT INTO task_files (task_id, kind, name, mime, size, storage_key, node_id, share_id, drive_path, uploaded_by)

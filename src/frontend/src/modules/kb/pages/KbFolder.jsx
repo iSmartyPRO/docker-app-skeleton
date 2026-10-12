@@ -60,13 +60,17 @@ export default function KbFolder() {
   const dragDepth = useRef(0);
   const src = useMemo(() => privateSource(), []);
 
+  // Listings can answer out of order (fast folder switches, reloads): only the latest lands.
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     try {
       const res = await kbApi.folder(folderId);
+      if (seq !== loadSeq.current) return;
       setData(res.data);
       setError(null);
     } catch (err) {
-      setError(err);
+      if (seq === loadSeq.current) setError(err);
     }
   }, [folderId]);
 

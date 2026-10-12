@@ -3,6 +3,7 @@ import { verifyToken } from '../services/auth.js';
 import { hasAnyPermission } from '../services/permissions.js';
 import { getSessionUser, toPublicUser } from '../services/users.js';
 import { localeFor } from '../services/settings.js';
+import { isSessionRevoked } from '../services/security.js';
 
 /**
  * Resolves the session cookie into:
@@ -21,6 +22,9 @@ async function loadSessionUser(req) {
   } catch {
     return null;
   }
+
+  // Signed out on this device (the token is still cryptographically valid).
+  if (await isSessionRevoked(token)) return null;
 
   const session = await getSessionUser(Number(payload.sub));
   if (!session) return null;

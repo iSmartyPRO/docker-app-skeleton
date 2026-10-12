@@ -2,8 +2,8 @@ import crypto from 'node:crypto';
 import { getSessionUser, toPublicUser } from '../services/users.js';
 import { localeFor } from '../services/settings.js';
 import { apiConfig } from './config.js';
-import { classify, decide, normalizePath } from './scopes.js';
-import { authenticate, takeRate, tokenFromRequest, touchToken } from './tokens.js';
+import { classify, decide, requestPath } from './scopes.js';
+import { authenticate, failedAuthState, noteFailedAuth, takeRate, tokenFromRequest, touchToken } from './tokens.js';
 import { logRequest } from './log.js';
 
 /*
@@ -18,6 +18,13 @@ import { logRequest } from './log.js';
  * the token's owner, exactly as if they were signed in, with the token's
  * resource limits attached (req.apiLimits). Session cookies are ignored on
  * such requests.
+ *
+ * Public paths outside the bootstrap list (share links, public resources…)
+ * run as an anonymous visitor: the owner's identity is not attached, so the
+ * token's module scopes cannot be side-stepped through them.
+ *
+ * Failed token checks are limited per address (tokens.js) and logged at most
+ * once per address per minute.
  */
 
 /** Rewrites /api/v1/* to /api/*; mount before everything else. */
@@ -37,24 +44,41 @@ export async function tokenGate(req, res, next) {
   const raw = tokenFromRequest(req);
   if (!raw) return next();
   const started = Date.now();
-  const path = normalizePath(req.originalUrl);
-  const where = classify(path);
+  // Judged by the parsed pathname: an absolute-form target (GET http://host/api/…)
+  // must land in the same area as /api/…; anything unparseable is refused.
+  const path = requestPath(req.originalUrl);
+  const where = path ? classify(path) : { blocked: true };
   const requestId = crypto.randomUUID();
   res.setHeader('X-Request-Id', requestId);
   req.requestId = requestId;
-  let logged = { method: req.method, path, area: where.area || null, ip: req.ip, userAgent: req.headers['user-agent'] };
-  res.on('finish', () => logRequest({ ...logged, status: res.statusCode, code: res.locals.apiCode, ms: Date.now() - started }));
+  let logged = { method: req.method, path: path || String(req.originalUrl || '').slice(0, 300), area: where.area || null, ip: req.ip, userAgent: req.headers['user-agent'] };
+  let skipLog = false;
+  res.on('finish', () => {
+    if (!skipLog) logRequest({ ...logged, status: res.statusCode, code: res.locals.apiCode, ms: Date.now() - started });
+  });
 
   try {
+    const lockout = failedAuthState(req.ip);
+    if (!lockout.ok) {
+      skipLog = true;
+      res.setHeader('Retry-After', String(lockout.retryAfter));
+      res.locals.apiCode = 'RATE_LIMITED';
+      return fail(res, 429, 'RATE_LIMITED', 'Too many failed token checks from this address', { retryAfter: lockout.retryAfter });
+    }
     const config = await apiConfig();
     if (!config.enabled) {
       res.locals.apiCode = 'API_DISABLED';
       return fail(res, 503, 'API_DISABLED', 'The API is turned off by the administrator');
     }
+    if (!path) {
+      res.locals.apiCode = 'ROUTE_NOT_AVAILABLE';
+      return fail(res, 403, 'ROUTE_NOT_AVAILABLE', 'This endpoint is not available to API tokens');
+    }
     let auth;
     try {
       auth = await authenticate(raw, req.ip);
     } catch (err) {
+      skipLog = !noteFailedAuth(req.ip);
       res.locals.apiCode = err.code;
       return fail(res, err.statusCode || 401, err.code || 'TOKEN_INVALID', err.message);
     }
@@ -88,15 +112,24 @@ export async function tokenGate(req, res, next) {
       res.locals.apiCode = 'OWNER_INACTIVE';
       return fail(res, 403, 'OWNER_INACTIVE', 'The account of the token is disabled');
     }
-    req.apiToken = { id: row.id, name: row.name, prefix: row.prefix, policy };
+    req.apiToken = { id: row.id, name: row.name, prefix: row.prefix, policy, anonymous: Boolean(where.anonymous) };
+    // Cookies never mix with a token.
+    req.cookies = {};
+    if (where.anonymous) {
+      // A public path: served as for an anonymous visitor, not as the owner.
+      delete req.userRow;
+      delete req.access;
+      delete req.user;
+      delete req.actor;
+      req.apiLimits = null;
+      return next();
+    }
     req.apiLimits = limits;
     req.userRow = session.row;
     req.access = session.access;
     req.user = toPublicUser(session.row, session.access);
     req.locale = await localeFor(session.row);
     req.actor = { id: session.row.id, permissions: new Set(session.access.permissions) };
-    // Cookies never mix with a token.
-    req.cookies = {};
     return next();
   } catch (err) {
     return next(err);

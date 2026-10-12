@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -259,9 +259,24 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
 
   const mode = current.ref ? 'task' : 'new';
 
+  // Only the latest load for the task on screen lands: a panel retargeted to another
+  // task (or a newer reload) makes older answers and their errors stale.
+  const loadSeq = useRef(0);
+  const shownRef = useRef(current.ref);
+  shownRef.current = current.ref;
   const reload = useCallback(async () => {
     if (!current.ref) return null;
-    const res = await tasksApi.task(current.ref);
+    const ref = current.ref;
+    const seq = ++loadSeq.current;
+    const stale = () => seq !== loadSeq.current || shownRef.current !== ref;
+    let res;
+    try {
+      res = await tasksApi.task(ref);
+    } catch (err) {
+      if (stale()) return null;
+      throw err;
+    }
+    if (stale()) return null;
     setTask(res.data.task);
     return res.data.task;
   }, [current.ref]);

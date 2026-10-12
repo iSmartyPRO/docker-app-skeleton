@@ -27,7 +27,7 @@ function presets(now) {
   const evening = now.hour(18).minute(0).second(0).millisecond(0);
   if (evening.isAfter(now.add(10, 'minute'))) list.push(['evening', evening]);
   list.push(['tomorrow', now.add(1, 'day').hour(9).minute(0).second(0).millisecond(0)]);
-  const monday = now.day() === 1 ? now.add(7, 'day') : now.day(8);
+  const monday = now.add((8 - now.day()) % 7 || 7, 'day');
   list.push(['monday', monday.hour(9).minute(0).second(0).millisecond(0)]);
   return list;
 }
@@ -86,22 +86,41 @@ export default function WhenPicker({ value, onChange }) {
   );
 }
 
-let reachPromise = null;
-/** Which channels can reach the signed-in person right now (cached per page). */
+// Cached per page and per signed-in person; forgetReach() makes every mounted
+// useReach() load again (after a contact is connected, a setting changed…).
+let reachCache = { userId: undefined, promise: null };
+const reachListeners = new Set();
+
+/** Which channels can reach the signed-in person right now. */
 export function useReach() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [reach, setReach] = useState(null);
+  const [version, setVersion] = useState(0);
   useEffect(() => {
-    if (!reachPromise) reachPromise = getNotificationPrefs().then((res) => res.data).catch(() => null);
+    const bump = () => setVersion((n) => n + 1);
+    reachListeners.add(bump);
+    return () => reachListeners.delete(bump);
+  }, []);
+  useEffect(() => {
+    if (!userId) {
+      setReach(null);
+      return undefined;
+    }
+    if (reachCache.userId !== userId || !reachCache.promise) {
+      reachCache = { userId, promise: getNotificationPrefs().then((res) => res.data).catch(() => null) };
+    }
     let alive = true;
-    reachPromise.then((data) => alive && setReach(data));
+    reachCache.promise.then((data) => alive && setReach(data));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [userId, version]);
   return reach;
 }
 export const forgetReach = () => {
-  reachPromise = null;
+  reachCache = { userId: undefined, promise: null };
+  reachListeners.forEach((bump) => bump());
 };
 
 /**
@@ -112,16 +131,12 @@ export function ChannelWarnings({ channels }) {
   const { t } = useLocale();
   const { can } = useAuth();
   const data = useReach();
-  const [, refresh] = useState(0);
   if (!data) return null;
   const reach = data.reach || {};
   const available = data.configured || {};
   const prefs = data.prefs?.channels || data.prefs || {};
   const contacts = data.contacts || {};
-  const reload = () => {
-    forgetReach();
-    refresh((n) => n + 1);
-  };
+  const reload = forgetReach;
   const blocks = [];
   if (channels.includes('app') && !reach.push) {
     blocks.push(

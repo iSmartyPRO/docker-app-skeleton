@@ -2,6 +2,24 @@ import { useEffect, useRef, useState } from 'react';
 import { Spin } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 
+/**
+ * docx-preview copies a document's hyperlinks verbatim, so a crafted file could carry
+ * `javascript:` links. Only web, mail and in-document anchors survive; outside links
+ * open in a new tab without access to this window.
+ */
+function safeLinks(root) {
+  root.querySelectorAll('a[href]').forEach((link) => {
+    const href = (link.getAttribute('href') || '').trim();
+    if (href.startsWith('#')) return;
+    if (/^(https?:|mailto:)/i.test(href)) {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
+    } else {
+      link.removeAttribute('href');
+    }
+  });
+}
+
 /** Word (.docx) rendered in the browser when no conversion server is set up. */
 export default function DocxViewer({ url }) {
   const { t } = useLocale();
@@ -24,6 +42,7 @@ export default function DocxViewer({ url }) {
         renderFooters: true,
         useBase64URL: true,
       });
+      if (ref.current) safeLinks(ref.current);
       if (!cancelled) setState('ready');
     })().catch(() => !cancelled && setState('error'));
     return () => {

@@ -12,13 +12,14 @@ import {
   linkTelegram,
   revokeSessions,
   setAvatar,
+  tokenLockedChanges,
   toPublicUser,
   unlinkTelegram,
   updateUser,
 } from '../services/users.js';
 
 import { disconnectGoogle, googleStatus, listGoogleCalendars, setGoogleCalendarSelection } from '../services/google.js';
-import { deliveryHistory, getPrefs, listSubscriptions, savePrefs, sendTest, setSubscription } from '../services/notifications.js';
+import { deliveryHistory, getPrefs, listSubscriptions, savePrefs, sendTest, setSubscription, takeTestSend } from '../services/notifications.js';
 import { contextFromRequest, levelOn } from '../modules/shared/acl.js';
 import { query } from '../config/database.js';
 import { canViewCalendar } from '../modules/calendar/service.js';
@@ -57,7 +58,18 @@ router.get('/profile', wrap(async (req, res) => {
   res.json({ success: true, user: await freshUser(req.user.id) });
 }));
 
+// An API token cannot change the contacts that receive sign-in codes.
 router.put('/profile', wrap(async (req, res) => {
+  const locked = tokenLockedChanges(req.body, req.userRow || (await findUserById(req.user.id)), Boolean(req.apiToken));
+  if (locked.length) {
+    res.status(403).json({
+      success: false,
+      code: 'TOKEN_FORBIDDEN_FIELD',
+      error: `An API token cannot change ${locked.join(', ')}. Sign in to the portal to change contacts.`,
+      fields: locked,
+    });
+    return;
+  }
   await updateUser(req.user.id, {
     displayName: req.body?.displayName,
     email: req.body?.email,
@@ -128,6 +140,14 @@ router.put('/notifications', wrap(async (req, res) => {
 }));
 
 router.post('/notifications/test', wrap(async (req, res) => {
+  // Test messages go to whatever contact the profile holds, so they are
+  // rationed: the portal's senders must not become a spam cannon.
+  const allowed = takeTestSend(req.user.id);
+  if (!allowed.ok) {
+    res.setHeader('Retry-After', String(allowed.retryAfter));
+    res.status(429).json({ success: false, code: 'RATE_LIMITED', error: 'Too many test notifications. Try again later.', retryAfter: allowed.retryAfter });
+    return;
+  }
   res.json({ success: true, ...(await sendTest(req.user.id, { channel: req.body?.channel })) });
 }));
 

@@ -564,6 +564,34 @@ export async function loadTaskRow(refOrId) {
 
 const people = (rows) => rows.map((user) => person(user.id, user.username, user.name, user.avatar_path));
 
+/** Task rows the person may see (rows of TASK_SELECT or with the same access columns). */
+async function viewableRows(ctx, rows) {
+  const out = [];
+  for (const row of rows) if ((await taskLevel(ctx, row)) >= LEVEL.view) out.push(row);
+  return out;
+}
+
+/** Of the given task ids, those that exist and the person may see. */
+async function viewableTaskIds(ctx, ids) {
+  const list = [...new Set((ids || []).map(Number).filter((id) => Number.isInteger(id) && id > 0 && id < 2 ** 31))];
+  if (!list.length) return [];
+  const { rows } = await query(`${TASK_SELECT} WHERE t.id = ANY($1)`, [list]);
+  return (await viewableRows(ctx, rows)).map((row) => row.id);
+}
+
+/** Templates are seen by their author, everyone when shared, and administrators (as in templates.js). */
+export function templateVisible(template, ctx) {
+  return Boolean(template) && (template.shared || template.created_by === ctx.userId || Boolean(ctx.isAdmin));
+}
+
+/** A task points at a template only when the person may use it. */
+async function usableTemplateId(ctx, value) {
+  const id = Number(value);
+  if (!Number.isInteger(id) || id < 1 || id >= 2 ** 31) return null;
+  const { rows } = await query(`SELECT id, created_by, shared FROM task_templates WHERE id = $1`, [id]);
+  return templateVisible(rows[0], ctx) ? rows[0].id : null;
+}
+
 export async function getTask(ctx, refOrId, { countView = true } = {}) {
   const row = await loadTaskRow(refOrId);
   const level = await taskLevel(ctx, row);
@@ -596,11 +624,23 @@ export async function getTask(ctx, refOrId, { countView = true } = {}) {
     row.parent_id ? query(`${TASK_SELECT} WHERE t.id = $1`, [row.parent_id]) : { rows: [] },
     query(`${TASK_SELECT} WHERE t.id IN (SELECT other_id FROM task_links WHERE task_id = $1 UNION SELECT task_id FROM task_links WHERE other_id = $1)`, [row.id]),
     query(
-      `SELECT d.id, d.kind, d.depends_on, p.key, t.number, t.title, t.completed_at FROM task_deps d
+      `SELECT d.id, d.kind, d.depends_on, p.key, t.number, t.title, t.completed_at,
+              t.project_id, p.is_personal AS project_personal, t.assignee_id, t.originator_id, t.created_by
+       FROM task_deps d
        JOIN tasks t ON t.id = d.depends_on JOIN task_projects p ON p.id = t.project_id WHERE d.task_id = $1 ORDER BY d.id`,
       [row.id]
     ),
-    query(`SELECT * FROM task_reminders WHERE task_id = $1 AND (created_by = $2 OR $3) ORDER BY id`, [row.id, ctx.userId, level >= LEVEL.manage]),
+    // Own reminders, everything for managers, and reminders addressed to this person (read-only for them).
+    query(
+      `SELECT r.* FROM task_reminders r WHERE r.task_id = $1 AND (r.created_by = $2 OR $3
+         OR r.targets && (
+           ARRAY(SELECT 'assignee'::text FROM tasks t WHERE t.id = $1 AND t.assignee_id = $2
+                 UNION ALL SELECT 'originator' FROM tasks t WHERE t.id = $1 AND COALESCE(t.originator_id, t.created_by) = $2
+                 UNION ALL SELECT CASE m.role WHEN 'coassignee' THEN 'coassignees' ELSE 'auditors' END FROM task_members m WHERE m.task_id = $1 AND m.user_id = $2)
+         ))
+       ORDER BY r.id`,
+      [row.id, ctx.userId, level >= LEVEL.manage]
+    ),
     query(
       `SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(stopped_at, NOW()) - started_at))), 0)::bigint AS total,
               MAX(started_at) FILTER (WHERE stopped_at IS NULL AND user_id = $2) AS running
@@ -615,8 +655,16 @@ export async function getTask(ctx, refOrId, { countView = true } = {}) {
       [row.id]
     ),
     row.flow_id ? query(`SELECT id, name, color FROM task_flows WHERE id = $1`, [row.flow_id]) : { rows: [] },
-    row.template_id ? query(`SELECT id, title, recurring, recurrence, next_run_at, active FROM task_templates WHERE id = $1`, [row.template_id]) : { rows: [] },
+    row.template_id ? query(`SELECT id, title, recurring, recurrence, next_run_at, active, created_by, shared FROM task_templates WHERE id = $1`, [row.template_id]) : { rows: [] },
   ]);
+  // Related tasks are shown only when the person may see them (old links may point anywhere).
+  const [visibleSubtasks, visibleParent, visibleLinks, visibleDeps] = await Promise.all([
+    viewableRows(ctx, subtasks.rows),
+    viewableRows(ctx, parent.rows),
+    viewableRows(ctx, links.rows),
+    viewableRows(ctx, deps.rows.map((dep) => ({ ...dep, dep_id: dep.id, id: dep.depends_on }))),
+  ]);
+  const templateRow = templateVisible(template.rows[0], ctx) ? template.rows[0] : null;
   const projectLevel = row.project_personal ? LEVEL.none : await levelOn(ACL, row.project_id, ctx);
   const statuses = await query(`SELECT * FROM task_statuses WHERE project_id = $1 ORDER BY sort, id`, [row.project_id]);
   const isOriginator = (row.originator_id || row.created_by) === ctx.userId;
@@ -676,10 +724,10 @@ export async function getTask(ctx, refOrId, { countView = true } = {}) {
       createdAt: result.created_at,
       mine: result.author_id === ctx.userId,
     })),
-    subtaskList: subtasks.rows.map(taskShape),
-    parent: parent.rows[0] ? taskShape(parent.rows[0]) : null,
-    links: links.rows.map(taskShape),
-    deps: deps.rows.map((dep) => ({ id: dep.id, kind: dep.kind, taskId: dep.depends_on, ref: taskRef(dep.key, dep.number), title: dep.title, done: Boolean(dep.completed_at) })),
+    subtaskList: visibleSubtasks.map(taskShape),
+    parent: visibleParent[0] ? taskShape(visibleParent[0]) : null,
+    links: visibleLinks.map(taskShape),
+    deps: visibleDeps.map((dep) => ({ id: dep.dep_id, kind: dep.kind, taskId: dep.depends_on, ref: taskRef(dep.key, dep.number), title: dep.title, done: Boolean(dep.completed_at) })),
     reminders: reminders.rows.map((reminder) => ({
       id: reminder.id,
       targets: reminder.targets,
@@ -688,6 +736,9 @@ export async function getTask(ctx, refOrId, { countView = true } = {}) {
       beforeMinutes: reminder.before_minutes,
       channels: reminder.channels,
       sentAt: reminder.sent_at,
+      // false: someone else's reminder addressed to this person — shown, not removable by them.
+      mine: reminder.created_by === ctx.userId,
+      canDelete: reminder.created_by === ctx.userId || level >= LEVEL.manage,
     })),
     planStart: row.plan_start,
     planEnd: row.plan_end,
@@ -703,8 +754,8 @@ export async function getTask(ctx, refOrId, { countView = true } = {}) {
     views: views.rows[0].n,
     favorite: Boolean(favorite.rows.length),
     flow: flow.rows[0] || null,
-    template: template.rows[0]
-      ? { id: template.rows[0].id, title: template.rows[0].title, recurring: template.rows[0].recurring, recurrence: template.rows[0].recurrence, nextRunAt: template.rows[0].next_run_at, active: template.rows[0].active }
+    template: templateRow
+      ? { id: templateRow.id, title: templateRow.title, recurring: templateRow.recurring, recurrence: templateRow.recurrence, nextRunAt: templateRow.next_run_at, active: templateRow.active }
       : null,
     activity: activity.rows.map((entry) => ({
       id: Number(entry.activity_id),
@@ -859,11 +910,18 @@ export async function createTask(ctx, input = {}) {
   const custom = await cleanCustom(input.custom);
   let parentId = null;
   if (input.parentId) {
+    // A subtask can move its parent's deadline (deadline from subtasks): editing the parent is required.
     const parent = await loadTaskRow(input.parentId);
-    requireLevel(await taskLevel(ctx, parent), LEVEL.view);
+    requireLevel(await taskLevel(ctx, parent), LEVEL.edit);
     parentId = parent.id;
   }
   const flowId = Number(input.flowId) || null;
+  // Related tasks and Gantt links only to tasks the person may see; the others are dropped.
+  const linkIds = await viewableTaskIds(ctx, (Array.isArray(input.linkIds) ? input.linkIds : []).slice(0, 50));
+  const depList = (Array.isArray(input.deps) ? input.deps : []).slice(0, 20);
+  const depIds = await viewableTaskIds(ctx, depList.map((dep) => dep?.taskId));
+  const deps = depList.filter((dep) => depIds.includes(Number(dep?.taskId)));
+  const templateId = await usableTemplateId(ctx, input.templateId);
 
   const created = [];
   for (const assigneeId of assignees.length ? assignees : [null]) {
@@ -906,7 +964,7 @@ export async function createTask(ctx, input = {}) {
           Boolean(input.timeTracking),
           intOrNull(input.timeEstimate, 0, 100000),
           JSON.stringify(custom),
-          Number(input.templateId) || null,
+          templateId,
         ]
       );
       const id = rows[0].id;
@@ -928,10 +986,10 @@ export async function createTask(ctx, input = {}) {
           );
         }
       }
-      for (const otherId of (Array.isArray(input.linkIds) ? input.linkIds : []).map(Number).filter(Number.isInteger).slice(0, 50)) {
+      for (const otherId of linkIds) {
         await client.query(`INSERT INTO task_links (task_id, other_id) SELECT $1, id FROM tasks WHERE id = $2 AND id <> $1 ON CONFLICT DO NOTHING`, [id, otherId]);
       }
-      for (const dep of (Array.isArray(input.deps) ? input.deps : []).slice(0, 20)) {
+      for (const dep of deps) {
         const kind = ['FS', 'SS', 'SF', 'FF'].includes(dep?.kind) ? dep.kind : 'FS';
         await client.query(`INSERT INTO task_deps (task_id, depends_on, kind) SELECT $1, id, $3 FROM tasks WHERE id = $2 AND id <> $1 ON CONFLICT DO NOTHING`, [id, Number(dep?.taskId) || 0, kind]);
       }
@@ -1014,10 +1072,26 @@ async function rankBetween(client, statusId, beforeId, afterId, respread = true)
 async function syncParentDeadline(parentId) {
   const { rows } = await query(`SELECT deadline_from_subtasks FROM tasks WHERE id = $1`, [parentId]);
   if (!rows[0]?.deadline_from_subtasks) return;
-  await query(
-    `UPDATE tasks SET due_at = (SELECT MAX(due_at) FROM tasks WHERE parent_id = $1), due_time = TRUE, updated_at = NOW() WHERE id = $1`,
-    [parentId]
-  );
+  await withTransaction(async (client) => {
+    const current = await client.query(
+      `SELECT t.due_at IS DISTINCT FROM (SELECT MAX(due_at) FROM tasks WHERE parent_id = $1) AS moved FROM tasks t WHERE t.id = $1 FOR UPDATE`,
+      [parentId]
+    );
+    const moved = Boolean(current.rows[0]?.moved);
+    await client.query(
+      `UPDATE tasks SET due_at = (SELECT MAX(due_at) FROM tasks WHERE parent_id = $1), due_time = TRUE, updated_at = NOW()
+         ${moved ? ', due_notified_at = NULL, overdue_notified_at = NULL' : ''}
+       WHERE id = $1`,
+      [parentId]
+    );
+    // The deadline moved: its reminders are armed again, as when it is changed by hand.
+    if (moved) await rearmBeforeReminders(client, parentId);
+  });
+}
+
+/** The deadline moved: reminders set "some time before the deadline" go out again. */
+async function rearmBeforeReminders(client, taskId) {
+  await client.query(`UPDATE task_reminders SET sent_at = NULL WHERE task_id = $1 AND mode = 'before'`, [taskId]);
 }
 
 const setDiff = (before, after) => ({ added: after.filter((id) => !before.includes(id)), removed: before.filter((id) => !after.includes(id)) });
@@ -1084,6 +1158,7 @@ export async function updateTask(ctx, refOrId, patch = {}) {
     }
   }
   let resetDue = false;
+  let dueChanged = false;
   let newStatus = null;
   if (patch.statusId !== undefined && !Number.isInteger(Number(patch.statusId))) throw httpError(400, 'Unknown status', 'STATUS_UNKNOWN');
   if (patch.statusId !== undefined && Number(patch.statusId) !== row.status_id) {
@@ -1144,6 +1219,7 @@ export async function updateTask(ctx, refOrId, patch = {}) {
       set('due_at', dueAt);
       set('due_time', dueTime && Boolean(dueAt));
       resetDue = true;
+      dueChanged = dueAt !== before;
       changes.push({ field: 'due', from: before, to: dueAt, time: dueTime });
     }
   }
@@ -1193,7 +1269,8 @@ export async function updateTask(ctx, refOrId, patch = {}) {
     let parentId = null;
     if (patch.parentId) {
       const parent = await loadTaskRow(patch.parentId);
-      requireLevel(await taskLevel(ctx, parent), LEVEL.view);
+      // Attaching a subtask can rewrite the parent's deadline: it takes editing the parent.
+      if (parent.id !== row.parent_id) requireLevel(await taskLevel(ctx, parent), LEVEL.edit);
       if (parent.id === row.id) throw httpError(400, 'A task cannot be its own parent', 'PARENT_SELF');
       // No cycles: the new parent must not be one of this task's descendants.
       const loop = await query(
@@ -1236,6 +1313,8 @@ export async function updateTask(ctx, refOrId, patch = {}) {
       values.push(row.id);
       await client.query(`UPDATE tasks SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${values.length}`, values);
     }
+    // "N minutes before the deadline" reminders count from the new deadline.
+    if (dueChanged) await rearmBeforeReminders(client, row.id);
     for (const change of roleChanges) {
       for (const userId of change.removed) await client.query(`DELETE FROM task_members WHERE task_id = $1 AND user_id = $2 AND role = $3`, [row.id, userId, change.role]);
       for (const userId of change.added) {
@@ -1292,13 +1371,28 @@ export async function updateTask(ctx, refOrId, patch = {}) {
 }
 
 /** Moves a task to another project: new number (and reference), status by category. */
-export async function moveTaskToProject(ctx, refOrId, projectRef) {
+/** The status with this id when it belongs to the project, else null. */
+export async function statusOfProject(statusId, projectId) {
+  const id = Number(statusId);
+  if (statusId === null || statusId === undefined || !Number.isInteger(id) || id < 1 || id >= 2 ** 31) return null;
+  const { rows } = await query(`SELECT * FROM task_statuses WHERE id = $1 AND project_id = $2`, [id, projectId]);
+  return rows[0] || null;
+}
+
+/** Checks a move without making it: { row, target, same } (same: already in that project). */
+export async function checkMoveToProject(ctx, refOrId, projectRef) {
   const row = await loadTaskRow(refOrId);
   requireLevel(await taskLevel(ctx, row), LEVEL.edit);
   const target = projectRef ? await loadProject(projectRef) : await loadProject(await personalProjectId());
-  if (target.id === row.project_id) return taskShape(row);
+  if (target.id === row.project_id) return { row, target, same: true };
   if (!target.is_personal) requireLevel(await levelOn(ACL, target.id, ctx), LEVEL.edit);
   if (target.archived_at) throw httpError(400, 'The project is archived', 'ARCHIVED');
+  return { row, target, same: false };
+}
+
+export async function moveTaskToProject(ctx, refOrId, projectRef) {
+  const { row, target, same } = await checkMoveToProject(ctx, refOrId, projectRef);
+  if (same) return taskShape(row);
   const statuses = await query(`SELECT * FROM task_statuses WHERE project_id = $1 ORDER BY sort, id`, [target.id]);
   const status = statuses.rows.find((item) => item.category === row.status_category) || statuses.rows[0];
   await withTransaction(async (client) => {

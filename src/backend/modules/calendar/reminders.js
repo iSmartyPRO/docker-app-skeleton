@@ -41,11 +41,21 @@ export async function runEventReminders() {
   }
 }
 
+/**
+ * One occurrence's times: `start` is the real instant the reminders count from
+ * (all-day events start at local midnight of the creator's time zone, not UTC);
+ * `shown` is what the message prints — for all-day events the stored UTC-midnight
+ * day, which messages format as a date in UTC, so zones east of UTC do not show
+ * the previous day.
+ */
+export function occurrenceTimes(event, occurrence) {
+  if (!event.all_day) return { start: occurrence, shown: occurrence };
+  return { start: fromWall(occurrence, event.timezone || 'UTC'), shown: occurrence };
+}
+
 async function remindEvent(event, now, from, to) {
-  // All-day events start at local midnight of the creator's time zone, not UTC.
-  const local = (start) => (event.all_day ? fromWall(start, event.timezone || 'UTC') : start);
   for (const day of occurrences(event, new Date(from.getTime() - DAY), to)) {
-    const start = local(day);
+    const { start, shown } = occurrenceTimes(event, day);
     for (const minutes of event.reminders) {
       const fireAt = start.getTime() - minutes * MINUTE;
       if (fireAt > now.getTime() || fireAt <= now.getTime() - GRACE) continue;
@@ -68,7 +78,7 @@ async function remindEvent(event, now, from, to) {
         render: eventMessage('reminder', {
           title: event.title,
           location: event.location,
-          start,
+          start: shown,
           allDay: event.all_day,
           timezone: event.timezone,
           // A reminder sent late (after a restart) states the real time left.

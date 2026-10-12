@@ -8,6 +8,7 @@ import { KB_FILE_GROUPS } from '../catalog.js';
 import { convertToPdf } from '../../services/integrations.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { httpError } from './access.js';
+import { FILE_CSP, readHead } from '../shared/storage.js';
 
 /*
  * Files live outside the public /uploads tree (uploads/kb/…) and are only
@@ -125,7 +126,7 @@ SIGNATURES.jpeg = SIGNATURES.jpg;
 export async function verifyContent(path, ext) {
   const check = SIGNATURES[ext];
   if (!check) return;
-  const head = (await readFile(path)).subarray(0, 16);
+  const head = await readHead(path);
   if (!check(head)) {
     await unlink(path).catch(() => {});
     throw httpError(400, `The file content is not a valid .${ext}`, 'FILE_CONTENT');
@@ -146,7 +147,7 @@ export async function sendStoredFile(req, res, row, { download = false } = {}) {
     `${inline ? 'inline' : 'attachment'}; filename="${filename.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '')}"; filename*=UTF-8''${encodeURIComponent(filename)}`
   );
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox");
+  res.setHeader('Content-Security-Policy', FILE_CSP);
   res.setHeader('Cache-Control', 'private, max-age=300');
   res.sendFile(path, { acceptRanges: true, lastModified: true, headers: {} });
 }

@@ -16,9 +16,9 @@ import {
   verifyIdToken,
 } from '../services/google.js';
 import { clientIp } from '../middleware/ipGuard.js';
-import { cookieOptions, startSession } from '../services/auth.js';
+import { cookieOptions, startSession, verifyToken } from '../services/auth.js';
 import { getSettings, parseSettings } from '../services/settings.js';
-import { isLockedOut, recordLoginAttempt, recordSecurityEvent } from '../services/security.js';
+import { isLockedOut, lockoutKey, recordLoginAttempt, recordSecurityEvent, revokeSession } from '../services/security.js';
 import {
   requestSignInCode,
   signInWithCode,
@@ -72,10 +72,12 @@ const EVENT_DETAIL = {
 /**
  * Wraps every sign-in method with the same policy: lockout check, attempt
  * logging, security events, session cookie and a uniform response.
+ * `identify` names the account the attempt counts against ('' = address only);
+ * `directory` folds AD spellings (DOMAIN\user, user@domain) into one key.
  */
-function signIn(identify, attempt) {
+function signIn(identify, attempt, { directory = false } = {}) {
   return async (req, res, next) => {
-    const login = String(identify(req) || '').trim().slice(0, 64);
+    const login = lockoutKey(identify(req), { directory });
     const ip = clientIp(req);
     try {
       if (await isLockedOut(login, ip)) {
@@ -129,7 +131,8 @@ router.post(
   },
   signIn(
     (req) => req.body.username,
-    (req) => signInWithPassword(req.body.username, req.body.password)
+    (req) => signInWithPassword(req.body.username, req.body.password),
+    { directory: true }
   )
 );
 
@@ -173,8 +176,12 @@ router.post(
 router.post(
   '/magic',
   loginLimiter,
+  // The token is the only input, so there is no account to count against before
+  // it is checked: a shared name here would let anyone lock everyone out of
+  // links. The address lockout and the limiter still apply; a 256-bit token
+  // cannot be guessed anyway.
   signIn(
-    () => 'magic-link',
+    () => '',
     (req) => signInWithMagicLink(req.body?.token)
   )
 );
@@ -280,7 +287,24 @@ router.get('/google/callback', googleLimiter, optionalAuth, async (req, res) => 
   }
 });
 
-router.post('/logout', (req, res) => {
+/**
+ * Ends this session only: the cookie's token is listed as revoked until it
+ * would expire. Other devices stay signed in (signing out the other devices
+ * is the token_version bump in account settings).
+ */
+router.post('/logout', async (req, res) => {
+  const token = req.cookies?.[config.auth.cookieName];
+  if (token) {
+    try {
+      const payload = verifyToken(token);
+      await revokeSession(token, payload.exp);
+    } catch (err) {
+      // An invalid or expired token needs no revocation; a database error must not block signing out.
+      if (err?.name !== 'JsonWebTokenError' && err?.name !== 'TokenExpiredError') {
+        console.warn('Session revocation failed:', err.message);
+      }
+    }
+  }
   const { maxAge, ...options } = cookieOptions(req);
   res.clearCookie(config.auth.cookieName, options);
   res.json({ success: true });

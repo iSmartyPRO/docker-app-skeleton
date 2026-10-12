@@ -3,7 +3,9 @@ import { getSettings, parseSettings } from '../../services/settings.js';
 import { notify } from '../../services/notifications.js';
 import { taskMessage } from './messages.js';
 import { taskEvent } from './chat.js';
-import { taskWebhook } from './service.js';
+import { requestAs } from '../../api/events.js';
+import { contextFromRequest, LEVEL } from '../shared/acl.js';
+import { loadTaskRow, taskLevel, taskWebhook } from './service.js';
 
 /*
  * Scheduled reminders.
@@ -25,6 +27,18 @@ async function stillParticipants(taskId, userIds) {
     [taskId, userIds]
   );
   return rows.map((row) => row.u);
+}
+
+/** May this person still see the task (project access counts, not only roles)? */
+async function canStillView(taskId, userId) {
+  try {
+    const req = await requestAs(userId);
+    if (!req) return false;
+    const row = await loadTaskRow(taskId);
+    return (await taskLevel(contextFromRequest(req, 'tasks.admin'), row)) >= LEVEL.view;
+  } catch {
+    return false;
+  }
 }
 
 export async function runReminders() {
@@ -103,6 +117,11 @@ export async function runCustomReminders() {
       else if (ROLE_SQL[target]) (await query(ROLE_SQL[target], [reminder.task_id])).rows.forEach((row) => ids.add(Object.values(row)[0]));
     }
     const recipients = await stillParticipants(reminder.task_id, [...ids].filter(Boolean));
+    // "Remind me" from someone who follows the task through its project, not as a participant:
+    // they still get it while they may see the task.
+    if (reminder.targets.includes('me') && reminder.created_by && !recipients.includes(reminder.created_by) && (await canStillView(reminder.task_id, reminder.created_by))) {
+      recipients.push(reminder.created_by);
+    }
     const ref = `${reminder.key}-${reminder.number}`;
     const channels = reminder.channels || ['app'];
     await notify({

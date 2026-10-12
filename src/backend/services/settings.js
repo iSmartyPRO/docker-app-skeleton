@@ -501,6 +501,65 @@ export function normalizeDomains(value) {
     .join(',');
 }
 
+/**
+ * Where each integration sends its stored secret. A blank secret field means
+ * "keep the saved one" — but only while it still goes to the same server.
+ * Otherwise anyone allowed to edit integrations could point the host at their
+ * own machine, press Test (or Save) and receive the password they cannot see.
+ */
+const SECRET_ENDPOINTS = {
+  email: ['host', 'port'],
+  whatsapp: ['serverUrl'],
+  mattermost: ['serverUrl'],
+  activeDirectory: ['host', 'port'],
+};
+
+function endpointValue(field, value) {
+  if (field === 'port') return String(Number(value) || '');
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\/+$/, '')
+    .replace(/\/api(\/v4)?$/, '');
+}
+
+/** True when `next` would send the group's secret somewhere other than `current`. */
+export function secretEndpointChanged(group, current = {}, next = {}) {
+  return (SECRET_ENDPOINTS[group] || []).some(
+    (field) => endpointValue(field, current?.[field]) !== endpointValue(field, next?.[field])
+  );
+}
+
+export function secretRequiredError(group, field) {
+  const error = new Error(`Re-enter the ${field} for ${group}: the server address changed`);
+  error.statusCode = 400;
+  error.code = 'SECRET_REQUIRED';
+  error.expose = true;
+  error.details = { group, field };
+  return error;
+}
+
+/**
+ * The stored secret of `group` for a test or save with `override`: the typed
+ * one if any, else the saved one when the endpoint is unchanged. Throws
+ * SECRET_REQUIRED when the endpoint changed and nothing was typed.
+ */
+export function reusableSecret(group, field, stored = {}, override = {}) {
+  if (override?.[field]) return override[field];
+  if (!stored?.[field]) return '';
+  if (secretEndpointChanged(group, stored, { ...stored, ...override })) throw secretRequiredError(group, field);
+  return stored[field];
+}
+
+/** Save-time guard for mergeKeepSecrets: same rule as reusableSecret, for every group in the patch. */
+export function assertSecretsStayWithEndpoint(current, incoming) {
+  for (const [group, field] of SECRET_PATHS) {
+    const patch = incoming?.[group];
+    if (!patch || typeof patch !== 'object' || !INTEGRATION_GROUPS.includes(group)) continue;
+    reusableSecret(group, field, current?.[group], patch);
+  }
+}
+
 export function mergeKeepSecrets(current, incoming) {
   const next = structuredClone(current);
   for (const group of Object.keys(incoming || {})) {
@@ -538,6 +597,8 @@ export function sanitizeWazzup(group = {}) {
 
 export async function updateAdminSettings(patch) {
   const parsed = parseSettings(await getSettings());
+  // Checked before anything is written, so a refused patch saves nothing.
+  if (patch.integrations) assertSecretsStayWithEndpoint(parsed.integrations, patch.integrations);
 
   if (patch.appName != null) await setSetting('app_name', String(patch.appName).slice(0, 80));
   if (patch.appDescription != null) {

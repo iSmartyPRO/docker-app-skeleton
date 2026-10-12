@@ -19,6 +19,9 @@ const KNOWN_KINDS = new Set(NOTIFICATION_EVENTS.map((event) => event.kind));
  * (email via SMTP or Gmail, Telegram, Mattermost) follow each user's
  * preferences and what is configured. The actor never notifies themselves.
  * Delivery is asynchronous: a slow mail server never delays the request.
+ * External deliveries that fall into quiet hours or a pause are deferred
+ * (notification_deferred) and sent when the window ends, re-checked against
+ * the preferences of that moment.
  */
 
 export const CHANNELS = ['push', 'email', 'telegram', 'whatsapp', 'mattermost'];
@@ -57,6 +60,26 @@ export async function ensureNotificationTables() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS notification_subscriptions_target ON notification_subscriptions (target_type, target_id)`);
 
+  // External deliveries held back by quiet hours or a pause, one row per
+  // notification; released by the notifications:deferred job.
+  await query(`
+    CREATE TABLE IF NOT EXISTS notification_deferred (
+      notification_id BIGINT PRIMARY KEY REFERENCES notifications(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      channels TEXT[] NOT NULL,
+      release_at TIMESTAMPTZ NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS notification_deferred_release_idx ON notification_deferred (release_at)`);
+
+  registerJob({
+    name: 'notifications:deferred',
+    everyMs: 60_000,
+    run: () => releaseDeferred(),
+  });
+
   registerJob({
     name: 'notifications:retention',
     everyMs: 6 * 60 * 60 * 1000,
@@ -68,8 +91,8 @@ export async function ensureNotificationTables() {
  * Preferences (users.notify_prefs):
  *   channels     master switch per channel                 { push, email, telegram, mattermost }
  *   events       per kind: { inbox?, push?, email?, … }      (missing = the catalog default)
- *   quiet        { enabled, from: '22:00', to: '08:00', weekends }  no pushes or messages then
- *   pausedUntil  ISO time: everything external waits until then
+ *   quiet        { enabled, from: '22:00', to: '08:00', weekends }  pushes and messages wait until it ends
+ *   pausedUntil  ISO time: everything external waits until then (see releaseAt)
  *   tz           the person's time zone, for quiet hours
  * The first version stored only the four channel flags at the top level; they
  * are read as `channels`.
@@ -130,6 +153,70 @@ export function quietState(prefs, now = new Date()) {
   if (from === to) return null;
   const inside = from < to ? minutes >= from && minutes < to : minutes >= from || minutes < to;
   return inside ? 'quiet' : null;
+}
+
+/**
+ * When held external delivery may go out: the first moment at or after `now`
+ * that is neither paused nor inside quiet hours (weekends included). Steps
+ * from boundary to boundary; a DST shift at worst lands a little early, and
+ * the release job simply defers again.
+ */
+export function releaseAt(prefs, now = new Date()) {
+  const toMin = (value) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
+  let at = new Date(now);
+  for (let i = 0; i < 16; i += 1) {
+    const state = quietState(prefs, at);
+    if (!state) return at;
+    if (state === 'paused') {
+      at = new Date(prefs.pausedUntil);
+      continue;
+    }
+    const { minutes, weekday } = localParts(at, prefs.tz);
+    const wait =
+      prefs.quiet.weekends && (weekday === 'Sat' || weekday === 'Sun')
+        ? 1440 - minutes // to local midnight
+        : (toMin(prefs.quiet.to) - minutes + 1440) % 1440 || 1440;
+    // Lands on the start of the boundary minute.
+    at = new Date(at.getTime() + wait * 60_000 - at.getUTCSeconds() * 1000 - at.getUTCMilliseconds());
+  }
+  return at;
+}
+
+/**
+ * Sliding-window limiter kept in memory: `take(key)` → { ok, retryAfter }
+ * (seconds). Each window is { limit, windowMs }; all must have room.
+ */
+export function createRateLimiter(windows) {
+  const hits = new Map();
+  const longest = Math.max(...windows.map((window) => window.windowMs));
+  return {
+    take(key, now = Date.now()) {
+      const list = (hits.get(key) || []).filter((time) => now - time < longest);
+      for (const { limit, windowMs } of windows) {
+        const inWindow = list.filter((time) => now - time < windowMs);
+        if (inWindow.length >= limit) {
+          hits.set(key, list);
+          return { ok: false, retryAfter: Math.max(1, Math.ceil((inWindow[0] + windowMs - now) / 1000)) };
+        }
+      }
+      list.push(now);
+      hits.set(key, list);
+      // Forget idle keys now and then so the map stays small.
+      if (hits.size > 5000) for (const [other, times] of hits) if (!times.some((time) => now - time < longest)) hits.delete(other);
+      return { ok: true, retryAfter: 0 };
+    },
+  };
+}
+
+// Test sends reach whatever contact the profile holds: rationed per person.
+const testSends = createRateLimiter([
+  { limit: 3, windowMs: 10 * 60 * 1000 },
+  { limit: 10, windowMs: 24 * 60 * 60 * 1000 },
+]);
+
+/** Counts one test send for the person; { ok, retryAfter } (seconds). */
+export function takeTestSend(userId, now = Date.now()) {
+  return testSends.take(String(userId), now);
 }
 
 /** Channels the portal can use for notifications: integration ready and allowed by the administrator. */
@@ -213,7 +300,8 @@ ${url ? `<tr><td style="padding:8px 28px 28px"><a href="${escapeHtml(url)}" styl
 /**
  * Sends one notification to one person's external channels and reports what
  * happened per channel: sent · failed · off (switched off) · unreachable (not
- * connected) · quiet (quiet hours or pause) · skipped (not asked for).
+ * connected) · deferred (quiet hours or pause: sent later by the
+ * notifications:deferred job) · skipped (not asked for).
  */
 async function deliver(user, message, ready, appName, { force = false } = {}) {
   const prefs = resolvePrefs(user.notify_prefs);
@@ -252,7 +340,7 @@ async function deliver(user, message, ready, appName, { force = false } = {}) {
       continue;
     }
     if (hold) {
-      report[channel] = hold;
+      report[channel] = 'deferred';
       continue;
     }
     if (channel === 'push') {
@@ -343,6 +431,7 @@ export async function notify({ userIds, kind, module = null, link = null, actorI
               batch.map((message, index) => (message.id ? JSON.stringify(reports[index]) : null)).filter((value) => value !== null),
             ]);
           }
+          await queueDeferred(batch.map((message, index) => ({ message, report: reports[index] })));
         }
       } catch (err) {
         console.warn('Notification delivery failed:', err.message);
@@ -350,6 +439,90 @@ export async function notify({ userIds, kind, module = null, link = null, actorI
     });
   }
   return messages.length;
+}
+
+// ── Deferred delivery (quiet hours, pause) ──────────────────────────────────
+
+const DEFERRED_MAX_ATTEMPTS = 10; // re-deferrals (a pause extended again and again)
+const DEFERRED_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // older news is not worth sending
+const DEFERRED_BATCH = 200;
+
+function deferredChannels(report) {
+  return Object.entries(report || {}).filter(([, value]) => value === 'deferred').map(([channel]) => channel);
+}
+
+/** Stores the held channels of freshly delivered messages. */
+async function queueDeferred(items, attempts = 0) {
+  for (const { message, report } of items) {
+    const channels = deferredChannels(report);
+    if (!message.id || !channels.length) continue;
+    const at = releaseAt(resolvePrefs(message.user.notify_prefs));
+    await query(
+      `INSERT INTO notification_deferred (notification_id, user_id, channels, release_at, attempts)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (notification_id) DO UPDATE SET channels = EXCLUDED.channels, release_at = EXCLUDED.release_at, attempts = EXCLUDED.attempts`,
+      [message.id, message.user.id, channels, at, attempts]
+    ).catch((err) => console.warn('Could not defer notification:', err.message));
+  }
+}
+
+async function mergeDelivery(id, partial) {
+  if (!Object.keys(partial).length) return;
+  await query(`UPDATE notifications SET delivery = COALESCE(delivery, '{}'::jsonb) || $2::jsonb WHERE id = $1`, [id, JSON.stringify(partial)]);
+}
+
+/**
+ * Sends held deliveries whose window has ended. Rows are claimed by deleting
+ * them, so a crash never sends twice; anything still held goes back in with
+ * the next release time. Preferences, contacts and channels are read anew:
+ * a channel switched off meanwhile reports `off`, one still held `deferred`.
+ * A notification already read in the bell, or one too old, is not sent
+ * (`skipped` / `expired`).
+ */
+export async function releaseDeferred(limit = DEFERRED_BATCH) {
+  const { rows } = await query(
+    `DELETE FROM notification_deferred
+     WHERE notification_id IN (SELECT notification_id FROM notification_deferred WHERE release_at <= NOW() ORDER BY release_at LIMIT $1)
+     RETURNING notification_id, user_id, channels, attempts`,
+    [limit]
+  );
+  if (!rows.length) return 0;
+  const { rows: notes } = await query(`SELECT id, kind, title, body, link, read_at, created_at FROM notifications WHERE id = ANY($1)`, [
+    rows.map((row) => row.notification_id),
+  ]);
+  const { rows: users } = await query(
+    `SELECT id, email, phone, locale, telegram_id, mattermost, notify_prefs,
+            (SELECT COUNT(*) FROM push_subscriptions p WHERE p.user_id = users.id)::int AS push_devices,
+            (SELECT COUNT(*) FROM notifications n WHERE n.user_id = users.id AND n.read_at IS NULL)::int AS unread
+     FROM users WHERE id = ANY($1) AND is_active IS NOT FALSE AND is_blocked IS NOT TRUE`,
+    [[...new Set(rows.map((row) => row.user_id))]]
+  );
+  const { parsed, ready } = await readiness();
+  const fallback = await localeFor(null);
+  for (const user of users) user.locale = user.locale === 'ru' || user.locale === 'en' ? user.locale : fallback;
+
+  const settle = async (row) => {
+    const note = notes.find((item) => Number(item.id) === Number(row.notification_id));
+    const user = users.find((item) => item.id === row.user_id);
+    if (!note) return;
+    const only = (value) => Object.fromEntries(row.channels.map((channel) => [channel, value]));
+    if (!user || note.read_at) return mergeDelivery(note.id, only('skipped'));
+    if (row.attempts >= DEFERRED_MAX_ATTEMPTS || Date.now() - new Date(note.created_at).getTime() > DEFERRED_MAX_AGE_MS) {
+      return mergeDelivery(note.id, only('expired'));
+    }
+    const message = { id: note.id, user, kind: note.kind, title: note.title, body: note.body || '', link: note.link, channels: row.channels };
+    const full = await deliver(user, message, ready, parsed.appName);
+    const report = Object.fromEntries(row.channels.map((channel) => [channel, full[channel] || 'skipped']));
+    await mergeDelivery(note.id, report);
+    await queueDeferred([{ message, report }], row.attempts + 1);
+  };
+  // Small batches, as in notify(): a morning release must not flood the pool.
+  for (let i = 0; i < rows.length; i += 10) {
+    await Promise.all(
+      rows.slice(i, i + 10).map((row) => settle(row).catch((err) => console.warn('Deferred notification failed:', err.message)))
+    );
+  }
+  return rows.length;
 }
 
 // ── Inbox API helpers ───────────────────────────────────────────────────────
@@ -557,7 +730,7 @@ export async function listSubscriptions(userId) {
 // ── Administration ──────────────────────────────────────────────────────────
 
 /** Settings plus, per channel: integration state and how many people it can reach. */
-export async function notifyOverview() {
+export async function notifyOverview({ duplicates = false } = {}) {
   const { parsed, ready } = await readiness();
   const { rows } = await query(`
     SELECT COUNT(*)::int AS total,
@@ -581,11 +754,12 @@ export async function notifyOverview() {
     providers,
     signinWhatsapp: parsed.auth?.whatsappCode || {},
     coverage: { total: rows[0].total, ...Object.fromEntries(CHANNELS.map((channel) => [channel, rows[0][channel]])) },
-    duplicates: await duplicateContacts(),
+    // People's contacts: only for those who may view users.
+    duplicates: duplicates ? await duplicateContacts() : [],
   };
 }
 
-export async function saveNotifyConfig(patch = {}) {
+export async function saveNotifyConfig(patch = {}, view = {}) {
   const current = resolveNotifyConfig((await getSettings()).notify_config);
   const next = resolveNotifyConfig({
     channels: { ...current.channels, ...(patch.channels || {}) },
@@ -596,7 +770,7 @@ export async function saveNotifyConfig(patch = {}) {
     [JSON.stringify(next)]
   );
   invalidateSettings();
-  return notifyOverview();
+  return notifyOverview(view);
 }
 
 /** A test message to any address: e-mail, phone (WhatsApp), Telegram chat id or Mattermost name. */

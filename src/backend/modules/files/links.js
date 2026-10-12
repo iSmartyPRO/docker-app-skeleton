@@ -3,8 +3,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import config from '../../config/app.js';
 import { query } from '../../config/database.js';
-import { LEVEL, httpError } from '../shared/acl.js';
-import { chainOf, requireNode } from './access.js';
+import { requestAs } from '../../api/events.js';
+import { LEVEL, contextFromRequest, httpError } from '../shared/acl.js';
+import { chainOf, nodeAccess, requireNode } from './access.js';
 import { filesSettings } from './service.js';
 
 /*
@@ -128,13 +129,30 @@ function issue(link) {
   return jwt.sign({ lid: link.id, v: link.version }, secret(), { expiresIn: '12h' });
 }
 
-/** The live link for a token, checking revocation, expiry, password and the trash. */
+/**
+ * The live link for a token, checking revocation, expiry, the author (still
+ * active and still allowed to publish the node), password and the trash.
+ */
 export async function resolveLink(token, visitorToken) {
   const settings = await filesSettings();
-  const { rows } = await query(`SELECT l.*, n.kind, n.name FROM fs_links l JOIN fs_nodes n ON n.id = l.node_id WHERE l.token = $1`, [String(token || '')]);
+  const { rows } = await query(
+    `SELECT l.*, n.kind, n.name, u.is_active AS author_active, u.is_blocked AS author_blocked
+     FROM fs_links l JOIN fs_nodes n ON n.id = l.node_id LEFT JOIN users u ON u.id = l.created_by
+     WHERE l.token = $1`,
+    [String(token || '')]
+  );
   const link = rows[0];
   if (!link || link.revoked_at || !settings.publicLinks) throw httpError(404, 'This link does not exist', 'NOT_FOUND');
   if (link.expires_at && new Date(link.expires_at).getTime() < Date.now()) throw httpError(410, 'This link has expired', 'EXPIRED');
+  // Deleted (created_by NULL), deactivated or blocked authors take their links with them.
+  if (!link.created_by || link.author_active === false || link.author_blocked === true) {
+    throw httpError(410, 'The author of this link no longer works with the company', 'OWNER_INACTIVE');
+  }
+  const author = await requestAs(link.created_by);
+  if (!author) throw httpError(410, 'The author of this link no longer works with the company', 'OWNER_INACTIVE');
+  if (!(await nodeAccess(contextFromRequest(author, 'files.admin'), link.node_id)).owner) {
+    throw httpError(403, 'The author no longer has access to this file', 'OWNER_NO_ACCESS');
+  }
   const chain = await chainOf(link.node_id);
   if (chain.some((row) => row.deleted_at)) throw httpError(404, 'This link does not exist', 'NOT_FOUND');
   if (link.password_hash) {
@@ -157,7 +175,7 @@ export async function resolveLink(token, visitorToken) {
 export async function unlockLink(token, password) {
   const { rows } = await query(`SELECT * FROM fs_links WHERE token = $1 AND revoked_at IS NULL`, [String(token || '')]);
   const link = rows[0];
-  if (!link) throw httpError(404, 'This link does not exist', 'NOT_FOUND');
+  if (!link || !link.created_by) throw httpError(404, 'This link does not exist', 'NOT_FOUND');
   if (!link.password_hash) return { token: null };
   if (!(await bcrypt.compare(String(password || ''), link.password_hash))) throw httpError(401, 'Wrong password', 'WRONG_PASSWORD');
   return { token: issue(link) };

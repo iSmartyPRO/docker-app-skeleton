@@ -1,5 +1,5 @@
 import { createReadStream } from 'fs';
-import { mkdir, readFile, rename, stat, unlink, writeFile } from 'fs/promises';
+import { mkdir, open, readFile, rename, stat, unlink, writeFile } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import { extname, join, normalize, resolve, sep } from 'path';
 import { uploadRoot } from '../../config/paths.js';
@@ -112,30 +112,57 @@ const SIGNATURES = {
 };
 SIGNATURES.jpeg = SIGNATURES.jpg;
 
+/** The first `bytes` bytes of a file (fewer when it is shorter); never reads the whole file. */
+export async function readHead(path, bytes = 16) {
+  const handle = await open(path, 'r');
+  try {
+    const buffer = Buffer.alloc(bytes);
+    const { bytesRead } = await handle.read(buffer, 0, bytes, 0);
+    return buffer.subarray(0, bytesRead);
+  } finally {
+    await handle.close();
+  }
+}
+
+/** Formats whose content we check by their magic bytes. */
+export const hasSignature = (ext) => Boolean(SIGNATURES[ext]);
+
+/** True when `head` starts like a .ext file; formats without a signature always pass. */
+export function signatureMatches(head, ext) {
+  const check = SIGNATURES[ext];
+  return !check || (head.length >= 4 && check(head));
+}
+
 /** Rejects files whose content does not match a format we render inline. */
 export async function verifyContent(path, ext) {
-  const check = SIGNATURES[ext];
-  if (!check) return;
-  const head = (await readFile(path)).subarray(0, 16);
-  if (!check(head)) {
+  if (!SIGNATURES[ext]) return;
+  const head = await readHead(path);
+  if (!signatureMatches(head, ext)) {
     await unlink(path).catch(() => {});
     throw httpError(400, `The file content is not a valid .${ext}`, 'FILE_CONTENT');
   }
+}
+
+/** CSP for user files opened directly: nothing runs, nothing submits, framed only by the portal. */
+export const FILE_CSP = "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; form-action 'none'; frame-ancestors 'self'; sandbox";
+
+/** `inline` or `attachment` with an ASCII fallback name and the real UTF-8 one (RFC 6266). */
+export function contentDisposition(name, inline = false) {
+  const filename = String(name || 'file').replace(/[\r\n]/g, ' ');
+  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '');
+  return `${inline ? 'inline' : 'attachment'}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
 /** Streams a blob with headers that keep it from executing as a page. */
 export async function sendBlob(res, path, { name, ext, download = false }) {
   const info = await stat(path).catch(() => null);
   if (!info) throw httpError(404, 'File is missing on the server', 'FILE_MISSING');
-  const inline = !download && INLINE.has(ext);
-  const filename = name || `file.${ext}`;
+  // A picture or PDF opens in the browser only when its bytes really are one.
+  const inline = !download && INLINE.has(ext) && (!hasSignature(ext) || signatureMatches(await readHead(path).catch(() => Buffer.alloc(0)), ext));
   res.setHeader('Content-Type', mimeOf(ext));
-  res.setHeader(
-    'Content-Disposition',
-    `${inline ? 'inline' : 'attachment'}; filename="${filename.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '')}"; filename*=UTF-8''${encodeURIComponent(filename)}`
-  );
+  res.setHeader('Content-Disposition', contentDisposition(name || `file.${ext}`, inline));
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox");
+  res.setHeader('Content-Security-Policy', FILE_CSP);
   res.setHeader('Cache-Control', 'private, max-age=300');
   res.sendFile(path, { acceptRanges: true, lastModified: true, headers: {} });
 }

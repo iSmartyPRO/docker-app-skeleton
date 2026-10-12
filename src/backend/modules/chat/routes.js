@@ -5,6 +5,7 @@ import { chatUploader, runUpload, sendFile } from './files.js';
 import { openStream, setFocus } from './realtime.js';
 import {
   addMembers,
+  canUpload,
   chatContext,
   chatSettings,
   createGroup,
@@ -89,7 +90,7 @@ export function privateRoutes() {
     if (!settings.callUrl) throw httpError(400, 'Calls are not set up', 'CALLS_OFF');
     const code = `portal-${req.params.id}-${randomBytes(6).toString('hex')}`;
     const url = settings.callUrl.replace('{room}', code);
-    const message = await postMessage(req.chat, req.params.id, { body: url, data: { call: { url } } });
+    const message = await postMessage(req.chat, req.params.id, { body: url }, { call: { url } });
     res.json({ success: true, url, message });
   }));
 
@@ -105,6 +106,8 @@ export function privateRoutes() {
 
   // Files
   router.post('/rooms/:id/files', wrap(async (req, res) => {
+    // Nothing touches the disk before the room check.
+    await canUpload(req.chat, req.params.id);
     const settings = await chatSettings();
     const files = await runUpload(chatUploader(settings.maxUploadMb || 100), req, res);
     res.status(201).json({ success: true, files: await storeUploads(req.chat, req.params.id, files) });

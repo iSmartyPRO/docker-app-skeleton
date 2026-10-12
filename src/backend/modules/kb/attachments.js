@@ -47,7 +47,7 @@ export async function attachmentsOf(itemId) {
 
 /**
  * Recomputes an article's files from its Markdown (kbfile:<id>) plus the
- * explicit attachment list. New files must be ones the editor can open in
+ * explicit attachment list. New files must be ones the editor can edit in
  * Files; files already attached stay even if the editor cannot see them.
  */
 export async function syncAttachments(ctx, itemId, content, explicit) {

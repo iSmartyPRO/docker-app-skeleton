@@ -82,6 +82,8 @@ async function calendarLevels(ctx) {
      LEFT JOIN users u ON u.id = c.owner_id ORDER BY c.is_personal DESC, LOWER(c.name)`
   );
   const of = (row) => {
+    // An API token limited to some calendars sees nothing else, administrator or not.
+    if (!withinLimits(ctx, ACL, row.id)) return LEVEL.none;
     const own = levels.of(row.id);
     if (ctx.isAdmin && !row.is_personal) return LEVEL.manage;
     return own;
@@ -106,6 +108,7 @@ async function loadCalendar(id) {
 }
 
 async function calendarLevel(ctx, calendar) {
+  if (!withinLimits(ctx, ACL, calendar.id)) return LEVEL.none;
   if (ctx.isAdmin && !calendar.is_personal) return LEVEL.manage;
   return levelOn(ACL, calendar.id, { ...ctx, isAdmin: false });
 }
@@ -256,10 +259,13 @@ export async function listEvents(ctx, { from, to, calendars, invitations = true 
     : visible;
   const levelById = new Map(calendarRows.map((row) => [row.id, of(row)]));
 
-  const params = [wanted, range.start, range.end, ctx.userId];
+  // An API token limited to some calendars: invitations only from those calendars too.
+  const limits = ctx.limits?.[ACL] ? [...ctx.limits[ACL]] : null;
+  const params = [wanted, range.start, range.end, ctx.userId, limits];
   const { rows } = await query(
     `${EVENT_SELECT}
      WHERE e.starts_at < $3 AND (e.rrule IS NOT NULL OR e.ends_at > $2)
+       AND ($5::int[] IS NULL OR e.calendar_id = ANY($5))
        AND (e.calendar_id = ANY($1)
             ${invitations ? 'OR EXISTS (SELECT 1 FROM cal_attendees a WHERE a.event_id = e.id AND a.user_id = $4)' : ''})`,
     params
@@ -283,6 +289,7 @@ async function loadEvent(id) {
 }
 
 async function eventLevel(ctx, row) {
+  if (!withinLimits(ctx, ACL, row.calendar_id)) return 0;
   const level = await calendarLevel(ctx, await loadCalendar(row.calendar_id));
   if (level >= LEVEL.view) return level;
   const invited = await query(`SELECT 1 FROM cal_attendees WHERE event_id = $1 AND user_id = $2`, [row.id, ctx.userId]);
@@ -464,6 +471,12 @@ export async function updateEvent(ctx, id, input, { scope = 'all', occurrence } 
         originalStart: occurrenceStart,
       });
       await setAttendees(client, eventId, input.attendees !== undefined ? await cleanAttendees(input.attendees) : attendees, row.created_by);
+      // The detached occurrence keeps everyone's answers to the series (a "declined" stays declined).
+      await client.query(
+        `UPDATE cal_attendees a SET status = m.status, responded_at = m.responded_at
+         FROM cal_attendees m WHERE a.event_id = $1 AND m.event_id = $2 AND m.user_id = a.user_id`,
+        [eventId, row.id]
+      );
       return eventId;
     });
     return getEvent(ctx, newId);
@@ -560,6 +573,7 @@ export async function deleteEvent(ctx, id, { scope = 'all', occurrence } = {}) {
 export async function respond(ctx, id, status) {
   if (!RSVP.includes(status)) throw httpError(400, 'Invalid response', 'INVALID_STATUS');
   const row = await loadEvent(id);
+  if (!withinLimits(ctx, ACL, row.calendar_id)) throw httpError(404, 'Event not found', 'NOT_FOUND');
   const { rowCount } = await query(
     `UPDATE cal_attendees SET status = $3, responded_at = NOW() WHERE event_id = $1 AND user_id = $2`,
     [row.id, ctx.userId, status]

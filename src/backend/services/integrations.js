@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { authAvailability, getSettings, parseSettings } from './settings.js';
+import { authAvailability, getSettings, parseSettings, reusableSecret } from './settings.js';
 import { sendGmail, testGoogle } from './google.js';
 
 function fail(message) {
@@ -12,6 +12,8 @@ export async function testEmail(override = {}) {
   const parsed = parseSettings(await getSettings());
   const cfg = { ...parsed.integrations.email, ...override };
   if (!cfg.host || !cfg.user) throw fail('SMTP host and user are required');
+  // The saved password is reused only for the saved server (SECRET_REQUIRED otherwise).
+  const pass = reusableSecret('email', 'password', parsed.integrations.email, override);
 
   const transporter = nodemailer.createTransport({
     host: cfg.host,
@@ -19,7 +21,7 @@ export async function testEmail(override = {}) {
     secure: Boolean(cfg.secure),
     auth: {
       user: cfg.user,
-      pass: cfg.password || parsed.integrations.email.password,
+      pass,
     },
     connectionTimeout: 8000,
   });
@@ -73,8 +75,9 @@ async function gatewayRequest(cfg, path, { method = 'GET', body, auth = true } =
 
 function gatewayConfig(parsed, override = {}) {
   const cfg = { ...parsed.integrations.whatsapp, ...override };
-  if (!cfg.apiKey) cfg.apiKey = parsed.integrations.whatsapp?.apiKey;
   if (!cfg.serverUrl) throw fail('WhatsApp Gateway URL is required');
+  // The saved key is reused only for the saved gateway (SECRET_REQUIRED otherwise).
+  cfg.apiKey = reusableSecret('whatsapp', 'apiKey', parsed.integrations.whatsapp, override);
   if (!cfg.apiKey) throw fail('WhatsApp Gateway API key is required');
   return cfg;
 }
@@ -148,8 +151,8 @@ export async function testWazzup(override = {}) {
 export async function testActiveDirectory(override = {}) {
   const parsed = parseSettings(await getSettings());
   const cfg = { ...parsed.integrations.activeDirectory, ...override };
-  if (!cfg.bindPassword) cfg.bindPassword = parsed.integrations.activeDirectory.bindPassword;
   if (!cfg.host) throw fail('Active Directory host is required');
+  cfg.bindPassword = reusableSecret('activeDirectory', 'bindPassword', parsed.integrations.activeDirectory, override);
   if (!cfg.baseDn) throw fail('Base DN is required');
   const { testDirectory } = await import('./ldap.js');
   try {
@@ -308,8 +311,8 @@ export function mattermostBase(url) {
 
 function mattermostConfig(parsed, override = {}) {
   const cfg = { ...parsed.integrations.mattermost, ...override };
-  if (!cfg.botToken) cfg.botToken = parsed.integrations.mattermost?.botToken;
   if (!cfg.serverUrl) throw fail('Mattermost server URL is required');
+  cfg.botToken = reusableSecret('mattermost', 'botToken', parsed.integrations.mattermost, override);
   if (!cfg.botToken) throw fail('Mattermost bot token is required');
   return cfg;
 }

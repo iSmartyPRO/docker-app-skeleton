@@ -21,6 +21,8 @@ export function ChatProvider({ children }) {
   const listeners = useRef(new Set());
   const connection = useRef(null);
   const focus = useRef(null);
+  const me = useRef(null);
+  me.current = user?.id ?? null;
 
   const refreshUnread = useCallback(() => {
     if (!enabled) return;
@@ -52,7 +54,10 @@ export function ChatProvider({ children }) {
         sendFocus();
         refreshUnread();
       }
-      if (type === 'message' && !data.message?.mine && data.message?.kind !== 'system') {
+      // The stream is shared by all of the person's tabs and marks nothing as "mine",
+      // so own messages are recognised by the author.
+      const own = data.message?.mine || (me.current != null && data.message?.author?.id === me.current);
+      if (type === 'message' && !own && data.message?.kind !== 'system') {
         if (focus.current !== data.roomId || document.visibilityState !== 'visible') setUnread((n) => n + 1);
       }
       if (type === 'read' || type === 'room') refreshUnread();

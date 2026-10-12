@@ -55,6 +55,28 @@ export function normalizePath(raw) {
   return path || '/';
 }
 
+/**
+ * The normalised path of a request target (req.originalUrl), or null when it
+ * cannot be judged. Origin-form (`/api/x?y`) is taken as Express routes it;
+ * absolute-form (`http://host/api/x`) is judged by its pathname, so it cannot
+ * slip past the areas as a path that matches nothing. Anything else is null
+ * and must be refused.
+ */
+export function requestPath(raw) {
+  const text = String(raw ?? '');
+  let pathname;
+  if (text.startsWith('/')) pathname = text.split(/[?#]/)[0];
+  else {
+    try {
+      pathname = new URL(text).pathname;
+    } catch {
+      return null;
+    }
+  }
+  if (!pathname || !pathname.startsWith('/')) return null;
+  return normalizePath(pathname);
+}
+
 /** The area a path belongs to: { area } | { free } | { blocked }. */
 export function classify(path) {
   if (BLOCKED.some((re) => re.test(path))) return { blocked: true };
@@ -66,8 +88,9 @@ export function classify(path) {
   if (/^\/admin\/(users|groups|roles|permissions)(\/|$)/.test(path)) return { area: 'admin.users' };
   if (/^\/admin\/security(\/|$)/.test(path)) return { area: 'admin.security' };
   if (path.startsWith('/admin')) return { area: 'admin.settings' };
-  // Public share prefixes and anything else work as for an anonymous visitor.
-  return { free: true };
+  // Public share prefixes and anything else work as for an anonymous visitor:
+  // the gate drops the token owner's identity for them (see gate.js).
+  return { free: true, anonymous: true };
 }
 
 export const isReadMethod = (method) => ['GET', 'HEAD', 'OPTIONS'].includes(String(method).toUpperCase());
@@ -109,8 +132,14 @@ function patternOf(path) {
   return patternCache.get(path);
 }
 
+/** HEAD is a GET without a body: rules and scopes judge it as GET. */
+const ruleMethod = (method) => {
+  const upper = String(method).toUpperCase();
+  return upper === 'HEAD' ? 'GET' : upper;
+};
+
 export function ruleMatches(rule, method, path) {
-  if (rule.methods.length && !rule.methods.includes(String(method).toUpperCase())) return false;
+  if (rule.methods.length && !rule.methods.includes(ruleMethod(method))) return false;
   return patternOf(String(rule.path).toLowerCase()).test(String(path).toLowerCase());
 }
 
@@ -139,6 +168,7 @@ export function effectivePolicy(template, token) {
  * → { ok, code?, scope?, rule? }
  */
 export function decide(policy, method, path) {
+  if (typeof path !== 'string' || !path.startsWith('/')) return { ok: false, code: 'ROUTE_NOT_AVAILABLE' };
   const where = classify(path);
   if (where.blocked) return { ok: false, code: 'ROUTE_NOT_AVAILABLE' };
   const deny = policy.rules.find((rule) => rule.effect === 'deny' && ruleMatches(rule, method, path));

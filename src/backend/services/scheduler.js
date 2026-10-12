@@ -26,18 +26,19 @@ async function runJob(job) {
     client = await getPool().connect();
     const { rows } = await client.query('SELECT pg_try_advisory_lock($1) AS ok', [lockId(job.name)]);
     if (!rows[0]?.ok) return;
+    // The job keeps its lock and slot until it really ends: giving them back
+    // while it still runs would start a second copy on top of the first. A
+    // job that runs too long is only reported.
+    const limit = job.timeoutMs || 5 * 60 * 1000;
+    const started = Date.now();
+    const watchdog = setInterval(() => {
+      console.warn(`Job ${job.name} is still running after ${Math.round((Date.now() - started) / 1000)} s`);
+    }, limit);
+    watchdog.unref?.();
     try {
-      // A job that hangs (an unreachable server, a stuck query) gives its slot
-      // back after a while instead of blocking reminders and everything else.
-      let timer;
-      await Promise.race([
-        job.run(),
-        new Promise((_, reject) => {
-          timer = setTimeout(() => reject(new Error('timed out')), job.timeoutMs || 5 * 60 * 1000);
-          timer.unref?.();
-        }),
-      ]).finally(() => clearTimeout(timer));
+      await job.run();
     } finally {
+      clearInterval(watchdog);
       await client.query('SELECT pg_advisory_unlock($1)', [lockId(job.name)]).catch(() => {});
     }
   } catch (err) {

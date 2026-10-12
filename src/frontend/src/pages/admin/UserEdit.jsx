@@ -238,6 +238,7 @@ function UserForm({ user, onUpdated, roles, groups }) {
           </SettingRow>
         </SettingsSection>
 
+        {!isSelf && (
         <SettingsSection
           title={t('users.passwordReset')}
           description={user.hasPassword ? t('users.passwordResetDesc') : t('users.noPasswordDesc')}
@@ -248,6 +249,7 @@ function UserForm({ user, onUpdated, roles, groups }) {
             </Form.Item>
           </SettingRow>
         </SettingsSection>
+        )}
       </Form>
 
       {canManage && (

@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { query } from '../config/database.js';
 import { getSettings, parseSettings } from './settings.js';
 
@@ -34,6 +35,16 @@ export async function ensureSecurityTables() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS security_events_created_idx ON security_events (created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS security_events_kind_idx ON security_events (kind, created_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS login_attempts_ip_idx ON login_attempts (ip, created_at DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS login_attempts_username_idx ON login_attempts (username, created_at DESC)`);
+  // Sessions ended by "Sign out": only that cookie stops working, other devices stay signed in.
+  // Rows live until the token would have expired anyway.
+  await query(`
+    CREATE TABLE IF NOT EXISTS revoked_sessions (
+      token_hash TEXT PRIMARY KEY,
+      expires_at TIMESTAMPTZ NOT NULL
+    )
+  `);
 }
 
 function ipv4ToInt(ip) {
@@ -149,6 +160,24 @@ export async function removeIpRule(id) {
   return result.rows[0];
 }
 
+/**
+ * Which X-Forwarded-For hops to believe. The bundled nginx is one hop; put
+ * another proxy (Traefik, NPM, Cloudflare) in front and set TRUST_PROXY_HOPS=2,
+ * otherwise req.ip is the outer proxy and IP lockouts / allow-lists misfire.
+ *
+ * The nearest hop is trusted only when it is loopback (the nginx in this
+ * container). Port 3001 is reachable from every container on the Docker
+ * network, and a request sent there directly with `X-Forwarded-For: 127.0.0.1`
+ * would otherwise pass as local and skip the address allow-list.
+ */
+export function trustProxy(hopsEnv) {
+  const hops = Math.max(0, Number(hopsEnv ?? 1) || 0);
+  if (hops === 0) return false;
+  const loopback = (addr) => /^(127\.|::1$|::ffff:127\.)/.test(String(addr));
+  // proxy-addr asks about each address from the socket outwards; `i` is its position.
+  return (addr, i) => (i === 0 ? loopback(addr) : i < hops);
+}
+
 /** Pure verdict for an IP given security settings and rules (no I/O). */
 export function decideIpAccess(clientIp, security = {}, rules = []) {
   const ip = normalizeIp(clientIp);
@@ -201,41 +230,104 @@ export async function evaluateIpAccess(clientIp) {
   return decideIpAccess(ip, security, rules);
 }
 
+/**
+ * The name a sign-in is counted under for per-account lockouts. Lookups are
+ * case-insensitive and Active Directory accepts several spellings of one
+ * person, so `Ivan`, ` ivan `, `CORP\ivan` and `ivan@corp.kz` must share one
+ * failure counter — otherwise each variant gets a fresh set of guesses.
+ * `directory` strips the domain parts (password sign-in only: for email codes
+ * the domain is part of the identity).
+ */
+export function lockoutKey(value, { directory = false } = {}) {
+  let key = String(value || '').trim().toLowerCase().replace(/^@+/, '');
+  if (directory) {
+    if (key.includes('\\')) key = key.slice(key.lastIndexOf('\\') + 1);
+    if (key.includes('@')) key = key.slice(0, key.indexOf('@'));
+  }
+  // Phone numbers are typed in many shapes: keep the digits only.
+  if (/^\+?[\d\s().-]{7,}$/.test(key)) key = key.replace(/\D/g, '');
+  return key.trim().slice(0, 64);
+}
+
 export async function recordLoginAttempt({ username, ip, success }) {
   await query(
     `
     INSERT INTO login_attempts (username, ip, success)
     VALUES ($1, $2, $3)
     `,
-    [String(username || '').slice(0, 64) || null, ip || null, Boolean(success)]
+    [lockoutKey(username) || null, ip || null, Boolean(success)]
   );
   await query(`DELETE FROM login_attempts WHERE created_at < NOW() - INTERVAL '7 days'`).catch(() => {});
 }
 
-async function failedStreak(column, value, minutes, max) {
-  if (!value) return false;
-  const field = column === 'ip' ? 'ip' : 'username';
+/** Account: the last `max` attempts all failed (the owner signing in resets it). */
+async function accountLocked(username, minutes, max) {
+  if (!username) return false;
   const result = await query(
     `
     SELECT success
     FROM login_attempts
     WHERE created_at > NOW() - ($1 || ' minutes')::interval
-      AND ${field} = $2
+      AND username = $2
     ORDER BY id DESC
     LIMIT $3
     `,
-    [String(minutes), value, max]
+    [String(minutes), username, max]
   );
   return result.rows.length >= max && result.rows.every((row) => row.success === false);
 }
+
+/**
+ * Address: failures in the window are counted, not a streak — otherwise one
+ * successful sign-in with an attacker's own account resets the counter
+ * between guesses at other accounts.
+ */
+async function ipLocked(ip, minutes, max) {
+  if (!ip) return false;
+  const result = await query(
+    `
+    SELECT COUNT(*)::int AS failed
+    FROM login_attempts
+    WHERE created_at > NOW() - ($1 || ' minutes')::interval
+      AND ip = $2 AND success = FALSE
+    `,
+    [String(minutes), ip]
+  );
+  return result.rows[0].failed >= max;
+}
+
+// An address is often shared (office NAT), so it gets more room than one account.
+export const IP_FAILURE_FACTOR = 2;
 
 export async function isLockedOut(username, ip) {
   const parsed = parseSettings(await getSettings());
   const max = Number(parsed.security?.maxLoginAttempts) || 8;
   const minutes = Number(parsed.security?.lockoutMinutes) || 15;
-  const userLocked = await failedStreak('username', username || '', minutes, max);
-  const ipLocked = await failedStreak('ip', ip || '', minutes, max);
-  return userLocked || ipLocked;
+  const userLocked = await accountLocked(lockoutKey(username), minutes, max);
+  return userLocked || (await ipLocked(ip || '', minutes, max * IP_FAILURE_FACTOR));
+}
+
+// ── Signed-out sessions ──────────────────────────────────────────────────────
+
+export function sessionTokenHash(token) {
+  return createHash('sha256').update(String(token)).digest('hex');
+}
+
+/** Ends one session cookie (the JWT itself stays valid until `exp`, so it is listed). */
+export async function revokeSession(token, expSeconds) {
+  if (!token) return;
+  const expires = Number(expSeconds) > 0 ? new Date(Number(expSeconds) * 1000) : new Date(Date.now() + 90 * 86400000);
+  await query(
+    `INSERT INTO revoked_sessions (token_hash, expires_at) VALUES ($1, $2) ON CONFLICT (token_hash) DO NOTHING`,
+    [sessionTokenHash(token), expires]
+  );
+  await query(`DELETE FROM revoked_sessions WHERE expires_at < NOW()`).catch(() => {});
+}
+
+export async function isSessionRevoked(token) {
+  if (!token) return false;
+  const result = await query(`SELECT 1 FROM revoked_sessions WHERE token_hash = $1`, [sessionTokenHash(token)]);
+  return result.rows.length > 0;
 }
 
 const EVENT_KINDS = new Set([

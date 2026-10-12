@@ -18,6 +18,7 @@ import {
   listUsers,
   revokeSessions,
   setAvatar,
+  tokenLockedChanges,
   unlinkTelegram,
   updateUser,
 } from '../services/users.js';
@@ -34,8 +35,8 @@ import {
 } from '../services/security.js';
 import {
   PERMISSION_CATALOG,
-  SETTINGS_PATCH_PERMISSIONS,
   SETTINGS_PERMISSIONS,
+  deniedSettingsKeys,
   hasPermission,
 } from '../services/permissions.js';
 import {
@@ -49,7 +50,7 @@ import {
 } from '../services/rbac.js';
 
 import { disconnectGmailSender, publicBase, redirectUri } from '../services/google.js';
-import { readFile as readIconFile, unlink as removeIconFile } from 'fs/promises';
+import { readFile as readIconFile, unlink as removeIconFile, unlink as removeUploadedFile } from 'fs/promises';
 
 /** App icons (PWA / home screen): square PNG, 192–4096 px. */
 async function verifyAppIcon(file) {
@@ -101,7 +102,7 @@ async function assertAdminKeepsAccess(req, { security, rules } = {}) {
 // ── Console ─────────────────────────────────────────────────────────────────
 
 router.get('/overview', wrap(async (req, res) => {
-  res.json({ success: true, overview: await getOverview() });
+  res.json({ success: true, overview: await getOverview(req.actor.permissions) });
 }));
 
 router.get('/permissions', wrap(async (req, res) => {
@@ -123,11 +124,11 @@ router.get('/settings', anySettings, wrap(async (req, res) => {
 /** Each top-level key of the patch needs its own permission. */
 router.put('/settings', anySettings, wrap(async (req, res) => {
   const patch = req.body || {};
-  const denied = Object.keys(patch).filter(
-    (key) => SETTINGS_PATCH_PERMISSIONS[key] && !hasPermission(req.actor.permissions, SETTINGS_PATCH_PERMISSIONS[key])
-  );
+  // Unknown keys are refused too, so a new setting can never slip through
+  // with only settings.view.
+  const denied = deniedSettingsKeys(patch, req.actor.permissions);
   if (denied.length) {
-    res.status(403).json({ success: false, error: 'You do not have permission to change these settings', code: 'FORBIDDEN' });
+    res.status(403).json({ success: false, error: 'You do not have permission to change these settings', code: 'FORBIDDEN', keys: denied });
     return;
   }
   if (patch.security) await assertAdminKeepsAccess(req, { security: patch.security });
@@ -186,8 +187,10 @@ const manageUsers = requirePermission('users.manage');
 
 // ── Notification delivery (channels, WhatsApp provider, coverage, test) ────
 const notifySettings = requirePermission('settings.integrations', 'settings.view');
-router.get('/notifications', notifySettings, wrap(async (req, res) => res.json({ success: true, ...(await notifyOverview()) })));
-router.put('/notifications', requirePermission('settings.integrations'), wrap(async (req, res) => res.json({ success: true, ...(await saveNotifyConfig(req.body || {})) })));
+// Accounts sharing a contact (names, phones, e-mails) only with users.view.
+const notifyView = (req) => ({ duplicates: hasPermission(req.actor.permissions, 'users.view') });
+router.get('/notifications', notifySettings, wrap(async (req, res) => res.json({ success: true, ...(await notifyOverview(notifyView(req))) })));
+router.put('/notifications', requirePermission('settings.integrations'), wrap(async (req, res) => res.json({ success: true, ...(await saveNotifyConfig(req.body || {}, notifyView(req))) })));
 router.post('/notifications/test', requirePermission('settings.integrations'), wrap(async (req, res) => res.json({ success: true, result: await adminTest(req.body || {}) })));
 
 router.get('/users', viewUsers, wrap(async (req, res) => {
@@ -214,27 +217,49 @@ router.get('/users/:id', viewUsers, wrap(async (req, res) => {
 }));
 
 router.put('/users/:id', manageUsers, wrap(async (req, res) => {
+  // A token editing its own owner here is held to the cabinet's rule: no
+  // contact changes (they receive sign-in codes).
+  if (req.apiToken && Number(req.params.id) === Number(req.actor.id)) {
+    const locked = tokenLockedChanges(req.body, req.userRow, true);
+    if (locked.length) {
+      res.status(403).json({
+        success: false,
+        code: 'TOKEN_FORBIDDEN_FIELD',
+        error: `An API token cannot change ${locked.join(', ')}. Sign in to the portal to change contacts.`,
+        fields: locked,
+      });
+      return;
+    }
+  }
   const user = await updateUser(Number(req.params.id), req.body || {}, { actor: req.actor });
   res.json({ success: true, user });
   userWebhook('user.updated', user, req.actor.id);
 }));
 
-router.post('/users/:id/avatar', manageUsers, (req, res, next) => {
-  avatarUpload(req, res, async (err) => {
-    if (err) {
-      err.statusCode = 400;
-      return next(err);
-    }
-    if (!req.file) return res.status(400).json({ success: false, error: 'Avatar file is required' });
-    try {
-      await assertCanManage(req.actor, Number(req.params.id));
-      await verifyUploadedFile(req.file, 'avatar');
-      return res.json({ success: true, user: await setAvatar(Number(req.params.id), req.file.filename) });
-    } catch (error) {
-      return next(error);
-    }
+router.post('/users/:id/avatar', manageUsers, wrap(async (req, res) => {
+  // Checked before anything is written to disk.
+  await assertCanManage(req.actor, Number(req.params.id));
+  await new Promise((resolve, reject) => {
+    avatarUpload(req, res, (err) => {
+      if (err) {
+        err.statusCode = 400;
+        reject(err);
+      } else resolve();
+    });
   });
-});
+  if (!req.file) {
+    res.status(400).json({ success: false, error: 'Avatar file is required' });
+    return;
+  }
+  try {
+    await verifyUploadedFile(req.file, 'avatar');
+    res.json({ success: true, user: await setAvatar(Number(req.params.id), req.file.filename) });
+  } catch (error) {
+    // Nothing references a file that was not saved to the user.
+    await removeUploadedFile(req.file.path).catch(() => {});
+    throw error;
+  }
+}));
 
 router.post('/users/:id/revoke-sessions', manageUsers, wrap(async (req, res) => {
   const id = Number(req.params.id);

@@ -5,6 +5,7 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import { query, withTransaction } from '../config/database.js';
 import { avatarDir } from '../config/paths.js';
 import { LOCKED_ROLE } from './permissions.js';
+import { runBeforeUserDelete } from './hooks.js';
 import {
   NO_PASSWORD,
   assertSuperadminRemains,
@@ -118,6 +119,33 @@ export function normalizePhone(phone) {
     throw httpError(400, 'Phone number is not valid. Use the international format, e.g. +996 700 123 456');
   }
   return parsed.number;
+}
+
+/*
+ * Contacts that receive sign-in codes. An API token must not change them: it
+ * could point one at an address it controls, sign in by code there and get a
+ * full cookie session. Re-sending the current value (a whole-profile save) is
+ * not a change.
+ */
+export const TOKEN_LOCKED_FIELDS = ['email', 'phone', 'mattermost'];
+
+const SAME_CONTACT = {
+  email: (next, current) => String(next ?? '').trim().toLowerCase() === String(current ?? '').trim().toLowerCase(),
+  phone: (next, current) => normalizePhone(next) === (current || null),
+  mattermost: (next, current) => normalizeMattermost(next) === (current ? String(current).toLowerCase() : null),
+};
+
+/** Contact fields a token request would change (always empty for cookie sessions). */
+export function tokenLockedChanges(patch, current, viaToken) {
+  if (!viaToken) return [];
+  return TOKEN_LOCKED_FIELDS.filter((field) => {
+    if (patch?.[field] === undefined) return false;
+    try {
+      return !SAME_CONTACT[field](patch[field], current?.[field]);
+    } catch {
+      return true;
+    }
+  });
 }
 
 export function isValidPhone(phone) {
@@ -345,7 +373,26 @@ const CONTACT_SQL = {
   instagram: 'LOWER(instagram) = LOWER($1)',
 };
 
-export async function assertUniqueContacts(client, contacts, { excludeId = 0, reveal = false } = {}) {
+/** Advisory-lock key text for one contact value (see assertUniqueContacts). */
+export function contactLockKey(field, value) {
+  return `contact:${field}:${String(value).toLowerCase()}`;
+}
+
+/*
+ * A unique index cannot enforce the rule (production still has a pair shared
+ * from before it), so with `lock` each checked value is first locked for the
+ * rest of the transaction: two concurrent saves of one contact queue up and
+ * the second sees the first's row. `client` must then be a transaction client.
+ * Keys are locked in a fixed order so two saves never deadlock.
+ */
+export async function assertUniqueContacts(client, contacts, { excludeId = 0, reveal = false, lock = false } = {}) {
+  if (lock) {
+    const keys = Object.entries(contacts)
+      .filter(([field, value]) => value && CONTACT_SQL[field])
+      .map(([field, value]) => contactLockKey(field, value))
+      .sort();
+    for (const key of keys) await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [key]);
+  }
   for (const [field, value] of Object.entries(contacts)) {
     if (!value || !CONTACT_SQL[field]) continue;
     const { rows } = await client.query(`SELECT username FROM users WHERE ${CONTACT_SQL[field]} AND id <> $2 LIMIT 1`, [value, excludeId || 0]);
@@ -387,7 +434,7 @@ export async function createUser(input, actor) {
       await assertUniqueContacts(
         client,
         { email: normalizeEmail(input.email), phone: normalizePhone(input.phone), instagram: normalizeInstagram(input.instagram), mattermost: normalizeMattermost(input.mattermost) },
-        { reveal: true }
+        { reveal: true, lock: true }
       );
       const result = await client.query(
         `INSERT INTO users (username, email, password_hash, role, display_name, phone, instagram, mattermost, email_trusted)
@@ -435,6 +482,7 @@ export async function provisionExternalUser(client, { username, displayName, ema
     safeEmail = null;
   }
   // A directory address already used by another account is not copied.
+  if (safeEmail) await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [contactLockKey('email', safeEmail)]);
   if (safeEmail && (await client.query(`SELECT 1 FROM users WHERE LOWER(email) = LOWER($1)`, [safeEmail])).rows.length) safeEmail = null;
   const result = await client.query(
     `INSERT INTO users (username, email, password_hash, role, display_name, auth_source, external_id,
@@ -467,16 +515,20 @@ export async function syncExternalProfile(id, { displayName, email }) {
   } catch {
     safeEmail = undefined;
   }
-  if (safeEmail && (await query(`SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2`, [safeEmail, id])).rows.length) safeEmail = undefined;
-  await query(
-    `UPDATE users SET
-       display_name = COALESCE($2, display_name),
-       email = COALESCE($3, email),
-       email_trusted = CASE WHEN $3::text IS NULL THEN email_trusted ELSE TRUE END,
-       updated_at = NOW()
-     WHERE id = $1`,
-    [id, displayName ? String(displayName).slice(0, 128) : null, safeEmail || null]
-  );
+  await withTransaction(async (client) => {
+    // Same lock as assertUniqueContacts: the check and the write are atomic.
+    if (safeEmail) await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [contactLockKey('email', safeEmail)]);
+    if (safeEmail && (await client.query(`SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2`, [safeEmail, id])).rows.length) safeEmail = undefined;
+    await client.query(
+      `UPDATE users SET
+         display_name = COALESCE($2, display_name),
+         email = COALESCE($3, email),
+         email_trusted = CASE WHEN $3::text IS NULL THEN email_trusted ELSE TRUE END,
+         updated_at = NOW()
+       WHERE id = $1`,
+      [id, displayName ? String(displayName).slice(0, 128) : null, safeEmail || null]
+    );
+  });
 }
 
 /**
@@ -495,6 +547,11 @@ export async function updateUser(id, patch, { actor = null } = {}) {
 
     if (actor && !isSelf && !canManageTarget(actor, access.permissions)) {
       throw httpError(403, 'You cannot manage a user with more access than you have');
+    }
+    if (actor && isSelf && patch.password) {
+      // The console has no "current password" field; one's own password is
+      // changed in the cabinet, which asks for it.
+      throw httpError(400, 'Change your own password in your account settings (it asks for the current one)', 'USE_ACCOUNT_PASSWORD');
     }
     if (actor && isSelf) {
       const statusChange =
@@ -521,7 +578,7 @@ export async function updateUser(id, patch, { actor = null } = {}) {
     ]) {
       if (value && String(value).toLowerCase() !== String(user[field] || '').toLowerCase()) changed[field] = value;
     }
-    await assertUniqueContacts(client, changed, { excludeId: id, reveal: Boolean(actor && !isSelf) });
+    await assertUniqueContacts(client, changed, { excludeId: id, reveal: Boolean(actor && !isSelf), lock: true });
 
     if (patch.email !== undefined) {
       const email = normalizeEmail(patch.email);
@@ -707,6 +764,9 @@ export async function deleteUser(id, actor) {
     if (!canManageTarget(actor, access.permissions)) {
       throw httpError(403, 'You cannot delete a user with more access than you have');
     }
+    // Hook point for modules (e.g. hand shared-space files to someone else
+    // before the account's rows cascade away). A failing hook aborts the delete.
+    await runBeforeUserDelete(client, Number(id), { actor });
     await client.query(`DELETE FROM users WHERE id = $1`, [id]);
     await assertSuperadminRemains(client);
     return user.avatar_path;

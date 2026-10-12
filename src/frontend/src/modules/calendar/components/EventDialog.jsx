@@ -116,6 +116,8 @@ export default function EventDialog({ open, draft, event, calendars, googleCalen
       allDay: isAllDay,
       startDate: start,
       startTime: start,
+      _prevStartDate: start,
+      _prevStartTime: start,
       endDate: end,
       endTime: end,
       repeat: presetOf(rule, start),

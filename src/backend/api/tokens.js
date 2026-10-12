@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
 import { query } from '../config/database.js';
 import { isValidIpOrCidr, ipMatchesRule, normalizeIp } from '../services/security.js';
-import { hasPermission } from '../services/permissions.js';
+import { hasPermission, isSubset } from '../services/permissions.js';
+import { getUserAccess } from '../services/rbac.js';
 import { avatarUrl } from '../services/users.js';
 import { apiConfig } from './config.js';
 import { cleanLimits, cleanRules, cleanScopes, effectivePolicy, limitsByTable } from './scopes.js';
@@ -109,6 +110,29 @@ export async function getToken(id, { userId = null } = {}) {
   return tokenShape(rows[0]);
 }
 
+// ── Acting for another person ───────────────────────────────────────────────
+
+/**
+ * Whether someone holding `actorPermissions` may make a credential that acts
+ * as a person holding `targetPermissions`: only when the target can do
+ * nothing the actor cannot (no stepping up to a superadmin's token).
+ */
+export function mayActFor(actorPermissions, targetPermissions) {
+  return isSubset(targetPermissions, actorPermissions);
+}
+
+/**
+ * Throws 403 TARGET_TOO_POWERFUL unless `actor` may make a token / webhook
+ * that runs as `userId`. Acting as oneself is always fine.
+ */
+export async function assertMayActFor(actor, userId) {
+  if (Number(userId) === Number(actor.id)) return;
+  const access = await getUserAccess(Number(userId));
+  if (!mayActFor(actor.permissions, access.permissions)) {
+    throw httpError(403, 'This person has rights you do not hold; you cannot act on their behalf', 'TARGET_TOO_POWERFUL');
+  }
+}
+
 // ── Writing ─────────────────────────────────────────────────────────────────
 
 async function cleanInput(input, current, { config }) {
@@ -167,6 +191,7 @@ export async function createToken(actor, input = {}) {
   if (!admin && !config.personalTokens) throw httpError(403, 'Personal tokens are turned off', 'PERSONAL_TOKENS_OFF');
   const { rows: users } = await query(`SELECT id, is_active FROM users WHERE id = $1`, [userId]);
   if (!users[0]) throw httpError(400, 'Unknown user', 'USER_UNKNOWN');
+  await assertMayActFor(actor, userId);
   const fields = await cleanInput(input, null, { config });
   if (fields.template_id === undefined && !input.scopes) {
     const { rows } = await query(`SELECT id FROM api_templates WHERE key = 'read_only'`);
@@ -193,6 +218,9 @@ async function ownedRow(actor, id) {
 export async function updateToken(actor, id, input = {}) {
   const row = await ownedRow(actor, id);
   if (row.revoked_at) throw httpError(400, 'The token is revoked', 'REVOKED');
+  // A token's owner never changes (userId is not editable); widening the
+  // scopes or address list of a stronger person's token is acting for them.
+  await assertMayActFor(actor, row.user_id);
   const fields = await cleanInput(input, row, { config: await apiConfig() });
   const keys = Object.keys(fields);
   if (keys.length) {
@@ -216,6 +244,8 @@ export async function revokeToken(actor, id) {
 export async function rotateToken(actor, id) {
   const row = await ownedRow(actor, id);
   if (row.revoked_at) throw httpError(400, 'The token is revoked', 'REVOKED');
+  // The new secret goes to the actor: as good as creating a token for the owner.
+  await assertMayActFor(actor, row.user_id);
   const secret = newSecret();
   await query(`UPDATE api_tokens SET prefix = $2, secret_hash = $3, updated_at = NOW() WHERE id = $1`, [row.id, secret.prefix, secret.hash]);
   forget(row.prefix);
@@ -231,22 +261,33 @@ export async function deleteToken(actor, id) {
 
 // ── Authenticating a request ────────────────────────────────────────────────
 
+// Only existing tokens are cached (prefixes are attacker-chosen: a miss is
+// never kept), at most CACHE_MAX of them, least recently used out first.
 const cache = new Map(); // prefix → { at, row }
 const CACHE_MS = 15_000;
+const CACHE_MAX = 1000;
 function forget(prefix) {
   cache.delete(prefix);
 }
 
 async function rowByPrefix(prefix) {
   const hit = cache.get(prefix);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.row;
+  if (hit && Date.now() - hit.at < CACHE_MS) {
+    cache.delete(prefix);
+    cache.set(prefix, hit);
+    return hit.row;
+  }
+  if (hit) cache.delete(prefix);
   const { rows } = await query(
     `SELECT k.*, t.scopes AS template_scopes, t.rules AS template_rules
      FROM api_tokens k LEFT JOIN api_templates t ON t.id = k.template_id WHERE k.prefix = $1`,
     [prefix]
   );
   const row = rows[0] || null;
-  cache.set(prefix, { at: Date.now(), row });
+  if (row) {
+    cache.set(prefix, { at: Date.now(), row });
+    while (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
+  }
   return row;
 }
 
@@ -316,4 +357,56 @@ export function takeRate(tokenId, limit) {
   }
   entry.count += 1;
   return { ok: entry.count <= limit, remaining: Math.max(0, limit - entry.count), reset: Math.ceil((minute + 60000 - now) / 1000) };
+}
+
+// ── Failed authentication (per address, sliding window) ─────────────────────
+
+/*
+ * Bad tokens are answered before any per-token limit exists, so each address
+ * gets FAIL_MAX failures per FAIL_WINDOW_MS; past that, it is answered 429
+ * without touching the database. Failures are logged at most once per address
+ * per minute.
+ */
+const FAIL_MAX = 30;
+const FAIL_WINDOW_MS = 5 * 60_000;
+const FAIL_LOG_MS = 60_000;
+const FAIL_TRACKED = 10_000;
+const failures = new Map(); // ip → { hits: [timestamps], loggedAt }
+
+function failureEntry(ip, now) {
+  const key = String(ip || '');
+  const entry = failures.get(key);
+  if (!entry) return null;
+  while (entry.hits.length && now - entry.hits[0] >= FAIL_WINDOW_MS) entry.hits.shift();
+  if (!entry.hits.length && now - entry.loggedAt >= FAIL_LOG_MS) {
+    failures.delete(key);
+    return null;
+  }
+  return entry;
+}
+
+/** → { ok } or { ok: false, retryAfter } (seconds) while the address is locked out. */
+export function failedAuthState(ip, now = Date.now()) {
+  const entry = failureEntry(ip, now);
+  if (!entry || entry.hits.length < FAIL_MAX) return { ok: true };
+  return { ok: false, retryAfter: Math.max(1, Math.ceil((entry.hits[0] + FAIL_WINDOW_MS - now) / 1000)) };
+}
+
+/** Counts a failure; → whether this one should be written to the request log. */
+export function noteFailedAuth(ip, now = Date.now()) {
+  const key = String(ip || '');
+  let entry = failureEntry(key, now);
+  if (!entry) {
+    entry = { hits: [], loggedAt: 0 };
+    failures.set(key, entry);
+    while (failures.size > FAIL_TRACKED) failures.delete(failures.keys().next().value);
+  }
+  if (entry.hits.length < FAIL_MAX) entry.hits.push(now);
+  const log = now - entry.loggedAt >= FAIL_LOG_MS;
+  if (log) entry.loggedAt = now;
+  return log;
+}
+
+export function resetFailedAuth() {
+  failures.clear();
 }

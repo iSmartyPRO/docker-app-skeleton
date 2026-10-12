@@ -10,6 +10,7 @@ import { avatarDir, ensureUploadDirs, logoDir } from './config/paths.js';
 import { closePool, tryConnectDB } from './config/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { ipGuard } from './middleware/ipGuard.js';
+import { trustProxy } from './services/security.js';
 import { getSettings, parseSettings } from './services/settings.js';
 import { verifyToken } from './services/auth.js';
 import { bootstrapSchema } from './services/schema.js';
@@ -25,10 +26,9 @@ const DEFAULT_RATE_LIMIT = {
   max: 100,
 };
 
-// Number of reverse proxies in front of Express. The bundled nginx is one hop;
-// put another proxy (Traefik, NPM, Cloudflare) in front and set TRUST_PROXY_HOPS=2,
-// otherwise req.ip is the outer proxy and IP lockouts / allow-lists misfire.
-app.set('trust proxy', Math.max(0, Number(process.env.TRUST_PROXY_HOPS ?? 1) || 0));
+// Only the loopback nginx may set the client address (see trustProxy); TRUST_PROXY_HOPS
+// counts the proxies in front (2 with another proxy such as Traefik/NPM/Cloudflare).
+app.set('trust proxy', trustProxy(process.env.TRUST_PROXY_HOPS));
 ensureUploadDirs();
 
 // /api/v1/* is the stable address for integrations (same handlers as /api/*).

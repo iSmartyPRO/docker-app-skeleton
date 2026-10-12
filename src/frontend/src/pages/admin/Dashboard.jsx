@@ -98,13 +98,13 @@ export default function AdminDashboard() {
                   value={data.users.active30d}
                   hint={t('dashboard.active30dHint')}
                 />
-                <Kpi
+                {data.visible?.security !== false && <Kpi
                   to="/admin/activity"
                   icon={icon('shield')}
                   label={t('dashboard.events24h')}
                   value={data.security.total24h}
                   hint={t('dashboard.events24hHint')}
-                />
+                />}
                 <Kpi
                   to="/admin/settings"
                   icon={icon('integrations')}
@@ -115,6 +115,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="dashboard__grid">
+                {data.visible?.security !== false && (
                 <Panel
                   title={t('dashboard.recentEvents')}
                   action={<Link to="/admin/activity">{t('dashboard.viewAll')} →</Link>}
@@ -137,7 +138,9 @@ export default function AdminDashboard() {
                     </ul>
                   )}
                 </Panel>
+                )}
 
+                {data.visible?.recentLogins !== false && (
                 <Panel
                   title={t('dashboard.recentLogins')}
                   action={<Link to="/admin/users">{t('dashboard.viewAll')} →</Link>}
@@ -161,6 +164,7 @@ export default function AdminDashboard() {
                     </ul>
                   )}
                 </Panel>
+                )}
 
                 <Panel title={t('dashboard.quickSettings')} action={<Link to="/admin/settings">{t('nav.settings')} →</Link>}>
                   <div className="quick-grid">

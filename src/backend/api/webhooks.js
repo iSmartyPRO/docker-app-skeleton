@@ -9,7 +9,7 @@ import { seal, unseal } from '../services/crypto.js';
 import { apiConfig } from './config.js';
 import { cleanEvents, eventMatches, requestAs, setEventSink } from './events.js';
 import { cleanLimits } from './scopes.js';
-import { httpError } from './tokens.js';
+import { assertMayActFor, httpError } from './tokens.js';
 
 /*
  * Outgoing webhooks.
@@ -29,6 +29,9 @@ import { httpError } from './tokens.js';
 const RETRY_MINUTES = [1, 5, 30, 120, 360];
 const MAX_STREAK = 20;
 const TIMEOUT_MS = 10_000;
+// One attempt (address check, request, bookkeeping) never holds the queue longer than this.
+const ATTEMPT_MS = 30_000;
+const BODY_MAX = 4000;
 
 const clean = (value, max) => String(value ?? '').trim().slice(0, max);
 
@@ -132,7 +135,7 @@ export async function getWebhook(id) {
   return hookShape(rows[0]);
 }
 
-async function cleanHook(input, current) {
+async function cleanHook(input, current, actor) {
   const config = await apiConfig();
   const out = {};
   if (input.name !== undefined || !current) {
@@ -151,6 +154,10 @@ async function cleanHook(input, current) {
     out.user_id = rows[0].id;
   }
   if (input.limits !== undefined) out.limits = JSON.stringify(cleanLimits(input.limits));
+  // Choosing whom the hook runs as, or where and what it sends while running
+  // as someone, is acting for that person: only for people no stronger than the actor.
+  const runAs = out.user_id ?? current?.user_id ?? actor.id;
+  if (!current || ['user_id', 'url', 'events', 'limits'].some((key) => key in out)) await assertMayActFor(actor, runAs);
   if (typeof input.active === 'boolean') {
     out.active = input.active;
     if (input.active) {
@@ -164,7 +171,7 @@ async function cleanHook(input, current) {
 export async function createWebhook(actor, input = {}) {
   const config = await apiConfig();
   if (!config.webhooks) throw httpError(403, 'Webhooks are turned off', 'WEBHOOKS_OFF');
-  const fields = await cleanHook(input, null);
+  const fields = await cleanHook(input, null, actor);
   if (!fields.user_id) fields.user_id = actor.id;
   const secret = newSecret();
   const columns = ['secret', 'created_by', ...Object.keys(fields)];
@@ -177,10 +184,10 @@ export async function createWebhook(actor, input = {}) {
   return { webhook: await getWebhook(rows[0].id), secret };
 }
 
-export async function updateWebhook(id, input = {}) {
+export async function updateWebhook(actor, id, input = {}) {
   const { rows } = await query(`SELECT * FROM api_webhooks WHERE id = $1`, [Number(id)]);
   if (!rows[0]) throw httpError(404, 'Webhook not found', 'NOT_FOUND');
-  const fields = await cleanHook(input, rows[0]);
+  const fields = await cleanHook(input, rows[0], actor);
   const keys = Object.keys(fields);
   if (keys.length) {
     await query(`UPDATE api_webhooks SET ${keys.map((key, i) => `${key} = $${i + 2}`).join(', ')}, updated_at = NOW() WHERE id = $1`, [rows[0].id, ...Object.values(fields)]);
@@ -237,27 +244,76 @@ async function enqueueEvent(type, data, { visible }) {
 }
 setEventSink(enqueueEvent);
 
-/** POST with a DNS lookup that refuses private addresses at connect time (no rebinding). */
-function post(url, headers, body, { allowPrivate }) {
+/**
+ * A `lookup` for http(s).request that refuses private addresses at connect
+ * time (no DNS rebinding between the check and the request). Every address
+ * of the name is checked; with `options.all` (Node's happy eyeballs asks for
+ * that) the whole list is handed back, otherwise the first one.
+ */
+export function guardedLookup({ allowPrivate }) {
+  return (hostname, options, callback) => {
+    if (typeof options === 'function') {
+      callback = options;
+      options = {};
+    } else if (typeof options === 'number') options = { family: options };
+    const opts = options || {};
+    dnsLookup(hostname, { ...opts, all: true }, (err, addresses) => {
+      if (err) return callback(err);
+      if (!addresses?.length) {
+        const error = new Error(`The host name ${hostname} does not resolve`);
+        error.code = 'ENOTFOUND';
+        return callback(error);
+      }
+      if (!allowPrivate && addresses.some((entry) => isPrivateAddress(entry.address))) {
+        return callback(new Error('The address resolves to a private network'));
+      }
+      if (opts.all) return callback(null, addresses);
+      return callback(null, addresses[0].address, addresses[0].family);
+    });
+  };
+}
+
+/**
+ * POSTs `body`; → { status, text }. The whole exchange has a hard deadline
+ * (a receiver trickling bytes cannot hold it open), and at most BODY_MAX
+ * characters of the answer are read.
+ */
+export function post(url, headers, body, { allowPrivate, timeoutMs = TIMEOUT_MS }) {
   return new Promise((resolve, reject) => {
     const target = new URL(url);
     const lib = target.protocol === 'https:' ? https : http;
-    const lookup = (hostname, options, callback) =>
-      dnsLookup(hostname, { ...options, all: false }, (err, address, family) => {
-        if (err) return callback(err);
-        if (!allowPrivate && isPrivateAddress(address)) return callback(new Error('The address resolves to a private network'));
-        return callback(null, address, family);
-      });
-    const request = lib.request(target, { method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) }, lookup, timeout: TIMEOUT_MS }, (response) => {
-      let text = '';
-      response.setEncoding('utf8');
-      response.on('data', (chunk) => {
-        if (text.length < 4000) text += chunk;
-      });
-      response.on('end', () => resolve({ status: response.statusCode, text: text.slice(0, 2000) }));
-    });
-    request.on('timeout', () => request.destroy(new Error('Timed out after 10 s')));
-    request.on('error', reject);
+    let done = false;
+    let deadline = null;
+    const finish = (fn, value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(deadline);
+      fn(value);
+    };
+    const request = lib.request(
+      target,
+      { method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) }, lookup: guardedLookup({ allowPrivate }), timeout: timeoutMs },
+      (response) => {
+        let text = '';
+        response.setEncoding('utf8');
+        const answer = () => finish(resolve, { status: response.statusCode, text: text.slice(0, 2000) });
+        response.on('data', (chunk) => {
+          text += chunk;
+          if (text.length >= BODY_MAX) {
+            // Enough to show; stop reading the rest.
+            answer();
+            request.destroy();
+          }
+        });
+        response.on('end', answer);
+        response.on('error', (err) => finish(reject, err));
+        response.on('close', () => finish(reject, new Error('The connection closed before the answer ended')));
+      }
+    );
+    deadline = setTimeout(() => request.destroy(new Error(`Timed out after ${Math.round(timeoutMs / 1000)} s`)), timeoutMs);
+    deadline.unref?.();
+    request.on('timeout', () => request.destroy(new Error(`Timed out after ${Math.round(timeoutMs / 1000)} s`)));
+    request.on('error', (err) => finish(reject, err));
     request.end(body);
   });
 }
@@ -287,11 +343,31 @@ async function send(hook, payload, deliveryId) {
   }
 }
 
-let delivering = false;
+const webhooksOn = (config) => Boolean(config.webhooks && config.enabled);
+
+/** Resolves when `promise` does, or after `ms` (the work may go on, the caller moves on). */
+function withTimeout(promise, ms) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Gave up after ${Math.round(ms / 1000)} s`)), ms);
+      timer.unref?.();
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+// Start of the running pass (0 = none). A pass older than the longest it can
+// take is treated as lost, so the queue never stays blocked.
+let delivering = 0;
+const PASS_MS = 10 * (ATTEMPT_MS + 5000);
 /** Sends what is due; run by the scheduler and right after an event. */
 export async function deliverDue() {
-  if (delivering) return;
-  delivering = true;
+  if (delivering && Date.now() - delivering < PASS_MS) return;
+  // Switched off: pending deliveries stay pending until it is turned back on.
+  if (!webhooksOn(await apiConfig())) return;
+  const pass = Date.now();
+  delivering = pass;
   try {
     for (let round = 0; round < 10; round += 1) {
       const { rows } = await query(
@@ -303,10 +379,11 @@ export async function deliverDue() {
          RETURNING d.*`
       );
       if (!rows.length) break;
-      await Promise.all(rows.map((row) => attempt(row)));
+      await Promise.allSettled(rows.map((row) => withTimeout(attempt(row), ATTEMPT_MS)));
+      if (!webhooksOn(await apiConfig())) break;
     }
   } finally {
-    delivering = false;
+    if (delivering === pass) delivering = 0;
   }
 }
 
@@ -318,6 +395,11 @@ async function attempt(delivery) {
     return;
   }
   const config = await apiConfig();
+  if (!webhooksOn(config)) {
+    // Turned off meanwhile: leave it pending, untouched, for when it is back on.
+    await query(`UPDATE api_deliveries SET next_attempt_at = NOW() WHERE id = $1 AND status = 'pending'`, [delivery.id]);
+    return;
+  }
   let result;
   try {
     await checkUrl(hook.url, { allowPrivate: config.webhooksPrivate });
@@ -355,6 +437,7 @@ export async function pingWebhook(id) {
   const { rows } = await query(`SELECT * FROM api_webhooks WHERE id = $1`, [Number(id)]);
   if (!rows[0]) throw httpError(404, 'Webhook not found', 'NOT_FOUND');
   const config = await apiConfig();
+  if (!webhooksOn(config)) throw httpError(403, config.enabled ? 'Webhooks are turned off' : 'The API is turned off', 'WEBHOOKS_OFF');
   await checkUrl(rows[0].url, { allowPrivate: config.webhooksPrivate });
   const event = envelope('ping', { message: 'Webhook is set up correctly', webhook: { id: rows[0].id, name: rows[0].name } });
   const { rows: inserted } = await query(

@@ -83,8 +83,18 @@ export default function Browser({ place }) {
   const fileInput = useRef(null);
   const placeKey = `${place.type}:${place.id || ''}:${place.q || ''}`;
 
+  // Listings can answer out of order (fast folder switches, reloads): only the latest lands.
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
-    const next = await loadPlace(place);
+    const seq = ++loadSeq.current;
+    let next;
+    try {
+      next = await loadPlace(place);
+    } catch (err) {
+      if (seq !== loadSeq.current) return null;
+      throw err;
+    }
+    if (seq !== loadSeq.current) return null;
     setData(next);
     return next;
     // eslint-disable-next-line react-hooks/exhaustive-deps

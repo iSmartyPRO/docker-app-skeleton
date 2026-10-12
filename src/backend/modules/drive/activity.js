@@ -275,9 +275,14 @@ export async function activityPeople(q) {
   return rows;
 }
 
-const csvCell = (value) => {
+/**
+ * One CSV cell. Text that a spreadsheet would read as a formula (= + - @, or
+ * a leading tab / CR) gets a leading apostrophe; numbers stay numbers.
+ */
+export const csvCell = (value) => {
   if (value == null) return '';
-  const text = String(value);
+  let text = String(value);
+  if (typeof value !== 'number' && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   return /[",;\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 

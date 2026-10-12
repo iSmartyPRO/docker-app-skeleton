@@ -4,6 +4,7 @@ import { contextFromRequest, httpError, intId, listSubjects, wrap } from '../sha
 import {
   calendarFeed,
   checkKey,
+  checkMoveToProject,
   createProject,
   createTask,
   deleteProject,
@@ -18,6 +19,7 @@ import {
   saveStatuses,
   setProjectAccess,
   setWatching,
+  statusOfProject,
   suggestKey,
   updateProject,
   updateTask,
@@ -129,9 +131,19 @@ export function privateRoutes() {
   router.get('/tasks/:ref', wrap(async (req, res) => res.json({ success: true, task: await getTask(req.tasks, req.params.ref) })));
   router.put('/tasks/:ref', wrap(async (req, res) => {
     const { projectId, ...rest } = req.body || {};
-    // Moving to another project changes the reference: continue by id.
-    const ref = projectId !== undefined ? (await moveTaskToProject(req.tasks, req.params.ref, projectId)).id : req.params.ref;
-    res.json({ success: true, task: await updateTask(req.tasks, ref, rest) });
+    const move = projectId !== undefined ? await checkMoveToProject(req.tasks, req.params.ref, projectId) : null;
+    if (!move || move.same) {
+      res.json({ success: true, task: await updateTask(req.tasks, move ? move.row.id : req.params.ref, rest) });
+      return;
+    }
+    // The other fields go first, in the current project: if they fail, the task stays where it was.
+    // A status is applied after the move, and only when it belongs to the new project
+    // (one of the old project is ignored: the move keeps the status category).
+    const { statusId, ...fields } = rest;
+    await updateTask(req.tasks, move.row.id, fields);
+    let task = await moveTaskToProject(req.tasks, move.row.id, projectId);
+    if (await statusOfProject(statusId, move.target.id)) task = await updateTask(req.tasks, move.row.id, { statusId: Number(statusId) });
+    res.json({ success: true, task });
   }));
   router.delete('/tasks/:ref', wrap(async (req, res) => {
     await deleteTask(req.tasks, req.params.ref);

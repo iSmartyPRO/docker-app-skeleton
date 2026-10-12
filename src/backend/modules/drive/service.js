@@ -7,7 +7,7 @@ import { getUserAccess } from '../../services/rbac.js';
 import { hasPermission } from '../../services/permissions.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { httpError, intId } from '../shared/acl.js';
-import { CONVERTIBLE, INLINE, extOf, mimeOf, officePreview, previewDir } from '../shared/storage.js';
+import { CONVERTIBLE, FILE_CSP, INLINE, contentDisposition, extOf, mimeOf, officePreview, previewDir } from '../shared/storage.js';
 import { connectionStatus, credentialFor, driveSettings, isAuthFailure, parkCredential, serverParams } from './credentials.js';
 import { gateCall, gateReadAll, gateRequest } from './gate.js';
 import { cleanName, cleanPath, joinPath, nameOf, parentOf, relativeTo } from './paths.js';
@@ -411,12 +411,9 @@ export async function uploadInto(target, rel, name, req, { conflict = 'rename', 
 function contentHeaders(res, name, ext, download) {
   const inline = !download && INLINE.has(ext);
   res.setHeader('Content-Type', mimeOf(ext));
-  res.setHeader(
-    'Content-Disposition',
-    `${inline ? 'inline' : 'attachment'}; filename="${name.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '')}"; filename*=UTF-8''${encodeURIComponent(name)}`
-  );
+  res.setHeader('Content-Disposition', contentDisposition(name, inline));
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox");
+  res.setHeader('Content-Security-Policy', FILE_CSP);
   res.setHeader('Cache-Control', 'private, no-cache');
 }
 

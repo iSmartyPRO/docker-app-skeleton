@@ -2,24 +2,33 @@ import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { Button, Calendar, Drawer, Popover, Select, TimePicker } from 'antd';
 import { useLocale } from '../../../../context/LocaleContext';
+import { useAuth } from '../../../../context/AuthContext';
 import { Person, UserAvatar } from '../../../shared/People';
 import { tasksApi } from '../../api';
 import { useTasks } from '../../TasksContext';
 
 // ── People ──────────────────────────────────────────────────────────────────
 
-let peoplePromise = null;
-/** Everyone who can be given a task (active accounts), loaded once per page. */
+let peopleCache = { userId: undefined, promise: null };
+/** Everyone who can be given a task (active accounts), loaded once per page and signed-in person. */
 export function usePeople() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [people, setPeople] = useState([]);
   useEffect(() => {
-    if (!peoplePromise) peoplePromise = tasksApi.subjects().then((res) => res.data.users).catch(() => []);
+    if (!userId) {
+      setPeople([]);
+      return undefined;
+    }
+    if (peopleCache.userId !== userId || !peopleCache.promise) {
+      peopleCache = { userId, promise: tasksApi.subjects().then((res) => res.data.users).catch(() => []) };
+    }
     let alive = true;
-    peoplePromise.then((list) => alive && setPeople(list));
+    peopleCache.promise.then((list) => alive && setPeople(list));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [userId]);
   return people;
 }
 
@@ -76,8 +85,10 @@ export function presetDates() {
   const now = dayjs();
   const at = (day) => day.hour(19).minute(0).second(0).millisecond(0);
   const friday = now.day() <= 5 ? now.day(5) : now.add(1, 'week').day(5);
+  // Late in the day "today" means the end of it; in the last half hour it is gone.
+  const today = at(now).isAfter(now.add(30, 'minute')) ? at(now) : now.hour(23).minute(59).second(0).millisecond(0);
   return [
-    { key: 'today', date: at(now) },
+    ...(today.isAfter(now.add(30, 'minute')) ? [{ key: 'today', date: today }] : []),
     { key: 'tomorrow', date: at(now.add(1, 'day')) },
     { key: 'weekEnd', date: at(friday) },
     { key: 'inWeek', date: at(now.add(7, 'day')) },
@@ -86,7 +97,7 @@ export function presetDates() {
 }
 
 /** The default deadline of a new task: a week ahead at 19:00. */
-export const defaultDeadline = () => presetDates()[3].date.toISOString();
+export const defaultDeadline = () => presetDates().find((preset) => preset.key === 'inWeek').date.toISOString();
 
 export function formatDeadline(value, locale, t) {
   if (!value) return null;

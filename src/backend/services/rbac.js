@@ -326,13 +326,13 @@ export async function getUserAccess(userId, client = { query }) {
 }
 
 /** Effective access for many users at once (lists). */
-export async function getAccessMap(userIds) {
+export async function getAccessMap(userIds, client = { query }) {
   const ids = [...new Set(userIds)];
   if (!ids.length) return new Map();
-  const [graph, direct, member] = await Promise.all([
-    loadGraph(),
-    query(`SELECT user_id, role_id FROM user_roles WHERE user_id = ANY($1)`, [ids]),
-    query(`SELECT user_id, group_id FROM user_group_members WHERE user_id = ANY($1)`, [ids]),
+  const [graph, direct, member] = await runAll(client, [
+    () => loadGraph(client),
+    () => client.query(`SELECT user_id, role_id FROM user_roles WHERE user_id = ANY($1)`, [ids]),
+    () => client.query(`SELECT user_id, group_id FROM user_group_members WHERE user_id = ANY($1)`, [ids]),
   ]);
   const directOf = new Map(ids.map((id) => [id, []]));
   const groupsOf = new Map(ids.map((id) => [id, []]));
@@ -385,6 +385,55 @@ export async function defaultGroupId(client = { query }) {
 /** Whether `actor` may manage a user holding `targetPermissions`. */
 export function canManageTarget(actor, targetPermissions) {
   return isSubset(targetPermissions, actor.permissions);
+}
+
+/** Permissions in `before` that `after` no longer grants. */
+export function lostPermissions(before, after) {
+  const now = new Set(after || []);
+  if (now.has(ALL)) return [];
+  return (before || []).filter((perm) => !now.has(perm));
+}
+
+/** Users who hold any of these roles, directly or through a group. */
+async function holdersOfRoles(client, roleIds) {
+  if (!roleIds.length) return [];
+  const { rows } = await client.query(
+    `SELECT user_id FROM user_roles WHERE role_id = ANY($1)
+     UNION
+     SELECT m.user_id FROM user_group_members m JOIN group_roles gr ON gr.group_id = m.group_id
+     WHERE gr.role_id = ANY($1)`,
+    [roleIds]
+  );
+  return rows.map((row) => row.user_id);
+}
+
+async function membersOfGroup(client, groupId) {
+  const { rows } = await client.query(`SELECT user_id FROM user_group_members WHERE group_id = $1`, [groupId]);
+  return rows.map((row) => row.user_id);
+}
+
+/*
+ * Role and group edits change the access of everyone holding them. Taking
+ * access away is only allowed when the actor could manage each person who
+ * actually loses something (the same rule as editing that person directly).
+ * guardLosses() snapshots access before the change; verify() after it, in the
+ * same transaction, throws (rolling back) on a loss the actor may not cause.
+ */
+async function guardLosses(client, actor, userIds) {
+  const before = actor && userIds.length ? await getAccessMap(userIds, client) : new Map();
+  return {
+    async verify() {
+      if (!before.size) return;
+      const after = await getAccessMap([...before.keys()], client);
+      for (const [userId, access] of before) {
+        if (Number(userId) === Number(actor.id)) continue;
+        if (!lostPermissions(access.permissions, after.get(userId)?.permissions).length) continue;
+        if (!canManageTarget(actor, access.permissions)) {
+          throw httpError(403, 'This change would take access away from users with more access than you have', 'CANNOT_MANAGE_MEMBERS');
+        }
+      }
+    },
+  };
 }
 
 async function permissionsOfRoles(client, roleIds) {
@@ -532,11 +581,14 @@ export async function updateRole(id, patch, actor) {
         throw httpError(403, 'You can only change permissions you hold yourself');
       }
     }
+    const removes = role.permissions.some((perm) => !perms.includes(perm));
+    const guard = await guardLosses(client, actor, removes ? await holdersOfRoles(client, [role.id]) : []);
     const result = await client.query(
       `UPDATE app_roles SET name = $2, description = $3, permissions = $4, updated_at = NOW()
        WHERE id = $1 RETURNING *`,
       [id, name, description, perms]
     );
+    await guard.verify();
     await assertSuperadminRemains(client);
     return roleRow(result.rows[0]);
   });
@@ -551,7 +603,9 @@ export async function deleteRole(id, actor) {
     if (!isSubset(role.permissions, actor.permissions)) {
       throw httpError(403, 'You cannot delete a role with permissions you do not hold');
     }
+    const guard = await guardLosses(client, actor, await holdersOfRoles(client, [role.id]));
     await client.query(`DELETE FROM app_roles WHERE id = $1`, [id]);
+    await guard.verify();
     await assertSuperadminRemains(client);
   });
 }
@@ -637,10 +691,13 @@ export async function saveGroup(id, input, actor) {
         throw httpError(403, 'A group cannot grant permissions you do not hold');
       }
       await permissionsOfRoles(client, next);
+      const removes = currentRoles.some((roleId) => !next.includes(roleId));
+      const guard = await guardLosses(client, actor, removes ? await membersOfGroup(client, group.id) : []);
       await client.query(`DELETE FROM group_roles WHERE group_id = $1`, [group.id]);
       for (const roleId of next) {
         await client.query(`INSERT INTO group_roles (group_id, role_id) VALUES ($1, $2)`, [group.id, roleId]);
       }
+      await guard.verify();
     }
 
     if (input.memberIds !== undefined) {
@@ -690,7 +747,9 @@ export async function deleteGroup(id, actor) {
     if (!isSubset(await permissionsOfRoles(client, roleIds), actor.permissions)) {
       throw httpError(403, 'You cannot delete a group that grants more access than you have');
     }
+    const guard = await guardLosses(client, actor, await membersOfGroup(client, id));
     await client.query(`DELETE FROM app_groups WHERE id = $1`, [id]);
+    await guard.verify();
     await assertSuperadminRemains(client);
   });
 }

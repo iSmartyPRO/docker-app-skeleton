@@ -1,9 +1,11 @@
+import { unlink } from 'fs/promises';
 import { query, withTransaction } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { hasPermission } from '../../services/permissions.js';
+import { getAccessMap } from '../../services/rbac.js';
 import { avatarOf, clean, httpError } from '../shared/acl.js';
 import { entityAdapter } from './entities.js';
-import { fileShape, removeStored } from './files.js';
+import { fileShape, filePath, removeStored } from './files.js';
 import { originalName } from '../kb/files.js';
 import { isOnline, publish } from './realtime.js';
 import { deliverMessage } from './notify.js';
@@ -52,8 +54,19 @@ async function membership(roomId, userId) {
 async function accessTo(ctx, room) {
   if (room.entity_type) {
     const adapter = entityAdapter(room.entity_type);
-    const access = adapter ? await adapter.access(ctx.req, room.entity_id).catch(() => null) : null;
-    if (!access?.view) return { view: false };
+    let access = null;
+    let failed = !adapter;
+    try {
+      access = adapter ? await adapter.access(ctx.req, room.entity_id) : null;
+    } catch {
+      failed = true;
+    }
+    if (!access?.view) {
+      // The record is gone or closed to this person: they leave its conversation too.
+      if (!failed && !ctx.req?.apiLimits && ctx.userId) await dropMembers(room.id, [ctx.userId]);
+      return { view: false };
+    }
+    remember(room.id, ctx.userId, true, ctx);
     if ((access.title && access.title !== room.title) || (access.link && access.link !== room.link)) {
       await query(`UPDATE chat_rooms SET title = COALESCE($2, title), link = COALESCE($3, link) WHERE id = $1`, [room.id, access.title?.slice(0, 200) || null, access.link || null]);
       room.title = access.title || room.title;
@@ -64,6 +77,116 @@ async function accessTo(ctx, room) {
   const member = await membership(room.id, ctx.userId);
   if (!member) return { view: false };
   return { view: true, write: true, manage: room.kind === 'group' && (member.role === 'owner' || ctx.isAdmin), member };
+}
+
+// ── Entity rooms: membership follows the record's access ────────────────────
+//
+// People join an entity room by opening it, and lose the record later (taken
+// off a task, project access removed). Every place that reads chat_members of
+// an entity room asks the module again; the answers are cached briefly, and
+// rows of people who can no longer see the record are dropped.
+
+const ACCESS_TTL = 60_000;
+const accessCache = new Map(); // "room:user" → { at, view }
+
+function remember(roomId, userId, view, ctx = null) {
+  if (ctx?.req?.apiLimits) return; // a narrowed API token's answer is not the person's
+  if (accessCache.size > 5000) [...accessCache.keys()].slice(0, 1000).forEach((key) => accessCache.delete(key));
+  accessCache.set(`${roomId}:${userId}`, { at: Date.now(), view });
+}
+
+function recalled(roomId, userId) {
+  const hit = accessCache.get(`${roomId}:${userId}`);
+  return hit && Date.now() - hit.at < ACCESS_TTL ? hit.view : undefined;
+}
+
+async function dropMembers(roomId, userIds) {
+  if (!userIds.length) return;
+  await query(`DELETE FROM chat_members WHERE room_id = $1 AND user_id = ANY($2)`, [roomId, userIds]);
+  userIds.forEach((id) => remember(roomId, id, false));
+  publish(userIds, 'room', { roomId, removed: true });
+}
+
+async function eachLimited(items, limit, fn) {
+  const queue = [...items];
+  await Promise.all(Array.from({ length: Math.min(limit, queue.length) }, async () => {
+    while (queue.length) await fn(queue.shift());
+  }));
+}
+
+/** Request-like objects of active people, for the modules' access checks. */
+async function requestsFor(userIds) {
+  if (!userIds.length) return new Map();
+  const { rows } = await query(`SELECT id, username FROM users WHERE id = ANY($1) AND is_active IS NOT FALSE AND is_blocked IS NOT TRUE`, [userIds]);
+  const access = await getAccessMap(rows.map((row) => row.id));
+  return new Map(rows.map((row) => [row.id, { user: { id: row.id, username: row.username }, access: access.get(row.id), apiLimits: null, headers: {}, cookies: {} }]));
+}
+
+/**
+ * Which of these people may still see the record behind an entity room:
+ * userId → true (yes), false (no: the membership is dropped) or null (unknown
+ * or inactive: left out this time, membership kept). `trusted` ids (the
+ * record's followers) pass without a check.
+ */
+async function entityViewers(room, userIds, trusted = new Set()) {
+  const result = new Map();
+  const pending = [];
+  for (const id of userIds) {
+    const known = trusted.has(id) ? true : recalled(room.id, id);
+    if (known === undefined) pending.push(id);
+    else result.set(id, known);
+  }
+  const adapter = entityAdapter(room.entity_type);
+  if (!pending.length) return result;
+  if (!adapter) {
+    pending.forEach((id) => result.set(id, null));
+    return result;
+  }
+  const people = await requestsFor(pending);
+  await eachLimited(pending, 8, async (id) => {
+    const req = people.get(id);
+    if (!req) {
+      result.set(id, null);
+      return;
+    }
+    try {
+      const view = Boolean((await adapter.access(req, room.entity_id))?.view);
+      remember(room.id, id, view);
+      result.set(id, view);
+    } catch {
+      result.set(id, null);
+    }
+  });
+  const gone = [...result].filter(([, view]) => view === false).map(([id]) => id);
+  await dropMembers(room.id, gone);
+  return result;
+}
+
+/** The entity rooms among `rooms` this person may no longer see (their membership is dropped). */
+async function hiddenEntityRooms(ctx, rooms) {
+  const hidden = new Set();
+  const gone = [];
+  await eachLimited(rooms.filter((room) => room.entity_type), 8, async (room) => {
+    let view = ctx.req?.apiLimits ? undefined : recalled(room.id, ctx.userId);
+    if (view === undefined) {
+      const adapter = entityAdapter(room.entity_type);
+      try {
+        view = adapter ? Boolean((await adapter.access(ctx.req, room.entity_id))?.view) : null;
+        if (view !== null) remember(room.id, ctx.userId, view, ctx);
+      } catch {
+        view = null;
+      }
+    }
+    if (view !== true) hidden.add(room.id);
+    if (view === false && !ctx.req?.apiLimits) gone.push(room.id);
+  });
+  for (const roomId of gone) await dropMembers(roomId, [ctx.userId]);
+  return hidden;
+}
+
+/** For the routes: the room check runs before an upload reaches the disk. */
+export async function canUpload(ctx, roomId) {
+  await requireRoom(ctx, roomId, 'write');
 }
 
 async function requireRoom(ctx, roomId, need = 'view') {
@@ -87,17 +210,18 @@ async function ensureMember(roomId, userId, role = 'member') {
 export async function recipientsOf(room) {
   const { rows } = await query(`SELECT user_id FROM chat_members WHERE room_id = $1`, [room.id]);
   const ids = new Set(rows.map((row) => row.user_id));
-  if (room.entity_type) {
-    const adapter = entityAdapter(room.entity_type);
-    const followers = adapter ? await adapter.participants(room.entity_id).catch(() => []) : [];
-    for (const id of followers) {
-      if (!ids.has(id)) {
-        await ensureMember(room.id, id);
-        ids.add(id);
-      }
+  if (!room.entity_type) return [...ids];
+  const adapter = entityAdapter(room.entity_type);
+  const followers = new Set(adapter ? await adapter.participants(room.entity_id).catch(() => []) : []);
+  for (const id of followers) {
+    if (!ids.has(id)) {
+      await ensureMember(room.id, id);
+      ids.add(id);
     }
   }
-  return [...ids];
+  // Members who are not followers joined by opening the record; they hear only while they can still see it.
+  const viewers = await entityViewers(room, [...ids], followers);
+  return [...ids].filter((id) => viewers.get(id) === true);
 }
 
 function linkOf(room) {
@@ -190,9 +314,11 @@ export async function listRooms(ctx, { q, kind } = {}) {
     params
   );
   // Direct and group chats show up once they have a message (or were made by me).
+  const shown = rows.filter((room) => room.last_message_id || room.created_by === ctx.userId || room.kind === 'group');
+  const hidden = await hiddenEntityRooms(ctx, shown);
   let shaped = await roomShapes(
     ctx.userId,
-    rows.filter((room) => room.last_message_id || room.created_by === ctx.userId || room.kind === 'group')
+    shown.filter((room) => !hidden.has(room.id))
   );
   const text = String(q || '').trim().toLowerCase();
   if (text) shaped = shaped.filter((room) => `${room.title} ${room.other?.username || ''}`.toLowerCase().includes(text));
@@ -480,7 +606,21 @@ async function insertMessage(room, { authorId, kind = 'text', body = '', data = 
   return rows[0].id;
 }
 
-export async function postMessage(ctx, roomId, input = {}) {
+/** A call card's link: http(s) only, so a card can never carry a script URL. */
+export function callData(call) {
+  try {
+    const url = new URL(String(call?.url || ''));
+    return ['http:', 'https:'].includes(url.protocol) ? { call: { url: url.href } } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A person's message. `input.data` from the client is ignored: cards (calls)
+ * are made by the server only, passed as `system.call` by the /call route.
+ */
+export async function postMessage(ctx, roomId, input = {}, system = {}) {
   const { room } = await requireRoom(ctx, roomId, 'write');
   const body = String(input.body ?? '').replace(/\r\n/g, '\n').trim().slice(0, 10000);
   const fileIds = (Array.isArray(input.fileIds) ? input.fileIds : []).map(Number).filter(Number.isInteger).slice(0, 10);
@@ -490,7 +630,9 @@ export async function postMessage(ctx, roomId, input = {}) {
     const target = await loadMessage(input.replyTo);
     if (target.room_id === room.id) replyTo = Number(target.id);
   }
-  const id = await insertMessage(room, { authorId: ctx.userId, body, replyTo, data: input.data && typeof input.data === 'object' ? input.data : null });
+  const data = system.call ? callData(system.call) : null;
+  if (system.call && !data) throw httpError(400, 'The call link must start with http:// or https://', 'CALL_URL');
+  const id = await insertMessage(room, { authorId: ctx.userId, body, replyTo, data });
   if (fileIds.length) {
     await query(`UPDATE chat_files SET message_id = $1 WHERE id = ANY($2) AND room_id = $3 AND uploaded_by = $4 AND message_id IS NULL`, [id, fileIds, room.id, ctx.userId]);
   }
@@ -629,23 +771,35 @@ export async function searchMessages(ctx, q) {
   const like = `%${text.slice(0, 100).replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
   const { rows } = await query(
     `${MESSAGE_SELECT} JOIN chat_members me ON me.room_id = m.room_id AND me.user_id = $1
-     WHERE m.deleted_at IS NULL AND m.kind = 'text' AND m.body ILIKE $2 ORDER BY m.id DESC LIMIT 40`,
+     WHERE m.deleted_at IS NULL AND m.kind = 'text' AND m.body ILIKE $2 ORDER BY m.id DESC LIMIT 120`,
     [ctx.userId, like]
   );
-  return messageShapes(ctx.userId, rows);
+  // Entity rooms count only while the person can still see the record.
+  const entityRooms = [...new Set(rows.map((row) => row.room_id))];
+  const { rows: rooms } = await query(`SELECT * FROM chat_rooms WHERE id = ANY($1) AND entity_type IS NOT NULL`, [entityRooms]);
+  const hidden = await hiddenEntityRooms(ctx, rooms);
+  return messageShapes(ctx.userId, rows.filter((row) => !hidden.has(row.room_id)).slice(0, 40));
 }
 
 // ── Files ───────────────────────────────────────────────────────────────────
 
 export async function storeUploads(ctx, roomId, files) {
-  const { room } = await requireRoom(ctx, roomId, 'write');
   const out = [];
-  for (const file of files) {
-    const { rows } = await query(
-      `INSERT INTO chat_files (room_id, uploaded_by, name, mime, size, storage_key) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [room.id, ctx.userId, originalName(file).slice(0, 255), String(file.mimetype || '').slice(0, 120), file.size, file.storageKey]
-    );
-    out.push(fileShape(rows[0]));
+  const stored = new Set();
+  try {
+    const { room } = await requireRoom(ctx, roomId, 'write');
+    for (const file of files) {
+      const { rows } = await query(
+        `INSERT INTO chat_files (room_id, uploaded_by, name, mime, size, storage_key) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [room.id, ctx.userId, originalName(file).slice(0, 255), String(file.mimetype || '').slice(0, 120), file.size, file.storageKey]
+      );
+      stored.add(file.storageKey);
+      out.push(fileShape(rows[0]));
+    }
+  } catch (err) {
+    // Rows already written are swept with the other unsent uploads (purgeOrphanFiles).
+    await Promise.all(files.filter((file) => !stored.has(file.storageKey)).map((file) => unlink(file.path || filePath(file.storageKey)).catch(() => {})));
+    throw err;
   }
   return out;
 }

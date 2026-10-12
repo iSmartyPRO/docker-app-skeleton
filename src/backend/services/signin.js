@@ -72,6 +72,9 @@ export async function ensureAuthTables() {
   await query(`ALTER TABLE auth_codes ADD COLUMN IF NOT EXISTS kind VARCHAR(8) NOT NULL DEFAULT 'code'`);
   await query(`CREATE INDEX IF NOT EXISTS auth_codes_user_idx ON auth_codes (user_id, channel, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS auth_codes_hash_idx ON auth_codes (code_hash)`);
+  // Requesting address, for the per-address send quota.
+  await query(`ALTER TABLE auth_codes ADD COLUMN IF NOT EXISTS ip TEXT`);
+  await query(`CREATE INDEX IF NOT EXISTS auth_codes_ip_idx ON auth_codes (ip, created_at DESC)`);
 }
 
 function assertActive(user) {
@@ -120,13 +123,26 @@ export async function signInWithPassword(username, password) {
   throw authError();
 }
 
+/**
+ * Whether a directory sign-in may take over an existing account found only by
+ * its username. Directory accounts may (the DN can change after a move in AD),
+ * and so may accounts an administrator created without a password (invited
+ * people). Accounts that created themselves through Telegram or Google never
+ * do: anyone can pick such a username first and would then receive the
+ * directory person's groups and data on their first AD sign-in.
+ */
+export function directoryMayLink(user) {
+  if (!user) return false;
+  if (user.auth_source === 'ldap') return true;
+  const local = user.auth_source == null || user.auth_source === '' || user.auth_source === 'local';
+  return local && !hasLocalPassword(user.password_hash);
+}
+
 async function resolveDirectoryUser(profile, options) {
   const mapped = mapDirectoryGroups(options.groupMap, profile.memberOf);
   let user =
     (await findUserByExternalId('ldap', profile.dn)) ||
-    (await findUserByUsername(profile.username).then((found) =>
-      found && (found.auth_source === 'ldap' || !hasLocalPassword(found.password_hash)) ? found : null
-    ));
+    (await findUserByUsername(profile.username).then((found) => (directoryMayLink(found) ? found : null)));
 
   if (!user) {
     if (!options.autoProvision) throw authError('login_failed');
@@ -276,8 +292,11 @@ export async function signInWithGoogle(claims) {
 // Protection:
 //  - 6-digit codes live 5 minutes, links 15 minutes; both are single-use
 //  - stored only as HMAC/SHA-256 hashes, compared in constant time
-//  - 5 wrong guesses burn the code; a new request invalidates older ones
-//  - one send per 60 s and at most 5 per hour per account and channel
+//  - 5 wrong guesses burn the code (counted atomically); a new request does not
+//    void a live code, so strangers cannot cancel someone's sign-in
+//  - one send per 60 s and at most 5 per hour per account and channel, and at
+//    most 15 per hour per requesting address
+//  - delivery runs after the answer, so timing does not reveal the account
 //  - responses never reveal whether the account exists
 //  - link tokens travel in the URL fragment (#), which never reaches servers or logs
 
@@ -290,6 +309,7 @@ const CHANNELS = {
 
 const LINK_TTL_MINUTES = 15;
 const SENDS_PER_HOUR = 5;
+const SENDS_PER_IP_PER_HOUR = 15;
 
 function codeHash(userId, code) {
   return createHmac('sha256', config.auth.jwtSecret || 'dev-secret').update(`${userId}:${code}`).digest('hex');
@@ -352,44 +372,44 @@ export async function requestSignInCode(channel, identifier, mode = 'code', { ip
 
   const recent = await query(
     `SELECT
-       COUNT(*) FILTER (WHERE created_at > NOW() - ($3 || ' seconds')::interval)::int AS last_minute,
-       COUNT(*)::int AS last_hour
+       COUNT(*) FILTER (WHERE user_id = $1 AND channel = $2
+                          AND created_at > NOW() - ($3 || ' seconds')::interval)::int AS last_minute,
+       COUNT(*) FILTER (WHERE user_id = $1 AND channel = $2)::int AS last_hour,
+       COUNT(*) FILTER (WHERE ip = $4)::int AS from_ip
      FROM auth_codes
-     WHERE user_id = $1 AND channel = $2 AND created_at > NOW() - INTERVAL '1 hour'`,
-    [user.id, channel, String(CODE_RESEND_SECONDS)]
+     WHERE (user_id = $1 OR ip = $4) AND created_at > NOW() - INTERVAL '1 hour'`,
+    [user.id, channel, String(CODE_RESEND_SECONDS), ip || '']
   );
-  const { last_minute: lastMinute, last_hour: lastHour } = recent.rows[0];
-  if (lastMinute > 0 || lastHour >= SENDS_PER_HOUR) return;
+  const { last_minute: lastMinute, last_hour: lastHour, from_ip: fromIp } = recent.rows[0];
+  if (lastMinute > 0 || lastHour >= SENDS_PER_HOUR || (ip && fromIp >= SENDS_PER_IP_PER_HOUR)) return;
 
-  await query(
-    `UPDATE auth_codes SET consumed_at = NOW()
-     WHERE user_id = $1 AND channel = $2 AND consumed_at IS NULL`,
-    [user.id, channel]
-  );
+  // Older live codes stay valid until they expire: a request by a stranger
+  // must not cancel the code the owner is about to type.
   await query(`DELETE FROM auth_codes WHERE created_at < NOW() - INTERVAL '1 day'`).catch(() => {});
 
   let message;
   if (kind === 'link') {
     const token = randomBytes(32).toString('base64url');
     await query(
-      `INSERT INTO auth_codes (user_id, channel, kind, code_hash, expires_at)
-       VALUES ($1, $2, 'link', $3, NOW() + ($4 || ' minutes')::interval)`,
-      [user.id, channel, tokenHash(token), String(LINK_TTL_MINUTES)]
+      `INSERT INTO auth_codes (user_id, channel, kind, code_hash, expires_at, ip)
+       VALUES ($1, $2, 'link', $3, NOW() + ($4 || ' minutes')::interval, $5)`,
+      [user.id, channel, tokenHash(token), String(LINK_TTL_MINUTES), ip || null]
     );
     const origin = String(config.frontend.url).replace(/\/$/, '');
     message = signInMessage(user, parsed.appName, { link: `${origin}/auth/magic#${token}` }, await localeFor(user));
   } else {
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     await query(
-      `INSERT INTO auth_codes (user_id, channel, kind, code_hash, expires_at)
-       VALUES ($1, $2, 'code', $3, NOW() + ($4 || ' minutes')::interval)`,
-      [user.id, channel, codeHash(user.id, code), String(CODE_TTL_MINUTES)]
+      `INSERT INTO auth_codes (user_id, channel, kind, code_hash, expires_at, ip)
+       VALUES ($1, $2, 'code', $3, NOW() + ($4 || ' minutes')::interval, $5)`,
+      [user.id, channel, codeHash(user.id, code), String(CODE_TTL_MINUTES), ip || null]
     );
     message = signInMessage(user, parsed.appName, { code }, await localeFor(user));
   }
-  try {
-    await deliver(channel, user, message);
-  } catch (err) {
+  // Not awaited: a real account would otherwise answer seconds later than an
+  // unknown one (SMTP, gateways), revealing which identifiers exist.
+  deliver(channel, user, message).catch(async (err) => {
+    console.warn('Sign-in code delivery failed:', err.message);
     await recordSecurityEvent({
       kind: 'code_delivery_failed',
       severity: 'danger',
@@ -397,9 +417,8 @@ export async function requestSignInCode(channel, identifier, mode = 'code', { ip
       ip,
       detail: `${channel}: ${String(err.message || err).slice(0, 160)}`,
       debounceMinutes: 1,
-    });
-    throw err;
-  }
+    }).catch(() => {});
+  });
 }
 
 export async function signInWithCode(channel, identifier, code) {
@@ -412,32 +431,32 @@ export async function signInWithCode(channel, identifier, code) {
   const user = await spec.find(identifier);
   if (!user || !/^\d{6}$/.test(String(code || ''))) throw invalid();
 
-  const result = await query(
-    `SELECT id, code_hash, attempts FROM auth_codes
-     WHERE user_id = $1 AND channel = $2 AND kind = 'code' AND consumed_at IS NULL AND expires_at > NOW()
-     ORDER BY created_at DESC LIMIT 1`,
-    [user.id, channel]
+  // Every guess is charged to every live code first, in one statement, so
+  // parallel requests cannot squeeze in more than CODE_MAX_ATTEMPTS checks
+  // per code; only codes that still had a try left are compared. A code that
+  // used up its tries is never charged again, which burns it.
+  const charged = await query(
+    `UPDATE auth_codes SET attempts = attempts + 1
+     WHERE user_id = $1 AND channel = $2 AND kind = 'code' AND consumed_at IS NULL
+       AND expires_at > NOW() AND attempts < $3
+     RETURNING id, code_hash`,
+    [user.id, channel, CODE_MAX_ATTEMPTS]
   );
-  const row = result.rows[0];
-  if (!row || row.attempts >= CODE_MAX_ATTEMPTS) throw invalid();
-
-  const expected = Buffer.from(row.code_hash, 'hex');
   const actual = Buffer.from(codeHash(user.id, String(code)), 'hex');
-  if (!timingSafeEqual(expected, actual)) {
-    await query(
-      `UPDATE auth_codes SET attempts = attempts + 1,
-         consumed_at = CASE WHEN attempts + 1 >= $2 THEN NOW() ELSE NULL END
-       WHERE id = $1`,
-      [row.id, CODE_MAX_ATTEMPTS]
-    );
-    throw invalid();
-  }
+  const match = charged.rows.find((row) => timingSafeEqual(Buffer.from(row.code_hash, 'hex'), actual));
+  if (!match) throw invalid();
   // Single use, even under concurrent requests.
   const claimed = await query(
     `UPDATE auth_codes SET consumed_at = NOW() WHERE id = $1 AND consumed_at IS NULL RETURNING id`,
-    [row.id]
+    [match.id]
   );
   if (!claimed.rows.length) throw invalid();
+  // The other codes sent for this sign-in are no longer needed.
+  await query(
+    `UPDATE auth_codes SET consumed_at = NOW()
+     WHERE user_id = $1 AND channel = $2 AND consumed_at IS NULL`,
+    [user.id, channel]
+  );
   assertActive(user);
   if (channel === 'email') await query(`UPDATE users SET email_trusted = TRUE WHERE id = $1`, [user.id]);
   return { user, method: channel };

@@ -274,24 +274,32 @@ export default function Conversation({ roomId, entity, header = true, placeholde
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, entity?.type, entity?.id]);
 
+  // Keyed by the room id: room updates (rename, settings) must not refetch and drop
+  // the loaded history or a jump into the past.
+  const currentRoomId = room?.id;
   const reloadMembers = useCallback(() => {
-    if (room) chatApi.members(room.id).then((res) => setMembers(res.data.members)).catch(() => {});
-  }, [room]);
+    if (currentRoomId) chatApi.members(currentRoomId).then((res) => setMembers(res.data.members)).catch(() => {});
+  }, [currentRoomId]);
 
   useEffect(() => {
-    if (!room) return undefined;
-    setFocus(room.id);
+    if (!currentRoomId) return undefined;
+    let alive = true;
+    setFocus(currentRoomId);
     reloadMembers();
     chatApi
-      .messages(room.id)
+      .messages(currentRoomId)
       .then((res) => {
+        if (!alive) return;
         setMessages(res.data.messages);
         setHasOlder(Boolean(res.data.hasOlder));
         setHasNewer(false);
       })
-      .catch(setError);
-    return () => setFocus(null);
-  }, [room, setFocus, reloadMembers]);
+      .catch((err) => alive && setError(err));
+    return () => {
+      alive = false;
+      setFocus(null);
+    };
+  }, [currentRoomId, setFocus, reloadMembers]);
 
   // Scrolling
   const scrollToBottom = (smooth) => {

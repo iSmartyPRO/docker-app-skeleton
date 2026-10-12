@@ -1,7 +1,8 @@
-import { query } from '../../config/database.js';
+import { query, withTransaction } from '../../config/database.js';
+import { onBeforeUserDelete } from '../../services/hooks.js';
 import { registerJob } from '../../services/scheduler.js';
 import { ensureAclTable } from '../shared/acl.js';
-import { purgeTrash } from './trash.js';
+import { beforeUserDelete, purgeTrash } from './trash.js';
 
 /*
  * Files: one tree of folders and files (fs_nodes). A node belongs either to a
@@ -11,6 +12,10 @@ import { purgeTrash } from './trash.js';
  *
  * The Knowledge Base stores its files here too: kb_items.file_node_id points
  * at the file, kb_item_files lists files attached to (or embedded in) articles.
+ *
+ * Deleting a person never deletes nodes through the foreign key: space nodes
+ * they made stay (owner_id NULL), their own files become ownerless and are
+ * purged by the trash job (see trash.js), except files the KB still uses.
  */
 
 export async function ensureFilesSchema() {
@@ -32,7 +37,7 @@ export async function ensureFilesSchema() {
       kind VARCHAR(8) NOT NULL,
       name VARCHAR(255) NOT NULL,
       parent_id INTEGER REFERENCES fs_nodes(id) ON DELETE CASCADE,
-      owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       space_id INTEGER REFERENCES fs_spaces(id) ON DELETE CASCADE,
       storage_key TEXT,
       mime VARCHAR(160),
@@ -47,6 +52,7 @@ export async function ensureFilesSchema() {
       deleted_by INTEGER REFERENCES users(id) ON DELETE SET NULL
     )
   `);
+  await ownerSetNull();
   await query(`CREATE INDEX IF NOT EXISTS fs_nodes_parent_idx ON fs_nodes (parent_id)`);
   await query(`CREATE INDEX IF NOT EXISTS fs_nodes_owner_root_idx ON fs_nodes (owner_id) WHERE space_id IS NULL AND parent_id IS NULL`);
   await query(`CREATE INDEX IF NOT EXISTS fs_nodes_space_root_idx ON fs_nodes (space_id) WHERE parent_id IS NULL`);
@@ -83,6 +89,41 @@ export async function ensureFilesSchema() {
   await query(`CREATE INDEX IF NOT EXISTS fs_links_node_idx ON fs_links (node_id)`);
 
   registerJob({ name: 'files:trash', everyMs: 6 * 60 * 60 * 1000, run: purgeTrash });
+  onBeforeUserDelete(beforeUserDelete);
+}
+
+/**
+ * Older installs created fs_nodes.owner_id with ON DELETE CASCADE, so deleting
+ * a person deleted every folder they had made in shared spaces (with other
+ * people's files inside). Swap it for ON DELETE SET NULL once: drop and add in
+ * one short transaction (NOT VALID, so no table scan under the lock), then
+ * validate without blocking writers. Idempotent; a busy table just retries on
+ * the next start.
+ */
+async function ownerSetNull() {
+  const { rows } = await query(
+    `SELECT c.conname, c.confdeltype, c.convalidated FROM pg_constraint c
+     JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+     WHERE c.conrelid = 'fs_nodes'::regclass AND c.contype = 'f' AND c.confrelid = 'users'::regclass
+       AND array_length(c.conkey, 1) = 1 AND a.attname = 'owner_id'`
+  );
+  if (rows.length === 1 && rows[0].confdeltype === 'n') {
+    if (!rows[0].convalidated) await query(`ALTER TABLE fs_nodes VALIDATE CONSTRAINT "${rows[0].conname.replace(/"/g, '""')}"`).catch(() => {});
+    return;
+  }
+  try {
+    await withTransaction(async (client) => {
+      await client.query(`SET LOCAL lock_timeout = '5s'`);
+      for (const row of rows) await client.query(`ALTER TABLE fs_nodes DROP CONSTRAINT "${row.conname.replace(/"/g, '""')}"`);
+      await client.query(
+        `ALTER TABLE fs_nodes ADD CONSTRAINT fs_nodes_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL NOT VALID`
+      );
+    });
+    await query(`ALTER TABLE fs_nodes VALIDATE CONSTRAINT fs_nodes_owner_id_fkey`);
+    console.log('Files: fs_nodes.owner_id now ON DELETE SET NULL');
+  } catch (err) {
+    console.warn('Files: could not change fs_nodes.owner_id to ON DELETE SET NULL (will retry on next start):', err.message);
+  }
 }
 
 /** Knowledge Base ↔ Files links. Runs after both schemas exist. */

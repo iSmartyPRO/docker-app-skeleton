@@ -124,17 +124,36 @@ export function isSubset(granted, holder) {
   return list.every((perm) => held.has(perm));
 }
 
-/** Which settings permission a PUT /admin/settings patch key needs. */
+/**
+ * Which settings permission a PUT /admin/settings patch key needs. Every key
+ * updateAdminSettings (services/settings.js) applies must be listed here: a
+ * key without an entry is refused (see deniedSettingsKeys).
+ */
 export const SETTINGS_PATCH_PERMISSIONS = {
   appName: 'settings.general',
   appDescription: 'settings.general',
   appearance: 'settings.general',
+  defaultLocale: 'settings.general',
   accessMode: 'settings.security',
+  // Edited on the Access page next to the access mode (Security group).
+  homePage: 'settings.security',
   security: 'settings.security',
   integrations: 'settings.integrations',
   auth: 'settings.auth',
   rateLimit: 'settings.system',
   modules: 'settings.modules',
 };
+
+/**
+ * Keys of a settings patch the holder may not change: unknown keys (never
+ * allowed, even with `*`) and keys whose permission is not held.
+ */
+export function deniedSettingsKeys(patch, perms) {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return [];
+  return Object.keys(patch).filter((key) => {
+    const needed = Object.hasOwn(SETTINGS_PATCH_PERMISSIONS, key) ? SETTINGS_PATCH_PERMISSIONS[key] : null;
+    return !needed || !hasPermission(perms, needed);
+  });
+}
 
 export const SETTINGS_PERMISSIONS = PERMISSIONS.filter((perm) => perm.startsWith('settings.'));

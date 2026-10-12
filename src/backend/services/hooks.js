@@ -5,6 +5,16 @@
  *   directory-sign-in  { user, profile, password }  after a successful AD sign-in
  *
  * Listeners never break the event: errors are logged and swallowed.
+ *
+ * Before-user-delete hooks are different: they run inside the delete
+ * transaction and a thrown error aborts the delete (rolls everything back).
+ *
+ *   onBeforeUserDelete(async (client, userId, { actor }) => { … })
+ *
+ * `client` is the transaction's pg client (use client.query, never the pool,
+ * or the work escapes the transaction); `userId` the account being deleted;
+ * `actor` the administrator ({ id, permissions }). Hooks run one after
+ * another in registration order. Returns a function that unregisters it.
  */
 
 const listeners = new Map();
@@ -26,3 +36,15 @@ async function emit(event, payload) {
 
 export const onDirectorySignIn = (fn) => on('directory-sign-in', fn);
 export const emitDirectorySignIn = (payload) => emit('directory-sign-in', payload);
+
+const beforeUserDelete = new Set();
+
+export function onBeforeUserDelete(fn) {
+  beforeUserDelete.add(fn);
+  return () => beforeUserDelete.delete(fn);
+}
+
+/** Called by deleteUser inside its transaction, right before the DELETE. */
+export async function runBeforeUserDelete(client, userId, context = {}) {
+  for (const fn of beforeUserDelete) await fn(client, userId, context);
+}

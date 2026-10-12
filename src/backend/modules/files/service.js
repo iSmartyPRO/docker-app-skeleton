@@ -5,7 +5,7 @@ import { getSettings, parseSettings } from '../../services/settings.js';
 import { notify } from '../../services/notifications.js';
 import { KB_FILE_GROUPS } from '../catalog.js';
 import { HEX, LEVEL, LEVEL_NAMES, avatarOf, clean, httpError, levelMap, readAcl, requireLevel, writeAcl } from '../shared/acl.js';
-import { extOf, mimeOf, newStorageKey, originalName, removeBlob, storagePath, verifyContent } from '../shared/storage.js';
+import { extOf, hasSignature, mimeOf, newStorageKey, originalName, readHead, removeBlob, signatureMatches, storagePath, verifyContent } from '../shared/storage.js';
 import { childLevels, nodeAccess, requireNode, spaceLevel } from './access.js';
 
 export const NAME_MAX = 255;
@@ -253,7 +253,8 @@ async function resolveTarget(ctx, { parentId, spaceId }) {
   if (parentId) {
     const access = await requireNode(ctx, parentId, LEVEL.edit);
     if (access.node.kind !== 'folder' || access.trashed) throw httpError(400, 'Choose a folder', 'NOT_FOLDER');
-    return { parentId: access.node.id, spaceId: access.node.space_id, ownerId: access.node.owner_id };
+    // In a space the owner is just who made it (the folder's maker may be gone: owner_id NULL).
+    return { parentId: access.node.id, spaceId: access.node.space_id, ownerId: access.node.space_id ? ctx.userId : access.node.owner_id };
   }
   if (spaceId) {
     const space = await loadSpace(spaceId);
@@ -401,13 +402,24 @@ export async function renameNode(ctx, id, name) {
   const access = await requireNode(ctx, id, LEVEL.edit);
   if (access.node.system_tag) throw httpError(400, 'This folder cannot be renamed', 'SYSTEM_FOLDER');
   const next = safeName(name);
+  const nextExt = access.node.kind === 'file' ? extOf(next) : '';
+  // A new extension passes the same checks as an upload: allowed type, and real content for types shown inline.
+  if (nextExt && nextExt !== access.node.ext) {
+    if (!allowedExt(await filesSettings(), nextExt)) throw httpError(400, `Files of type .${nextExt} are not allowed`, 'FILE_TYPE');
+    if (hasSignature(nextExt)) {
+      const head = await readHead(storagePath(access.node.storage_key)).catch(() => Buffer.alloc(0));
+      if (!signatureMatches(head, nextExt)) throw httpError(400, `The file content is not a valid .${nextExt}`, 'FILE_CONTENT');
+    }
+  }
   const row = await withTransaction(async (client) => {
     const target = { parentId: access.node.parent_id, spaceId: access.node.space_id, ownerId: access.node.owner_id };
     const free = await freeName(client, target, next, access.node.kind, access.node.id);
+    const ext = extOf(free) || access.node.ext;
     const { rows } = await client.query(
-      `UPDATE fs_nodes SET name = $2, ext = CASE WHEN kind = 'file' THEN $3 ELSE ext END, updated_by = $4, updated_at = NOW()
+      `UPDATE fs_nodes SET name = $2, ext = CASE WHEN kind = 'file' THEN $3 ELSE ext END,
+              mime = CASE WHEN kind = 'file' AND $3 IS DISTINCT FROM ext THEN $5 ELSE mime END, updated_by = $4, updated_at = NOW()
        WHERE id = $1 RETURNING *`,
-      [access.node.id, free, extOf(free) || access.node.ext, ctx.userId]
+      [access.node.id, free, ext, ctx.userId, mimeOf(ext)]
     );
     return rows[0];
   });
@@ -428,7 +440,21 @@ export async function moveNode(ctx, id, place) {
   }
   const crossing = (target.spaceId || null) !== (access.node.space_id || null) || (!target.spaceId && target.ownerId !== access.node.owner_id);
   if (crossing && access.base < LEVEL.manage) throw httpError(403, 'Only the owner can move this outside its storage', 'FORBIDDEN');
+  const quota = crossing && !target.spaceId ? (await usageOf(target.ownerId)).quota : 0;
   const row = await withTransaction(async (client) => {
+    // Into someone's personal storage: the whole subtree counts against their quota, as an upload would.
+    if (quota) {
+      const { rows: sizes } = await client.query(
+        `WITH RECURSIVE tree AS (
+           SELECT id, kind, size FROM fs_nodes WHERE id = $1
+           UNION ALL SELECT n.id, n.kind, n.size FROM fs_nodes n JOIN tree t ON n.parent_id = t.id
+         )
+         SELECT (SELECT COALESCE(SUM(size), 0) FROM tree WHERE kind = 'file')::bigint AS incoming,
+                (SELECT COALESCE(SUM(size), 0) FROM fs_nodes WHERE owner_id = $2 AND space_id IS NULL AND kind = 'file')::bigint AS used`,
+        [access.node.id, target.ownerId]
+      );
+      if (Number(sizes[0].used) + Number(sizes[0].incoming) > quota) throw httpError(413, 'Your storage is full', 'QUOTA_EXCEEDED');
+    }
     const free = await freeName(client, target, access.node.name, access.node.kind, access.node.id);
     const { rows } = await client.query(
       `UPDATE fs_nodes SET parent_id = $2, name = $3, updated_by = $4, updated_at = NOW() WHERE id = $1 RETURNING *`,

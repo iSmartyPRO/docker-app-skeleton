@@ -68,14 +68,23 @@ export default function NotificationBell() {
     };
   }, [refreshCount]);
 
+  // A filter switch (or a newer first page) makes answers already on the way stale.
+  const shownFilter = useRef(filter);
+  shownFilter.current = filter;
+  const loadSeq = useRef(0);
   const load = useCallback(
-    (before) =>
-      listNotifications({ limit: 20, before, unread: filter === 'unread' ? '1' : undefined }).then((res) => {
+    (before) => {
+      const seq = before ? loadSeq.current : ++loadSeq.current;
+      return listNotifications({ limit: 20, before, unread: filter === 'unread' ? '1' : undefined }).then((res) => {
+        if (shownFilter.current !== filter || seq !== loadSeq.current) return;
         setItems((list) => (before ? [...(list || []), ...res.data.items] : res.data.items));
         setMore(res.data.more);
         setUnread(res.data.unread);
         setBadge(res.data.unread);
-      }),
+      }).catch((err) => {
+        if (shownFilter.current === filter && seq === loadSeq.current) throw err;
+      });
+    },
     [filter]
   );
 

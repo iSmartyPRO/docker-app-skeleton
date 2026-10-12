@@ -95,8 +95,18 @@ export default function Browser() {
   const share = shares?.find((item) => item.id === shareId) || data?.share;
   const connection = connections?.find((item) => item.serverId === share?.serverId);
 
+  // Listings can answer out of order (fast folder switches, reloads): only the latest lands.
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
-    const res = await driveApi.list(shareId, path, prefs.hidden);
+    const seq = ++loadSeq.current;
+    let res;
+    try {
+      res = await driveApi.list(shareId, path, prefs.hidden);
+    } catch (err) {
+      if (seq !== loadSeq.current) return null;
+      throw err;
+    }
+    if (seq !== loadSeq.current) return null;
     setData(res.data);
     setError(null);
     return res.data;

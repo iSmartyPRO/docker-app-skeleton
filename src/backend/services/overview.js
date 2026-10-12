@@ -4,6 +4,7 @@ import { APP_VERSION } from '../config/version.js';
 import { getSettings, parseSettings } from './settings.js';
 import { listSecurityEvents } from './security.js';
 import { getUserStats, recentLogins } from './users.js';
+import { hasPermission } from './permissions.js';
 
 const startedAt = Date.now();
 
@@ -42,12 +43,22 @@ export async function getSystemInfo() {
   };
 }
 
-export async function getOverview() {
+/**
+ * Console home. Everyone with console.access sees it, so the parts that need
+ * more come only with their own permission: recent sign-ins (people's
+ * contacts) need users.view, security events need activity.view. Hidden
+ * parts keep their shape (empty) and `visible` says what was left out.
+ */
+export async function getOverview(permissions = []) {
   const parsed = parseSettings(await getSettings());
+  const visible = {
+    recentLogins: hasPermission(permissions, 'users.view'),
+    security: hasPermission(permissions, 'activity.view'),
+  };
   const [users, logins, security] = await Promise.all([
     getUserStats(),
-    recentLogins(6),
-    listSecurityEvents({ limit: 6 }),
+    visible.recentLogins ? recentLogins(6) : [],
+    visible.security ? listSecurityEvents({ limit: 6 }) : { summary: {}, events: [] },
   ]);
   const integrations = Object.fromEntries(
     Object.entries(parsed.integrations || {}).map(([key, value]) => [key, Boolean(value?.enabled)])
@@ -70,5 +81,6 @@ export async function getOverview() {
     },
     integrations,
     uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
+    visible,
   };
 }

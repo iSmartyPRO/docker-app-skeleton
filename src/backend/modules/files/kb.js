@@ -37,10 +37,15 @@ export async function uploadForKb(ctx, req, res, { maxUploadMb, fileGroups, loca
   return storeUploads(ctx, { parentId: folder.id, spaceId: null, ownerId: ctx.userId }, req.files || []);
 }
 
-/** A file the user may put into the KB (view access, not in the trash). */
+/**
+ * A file the user may put into the KB: edit access, not in the trash. Viewing
+ * is not enough: the KB republishes the file to its own readers and keeps it
+ * from being deleted, which only someone who may change the file can decide.
+ */
 export async function usableFile(ctx, nodeId) {
   const access = await nodeAccess(ctx, nodeId);
   if (access.level < LEVEL.view || access.trashed) throw httpError(404, 'File not found', 'NOT_FOUND');
+  if (access.level < LEVEL.edit) throw httpError(403, 'You need edit access to this file to use it in the knowledge base', 'FORBIDDEN');
   if (access.node.kind !== 'file') throw httpError(400, 'Choose a file, not a folder', 'NOT_FILE');
   return access.node;
 }

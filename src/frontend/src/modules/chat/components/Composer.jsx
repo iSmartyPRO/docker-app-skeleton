@@ -46,11 +46,28 @@ const Composer = forwardRef(function Composer({ room, members, replyTo, editing,
   const fileInput = useRef(null);
   const typingAt = useRef(0);
 
+  // Editing a sent message borrows the input: the unsent draft (text and uploaded
+  // files) is put aside and comes back once the edit is saved or cancelled.
+  const stash = useRef(null);
   useEffect(() => {
     if (editing) {
+      if (!stash.current) {
+        stash.current = { roomId: room?.id, text, uploads };
+        setUploads([]);
+      }
       setText(editing.body);
       requestAnimationFrame(() => area.current?.focus());
+    } else if (stash.current) {
+      const saved = stash.current;
+      stash.current = null;
+      if (saved.roomId === room?.id) {
+        setText(saved.text);
+        setUploads((prev) => [...saved.uploads, ...prev]);
+      } else {
+        saved.uploads.forEach((item) => item.preview && URL.revokeObjectURL(item.preview));
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
   useEffect(() => {
     if (replyTo) area.current?.focus();
@@ -128,13 +145,14 @@ const Composer = forwardRef(function Composer({ room, members, replyTo, editing,
       if (editing) {
         const res = await chatApi.edit(editing.id, text);
         onEdited?.(res.data.message);
+        setText('');
       } else {
         const res = await chatApi.send(room.id, { body: text, replyTo: replyTo?.id, fileIds: uploads.map((item) => item.file.id) });
         onSent?.(res.data.message);
+        setText('');
+        uploads.forEach((item) => item.preview && URL.revokeObjectURL(item.preview));
+        setUploads([]);
       }
-      setText('');
-      uploads.forEach((item) => item.preview && URL.revokeObjectURL(item.preview));
-      setUploads([]);
     } catch (err) {
       message.error(errorMessage(err));
     } finally {

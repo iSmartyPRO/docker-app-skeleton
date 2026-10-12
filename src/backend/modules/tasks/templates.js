@@ -178,9 +178,33 @@ export async function deleteTemplate(ctx, id) {
 export async function createRecurring(ctx, input, recurrenceInput) {
   const recurrence = cleanRecurrence(recurrenceInput);
   const template = await saveTemplate(ctx, { title: input.title, payload: input, recurring: true, recurrence });
-  const task = await createTask(ctx, { ...input, templateId: template.id });
-  await query(`UPDATE task_templates SET runs = runs + 1 WHERE id = $1`, [template.id]);
-  return { task, template };
+  let task;
+  try {
+    task = await createTask(ctx, { ...input, templateId: template.id });
+  } catch (err) {
+    // Nothing was made: no schedule left behind either.
+    await query(`DELETE FROM task_templates WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM tasks WHERE template_id = $1)`, [template.id]);
+    throw err;
+  }
+  // The task made now stands for the first slot: the schedule continues after it.
+  const next = nextAfterFirstCopy(recurrence, new Date());
+  const { rows } = await query(`UPDATE task_templates SET runs = runs + 1, next_run_at = $2, active = $3 WHERE id = $1 RETURNING next_run_at, runs, active`, [
+    template.id,
+    next,
+    Boolean(next),
+  ]);
+  return { task, template: { ...template, nextRunAt: rows[0]?.next_run_at ?? next, runs: rows[0]?.runs ?? 1, active: rows[0]?.active ?? Boolean(next) } };
+}
+
+/**
+ * After the immediate first copy of a recurring task (runs = 1): the next run
+ * is the occurrence after the slot that copy took, so it is not made twice.
+ */
+export function nextAfterFirstCopy(rec, now = new Date()) {
+  if (!rec) return null;
+  const firstSlot = nextOccurrence(rec, now, 0);
+  if (!firstSlot) return null;
+  return nextOccurrence(rec, firstSlot, 1);
 }
 
 async function ctxFor(userId) {

@@ -89,7 +89,7 @@ export function adminApiRoutes() {
   router.get('/webhooks', wrap(async (req, res) => res.json({ success: true, webhooks: await listWebhooks() })));
   router.post('/webhooks', wrap(async (req, res) => res.status(201).json({ success: true, ...(await createWebhook(req.actor, req.body || {})) })));
   router.get('/webhooks/:id', wrap(async (req, res) => res.json({ success: true, webhook: await getWebhook(req.params.id) })));
-  router.put('/webhooks/:id', wrap(async (req, res) => res.json({ success: true, webhook: await updateWebhook(req.params.id, req.body || {}) })));
+  router.put('/webhooks/:id', wrap(async (req, res) => res.json({ success: true, webhook: await updateWebhook(req.actor, req.params.id, req.body || {}) })));
   router.post('/webhooks/:id/ping', wrap(async (req, res) => res.json({ success: true, result: await pingWebhook(req.params.id) })));
   router.post('/webhooks/:id/secret', wrap(async (req, res) => res.json({ success: true, ...(await rotateWebhookSecret(req.params.id)) })));
   router.delete('/webhooks/:id', wrap(async (req, res) => {

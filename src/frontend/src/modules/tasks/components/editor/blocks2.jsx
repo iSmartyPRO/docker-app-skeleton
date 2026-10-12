@@ -228,7 +228,7 @@ export function RemindersBlock({ reminders, onAdd, onDelete, onRemove, hasDeadli
             return (
               <li key={reminder.id || reminder.key} className={reminder.sentAt ? 'is-done' : ''}>
                 <span>⏰ <b>{text.when}</b> · {text.whom} · <em>{text.how}</em>{reminder.sentAt ? ` · ${t('tasks.v2.rem.sent')}` : ''}</span>
-                {!disabled && <button type="button" onClick={() => onDelete(reminder)}>✕</button>}
+                {!disabled && reminder.canDelete !== false && <button type="button" onClick={() => onDelete(reminder)}>✕</button>}
               </li>
             );
           })}

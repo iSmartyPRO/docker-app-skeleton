@@ -108,13 +108,23 @@ function MessageItem({ message, me, first, last, showAuthor, read, mentions, onR
                 <FileCard key={file.id} file={file} />
               ))}
               {call ? (
-                <a className="cm-call" href={call.url} target="_blank" rel="noopener noreferrer">
-                  <span className="cm-call__icon">📹</span>
-                  <span>
-                    <b>{t('chat.call.title')}</b>
-                    <em>{t('chat.call.join')}</em>
-                  </span>
-                </a>
+                // Only a web address becomes a link: the URL comes from message data.
+                /^https?:\/\//i.test(String(call.url || '').trim()) ? (
+                  <a className="cm-call" href={String(call.url).trim()} target="_blank" rel="noopener noreferrer">
+                    <span className="cm-call__icon">📹</span>
+                    <span>
+                      <b>{t('chat.call.title')}</b>
+                      <em>{t('chat.call.join')}</em>
+                    </span>
+                  </a>
+                ) : (
+                  <div className="cm-call">
+                    <span className="cm-call__icon">📹</span>
+                    <span>
+                      <b>{t('chat.call.title')}</b>
+                    </span>
+                  </div>
+                )
               ) : (
                 message.body && <MessageText text={message.body} mentions={mentions} me={me?.username} />
               )}

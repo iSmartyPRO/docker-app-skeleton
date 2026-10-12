@@ -5,6 +5,7 @@ import multer from 'multer';
 import { query } from '../../config/database.js';
 import { uploadRoot } from '../../config/paths.js';
 import { httpError } from '../shared/acl.js';
+import { FILE_CSP, contentDisposition, hasSignature, readHead, signatureMatches } from '../shared/storage.js';
 import { originalName } from '../kb/files.js';
 
 /*
@@ -54,8 +55,34 @@ export function runUpload(upload, req, res) {
   });
 }
 
-/** Content types a browser may show inline; everything else downloads. */
-const INLINE = /^(image\/(png|jpe?g|gif|webp|bmp)|application\/pdf|video\/(mp4|webm)|audio\/(mpeg|ogg|wav|webm|mp4))$/;
+/**
+ * Formats a browser may show inline, by extension, with the content types the
+ * uploader's browser may report for them. The stored mime is whatever the
+ * client sent, so a file opens inline only when its name and its type agree
+ * (and, for pictures and PDFs, its bytes); everything else downloads.
+ */
+const INLINE = {
+  png: ['image/png'],
+  jpg: ['image/jpeg', 'image/pjpeg'],
+  jpeg: ['image/jpeg', 'image/pjpeg'],
+  gif: ['image/gif'],
+  webp: ['image/webp'],
+  bmp: ['image/bmp', 'image/x-ms-bmp'],
+  pdf: ['application/pdf'],
+  mp4: ['video/mp4', 'audio/mp4'],
+  webm: ['video/webm', 'audio/webm'],
+  mp3: ['audio/mpeg', 'audio/mp3'],
+  ogg: ['audio/ogg', 'video/ogg'],
+  wav: ['audio/wav', 'audio/x-wav', 'audio/wave'],
+  m4a: ['audio/mp4', 'audio/x-m4a'],
+};
+
+/** The content type to show the file inline with, or null (download). Pure: no file access. */
+export function inlineType(name, mime) {
+  const type = String(mime || '').split(';')[0].trim().toLowerCase();
+  const allowed = INLINE[extOf(name)];
+  return allowed && allowed.includes(type) ? type : null;
+}
 
 export function fileShape(row) {
   return {
@@ -64,19 +91,24 @@ export function fileShape(row) {
     mime: row.mime,
     size: Number(row.size),
     url: `/api/app/chat/files/${row.id}`,
-    image: /^image\/(png|jpe?g|gif|webp|bmp)$/.test(row.mime || ''),
+    image: /^image\//.test(inlineType(row.name, row.mime) || ''),
   };
 }
 
-export function sendFile(res, row, download) {
-  const inline = !download && INLINE.test(row.mime || '');
-  res.setHeader('Content-Type', inline ? row.mime : 'application/octet-stream');
+export async function sendFile(res, row, download) {
+  const path = filePath(row.storage_key);
+  let type = download ? null : inlineType(row.name, row.mime);
+  if (type && hasSignature(extOf(row.name))) {
+    const head = await readHead(path).catch(() => null);
+    if (!head) throw httpError(404, 'File is missing on the server', 'FILE_MISSING');
+    if (!signatureMatches(head, extOf(row.name))) type = null;
+  }
+  res.setHeader('Content-Type', type || 'application/octet-stream');
+  res.setHeader('Content-Disposition', contentDisposition(row.name, Boolean(type)));
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'");
+  res.setHeader('Content-Security-Policy', FILE_CSP);
   res.setHeader('Cache-Control', 'private, max-age=86400');
-  res.attachment(row.name);
-  if (inline) res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(row.name)}`);
-  res.sendFile(filePath(row.storage_key));
+  res.sendFile(path);
 }
 
 export async function removeStored(key) {

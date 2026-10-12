@@ -63,6 +63,8 @@ export function endpoints() {
       section: section?.key || 'common',
       area: where.area || null,
       level: where.area ? (['GET', 'HEAD'].includes(route.method) ? 'read' : 'write') : null,
+      // Public paths run as an anonymous visitor, not as the token's owner.
+      anonymous: Boolean(where.anonymous),
       doc: DOCS[key] || null,
     });
   }
