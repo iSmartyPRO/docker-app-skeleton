@@ -322,14 +322,14 @@ export const MODULE_CATALOG = [
     // Shown to every signed-in person (public settings), not only administrators.
     publicSettings: ['avatar', 'proactive'],
     defaults: {
-      // Robot shown until a person picks their own: 'pixel' | 'orbi' | 'kiko'.
+      // Robot shown until a person picks their own: 'pixel' | 'orbi' | 'kiko' | 'ermek' | 'aichurok'.
       avatar: 'pixel',
       // Offer help once when a person opens a section for the first time.
       proactive: true,
     },
     sanitize(current, incoming = {}) {
       const next = { ...current };
-      if (['pixel', 'orbi', 'kiko'].includes(incoming.avatar)) next.avatar = incoming.avatar;
+      if (['pixel', 'orbi', 'kiko', 'ermek', 'aichurok'].includes(incoming.avatar)) next.avatar = incoming.avatar;
       if (typeof incoming.proactive === 'boolean') next.proactive = incoming.proactive;
       return next;
     },

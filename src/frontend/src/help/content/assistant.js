@@ -11,7 +11,7 @@ export default {
     { icon: '💬', title: { ru: 'Помощь по разделу', en: 'Help for the section' }, text: { ru: 'Нажмите на робота: совет, краткая и полная справка, частые вопросы.', en: 'Click the robot: a tip, the short and full guide, frequent questions.' } },
     { icon: '🔎', title: { ru: 'Спросите', en: 'Ask' }, text: { ru: 'Напишите вопрос своими словами — робот найдёт ответ во всей справке.', en: 'Type a question in your own words — the robot finds the answer across all help.' } },
     { icon: '✋', title: { ru: 'Где удобно', en: 'Where it suits you' }, text: { ru: 'Перетащите робота мышью или пальцем — он запомнит место на этом устройстве.', en: 'Drag the robot with the mouse or a finger — it remembers the spot on this device.' } },
-    { icon: '🎨', title: { ru: 'Три характера', en: 'Three characters' }, text: { ru: 'Пиксель, Орби и Кико — выберите своего в Профиль → Оформление.', en: 'Pixel, Orbi and Kiko — pick yours under Account → Appearance.' } },
+    { icon: '🎨', title: { ru: 'Пять характеров', en: 'Five characters' }, text: { ru: 'Пиксель, Орби, Кико, а также Эрмек и Айчүрөк в кыргызском стиле — выберите своего в Профиль → Оформление.', en: 'Pixel, Orbi, Kiko, plus Ermek and Aichurok in Kyrgyz style — pick yours under Account → Appearance.' } },
   ],
   tips: [
     { ru: 'Робот мешает? Перетащите его к краю экрана или выберите размер «Маленький».', en: 'In the way? Drag the robot to the edge or choose the “Small” size.' },

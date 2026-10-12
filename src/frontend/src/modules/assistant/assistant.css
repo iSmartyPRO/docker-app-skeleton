@@ -64,6 +64,65 @@
   transform-origin: 30% 15%;
 }
 
+/* Kyrgyz robots: the kalpak tassel and the owl-feather plume sway, braids swing a little. */
+.rb-tassel,
+.rb-plume,
+.rb-braid {
+  transform-box: fill-box;
+}
+
+.rb-tassel {
+  transform-origin: 0% 100%;
+  animation: rb-sway 2.6s ease-in-out infinite;
+}
+
+.rb-plume {
+  transform-origin: 50% 100%;
+  animation: rb-sway 3.4s ease-in-out infinite;
+}
+
+.rb-braid {
+  transform-origin: 50% 0%;
+  animation: rb-sway-small 3.4s ease-in-out infinite;
+}
+
+.rb-braid--right {
+  animation-delay: -1.7s;
+}
+
+.rb.is-happy .rb-plume,
+.rb.is-wave .rb-plume,
+.rb.is-happy .rb-tassel,
+.rb.is-wave .rb-tassel {
+  animation-duration: 0.9s;
+}
+
+.rb.is-still .rb-tassel,
+.rb.is-still .rb-plume,
+.rb.is-still .rb-braid {
+  animation: none;
+}
+
+@keyframes rb-sway {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes rb-sway-small {
+  0%,
+  100% {
+    transform: rotate(-2.5deg);
+  }
+  50% {
+    transform: rotate(2.5deg);
+  }
+}
+
 /* Moods */
 .rb.is-happy .rb-float {
   animation: rb-hop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 1, rb-float 3.4s ease-in-out 0.7s infinite;

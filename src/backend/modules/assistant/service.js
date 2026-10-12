@@ -1,6 +1,6 @@
 import { query } from '../../config/database.js';
 
-export const AVATARS = ['pixel', 'orbi', 'kiko'];
+export const AVATARS = ['pixel', 'orbi', 'kiko', 'ermek', 'aichurok'];
 const SECTION = /^[a-z][a-z0-9-]{0,31}$/;
 
 /**

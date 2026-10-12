@@ -9,6 +9,7 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 ### Security and reliability (audit)
 
+- Robot assistant: two robots in Kyrgyz style — Ermek (white ak-kalpak with black brims and a tassel, red chapan with the koshkor-muyuz ornament) and Aichurok (red velvet topu with an owl-feather plume, braids with silver chach uchtuk, turquoise vest).
 - The portal notices a new deploy (build id vs `/version.json`) when the app returns to the screen, on focus and every 5 minutes: a “New version” banner, an automatic update after a long absence or on the next page change — installed apps (PWA) no longer stay on an old version. On phones a row of tabs wider than the screen scrolls instead of widening the page; the assistant and the banner render in `<body>`.
 - **Robot assistant** module: three animated robots (Pixel, Orbi, Kiko) with moods, draggable anywhere, offering help once per section and answering from the help (tips, guides, FAQ, search); on by default, each person can change or turn it off, administrators pick the default robot. See [docs/assistant.md](docs/assistant.md).
 - The browser tab icon follows *App icon* (`/api/pwa/icon`, `/favicon.ico` redirect, runtime `<link rel=icon>` update, versioned manifest); SVG app icons are accepted.
