@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { Button, Calendar, Popover, Select, TimePicker } from 'antd';
+import { Button, Calendar, Drawer, Popover, Select, TimePicker } from 'antd';
 import { useLocale } from '../../../../context/LocaleContext';
 import { Person, UserAvatar } from '../../../shared/People';
 import { tasksApi } from '../../api';
@@ -149,7 +149,7 @@ export function DeadlinePicker({ value, onChange, disabled, allowClear = true, o
           }}
         />
         <div className="te-deadline__time">
-          <span>{t('tasks.v2.time')}</span>
+          <span>{t('tasks.v2.timeLabel')}</span>
           <TimePicker
             format="HH:mm"
             minuteStep={5}
@@ -165,15 +165,30 @@ export function DeadlinePicker({ value, onChange, disabled, allowClear = true, o
       </div>
     </div>
   );
-  return (
-    <Popover open={open && !disabled} onOpenChange={setOpen} trigger="click" content={panel} placement="bottomLeft" overlayClassName="te-pop">
-      <button type="button" className={`te-pill te-due${current ? '' : ' is-empty'}${overdue ? ' is-overdue' : ''}`} disabled={disabled}>
+  const narrow = typeof window !== 'undefined' && window.innerWidth < 700;
+  const pill = (
+    <button type="button" className={`te-pill te-due${current ? '' : ' is-empty'}${overdue ? ' is-overdue' : ''}`} disabled={disabled} onClick={narrow ? () => setOpen(true) : undefined}>
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
           <rect x="2" y="3" width="12" height="11" rx="2.5" />
           <path d="M5 1.8v2.6M11 1.8v2.6M2 7h12" strokeLinecap="round" />
         </svg>
         <span>{current ? formatDeadline(value, locale, t) : t('tasks.v2.noDeadline')}</span>
-      </button>
+    </button>
+  );
+  // On a phone the panel is a sheet from the bottom: a popover would run off the screen.
+  if (narrow) {
+    return (
+      <>
+        {pill}
+        <Drawer open={open && !disabled} onClose={() => setOpen(false)} placement="bottom" height="auto" className="te-sheet" title={t('tasks.fields.due')} destroyOnHidden>
+          {panel}
+        </Drawer>
+      </>
+    );
+  }
+  return (
+    <Popover open={open && !disabled} onOpenChange={setOpen} trigger="click" content={panel} placement="bottomLeft" overlayClassName="te-pop">
+      {pill}
     </Popover>
   );
 }

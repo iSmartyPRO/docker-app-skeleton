@@ -26,13 +26,6 @@ export const PREMIUM_ICONS = {
       <path d="m8.2 9.4 1.3 1.3 2.3-2.4M13.4 9.6h2.6M8.2 14.2l1.3 1.3 2.3-2.4M13.4 14.4h2.6" stroke="var(--da-icon-hole)" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round" />
     </>
   )),
-  kanban: icon('#7048E8', () => (
-    <>
-      <rect x="5.2" y="5.6" width="3.8" height="12.8" rx="1.2" fill="#fff" />
-      <rect x="10.1" y="5.6" width="3.8" height="8.6" rx="1.2" fill="#fff" />
-      <rect x="15" y="5.6" width="3.8" height="10.6" rx="1.2" fill="#fff" />
-    </>
-  )),
   folder: icon('#3B82F6', () => (
     <path
       fill="#fff"
