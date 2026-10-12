@@ -15,11 +15,16 @@ import './assistant.css';
 
 function AssistantForm({ settings, save }) {
   const { t } = useLocale();
+  const { user } = useAuth();
+  const own = useAssistantPrefs(user?.id);
   const state = settings.modules?.assistant || { enabled: true, settings: {} };
   const initial = useMemo(() => ({ enabled: state.enabled, ...state.settings }), [state]);
-  const { dirty, saving, submit, reset, formProps } = useSettingsForm(initial, ({ enabled, ...rest }) =>
-    save({ modules: { assistant: { enabled, settings: rest } } })
-  );
+  const { dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async ({ enabled, ...rest }) => {
+    await save({ modules: { assistant: { enabled, settings: rest } } });
+    // Whoever picks the default robot sees it at once: their own earlier pick
+    // would otherwise hide the change. Other people's choices stay.
+    if (rest.avatar !== initial.avatar && own?.avatar) await savePrefs({ avatar: null });
+  });
   return (
     <Form {...formProps}>
       <SettingsSection>
