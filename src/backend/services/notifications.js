@@ -1,6 +1,6 @@
 import { query } from '../config/database.js';
 import { sendEmail, sendMattermostDirect, sendTelegram, sendWhatsapp } from './integrations.js';
-import { isValidPhone, normalizePhone } from './users.js';
+import { duplicateContacts, isValidPhone, normalizePhone } from './users.js';
 import { publicBase } from './google.js';
 import { pushToUser } from './push.js';
 import { registerJob } from './scheduler.js';
@@ -581,6 +581,7 @@ export async function notifyOverview() {
     providers,
     signinWhatsapp: parsed.auth?.whatsappCode || {},
     coverage: { total: rows[0].total, ...Object.fromEntries(CHANNELS.map((channel) => [channel, rows[0][channel]])) },
+    duplicates: await duplicateContacts(),
   };
 }
 

@@ -9,6 +9,7 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 ### Security and reliability (audit)
 
+- A phone, e-mail, Mattermost or Instagram name can belong to one account only: saving one another account already has is refused (`409 CONTACT_TAKEN`), directory sign-in does not copy a taken e-mail, and *Settings → Integrations → Notifications* lists contacts still shared by several accounts (code sign-in to them fails until resolved).
 - Google sign-in links to an existing account by email only if the address is trusted. An address is trusted if an administrator, a directory or Google set it, or if the user proved it with an email code. Switching Google accounts drops the old token.
 - Push subscriptions accept only real push services (no SSRF), and sign-out unsubscribes the device.
 - Calendar recurrence is bounded: invalid rules are refused, dates are kept in a sane range, expansion is capped, and the reminder job isolates errors. All-day reminders use local time, and series edits clear stale exceptions.

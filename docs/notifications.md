@@ -46,6 +46,7 @@ await notify({
 
 - **Channels for notifications**: each channel works when its integration is set up *and* it is switched on here (`settings.notify_config`). Each card shows how many active people the channel can reach (who has an e-mail, a phone, linked Telegram, a Mattermost name, push turned on).
 - **WhatsApp for notifications**: *as for sign-in codes* (follows *Sign-in methods*), *WhatsApp gateway* or *Wazzup*, with an optional fallback to the other provider — so codes and notifications can use different providers.
+- **Contacts on several accounts**: a phone, e-mail, Mattermost or Instagram name shared by two or more accounts is listed with links to them. While shared, a code sign-in to it fails for all of them (lookups refuse an ambiguous match) and their notifications reach one person. New duplicates are refused: creating or editing a user with a contact another account has returns `409 CONTACT_TAKEN` (`info.field`, plus `info.username` for administrators); directory sign-in (AD) does not copy an e-mail another account already uses. Telegram is unique by index.
 - **Test message** to any phone, e-mail, Telegram chat id or Mattermost user, with the provider's answer.
 - People connect a missing channel in place: in *Profile → Notifications* and under a reminder's channel choice they type their phone (WhatsApp), Mattermost name or e-mail, save it and get a test at once. Only channels the portal offers are suggested; Telegram links to the official button in *Profile → Security*.
 

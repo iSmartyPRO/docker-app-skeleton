@@ -331,6 +331,49 @@ export async function createAdminUser({ username, email, password }) {
   });
 }
 
+
+/*
+ * Phone, e-mail, Mattermost and Instagram identify a person at sign-in (codes,
+ * magic links) and receive their notifications, so two accounts must never
+ * share one: a sign-in to a shared contact cannot tell whose account it is.
+ * Telegram is unique by index already.
+ */
+const CONTACT_SQL = {
+  phone: 'phone = $1',
+  email: 'LOWER(email) = LOWER($1)',
+  mattermost: 'LOWER(mattermost) = LOWER($1)',
+  instagram: 'LOWER(instagram) = LOWER($1)',
+};
+
+export async function assertUniqueContacts(client, contacts, { excludeId = 0, reveal = false } = {}) {
+  for (const [field, value] of Object.entries(contacts)) {
+    if (!value || !CONTACT_SQL[field]) continue;
+    const { rows } = await client.query(`SELECT username FROM users WHERE ${CONTACT_SQL[field]} AND id <> $2 LIMIT 1`, [value, excludeId || 0]);
+    if (rows[0]) {
+      const error = httpError(409, `This ${field} already belongs to another account${reveal ? ` (@${rows[0].username})` : ''}`);
+      error.code = 'CONTACT_TAKEN';
+      error.details = { field, ...(reveal ? { username: rows[0].username } : {}) };
+      throw error;
+    }
+  }
+}
+
+/** Contacts shared by several accounts (left from before the rule), for administrators. */
+export async function duplicateContacts() {
+  const { rows } = await query(`
+    WITH c AS (
+      SELECT 'phone' AS field, phone AS value, id FROM users WHERE phone IS NOT NULL AND phone <> ''
+      UNION ALL SELECT 'email', LOWER(email), id FROM users WHERE email IS NOT NULL AND email <> ''
+      UNION ALL SELECT 'mattermost', LOWER(mattermost), id FROM users WHERE mattermost IS NOT NULL AND mattermost <> ''
+      UNION ALL SELECT 'instagram', LOWER(instagram), id FROM users WHERE instagram IS NOT NULL AND instagram <> ''
+    )
+    SELECT c.field, c.value, json_agg(json_build_object('id', u.id, 'username', u.username, 'name', COALESCE(u.display_name, u.username), 'active', u.is_active IS NOT FALSE) ORDER BY u.id) AS users
+    FROM c JOIN users u ON u.id = c.id
+    GROUP BY c.field, c.value HAVING COUNT(*) > 1
+    ORDER BY c.field, c.value`);
+  return rows;
+}
+
 /**
  * Admin-created account. The password is optional: accounts that sign in only
  * through Active Directory, Telegram or one-time codes do not need one.
@@ -341,6 +384,11 @@ export async function createUser(input, actor) {
   const passwordHash = input.password ? await bcrypt.hash(assertPassword(input.password), 12) : NO_PASSWORD;
   try {
     return await withTransaction(async (client) => {
+      await assertUniqueContacts(
+        client,
+        { email: normalizeEmail(input.email), phone: normalizePhone(input.phone), instagram: normalizeInstagram(input.instagram), mattermost: normalizeMattermost(input.mattermost) },
+        { reveal: true }
+      );
       const result = await client.query(
         `INSERT INTO users (username, email, password_hash, role, display_name, phone, instagram, mattermost, email_trusted)
          VALUES ($1, $2, $3, 'user', $4, $5, $6, $7, TRUE)
@@ -386,6 +434,8 @@ export async function provisionExternalUser(client, { username, displayName, ema
   } catch {
     safeEmail = null;
   }
+  // A directory address already used by another account is not copied.
+  if (safeEmail && (await client.query(`SELECT 1 FROM users WHERE LOWER(email) = LOWER($1)`, [safeEmail])).rows.length) safeEmail = null;
   const result = await client.query(
     `INSERT INTO users (username, email, password_hash, role, display_name, auth_source, external_id,
                         telegram_id, telegram_username, email_trusted)
@@ -417,6 +467,7 @@ export async function syncExternalProfile(id, { displayName, email }) {
   } catch {
     safeEmail = undefined;
   }
+  if (safeEmail && (await query(`SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2`, [safeEmail, id])).rows.length) safeEmail = undefined;
   await query(
     `UPDATE users SET
        display_name = COALESCE($2, display_name),
@@ -458,6 +509,19 @@ export async function updateUser(id, patch, { actor = null } = {}) {
       values.push(value);
       fields.push(`${column} = $${values.length}`);
     };
+
+    // Only a changed contact is checked, so a shared one left from before the
+    // rule never blocks saving other fields.
+    const changed = {};
+    for (const [field, value] of [
+      ['email', patch.email !== undefined ? normalizeEmail(patch.email) : undefined],
+      ['phone', patch.phone !== undefined ? normalizePhone(patch.phone) : undefined],
+      ['instagram', patch.instagram !== undefined ? normalizeInstagram(patch.instagram) : undefined],
+      ['mattermost', patch.mattermost !== undefined ? normalizeMattermost(patch.mattermost) : undefined],
+    ]) {
+      if (value && String(value).toLowerCase() !== String(user[field] || '').toLowerCase()) changed[field] = value;
+    }
+    await assertUniqueContacts(client, changed, { excludeId: id, reveal: Boolean(actor && !isSelf) });
 
     if (patch.email !== undefined) {
       const email = normalizeEmail(patch.email);

@@ -78,7 +78,7 @@ export default function NotificationDelivery() {
       </div>
     );
   }
-  const { config, integration, providers, coverage, signinWhatsapp } = data;
+  const { config, integration, providers, coverage, signinWhatsapp, duplicates = [] } = data;
   const percent = (n) => (coverage.total ? Math.round((n / coverage.total) * 100) : 0);
 
   return (
@@ -125,6 +125,28 @@ export default function NotificationDelivery() {
         </div>
         <p className="nd-note">{t('notifyAdmin.coverageNote')}</p>
       </SettingsSection>
+
+      {duplicates.length > 0 && (
+        <SettingsSection title={`⚠ ${t('notifyAdmin.dupTitle')}`} description={t('notifyAdmin.dupDesc')}>
+          <ul className="nd-dups">
+            {duplicates.map((row) => (
+              <li key={`${row.field}:${row.value}`}>
+                <span className="nd-dups__what">
+                  <span className="nd-muted">{t(`notifyAdmin.dupField.${row.field}`)}</span> <strong>{row.value}</strong>
+                </span>
+                <span className="nd-dups__who">
+                  {row.users.map((u) => (
+                    <Link key={u.id} to={`/admin/users/${u.id}`} className="nd-dups__user">
+                      @{u.username}
+                      {!u.active && <span className="nd-muted"> · {t('notifyAdmin.dupInactive')}</span>}
+                    </Link>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </SettingsSection>
+      )}
 
       <SettingsSection title={<HintLabel id="admin.notifyWhatsapp">{t('notifyAdmin.whatsappTitle')}</HintLabel>} description={t('notifyAdmin.whatsappDesc')}>
         <SettingRow label={t('notifyAdmin.provider')} description={t('notifyAdmin.providerDesc', { signin: t(`notifyAdmin.providers.${signinWhatsapp.provider || 'gateway'}`) })}>

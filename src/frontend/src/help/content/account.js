@@ -70,6 +70,10 @@ export default {
       en: 'Enter your phone in international format: +996 700 123 456.',
     },
     {
+      ru: 'Телефон, почта и Mattermost принадлежат одной учётной записи: если они уже указаны у другой, портал не даст их сохранить — иначе вход по коду не поймёт, чья это учётка.',
+      en: 'A phone, e-mail or Mattermost name belongs to one account: if another account already has it, the portal will not save it — otherwise a code sign-in could not tell whose account it is.',
+    },
+    {
       ru: 'Привяжите Telegram в «Безопасности», чтобы получать уведомления и входить без пароля.',
       en: 'Link Telegram under “Security” to get notifications and sign in without a password.',
     },

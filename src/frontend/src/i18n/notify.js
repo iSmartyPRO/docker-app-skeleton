@@ -36,6 +36,11 @@ export const notifyEn = {
     how2: 'This page decides which of them carry notifications and, for WhatsApp, through which provider.',
     how3: 'Each person adds their contacts (phone, Telegram, Mattermost name) and chooses events and quiet hours in Profile → Notifications.',
     how4: 'Every notification records where it went; people see it under “Recent notifications”, and a test shows the exact error.',
+    dupTitle: 'Contacts on several accounts',
+    dupDesc: 'A phone, e-mail or messenger name must belong to one account. While it is shared, sign-in with a code to it fails for all of them (the portal cannot tell whose it is), and their notifications go to the same person. Keep it on one account and remove it from the rest.',
+    dupField: { phone: 'Phone', email: 'E-mail', mattermost: 'Mattermost', instagram: 'Instagram' },
+    dupOpen: 'Open',
+    dupInactive: 'disabled',
   },
   quickConnect: {
     whatsapp: 'Your mobile phone for WhatsApp',
@@ -263,6 +268,11 @@ export const notifyRu = {
     how2: 'На этой странице решается, какие из них возят уведомления и через какого провайдера идёт WhatsApp.',
     how3: 'Каждый добавляет свои контакты (телефон, Telegram, имя в Mattermost) и выбирает события и тихие часы в Профиль → Уведомления.',
     how4: 'Каждое уведомление запоминает, куда ушло: люди видят это в «Последних уведомлениях», а тест показывает точную ошибку.',
+    dupTitle: 'Контакты на нескольких учётных записях',
+    dupDesc: 'Телефон, e-mail или имя в мессенджере должны принадлежать одной учётной записи. Пока он общий, вход по коду на него не работает ни для одной из них (портал не может понять, чья это учётка), а их уведомления приходят одному человеку. Оставьте контакт у одной записи и уберите у остальных.',
+    dupField: { phone: 'Телефон', email: 'E-mail', mattermost: 'Mattermost', instagram: 'Instagram' },
+    dupOpen: 'Открыть',
+    dupInactive: 'отключена',
   },
   quickConnect: {
     whatsapp: 'Ваш мобильный телефон для WhatsApp',

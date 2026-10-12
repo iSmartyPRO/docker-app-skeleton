@@ -55,3 +55,26 @@ test('notification prefs: WhatsApp is a messenger channel with its own switch', 
   assert.equal(eventAllows(resolvePrefs({}), 'tasks.status', 'whatsapp'), false);
   assert.equal(eventAllows(resolvePrefs({}), 'chat.message', 'whatsapp'), false);
 });
+
+test('a contact another account has is refused, with the owner shown to administrators only', async () => {
+  const { assertUniqueContacts } = await import('../services/users.js');
+  const calls = [];
+  const client = {
+    query: async (sql, params) => {
+      calls.push({ sql, params });
+      return { rows: params[0] === '+996700000001' ? [{ username: 'other' }] : [] };
+    },
+  };
+  await assertUniqueContacts(client, { phone: '+996700000002', email: null }, { excludeId: 5 });
+  assert.equal(calls.length, 1, 'empty values are not checked');
+  assert.deepEqual(calls[0].params, ['+996700000002', 5]);
+
+  const self = await assertUniqueContacts(client, { phone: '+996700000001' }, { excludeId: 5 }).catch((err) => err);
+  assert.equal(self.statusCode, 409);
+  assert.equal(self.code, 'CONTACT_TAKEN');
+  assert.deepEqual(self.details, { field: 'phone' });
+
+  const admin = await assertUniqueContacts(client, { phone: '+996700000001' }, { excludeId: 5, reveal: true }).catch((err) => err);
+  assert.deepEqual(admin.details, { field: 'phone', username: 'other' });
+  assert.match(calls.at(-1).sql, /id <> \$2/);
+});
