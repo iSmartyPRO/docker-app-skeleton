@@ -318,3 +318,45 @@ test('every role has known capabilities; statuses are in process order', () => {
   assert.deepEqual(STATUSES, ['not_for_sale', 'free', 'reserve', 'booking', 'deposit', 'contract', 'sold', 'handed']);
   for (const role of ROLES) assert.ok(Array.isArray(ROLE_CAPS[role]) && ROLE_CAPS[role].length, role);
 });
+
+test('version conflict: the holder only as far as the person may read it', async () => {
+  const { conflict, mayChangeStatus, mayExtend } = await import('../modules/masterplan/sales.js');
+  const row = { status: 'reserve', manager_id: 7, manager_name: 'Айбек', actor_name: 'Айбек', version: 4 };
+  const full = conflict(row, caps('sales'));
+  assert.equal(full.details.holder.manager.name, 'Айбек');
+  assert.match(full.message, /Айбек/);
+  const marketing = conflict(row, caps('marketing'));
+  assert.equal(marketing.details.holder.status, 'reserve', 'status.view: the status');
+  assert.equal(marketing.details.holder.manager, null, 'no booking.view: no names');
+  assert.doesNotMatch(marketing.message, /Айбек/);
+  const foreman = conflict(row, caps('foreman'));
+  assert.equal(foreman.details.holder.status, null);
+  assert.ok(!mayChangeStatus(caps('foreman')) && !mayChangeStatus(caps('marketing')));
+  assert.ok(mayChangeStatus(caps('sales')) && mayChangeStatus(caps('finance')) && mayChangeStatus(caps('construction_head')));
+  assert.ok(mayExtend(caps('sales')) && !mayExtend(caps('finance')));
+});
+
+test('API tokens: the CRM side of Masterplan needs the CRM scope', async () => {
+  const { crmScopeAllows } = await import('../modules/masterplan/access.js');
+  const tokenCtx = (crm) => ({ request: { apiToken: { policy: { scopes: { masterplan: 'write', crm }, rules: [] } } } });
+  assert.ok(crmScopeAllows({ request: {} }, 'write'), 'a signed-in person is not limited');
+  assert.ok(crmScopeAllows({ request: null }, 'write'));
+  assert.ok(!crmScopeAllows(tokenCtx('none'), 'read'));
+  assert.ok(crmScopeAllows(tokenCtx('read'), 'read'));
+  assert.ok(!crmScopeAllows(tokenCtx('read'), 'write'));
+  assert.ok(crmScopeAllows(tokenCtx('write'), 'write'));
+});
+
+test('registry across projects: a capability counts only where the person has it', async () => {
+  const { projectsWithCap } = await import('../modules/masterplan/units.js');
+  const ctx = { globalRoles: new Set(), assignments: [{ projectId: 1, nodeId: null, role: 'sales' }, { projectId: 2, nodeId: 5, role: 'foreman' }] };
+  assert.deepEqual(projectsWithCap(ctx, 'status.view'), [1]);
+  assert.equal(projectsWithCap({ globalRoles: new Set(['sales']), assignments: [] }, 'status.view'), null);
+});
+
+test('notifications: an expired reserve is called a reserve', async () => {
+  const { mpMessage } = await import('../modules/masterplan/messages.js');
+  assert.match(mpMessage('expired', { code: 'A-1', project: 'P', kind: 'reserve' })('ru').title, /^Резерв A-1 снят /);
+  assert.match(mpMessage('expired', { code: 'A-1', project: 'P', kind: 'booking' })('ru').title, /^Бронь A-1 снята /);
+  assert.match(mpMessage('bulkStatus', { count: 3, to: 'not_for_sale', project: 'P' })('en').title, /Not for sale: 3/);
+});

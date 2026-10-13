@@ -13,10 +13,9 @@ test('a "sign in as" token carries the administrator and lasts a day', () => {
 });
 
 test('sensitive account actions are locked while acting as someone else', async () => {
-  const source = (await import('fs')).readFileSync(new URL('../middleware/auth.js', import.meta.url), 'utf8');
-  const pattern = new RegExp(source.match(/const IMPERSONATION_LOCKED = \/(.*)\/;/)[1]);
+  const { impersonationLock } = await import('../middleware/auth.js');
   for (const path of ['/api/account/password', '/api/account/sessions/revoke', '/api/account/telegram', '/api/account/api/tokens', '/api/auth/google/connect', '/api/admin/users/5/impersonate', '/api/v1/account/password']) {
-    assert.ok(pattern.test(path), path);
+    assert.ok(impersonationLock('POST', path), path);
   }
-  for (const path of ['/api/account/profile', '/api/app/tasks', '/api/account/notifications']) assert.ok(!pattern.test(path), path);
+  for (const path of ['/api/account/profile', '/api/app/tasks', '/api/account/notifications']) assert.equal(impersonationLock('PUT', path, {}, {}), null, path);
 });

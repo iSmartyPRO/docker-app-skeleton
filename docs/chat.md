@@ -40,7 +40,9 @@ Each person can **pin**, **mute** or **hide** a conversation for themselves. A h
 
 ## Real time and notifications
 
-- Each browser tab opens one Server-Sent Events stream, `GET /api/app/chat/stream`. New messages, edits, reactions, read marks and typing arrive through it. The stream reconnects by itself and the page refetches what it missed.
+- Each browser tab opens one Server-Sent Events stream, `GET /api/app/chat/stream`. New messages, edits, reactions, read marks and typing arrive through it. The stream reconnects by itself; on reconnect the open conversation loads the messages that came after the last one on screen, and the unread badge is refreshed from the server (which skips muted and hidden chats; bursts of events cost one request).
+- An open stream is re-checked about once a minute: a signed-out, revoked or expired session, a blocked or deactivated account, a password change or a revoked API token closes it. API tokens limited to selected resources get `403 TOKEN_LIMITED` for the stream (its events are not filtered by those limits); session users are unaffected.
+- A room's last message never goes backwards when two messages commit out of order (`last_message_id = GREATEST(...)`).
 - The tab reports whether the user is looking at a room (`POST /focus`, sent when focus or visibility changes). People watching a room get no push for it; everyone else gets a web push (tag `chat-<room id>`, so a newer message replaces the older one on the device). Muted rooms send no push except for mentions.
 - Mentions go through the [notification center](notifications.md) as `chat.mention`, so they also reach email, Telegram and Mattermost if the person enabled them.
 - **Reverse proxy:** the stream needs buffering off. The bundled `nginx.conf` has a dedicated `location = /api/app/chat/stream` (no buffering, 1-hour timeouts), and the backend sends `X-Accel-Buffering: no` and skips compression for `text/event-stream`. A proxy placed in front of the container must not buffer either.

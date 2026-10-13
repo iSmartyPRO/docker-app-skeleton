@@ -28,6 +28,12 @@ services:
       - ./.env:/app/.env
       - ./data/uploads:/app/uploads
     restart: unless-stopped
+    # nginx and the app log to the container output: keep at most 5 × 10 MB.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     stop_grace_period: 15s
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health || exit 1"]

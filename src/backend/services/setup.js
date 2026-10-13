@@ -171,7 +171,8 @@ export async function completeSetup(body) {
   await query(`INSERT INTO app_settings (key, value) VALUES ('default_locale', $1) ON CONFLICT (key) DO NOTHING`, [locale]);
   invalidateSettings();
   await seedRbac({ locale });
-  const demoUsers = body.demoUsers === false ? 0 : await seedDemoUsers();
+  // Sample accounts only when asked for (the wizard's checkbox starts off).
+  const demoUsers = body.demoUsers === true ? await seedDemoUsers() : 0;
 
   await query(
     `

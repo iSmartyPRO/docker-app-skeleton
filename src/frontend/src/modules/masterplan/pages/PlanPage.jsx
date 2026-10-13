@@ -28,6 +28,8 @@ export default function PlanPage() {
   const { settings } = useMp();
   const { project, nodes, tree, plans, contours, caps, error, data, live, presentation, refreshUnits, reload } = useProject();
   const canvas = useRef(null);
+  // The canvas measures itself after its first render (again after a remount); focusing waits for that.
+  const [canvasReady, setCanvasReady] = useState(0);
   const [hover, setHover] = useState(null);
   const [filter, setFilterState] = useState(() => ({ ...EMPTY_FILTER, ...readStore(userKey(user, 'filter'), {}) }));
   const setFilter = (next) => {
@@ -96,7 +98,7 @@ export default function PlanPage() {
     if (shape) canvas.current.fitBox(bboxOf(shape.points), 0.12);
     else canvas.current.fit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusId, plan?.id, mode]);
+  }, [focusId, plan?.id, mode, canvasReady]);
 
   const scopeUnits = useMemo(() => (focus ? unitsUnder(focus, tree) : nodes.filter((node) => node.unit)), [focus, tree, nodes]);
   const visibleUnits = useMemo(() => scopeUnits.filter((node) => !filter.q || matches(node, { q: filter.q }, user?.id)), [scopeUnits, filter.q, user?.id]);
@@ -203,6 +205,7 @@ export default function PlanPage() {
             onShapeClick={(id) => select(tree.byId.get(id))}
             onShapeHover={(id, at) => setHover(id ? { id, ...at } : null)}
             onBackgroundClick={() => setParam('node', null)}
+            onReady={() => setCanvasReady((n) => n + 1)}
             ariaLabel={t('mp.plan.aria')}
           >
             <div className="mp-zoom">

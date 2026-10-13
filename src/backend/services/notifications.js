@@ -48,6 +48,8 @@ export async function ensureNotificationTables() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, id DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS notifications_unread_idx ON notifications (user_id) WHERE read_at IS NULL`);
+  // The retention job deletes by age; without this it scans the whole table.
+  await query(`CREATE INDEX IF NOT EXISTS notifications_created_idx ON notifications (created_at)`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_prefs JSONB NOT NULL DEFAULT '{}'`);
   // Where each notification went: { push: 'sent', telegram: 'unreachable', … }
   await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS delivery JSONB`);

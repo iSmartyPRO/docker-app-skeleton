@@ -46,7 +46,7 @@ export function centroid(points) {
   return [cx / (3 * a), cy / (3 * a)];
 }
 
-const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, shapes, onShapeClick, onShapeHover, onBackgroundClick, edit, className = '', ariaLabel, children }, ref) {
+const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, shapes, onShapeClick, onShapeHover, onBackgroundClick, onReady, edit, className = '', ariaLabel, children }, ref) {
   const box = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState(null); // { x, y, k }
@@ -77,6 +77,13 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
   useEffect(() => {
     if (size.w && !view) fit();
   }, [size, view, fit]);
+
+  // The parent may need the real size first (e.g. to focus a deep-linked node).
+  const sized = size.w > 0 && size.h > 0;
+  useEffect(() => {
+    if (sized) onReady?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sized]);
 
   const zoomAt = useCallback((factor, cx, cy) => {
     setView((v) => {

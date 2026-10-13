@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { refuseImpersonation, requireAuth } from '../middleware/auth.js';
 import { avatarUpload, verifyUploadedFile } from '../middleware/upload.js';
 import { cookieOptions, signToken, verifyToken } from '../services/auth.js';
 import { listUserSessions, renewSession, revokeSessionById, revokeUserSessions } from '../services/sessions.js';
@@ -26,6 +26,8 @@ import { query } from '../config/database.js';
 import { canViewCalendar } from '../modules/calendar/service.js';
 const router = Router();
 router.use(requireAuth);
+// "Sign in as" never changes how the person signs in (see middleware/auth.js).
+router.use(['/password', '/sessions', '/telegram', '/google'], refuseImpersonation);
 
 const wrap = (handler) => async (req, res, next) => {
   try {

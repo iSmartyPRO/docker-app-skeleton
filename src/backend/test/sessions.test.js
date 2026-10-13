@@ -146,7 +146,6 @@ test('session tokens carry the session id next to the user and token version', (
 });
 
 test('the account sessions routes stay locked while acting as someone else', async () => {
-  const source = (await import('fs')).readFileSync(new URL('../middleware/auth.js', import.meta.url), 'utf8');
-  const pattern = new RegExp(source.match(/const IMPERSONATION_LOCKED = \/(.*)\/;/)[1]);
-  for (const path of ['/api/account/sessions/revoke-others', '/api/account/sessions/abc', '/api/v1/account/sessions']) assert.ok(pattern.test(path), path);
+  const { impersonationLock } = await import('../middleware/auth.js');
+  for (const path of ['/api/account/sessions/revoke-others', '/api/account/sessions/abc', '/api/v1/account/sessions']) assert.ok(impersonationLock('DELETE', path), path);
 });

@@ -86,7 +86,7 @@ A person's roles in a project = **global roles** (portal permissions `masterplan
 
 Capabilities are defined in `modules/masterplan/constants.js` (`ROLE_CAPS`); the checks are pure functions in `rules.js`.
 
-**Field hiding** (server side, `projectUnit()`): status — `status.view`; price, price per m², discount — `price.view`; manager and timer — `booking.view`; minimum price — `minprice.view`; client and deal — `clients.all` or own booking with `clients.own`; contract amount, paid, remaining — `amounts.all` or own with `amounts.own`. The same rules apply to the map, lists, registry, CSV / Excel export, bookings list, the deal block and the history (status events lose client / deal / amount, minimum-price changes disappear). **Presentation mode** (`?presentation=1`) drops clients, managers, minimum prices, amounts and timers for everyone.
+**Field hiding** (server side, `projectUnit()`): status — `status.view`; price, price per m², discount — `price.view`; manager and timer — `booking.view`; minimum price — `minprice.view`; client and deal — `clients.all` or own booking with `clients.own`; contract amount, paid, remaining — `amounts.all` or own with `amounts.own`. The same rules apply to the map, lists, registry, CSV / Excel export, bookings list, the deal block and the history (status events lose client / deal / amount / contract, and manager / expiry without `booking.view`; manager changes need `booking.view`; CRM-stage events need `status.view` and lose the deal id without client rights; minimum-price changes disappear). Across several projects (registry without `project`) a status filter or status sort counts only in projects where the person has `status.view`. Registry readiness (filter, sort, CSV) is the inherited one, as on the plan. **API tokens**: deal titles, linking a deal and status changes of a unit linked to a deal (which write the deal timeline / amount) also need the token's `crm` scope (`403 SCOPE_DENIED`); signed-in users are not affected. **Presentation mode** (`?presentation=1`) drops clients, managers, minimum prices, amounts and timers for everyone.
 
 ## Sales statuses
 
@@ -105,11 +105,11 @@ Capabilities are defined in `modules/masterplan/constants.js` (`ROLE_CAPS`); the
 | not_for_sale → free | executive, admin | — |
 | any other move back (rollback) | sales_head, executive, admin | a reason |
 
-Skipping steps forward is refused (`INVALID_TRANSITION`). A held unit cannot be linked to another deal (`DEAL_LOCKED`).
+Skipping steps forward is refused (`INVALID_TRANSITION`). A held unit cannot be linked to another deal (`DEAL_LOCKED`). Returning a unit to sale (`free`, or closing it from free / reserve / booking) clears its client, deal and contract, and the history keeps what was cleared; closing sales of a unit at deposit / contract / sold / handed keeps them. Bulk closing / opening sends one summary notification per project.
 
-**Double sale protection.** Every change locks the unit row (`SELECT … FOR UPDATE`) inside one transaction, checks the `version` the person saw and the rules, then bumps `version`. Two managers reserving one unit at once: one wins, the other gets `409 VERSION_CONFLICT` with `error: "Объект только что забронирован менеджером X"` and `info.holder = { status, manager, version }`; without a version the second request fails the rules (`SAME_STATUS`) on the locked row.
+**Double sale protection.** Every change locks the unit row (`SELECT … FOR UPDATE`) inside one transaction, checks the `version` the person saw and the rules, then bumps `version`. Two managers reserving one unit at once: one wins, the other gets `409 VERSION_CONFLICT` with `error: "Объект только что забронирован менеджером X"` and `info.holder = { status, manager, version }` — the status only with `status.view`, names only with `booking.view`; people with no right to change statuses (or to extend) get `403` before any lock or version check. The reserve limit is counted under a per-manager advisory lock, so parallel reserves cannot exceed it. Without a version the second request fails the rules (`SAME_STATUS`) on the locked row.
 
-**Timers.** A reserve lasts `reserveHours`, a booking `bookingDays`. The manager extends once (`managerExtensions`), then heads of sales. Job `masterplan:bookings` (every minute) warns the manager `warnHours` before the end (default 24 h and 2 h; a timer shorter than a threshold skips it) and releases expired timers: the unit becomes free only if that timer still holds it; the manager and heads of sales of the zone are notified; the CRM deal gets a line.
+**Timers.** A reserve lasts `reserveHours`, a booking `bookingDays`. The manager extends once (`managerExtensions`), then heads of sales. Job `masterplan:bookings` (every minute) warns the manager `warnHours` before the end (default 24 h and 2 h; a timer shorter than a threshold skips it) and releases expired timers: it locks the unit, then the timer (the same order as status changes and extensions), re-checks the end under the lock (a timer extended a moment ago is kept), and the unit becomes free only if that timer still holds it; the manager and heads of sales of the zone are notified; the CRM deal gets a line.
 
 **Prices.** Changes are written to `mp_price_history` (old, new, currency, author, reason) and the history. With `fixPriceOnBooking` held units keep their price (single changes `409 PRICE_FIXED`, bulk changes skip them). Heads of sales cannot cut more than `salesHeadMaxCutPct` at once (`403 PRICE_LIMIT`); management can.
 
@@ -119,8 +119,8 @@ Skipping steps forward is refused (`INVALID_TRANSITION`). A held unit cannot be 
 - **Object stages** (`mp_node_stages`): plan / fact dates, percent, state (`not_started`, `in_progress`, `done`, `paused` + reason). Fact start / end and the state follow the percent unless given.
 - **Readiness** = Σ(weight × percent) / Σ weights, or entered by hand (per node, or the whole project in `readinessMode: 'manual'`). Units without own stages (apartments) inherit their building's; levels show the area-weighted average of construction objects below.
 - **Schedule state**: `behind` (an unfinished stage past its planned end — the worst delay in days), `ahead`, `on_track`, `no_plan`; red over `delayAlertDays`.
-- **Journal**: a report has objects (a level means every construction object inside), a stage and percent, the date of the state, a comment and up to 30 photos / videos. Publishing moves the stage percent of every target of that stage set, recomputes readiness and sets "last report". With project `moderation` a foreman's report goes to `review`; heads of construction publish or return it. Visible to sales once published (unless `visibility: internal`); drafts and reviews only to the author and moderators.
-- Job `masterplan:daily` (every 6 h): objects without a report for `staleReportDays` → one summary per person and project (foremen responsible, heads of construction); delays over `delayAlertDays` → heads of construction and management (again every further week); removes uploads never attached to a report after 2 days.
+- **Journal**: a report has objects (a level means every construction object inside), a stage and percent, the date of the state, a comment and up to 30 photos / videos. Publishing moves the stage percent of every target of that stage set (unless a report with a later date is already published for that object and stage: a late or backdated report never moves progress back), recomputes readiness and sets "last report". The author needs `build.edit` on every chosen object and every object the report moves (e.g. the building above a chosen apartment). A report is reviewed once (a second publish / return gets `409 ALREADY_PUBLISHED`). With project `moderation` a foreman's report goes to `review`; heads of construction publish or return it. Visible to sales once published (unless `visibility: internal`); drafts and reviews only to the author and moderators.
+- Job `masterplan:daily` (every 6 h): objects without a report for `staleReportDays` → one summary per person and project (foremen responsible, heads of construction); delays over `delayAlertDays` → heads of construction and management (again every further week; an object back on schedule starts from the threshold again); removes uploads never attached to a report after 2 days.
 
 ## Data model
 
@@ -169,7 +169,7 @@ Edited in *Settings → Modules → Masterplan* (console, `settings.modules`) or
 | GET | `/meta` | public settings, statuses, roles, directories (types, stages), projects with my roles and capabilities, CRM / Counterparties enabled |
 | GET / PUT | `/settings` | module settings (`masterplan.admin`) |
 | GET | `/users`, `/groups` | pickers |
-| POST | `/access-request` | `{ note }` → notifies administrators |
+| POST | `/access-request` | `{ note }` → notifies administrators (at most once per person per 10 minutes; repeats answer OK silently) |
 | GET / PUT | `/types` | object types / replace (admin) |
 | GET / PUT | `/stages`, `/stages/:set` | stage sets / replace one set (admin) |
 | GET / POST | `/projects` | visible projects (with counts by status) / create (admin) |
@@ -196,9 +196,9 @@ Edited in *Settings → Modules → Masterplan* (console, `settings.modules`) or
 | GET | `/deals/:dealId/units` | units linked to a CRM deal (with CRM rights) |
 | GET / POST | `/reports` | journal / new report `{ projectId, nodeIds, stageId, percent, factDate, body, mediaIds, submit }` |
 | GET / DELETE | `/reports/:id` · POST `/reports/:id/review` | `{ action: 'publish'|'reject', note }` |
-| POST / GET / DELETE | `/media` (multipart `file`, `thumb`, `projectId`, `nodeId?`, `kind`, `takenAt`, `lat`, `lng`, `width`, `height`) · `/media/:id?thumb=1&download=1` | uploads and access-checked downloads |
+| POST / GET / DELETE | `/media` (multipart `file`, `thumb`, `projectId`, `nodeId?`, `kind`, `takenAt`, `lat`, `lng`, `width`, `height`) · `/media/:id?thumb=1&download=1` | uploads and access-checked downloads (uploads refused before anything is written unless the person has `media.edit` or `build.edit` somewhere) |
 
-Error codes: `VERSION_CONFLICT, SAME_STATUS, INVALID_TRANSITION, FORBIDDEN, NOT_OWN, REASON_REQUIRED, DEAL_REQUIRED, CLIENT_REQUIRED, CONTRACT_REQUIRED, ACT_DATE_REQUIRED, RESERVE_LIMIT, EXTEND_LIMIT, NOT_HELD, DEAL_LOCKED, DEAL_CLOSED, CRM_DISABLED, PRICE_FIXED, PRICE_LIMIT, OUT_OF_ZONE, CODE_TAKEN, TOO_DEEP, INVALID_TYPE, INVALID_PARENT, NODE_HAS_SALES, PROJECT_HAS_SALES, TYPE_IN_USE, INVALID_CONTOUR, FILE_TYPE, FILE_CONTENT, MEDIA_IN_USE`. The API reference (`/developers`) has the Masterplan section; API tokens get the `masterplan` area automatically.
+Error codes: `VERSION_CONFLICT, SAME_STATUS, INVALID_TRANSITION, FORBIDDEN, NOT_OWN, REASON_REQUIRED, DEAL_REQUIRED, CLIENT_REQUIRED, CONTRACT_REQUIRED, ACT_DATE_REQUIRED, RESERVE_LIMIT, EXTEND_LIMIT, NOT_HELD, DEAL_LOCKED, DEAL_CLOSED, CRM_DISABLED, PRICE_FIXED, PRICE_LIMIT, OUT_OF_ZONE, ALREADY_PUBLISHED, SCOPE_DENIED, CODE_TAKEN (node codes only; other duplicates `DUPLICATE`), TOO_DEEP, INVALID_TYPE, INVALID_PARENT, NODE_HAS_SALES, PROJECT_HAS_SALES, TYPE_IN_USE, INVALID_CONTOUR, FILE_TYPE, FILE_CONTENT, MEDIA_IN_USE`. The API reference (`/developers`) has the Masterplan section; API tokens get the `masterplan` area automatically.
 
 ## Integrations
 
@@ -214,7 +214,7 @@ Error codes: `VERSION_CONFLICT, SAME_STATUS, INVALID_TRANSITION, FORBIDDEN, NOT_
 ## Tests
 
 - `src/backend/test/masterplan.test.js` (node:test, no database): catalog and sanitizer, permissions and notification kinds, directories, global roles and zones, field hiding incl. presentation mode, every transition of §6.2 with its requirements, reserve limit, extensions, deal lock and conflict text, prices (modes, head-of-sales limit), readiness weights, schedule states, inheritance up and down the tree, bulk codes and apartment grids, timer warnings, input cleaning (unit fields, attributes, contours, SVG, CSV, currencies).
-- `src/backend/test/masterplan.db.test.js` — against a **test** database only: a real double-booking race, zones on the journal, the expiry job. Skipped unless `MASTERPLAN_DB_TEST=1` (so `npm test` needs no database).
+- `src/backend/test/masterplan.db.test.js` — against a **test** database only: a real double-booking race, zones on the journal, the expiry job, expiry vs a concurrent extension, the reserve-limit race, rights before the version check, closing a sold unit, backdated reports, double review. Skipped unless `MASTERPLAN_DB_TEST=1` (so `npm test` needs no database).
 - End-to-end (scratch scripts, not in the repo): the whole API flow with nine accounts and the browser screenshots on desktop and phone, light and dark.
 
 ## Deferred to v2 / v3 and open questions

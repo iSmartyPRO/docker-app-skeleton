@@ -97,34 +97,55 @@ export default function DealPanel({ id, onClose, onChanged }) {
 
   const setDeal = (next) => setData((prev) => (prev ? { ...prev, deal: { ...prev.deal, ...next } } : prev));
 
-  /** Saves a patch optimistically; on a version conflict shows the fresh deal. */
-  const patch = async (changes) => {
+  // The latest deal as saved by the server: quick successive edits must each
+  // send the version the previous one produced, not the one they started from.
+  const dataRef = useRef(null);
+  dataRef.current = data;
+  const saving = useRef(Promise.resolve());
+
+  /**
+   * Saves a patch optimistically; patches go out one after another. On a
+   * version conflict shows the fresh deal; on another error puts back only
+   * the fields of this patch.
+   */
+  const patch = (changes) => {
     const before = data.deal;
     const optimistic = { ...changes };
     if ('ownerId' in changes) optimistic.owner = changes.ownerId ? { ...(before.owner || {}), id: changes.ownerId } : null;
-    setDeal(Object.fromEntries(Object.entries(optimistic).filter(([key]) => !key.endsWith('Id') && key !== 'watcherIds')));
-    try {
-      const res = await crmApi.updateDeal(before.id, { ...changes, version: before.version });
-      setDeal(res.data.deal);
-      onChanged?.();
-      refreshTimeline();
-      return true;
-    } catch (err) {
-      if (errorCode(err) === 'VERSION_CONFLICT' && err.response?.data?.deal) {
-        setDeal(err.response.data.deal);
-        message.warning(t('crm.panel.conflict'));
-      } else {
-        setData((prev) => ({ ...prev, deal: before }));
-        message.error(errorMessage(err));
+    const shown = Object.fromEntries(Object.entries(optimistic).filter(([key]) => !key.endsWith('Id') && key !== 'watcherIds'));
+    setDeal(shown);
+    const run = async () => {
+      const current = dataRef.current?.deal || before;
+      try {
+        const res = await crmApi.updateDeal(current.id, { ...changes, version: current.version });
+        setDeal(res.data.deal);
+        // The ref must carry the new version before the next queued patch reads it.
+        if (dataRef.current) dataRef.current = { ...dataRef.current, deal: { ...dataRef.current.deal, ...res.data.deal } };
+        onChanged?.();
+        refreshTimeline();
+        return true;
+      } catch (err) {
+        if (errorCode(err) === 'VERSION_CONFLICT' && err.response?.data?.deal) {
+          setDeal(err.response.data.deal);
+          if (dataRef.current) dataRef.current = { ...dataRef.current, deal: { ...dataRef.current.deal, ...err.response.data.deal } };
+          message.warning(t('crm.panel.conflict'));
+        } else {
+          setDeal(Object.fromEntries(Object.keys(shown).map((key) => [key, before[key]])));
+          message.error(errorMessage(err));
+        }
+        return false;
       }
-      return false;
-    }
+    };
+    const result = saving.current.then(run);
+    saving.current = result.catch(() => false);
+    return result;
   };
 
   const refreshTimeline = async () => {
     try {
       const res = await crmApi.deal(id);
-      setData(res.data);
+      // A slower answer must not bring back an older version of the deal than one already saved.
+      setData((prev) => (prev?.deal && res.data.deal && prev.deal.version > res.data.deal.version ? { ...res.data, deal: prev.deal } : res.data));
       setHasMore(res.data.eventsHasMore ?? (res.data.events || []).length >= EVENTS_PAGE);
     } catch {
       /* stays as is */

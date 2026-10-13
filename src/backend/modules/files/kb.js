@@ -31,6 +31,8 @@ export async function ensureKbFolder(userId, locale = 'en') {
 
 /** Multipart upload into the user's KB folder, with the knowledge-base limits. */
 export async function uploadForKb(ctx, req, res, { maxUploadMb, fileGroups, locale }) {
+  // KB uploads land in the person's own files, which a space-limited token does not reach.
+  if (ctx.limits?.fs_space_acl) throw httpError(403, 'The API token is limited to selected spaces', 'TOKEN_LIMITED');
   const folder = await ensureKbFolder(ctx.userId, locale);
   const upload = await fileUploader({ maxUploadMb, fileGroups, allowAny: false });
   await runUpload(upload, req, res);

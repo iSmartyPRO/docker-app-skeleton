@@ -5,7 +5,8 @@ import { getAccessMap } from '../../services/rbac.js';
 import { notify } from '../../services/notifications.js';
 import { httpError, userShape } from '../shared/acl.js';
 import { STATUSES, ROLES, FINISHINGS, PAYMENT_FORMS, PROJECT_CLASSES, PROJECT_STATUSES, MEDIA_KINDS, TYPE_CATEGORIES } from './constants.js';
-import { modulesEnabled, mpContext, mpSettings, requireAdmin, requireProject } from './access.js';
+import { forbidden, modulesEnabled, mpContext, mpSettings, requireAdmin, requireProject } from './access.js';
+import { capsOf, has } from './rules.js';
 import { createPlan, createProject, deletePlan, deleteProject, getProject, listProjects, listTeam, projectMap, saveContours, saveTeam, updatePlan, updateProject } from './projects.js';
 import { bulkCreate, createNode, deleteNode, getNode, moveNode, nodeCard, nodeEvents, updateNode } from './nodes.js';
 import { assignManager, bulkPrice, bulkStatus, changeStatus, extendBooking, listBookings } from './sales.js';
@@ -19,18 +20,28 @@ import { openStream } from './realtime.js';
 import { mpMessage } from './messages.js';
 import { userName } from './util.js';
 
-/** Like shared wrap(); a unique-code race becomes 409 CODE_TAKEN. */
+/** Like shared wrap(); a unique-code race becomes 409 CODE_TAKEN, another duplicate 409 DUPLICATE. */
 const wrap = (handler) => async (req, res, next) => {
   try {
     await handler(req, res);
   } catch (err) {
     if (err.code === '23505') {
-      next(httpError(409, 'This code is taken', 'CODE_TAKEN'));
+      next(err.constraint === 'mp_nodes_code_idx' ? httpError(409, 'This code is taken', 'CODE_TAKEN') : httpError(409, 'This record already exists', 'DUPLICATE'));
       return;
     }
     next(err);
   }
 };
+
+/** May upload some file somewhere in the module (media, report photos, plans); storeMedia checks the project and node. */
+function mayUpload(ctx) {
+  const caps = capsOf(new Set([...ctx.globalRoles, ...ctx.assignments.map((item) => item.role)]));
+  return has(caps, 'media.edit') || has(caps, 'build.edit');
+}
+
+/** Access requests: at most one notification per person per 10 minutes; repeats are answered as sent. */
+const ACCESS_REQUEST_MS = 10 * 60 * 1000;
+const accessRequests = new Map(); // userId → { at, sent }
 
 const ok = (res, payload = {}, status = 200) => res.status(status).json({ success: true, ...payload });
 
@@ -108,13 +119,29 @@ export function privateRoutes() {
   }));
   // "Доступ ещё не выдан" → the module's administrators get a notification (spec §11.1, adapted).
   router.post('/access-request', wrap(async (req, res) => {
-    const { rows: active } = await query(`SELECT id FROM users WHERE is_active IS NOT FALSE AND is_blocked IS NOT TRUE`);
-    const map = await getAccessMap(active.map((row) => row.id));
-    let admins = [...map].filter(([, access]) => (access.permissions || []).includes('masterplan.admin')).map(([id]) => id);
-    if (!admins.length) admins = [...map].filter(([, access]) => (access.permissions || []).includes('*')).map(([id]) => id);
-    const actor = await userName(req.mp.userId);
-    await notify({ userIds: admins, kind: 'masterplan.access', module: 'masterplan', link: '/app/masterplan', actorId: req.mp.userId, render: mpMessage('accessRequest', { actor, note: String(req.body?.note || '').slice(0, 300) }) });
-    ok(res, { sent: admins.filter((id) => id !== req.mp.userId).length });
+    const now = Date.now();
+    for (const [userId, item] of accessRequests) if (now - item.at > ACCESS_REQUEST_MS) accessRequests.delete(userId);
+    const recent = accessRequests.get(req.mp.userId);
+    if (recent) {
+      ok(res, { sent: recent.sent });
+      return;
+    }
+    accessRequests.set(req.mp.userId, { at: now, sent: 0 });
+    let sent;
+    try {
+      const { rows: active } = await query(`SELECT id FROM users WHERE is_active IS NOT FALSE AND is_blocked IS NOT TRUE`);
+      const map = await getAccessMap(active.map((row) => row.id));
+      let admins = [...map].filter(([, access]) => (access.permissions || []).includes('masterplan.admin')).map(([id]) => id);
+      if (!admins.length) admins = [...map].filter(([, access]) => (access.permissions || []).includes('*')).map(([id]) => id);
+      const actor = await userName(req.mp.userId);
+      await notify({ userIds: admins, kind: 'masterplan.access', module: 'masterplan', link: '/app/masterplan', actorId: req.mp.userId, render: mpMessage('accessRequest', { actor, note: String(req.body?.note || '').slice(0, 300) }) });
+      sent = admins.filter((id) => id !== req.mp.userId).length;
+    } catch (err) {
+      accessRequests.delete(req.mp.userId); // a failed request may be repeated at once
+      throw err;
+    }
+    accessRequests.set(req.mp.userId, { at: now, sent });
+    ok(res, { sent });
   }));
 
   // ── Directories ──
@@ -189,6 +216,8 @@ export function privateRoutes() {
 
   // ── Media ──
   router.post('/media', wrap(async (req, res) => {
+    // Nothing is written to disk for people who could not store it anyway.
+    if (!mayUpload(req.mp)) throw forbidden();
     const files = await runUpload(mediaUploader(req.mp.settings.maxUploadMb || 50), req, res);
     ok(res, { media: await storeMedia(req.mp, req.body || {}, files) }, 201);
   }));

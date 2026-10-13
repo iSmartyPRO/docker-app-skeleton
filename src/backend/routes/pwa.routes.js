@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { refuseImpersonation, requireAuth } from '../middleware/auth.js';
 import { countSubscriptions, pushToUser, removeSubscription, saveSubscription, vapidKeys } from '../services/push.js';
 import { getSettings, parseSettings } from '../services/settings.js';
 
@@ -122,17 +122,17 @@ router.get('/push', requireAuth, wrap(async (req, res) => {
   res.json({ success: true, devices: await countSubscriptions(req.user.id) });
 }));
 
-router.post('/push', requireAuth, wrap(async (req, res) => {
+router.post('/push', requireAuth, refuseImpersonation, wrap(async (req, res) => {
   await saveSubscription(req.user.id, req.body?.subscription, req.get('user-agent'));
   res.json({ success: true, devices: await countSubscriptions(req.user.id) });
 }));
 
-router.delete('/push', requireAuth, wrap(async (req, res) => {
+router.delete('/push', requireAuth, refuseImpersonation, wrap(async (req, res) => {
   await removeSubscription(req.user.id, req.body?.endpoint || req.query.endpoint);
   res.json({ success: true, devices: await countSubscriptions(req.user.id) });
 }));
 
-router.post('/push/test', requireAuth, wrap(async (req, res) => {
+router.post('/push/test', requireAuth, refuseImpersonation, wrap(async (req, res) => {
   const ru = req.locale === 'ru';
   const delivered = await pushToUser(req.user.id, {
     title: ru ? 'Уведомления работают' : 'Notifications work',

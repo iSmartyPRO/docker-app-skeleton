@@ -9,6 +9,8 @@
  *   3. add `settings.<id>.title` / `.desc` to i18n.
  */
 
+import { SETTINGS_VIEW } from '../lib/access';
+
 /** Top-level sidebar entries. Everything configurable lives under Settings. */
 export const ADMIN_PAGES = [
   {
@@ -64,7 +66,7 @@ export const ADMIN_PAGES = [
     labelKey: 'nav.settings',
     descKey: 'nav.settingsDesc',
     defaultIcon: 'general',
-    permissions: ['settings.view', 'settings.general', 'settings.security', 'settings.auth', 'settings.integrations', 'settings.system'],
+    permissions: SETTINGS_VIEW,
     keywords: 'settings preferences configuration настройки параметры',
   },
 ];

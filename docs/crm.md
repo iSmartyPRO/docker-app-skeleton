@@ -65,7 +65,7 @@ Filter (query string on list/board/export/calendar/activity-board, JSON in prese
 |--------|------|---------|
 | GET | `/meta` | `{ settings (sections, fields, currencies, sources, lostReasons, visibility, currency), pipelines: [Pipeline], me: { canAdmin, canAll }, companiesEnabled, chatEnabled }` |
 | GET | `/users` | staff for pickers `{ users: [User] }` |
-| GET | `/clients?q=` | `{ companies: [{id,name,inn?}], people: [{id,name,company?}] }` (from Companies tables, max 10 each) |
+| GET | `/clients?q=` | `{ companies: [{id,name,inn?}], people: [{id,name,company?}] }` (from Companies tables, max 10 each; empty while the Companies module is off or for an API token without the `companies` scope) |
 | POST | `/clients` | quick create `{ type:'company'|'person', name, phone?, email? }` → client (uses Companies service) |
 | GET | `/counters?pipeline=&…filter` | `{ overdue, today, planned, none, incoming }` — deals by activity state (incoming = assigned to me and not opened yet: owner_id=me AND created_by≠me AND no events by me) |
 | GET | `/board?…filter&limit=30` | `{ pipeline, stages: [{ ...Stage, count, sum: {CUR: amount}, deals: [Deal], hasMore }] }` — won/lost stages included with counts but deals only when `group` asks for them |
@@ -109,7 +109,7 @@ The backend lives in `src/backend/modules/crm` (`schema.js`, `access.js`, `filte
 - `POST /deals/bulk` → `{ affected, skipped?: [{ id, code }] }`; deals the person cannot see or change are skipped. The value is checked once up front (`LOST_REASON_REQUIRED`, unknown owner / stage / pipeline → 400). More than 1000 ids, or more than 1000 deals matching `all: true` → 400 `BULK_LIMIT`. `value` per action: `stage` — `stageId | { stageId, lostReason }`; `owner` — userId; `pipeline` — `pipelineId | { pipelineId, stageId }`; `watchers` — `[ids]` (added) or `{ add, remove }`.
 - `POST /clients` → `{ client: { type, id, name, phone?, email?, company? } }`; a person may get `companyId` (current job); 400 `COMPANIES_DISABLED` when the Companies module is off. A person's name "Иванов Иван" is stored as last + first name.
 - `POST /deals/:id/comments` → `{ event }` (Event shape, kind `comment`).
-- `GET /export.csv`: `columns` = comma-separated keys `id, title, pipeline, stage, amount, currency, company, person, phone, email, owner, source, closeDate, createdAt, updatedAt, closedAt, createdBy, comment, lostReason, watchers, nextActivity, cf_<key>` (default: a sensible subset); also takes `sort`/`order`; written in batches of 500, max 20 000 rows; amounts with a decimal comma, times in UTC (`YYYY-MM-DD HH:MM`).
+- `GET /export.csv`: `columns` = comma-separated keys `id, title, pipeline, stage, amount, currency, company, person, phone, email, owner, source, closeDate, createdAt, updatedAt, closedAt, createdBy, comment, lostReason, watchers, nextActivity, cf_<key>` (default: a sensible subset); also takes `sort`/`order`; written in batches of 500, max 20 000 rows; amounts and numeric custom fields with a decimal comma and kept numeric (a negative number is not treated as a formula), times in UTC (`YYYY-MM-DD HH:MM`).
 - `POST /deals/:id/copy`: title + " (копия)", same pipeline; a closed deal's copy starts in the first open stage; watchers and custom values are copied.
 
 **Filter precisions**
@@ -140,7 +140,7 @@ The backend lives in `src/backend/modules/crm` (`schema.js`, `access.js`, `filte
 ## Integrations
 
 - **Notifications** (`notificationCatalog.js` group `crm`): `crm.assigned` (you became the owner), `crm.activity` (an activity was assigned to you), `crm.activity_due` (reminder `remind_minutes` before `due_at`, scheduler job `crm:reminders` every minute, one-shot `reminded_at`), `crm.stage` (a deal you watch changed stage; push only by default).
-- **Chat**: entity `deal` (`registerChatEntity('deal', adapter)`) — "Обсудить с коллегами" in the deal panel; participants = owner + watchers + creator.
+- **Chat**: entity `deal` (`registerChatEntity('deal', adapter)`) — "Обсудить с коллегами" in the deal panel; participants = owner + watchers + creator. Closed while the CRM is off and to API tokens without the `crm` scope (writing needs `crm:write`).
 - **Companies timeline**: creating, winning and losing a deal logs a `cmp_events` row (kind `deal`) on its company/person.
 - **Webhooks** (`api/events.js`): `deal.created`, `deal.updated`, `deal.stage_changed`, `deal.won`, `deal.lost`, `deal.deleted` (area `crm`, visible only to those who can view the deal).
 - **API tokens**: area `crm` comes from the catalog automatically; resource kind `crm.pipelines` (limits by pipeline).

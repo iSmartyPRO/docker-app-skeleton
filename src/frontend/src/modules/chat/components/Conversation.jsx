@@ -405,7 +405,36 @@ export default function Conversation({ roomId, entity, header = true, placeholde
 
   // Live events
   const withMine = useCallback((item) => ({ ...item, mine: item.author?.id === user.id }), [user.id]);
+  const shownRoom = useRef(null);
+  shownRoom.current = room?.id ?? null;
   useChatEvents((type, data) => {
+    // (Re)connected: events sent while the stream was down are lost, so load
+    // what came after the last message on screen. Otherwise a later message
+    // would mark the missed ones as read without anyone seeing them.
+    if (type === 'hello') {
+      if (!room || !messages?.length || hasNewer) return;
+      const roomId = room.id;
+      const lastId = messages[messages.length - 1].id;
+      chatApi
+        .messages(roomId, { after: lastId })
+        .then((res) => {
+          if (shownRoom.current !== roomId) return;
+          const fresh = (res.data.messages || []).map(withMine);
+          if (res.data.hasNewer) setHasNewer(true);
+          if (!fresh.length) return;
+          setMessages((prev) => {
+            if (!prev) return prev;
+            const known = new Set(prev.map((item) => item.id));
+            return [...prev, ...fresh.filter((item) => !known.has(item.id))].sort((x, y) => x.id - y.id);
+          });
+          const node = list.current;
+          const stick = node && node.scrollHeight - node.scrollTop - node.clientHeight < 120;
+          if (stick) requestAnimationFrame(() => scrollToBottom(true));
+          else setBelow((n) => n + fresh.filter((item) => !item.mine).length);
+        })
+        .catch(() => {});
+      return;
+    }
     if (!room || data.roomId !== room.id) return;
     if (type === 'message') {
       if (hasNewer) {

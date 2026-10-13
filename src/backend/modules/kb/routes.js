@@ -170,26 +170,26 @@ export function privateRoutes() {
     const row = await loadItemRow(id(req.params.id));
     const access = await loadAccess(req.kb);
     requireLevel(access.itemLevel(row), LEVEL.view);
-    await sendItemFile(res, row, req.query.download === '1');
+    await sendItemFile(res, row, req.query.download === '1', req.kb);
   }));
   router.get('/items/:id/preview.pdf', wrap(async (req, res) => {
     const row = await loadItemRow(id(req.params.id));
     const access = await loadAccess(req.kb);
     requireLevel(access.itemLevel(row), LEVEL.view);
-    await sendItemPreview(res, row);
+    await sendItemPreview(res, row, req.kb);
   }));
   // Files embedded in / attached to an article.
   router.get('/items/:id/attachments/:nodeId', wrap(async (req, res) => {
     const row = await loadItemRow(id(req.params.id));
     const access = await loadAccess(req.kb);
     requireLevel(access.itemLevel(row), LEVEL.view);
-    await sendAttachment(res, row.id, id(req.params.nodeId), req.query.download === '1');
+    await sendAttachment(res, row.id, id(req.params.nodeId), req.query.download === '1', req.kb);
   }));
   router.get('/items/:id/attachments/:nodeId/preview.pdf', wrap(async (req, res) => {
     const row = await loadItemRow(id(req.params.id));
     const access = await loadAccess(req.kb);
     requireLevel(access.itemLevel(row), LEVEL.view);
-    await sendAttachmentPreview(res, row.id, id(req.params.nodeId));
+    await sendAttachmentPreview(res, row.id, id(req.params.nodeId), req.kb);
   }));
 
   // Access

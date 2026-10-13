@@ -1,13 +1,16 @@
 import { spawn } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
-import { mkdir, readFile, rename, stat, unlink, writeFile } from 'fs/promises';
+import { createWriteStream } from 'fs';
+import { mkdir, rename, stat, unlink, writeFile } from 'fs/promises';
 import { join } from 'path';
+import { pipeline } from 'stream';
+import { pipeline as pipelineAsync } from 'stream/promises';
 import { query } from '../../config/database.js';
 import { getUserAccess } from '../../services/rbac.js';
 import { hasPermission } from '../../services/permissions.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { httpError, intId } from '../shared/acl.js';
-import { CONVERTIBLE, FILE_CSP, INLINE, contentDisposition, extOf, mimeOf, officePreview, previewDir } from '../shared/storage.js';
+import { CONVERTIBLE, FILE_CSP, INLINE, contentDisposition, extOf, mimeOf, officePreview, previewDir, touchPreview } from '../shared/storage.js';
 import { connectionStatus, credentialFor, driveSettings, isAuthFailure, parkCredential, serverParams } from './credentials.js';
 import { gateCall, gateReadAll, gateRequest } from './gate.js';
 import { folderTree } from '../shared/relpath.js';
@@ -496,8 +499,19 @@ export async function sendEntry(req, res, target, rel, { download = false } = {}
     res.status(206);
     res.setHeader('Content-Range', `bytes ${start}-${start + length - 1}/${size}`);
   }
+  streamOut(req, res, upstream);
+}
+
+/**
+ * Gateway stream → browser. A browser that goes away stops the gateway read;
+ * a gateway that fails mid-way aborts the response (the browser sees a broken
+ * download, never a silently short file) and never crashes the process.
+ */
+function streamOut(req, res, upstream) {
   req.on('close', () => upstream.destroy());
-  upstream.pipe(res);
+  pipeline(upstream, res, (err) => {
+    if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') console.warn('[drive] stream ended early:', err.message);
+  });
 }
 
 function cacheKey(target, path, entry) {
@@ -508,29 +522,82 @@ function cacheKey(target, path, entry) {
   return { id: `drv-${id}`, version: `${new Date(entry.mtime || 0).getTime()}-${entry.size}` };
 }
 
-async function cached(dir, file, produce) {
+const producing = new Map();
+
+/**
+ * A derived file (thumbnail, drawing) cached under the previews folder.
+ * `produce(temp)` returns the data, or writes `temp` itself and returns
+ * nothing. Requests for the same file while it is being made share one job.
+ * `verify()` runs whenever this request does not read the source itself (a
+ * cache hit, or another request's job): see assertReadable.
+ */
+async function cached(dir, file, produce, verify) {
   const full = join(previewDir(), dir, file);
-  if (await stat(full).catch(() => null)) return full;
-  await mkdir(join(previewDir(), dir), { recursive: true });
-  const data = await produce();
-  const temp = `${full}.${randomBytes(4).toString('hex')}.tmp`;
-  await writeFile(temp, data);
-  await rename(temp, full);
-  return full;
+  const info = await stat(full).catch(() => null);
+  if (info) {
+    await verify();
+    touchPreview(full, info);
+    return full;
+  }
+  if (producing.has(full)) {
+    await verify();
+  } else {
+    const job = (async () => {
+      await mkdir(join(previewDir(), dir), { recursive: true });
+      const temp = `${full}.${randomBytes(4).toString('hex')}.tmp`;
+      try {
+        const data = await produce(temp);
+        if (data !== undefined) await writeFile(temp, data);
+        await rename(temp, full);
+      } catch (err) {
+        await unlink(temp).catch(() => {});
+        throw err;
+      }
+      return full;
+    })().finally(() => producing.delete(full));
+    producing.set(full, job);
+  }
+  return producing.get(full);
 }
 
-/** Image thumbnail (JPEG), cached by path + version; the stat checks access every time. */
+// ── Read access for cached derivatives ──────────────────────────────────────
+// stat only needs "read attributes", which people who may merely list a folder
+// also have. Making a thumbnail, PDF or drawing reads the file with the
+// person's credential, which checks access by itself; serving one that is
+// already cached (or made by someone else's request) first opens the file for
+// reading (a one-byte read) with the person's credential. A positive answer is
+// remembered for a few minutes per credential and file.
+
+const readable = new Map();
+const READABLE_MS = 5 * 60 * 1000;
+
+async function assertReadable(target, path, entry) {
+  const key = `${credKey(target.server, target.resolved.cred)}\0${target.share.share.toLowerCase()}\0${fullPath(target, path).toLowerCase()}\0${entry.mtime || ''}`;
+  if ((readable.get(key) || 0) > Date.now()) return;
+  const upstream = await stream(target, 'read', { path: fullPath(target, path), start: 0, end: 0 });
+  upstream.resume();
+  upstream.on('error', () => {});
+  if (readable.size > 5000) readable.clear();
+  readable.set(key, Date.now() + READABLE_MS);
+}
+
+/** Image thumbnail (JPEG), cached by path + version; read access is checked before a cached one is served. */
 export async function sendThumb(res, target, rel, size = 320) {
   const path = cleanPath(rel);
   const { entry } = await statEntry(target, path);
   const key = cacheKey(target, path, entry);
   const dim = [160, 320, 640].includes(Number(size)) ? Number(size) : 320;
-  const file = await cached('thumbs', `${key.id}-${key.version}-${dim}.jpg`, async () => {
-    const upstream = await stream(target, 'thumb', { path: fullPath(target, path), size: dim });
-    const chunks = [];
-    for await (const chunk of upstream) chunks.push(chunk);
-    return Buffer.concat(chunks);
-  });
+  const file = await cached(
+    'thumbs',
+    `${key.id}-${key.version}-${dim}.jpg`,
+    async () => {
+      const upstream = await stream(target, 'thumb', { path: fullPath(target, path), size: dim });
+      const chunks = [];
+      for await (const chunk of upstream) chunks.push(chunk);
+      return Buffer.concat(chunks);
+    },
+    () => assertReadable(target, path, entry)
+  );
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'private, max-age=3600');
@@ -547,6 +614,7 @@ export async function sendPreview(res, target, rel) {
     cacheKey: `${key.id}-${key.version}`,
     version: entry.mtime || 0,
     load: () => gateReadAll(params(target, { path: fullPath(target, path) })),
+    verify: () => assertReadable(target, path, entry),
     name: entry.name,
     ext: entry.ext,
   });
@@ -558,6 +626,24 @@ export async function sendPreview(res, target, rel) {
 }
 
 const DWG2DXF = process.env.DWG2DXF || 'dwg2dxf';
+const CAD_MAX = 150 * 1024 * 1024;
+
+// At most two DWG conversions run at once (each is CPU- and disk-heavy); the
+// rest wait their turn. Requests for the same drawing share one conversion.
+const CAD_PARALLEL = 2;
+let cadActive = 0;
+const cadQueue = [];
+
+async function withCadSlot(fn) {
+  if (cadActive >= CAD_PARALLEL) await new Promise((resolve) => cadQueue.push(resolve));
+  cadActive += 1;
+  try {
+    return await fn();
+  } finally {
+    cadActive -= 1;
+    cadQueue.shift()?.();
+  }
+}
 
 function convertDwg(input, output) {
   return new Promise((resolve, reject) => {
@@ -590,19 +676,28 @@ export async function sendCad(req, res, target, rel) {
     return;
   }
   if (entry.ext !== 'dwg') throw httpError(400, 'Not a drawing', 'NO_PREVIEW');
-  if (entry.size > 150 * 1024 * 1024) throw httpError(413, 'The drawing is too large to preview', 'TOO_LARGE');
+  if (entry.size > CAD_MAX) throw httpError(413, 'The drawing is too large to preview', 'TOO_LARGE');
   const key = cacheKey(target, path, entry);
-  const file = await cached('cad', `${key.id}-${key.version}.dxf`, async () => {
-    const work = join(previewDir(), 'cad', `job-${randomBytes(6).toString('hex')}`);
-    await writeFile(`${work}.dwg`, await gateReadAll(params(target, { path: fullPath(target, path) }), 150 * 1024 * 1024));
-    try {
-      await convertDwg(`${work}.dwg`, `${work}.dxf`);
-      return await readFile(`${work}.dxf`);
-    } finally {
-      await unlink(`${work}.dwg`).catch(() => {});
-      await unlink(`${work}.dxf`).catch(() => {});
-    }
-  });
+  const file = await cached('cad', `${key.id}-${key.version}.dxf`, (temp) =>
+    withCadSlot(async () => {
+      const work = join(previewDir(), 'cad', `job-${randomBytes(6).toString('hex')}`);
+      try {
+        // The drawing goes straight to disk; it is never held in memory.
+        const upstream = await stream(target, 'read', { path: fullPath(target, path) });
+        if (Number(upstream.headers['x-size'] || 0) > CAD_MAX) {
+          upstream.destroy();
+          throw httpError(413, 'The drawing is too large to preview', 'TOO_LARGE');
+        }
+        await pipelineAsync(upstream, createWriteStream(`${work}.dwg`));
+        await convertDwg(`${work}.dwg`, `${work}.dxf`);
+        await rename(`${work}.dxf`, temp);
+      } finally {
+        await unlink(`${work}.dwg`).catch(() => {});
+        await unlink(`${work}.dxf`).catch(() => {});
+      }
+    }),
+    () => assertReadable(target, path, entry)
+  );
   res.setHeader('Content-Type', 'application/dxf');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'private, max-age=300');
@@ -620,8 +715,7 @@ export async function sendZip(req, res, target, paths, label) {
   res.setHeader('Content-Type', 'application/zip');
   res.setHeader('Content-Disposition', `attachment; filename="${name.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}`);
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  req.on('close', () => upstream.destroy());
-  upstream.pipe(res);
+  streamOut(req, res, upstream);
 }
 
 // ── Recent and favourites ───────────────────────────────────────────────────

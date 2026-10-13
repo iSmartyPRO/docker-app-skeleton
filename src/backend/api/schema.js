@@ -180,6 +180,8 @@ export async function ensureApiTables() {
       delivered_at TIMESTAMPTZ
     )
   `);
+  // "Send again" from the console: the same event id, sent with X-Portal-Redelivery: 1.
+  await query(`ALTER TABLE api_deliveries ADD COLUMN IF NOT EXISTS redelivery BOOLEAN NOT NULL DEFAULT FALSE`);
   await query(`CREATE INDEX IF NOT EXISTS api_deliveries_due ON api_deliveries (next_attempt_at) WHERE status = 'pending'`);
   await query(`CREATE INDEX IF NOT EXISTS api_deliveries_hook ON api_deliveries (webhook_id, created_at DESC)`);
 

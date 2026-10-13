@@ -1,4 +1,5 @@
 import { query } from '../../config/database.js';
+import { decide } from '../../api/scopes.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { hasPermission } from '../../services/permissions.js';
 import { listNotifications, unreadCount } from '../../services/notifications.js';
@@ -25,6 +26,19 @@ import { requestZone } from '../../services/regional.js';
  */
 
 const DAY = 24 * 3600 * 1000;
+
+const AREA_PATHS = { notifications: '/notifications', 'admin.users': '/admin/users' };
+
+/**
+ * Whether the request may read an area (a module id, 'notifications',
+ * 'admin.users'): an API token needs the scope it would need to call that
+ * area's API directly; session requests (no token) always may.
+ */
+export function areaAllowed(req, area) {
+  const policy = req?.apiToken?.policy;
+  if (!policy || !area) return true;
+  return decide(policy, 'GET', AREA_PATHS[area] || `/app/${area}`).ok;
+}
 
 
 const int = (value, min, max, fallback) => {
@@ -75,7 +89,10 @@ async function taskScope(req, settings, params) {
   // Projects the person sees, plus any task they take part in (tasks without a project too).
   const where = [
     ctx.isAdmin
-      ? 'TRUE'
+      ? // Every project, but other people's tasks without a project stay private (as in Tasks).
+        `(NOT p.is_personal OR t.assignee_id = ${meRef()} OR COALESCE(t.originator_id, t.created_by) = ${meRef()} OR t.created_by = ${meRef()}
+         OR EXISTS (SELECT 1 FROM task_members tm WHERE tm.task_id = t.id AND tm.user_id = ${meRef()})
+         OR EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ${meRef()}))`
       : `(t.project_id = ANY(${visibleRef}) OR t.assignee_id = ${meRef()} OR COALESCE(t.originator_id, t.created_by) = ${meRef()}
          OR EXISTS (SELECT 1 FROM task_members tm WHERE tm.task_id = t.id AND tm.user_id = ${meRef()}))`,
     'p.archived_at IS NULL',
@@ -220,7 +237,7 @@ async function agenda(req, settings, tz) {
   const events = await listEvents(calCtx(req), { from: new Date(today).toISOString(), to: to.toISOString(), calendars });
   let tasks = [];
   const modules = parseSettings(await getSettings()).modules;
-  if (settings.withTasks !== false && modules.tasks?.enabled) {
+  if (settings.withTasks !== false && modules.tasks?.enabled && areaAllowed(req, 'tasks')) {
     tasks = (await listTasks(tasksCtx(req), { assignee: 'me', open: '1', dueFrom: new Date(today).toISOString(), dueTo: to.toISOString(), sort: 'due' }))
       .slice(0, 50)
       .map((task) => ({ id: task.id, ref: task.ref, title: task.title, dueAt: task.dueAt, color: task.project.color, project: task.project.name }));
@@ -407,8 +424,8 @@ async function notifications(req, settings) {
 async function welcome(req, settings, tz) {
   const modules = parseSettings(await getSettings()).modules;
   const { today, tomorrow } = await bounds(tz);
-  const out = { unread: await unreadCount(req.user.id) };
-  if (modules.tasks?.enabled) {
+  const out = areaAllowed(req, 'notifications') ? { unread: await unreadCount(req.user.id) } : {};
+  if (modules.tasks?.enabled && areaAllowed(req, 'tasks')) {
     const params = [];
     const scope = await taskScope(req, { scope: 'mine' }, params);
     params.push(today, tomorrow);
@@ -422,7 +439,7 @@ async function welcome(req, settings, tz) {
     );
     out.tasks = rows[0];
   }
-  if (modules.calendar?.enabled) {
+  if (modules.calendar?.enabled && areaAllowed(req, 'calendar')) {
     const now = new Date();
     const events = await listEvents(calCtx(req), { from: new Date(today).toISOString(), to: startOfDay(now, tz, 7).toISOString() });
     // All-day events are calendar days: today's is the person's today.
@@ -459,6 +476,8 @@ export async function widgetData(req, type, input = {}) {
   const modules = parseSettings(await getSettings()).modules;
   if (def.module && !modules[def.module]?.enabled) throw httpError(404, 'Module is disabled', 'MODULE_DISABLED');
   if (def.permission && !hasPermission(req.access?.permissions || [], def.permission)) throw httpError(403, 'You do not have permission for this widget', 'FORBIDDEN');
+  const area = def.area || def.module;
+  if (!areaAllowed(req, area)) throw httpError(403, `The token lacks the ${area}:read scope`, 'SCOPE_DENIED');
   let settings = {};
   try {
     settings = input.settings ? JSON.parse(input.settings) : {};
@@ -473,8 +492,8 @@ export async function widgetData(req, type, input = {}) {
 export async function widgetOptions(req) {
   const modules = parseSettings(await getSettings()).modules;
   const out = {};
-  if (modules.tasks?.enabled) out.projects = (await listProjects(tasksCtx(req))).map((project) => ({ id: project.id, name: project.name, color: project.color }));
-  if (modules.calendar?.enabled) out.calendars = (await listCalendars(calCtx(req), req.locale)).map((calendar) => ({ id: calendar.id, name: calendar.name, color: calendar.color }));
-  if (modules.resources?.enabled) out.categories = (await board(resourcesContext(req))).categories;
+  if (modules.tasks?.enabled && areaAllowed(req, 'tasks')) out.projects = (await listProjects(tasksCtx(req))).map((project) => ({ id: project.id, name: project.name, color: project.color }));
+  if (modules.calendar?.enabled && areaAllowed(req, 'calendar')) out.calendars = (await listCalendars(calCtx(req), req.locale)).map((calendar) => ({ id: calendar.id, name: calendar.name, color: calendar.color }));
+  if (modules.resources?.enabled && areaAllowed(req, 'resources')) out.categories = (await board(resourcesContext(req))).categories;
   return out;
 }

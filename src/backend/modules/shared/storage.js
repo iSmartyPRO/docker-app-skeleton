@@ -1,5 +1,5 @@
 import { createReadStream } from 'fs';
-import { mkdir, open, readFile, rename, stat, unlink, writeFile } from 'fs/promises';
+import { mkdir, open, readFile, readdir, rename, stat, unlink, utimes, writeFile } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import { extname, join, normalize, resolve, sep } from 'path';
 import { uploadRoot } from '../../config/paths.js';
@@ -170,20 +170,78 @@ export async function sendBlob(res, path, { name, ext, download = false }) {
 export const previewDir = () => join(uploadRoot, '.previews');
 const inflight = new Map();
 
+// ── Preview caches ──────────────────────────────────────────────────────────
+// Converted PDFs, drive thumbnails and drawings are kept until nobody has
+// used them for PREVIEW_MAX_DAYS: a cache hit refreshes the file's time (at
+// most daily) and a scheduled job removes what is older. A removed preview is
+// simply made again the next time someone opens the file.
+
+export const PREVIEW_MAX_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Every folder that holds derived files only. */
+export const previewCacheDirs = () => [previewDir(), join(uploadRoot, 'kb', '.previews')];
+
+/** Marks a cached preview as used (at most once a day per file). */
+export function touchPreview(path, info) {
+  if (info && Date.now() - info.mtimeMs < DAY_MS) return;
+  const now = new Date();
+  utimes(path, now, now).catch(() => {});
+}
+
+/**
+ * Removes cached previews untouched for `maxDays`, and leftovers of
+ * interrupted jobs (*.tmp, job-*) older than a day. Returns the count.
+ */
+export async function prunePreviewCaches({ dirs = previewCacheDirs(), maxDays = PREVIEW_MAX_DAYS, now = Date.now() } = {}) {
+  let removed = 0;
+  const walk = async (dir, depth) => {
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // Folders stay: a job may be about to write into one.
+        if (depth < 3) await walk(full, depth + 1);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const info = await stat(full).catch(() => null);
+      if (!info) continue;
+      const age = now - Math.max(info.mtimeMs, info.atimeMs || 0);
+      const leftover = entry.name.endsWith('.tmp') || entry.name.startsWith('job-');
+      if (age > (leftover ? DAY_MS : maxDays * DAY_MS)) {
+        await unlink(full).then(() => (removed += 1)).catch(() => {});
+      }
+    }
+  };
+  for (const dir of dirs) await walk(dir, 0);
+  return removed;
+}
+
 /**
  * PDF preview of an office document, converted once and cached until the file
  * changes (`version`). Concurrent requests for the same file share one job.
  * The source is a local `path`, or `load()` returning a Buffer (remote files).
+ * `verify()`, when given, runs whenever this request does not read the source
+ * itself (a cached PDF, or another request's job): remote callers check the
+ * person's read access there.
  */
-export async function officePreview({ cacheKey, version, path, load, name, ext }) {
+export async function officePreview({ cacheKey, version, path, load, name, ext, verify }) {
   if (!CONVERTIBLE.has(ext)) throw httpError(400, 'No PDF preview for this file type', 'NO_PREVIEW');
   const conversion = parseSettings(await getSettings()).integrations.documents;
   if (!conversion?.enabled || !conversion?.serverUrl) {
     throw httpError(409, 'Document conversion is not configured', 'NO_CONVERTER');
   }
   const target = join(previewDir(), `${cacheKey}-${new Date(version).getTime()}.pdf`);
-  if (await stat(target).catch(() => null)) return target;
-  if (!inflight.has(target)) {
+  const info = await stat(target).catch(() => null);
+  if (info) {
+    if (verify) await verify();
+    touchPreview(target, info);
+    return target;
+  }
+  if (inflight.has(target)) {
+    if (verify) await verify();
+  } else {
     const job = (async () => {
       await mkdir(previewDir(), { recursive: true });
       const pdf = await convertToPdf({ buffer: load ? await load() : await readFile(path), filename: name || `document.${ext}`, serverUrl: conversion.serverUrl });

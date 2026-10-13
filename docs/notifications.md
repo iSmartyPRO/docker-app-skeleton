@@ -75,7 +75,8 @@ A module adding a notification kind lists it in `services/notificationCatalog.js
 - **Keys:** generated on first use and stored in `app_settings.webpush`. The private key is sealed (see below).
 - **Allowed endpoints:** only real push services are accepted: FCM, Mozilla, Apple, Windows, on the standard HTTPS port. This rules out using subscriptions to make the server call internal hosts.
 - **Sign-out:** the device unsubscribes and the app badge is cleared, so a shared device does not keep receiving the previous person's notifications.
-- **Subscriptions:** one per device in `push_subscriptions`. Those the push service reports as gone (404/410) are deleted automatically.
+- **Subscriptions:** one per device in `push_subscriptions`. Those the push service reports as gone (404/410), or rejects because they were made for other VAPID keys (403 key mismatch), are deleted automatically.
+- **Re-subscribing:** a few seconds after the app starts, a device that already allowed notifications compares its subscription's key with `/api/pwa/vapid`; if the key changed it re-subscribes with the new key. No permission prompt is shown — the permission is already granted.
 - **Payload:** title, body, link, tag and the unread count. The service worker shows the notification, updates the badge and opens the link on tap.
 - **iPhone / iPad:** iOS 16.4+, and only in the app added to the home screen.
 
@@ -112,4 +113,8 @@ registerJob({ name: 'tasks:reminders', everyMs: 5 * 60 * 1000, run: runReminders
 - the Gmail sender token;
 - the VAPID private key.
 
-The key is `ENCRYPTION_KEY`, or one derived from `JWT_SECRET` when that is not set. Changing it makes the stored tokens unreadable: users reconnect Google, and new VAPID keys are generated, so devices subscribe to push again.
+- webhook signing secrets.
+
+The key is `ENCRYPTION_KEY`, or one derived from `JWT_SECRET` when that is not set. To change either without losing these values, list the old one in `ENCRYPTION_KEY_PREVIOUS` / `JWT_SECRET_PREVIOUS` — see [security.md → Rotating secrets](security.md#rotating-secrets). Values opened with an old key are re-sealed with the new one.
+
+If the VAPID private key can be opened with no known key, new VAPID keys are generated, every stored device subscription is dropped (they belong to the old key), and administrators get a *Stored secret cannot be decrypted* security event. Devices that already allowed notifications re-subscribe silently on their next visit. An unreadable Google token is **not** treated as revoked: the connection is kept and calls fail with `GOOGLE_KEY` until the old key is restored or the person reconnects.

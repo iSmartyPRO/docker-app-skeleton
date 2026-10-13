@@ -7,7 +7,7 @@ import { KB_FILE_GROUPS } from '../catalog.js';
 import { folderTree } from '../shared/relpath.js';
 import { HEX, LEVEL, LEVEL_NAMES, avatarOf, clean, httpError, levelMap, readAcl, requireLevel, writeAcl } from '../shared/acl.js';
 import { extOf, hasSignature, mimeOf, newStorageKey, originalName, readHead, removeBlob, signatureMatches, storagePath, verifyContent } from '../shared/storage.js';
-import { childLevels, nodeAccess, requireNode, spaceLevel } from './access.js';
+import { childLevels, nodeAccess, nodeAccessMany, requireNode, spaceLevel } from './access.js';
 
 export const NAME_MAX = 255;
 
@@ -202,10 +202,11 @@ export async function sharedWithMe(ctx) {
      ORDER BY n.updated_at DESC LIMIT 300`,
     [ctx.userId, [...ctx.groupIds]]
   );
+  const accessById = await nodeAccessMany(ctx, rows.map((row) => row.id));
   const items = [];
   for (const row of rows) {
-    const access = await nodeAccess(ctx, row.id);
-    if (access.level >= LEVEL.view && !access.trashed && access.base === 0) items.push(nodeShape(row, access.level));
+    const access = accessById.get(row.id);
+    if (access && access.level >= LEVEL.view && !access.trashed && access.base === 0) items.push(nodeShape(row, access.level));
   }
   return items;
 }
@@ -217,10 +218,11 @@ export async function recent(ctx) {
      ORDER BY n.updated_at DESC LIMIT 40`,
     [ctx.userId]
   );
+  const accessById = await nodeAccessMany(ctx, rows.map((row) => row.id));
   const items = [];
   for (const row of rows) {
-    const access = await nodeAccess(ctx, row.id);
-    if (access.level >= LEVEL.view && !access.trashed) items.push(nodeShape(row, access.level));
+    const access = accessById.get(row.id);
+    if (access && access.level >= LEVEL.view && !access.trashed) items.push(nodeShape(row, access.level));
   }
   return items;
 }
@@ -232,11 +234,13 @@ export async function search(ctx, text) {
     `${NODE_SELECT} WHERE n.deleted_at IS NULL AND n.name ILIKE $1 ORDER BY n.updated_at DESC LIMIT 400`,
     [`%${q.replace(/[\\%_]/g, (char) => `\\${char}`)}%`]
   );
+  // Access of all candidates at once (a handful of queries, not three per row).
+  const accessById = await nodeAccessMany(ctx, rows.map((row) => row.id));
   const items = [];
   for (const row of rows) {
     if (items.length >= 60) break;
-    const access = await nodeAccess(ctx, row.id);
-    if (access.level >= LEVEL.view && !access.trashed) items.push(nodeShape(row, access.level, { path: access.visibleChain.slice(0, -1).map((item) => item.name) }));
+    const access = accessById.get(row.id);
+    if (access && access.level >= LEVEL.view && !access.trashed) items.push(nodeShape(row, access.level, { path: access.visibleChain.slice(0, -1).map((item) => item.name) }));
   }
   return items;
 }
@@ -374,6 +378,23 @@ export async function usageOf(userId) {
   return { used: Number(rows[0].used), quota: settings.quotaMb ? settings.quotaMb * 1024 * 1024 : 0 };
 }
 
+/**
+ * Serialises quota-checked writes into one person's storage: two uploads at
+ * the same moment must not both pass the check against the same "used".
+ * Call inside a transaction; the lock ends with it.
+ */
+export async function lockQuota(client, ownerId) {
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`fs-quota:${ownerId}`]);
+}
+
+async function usedBytes(client, ownerId) {
+  const { rows } = await client.query(
+    `SELECT COALESCE(SUM(size), 0)::bigint AS used FROM fs_nodes WHERE owner_id = $1 AND space_id IS NULL AND kind = 'file'`,
+    [ownerId]
+  );
+  return Number(rows[0].used);
+}
+
 function allowedExt(settings, ext) {
   if (settings.allowAny) return true;
   return settings.fileGroups.some((group) => (KB_FILE_GROUPS[group] || []).includes(ext));
@@ -420,16 +441,23 @@ export function runUpload(upload, req, res) {
 export async function storeUploads(ctx, target, files) {
   const created = [];
   try {
+    let quota = 0;
     if (!target.spaceId) {
-      const { used, quota } = await usageOf(target.ownerId);
+      const usage = await usageOf(target.ownerId);
+      quota = usage.quota;
       const incoming = files.reduce((sum, file) => sum + file.size, 0);
-      if (quota && used + incoming > quota) throw httpError(413, 'Your storage is full', 'QUOTA_EXCEEDED');
+      if (quota && usage.used + incoming > quota) throw httpError(413, 'Your storage is full', 'QUOTA_EXCEEDED');
     }
     for (const file of files) {
       const name = safeName(originalName(file));
       const ext = extOf(name);
       await verifyContent(file.path, ext);
       const row = await withTransaction(async (client) => {
+        // Checked again under the owner's lock, right before the file counts.
+        if (quota) {
+          await lockQuota(client, target.ownerId);
+          if ((await usedBytes(client, target.ownerId)) + file.size > quota) throw httpError(413, 'Your storage is full', 'QUOTA_EXCEEDED');
+        }
         const free = await freeName(client, target, name, 'file');
         const { rows } = await client.query(
           `INSERT INTO fs_nodes (kind, name, parent_id, owner_id, space_id, storage_key, mime, size, ext, created_by, updated_by)
@@ -502,6 +530,7 @@ export async function moveNode(ctx, id, place) {
   const row = await withTransaction(async (client) => {
     // Into someone's personal storage: the whole subtree counts against their quota, as an upload would.
     if (quota) {
+      await lockQuota(client, target.ownerId);
       const { rows: sizes } = await client.query(
         `WITH RECURSIVE tree AS (
            SELECT id, kind, size FROM fs_nodes WHERE id = $1

@@ -59,6 +59,7 @@ const FIELDS = {
     { name: 'bindDn', label: 'bindDn', placeholder: 'CN=svc,OU=Service,DC=corp,DC=local' },
     { name: 'bindPassword', label: 'password', secret: true },
     { name: 'baseDn', label: 'baseDn', placeholder: 'DC=corp,DC=local' },
+    { name: 'caCert', label: 'caCert', type: 'textarea', hint: 'caCertHint', placeholder: '-----BEGIN CERTIFICATE-----' },
   ],
 };
 
@@ -158,6 +159,9 @@ function WazzupChannelPicker({ value = {}, onChange, channels, loading, error, o
 function fieldControl(field, current, t) {
   if (field.type === 'number') return <InputNumber min={1} max={65535} style={{ width: 140 }} />;
   if (field.type === 'switch') return <Switch />;
+  if (field.type === 'textarea') {
+    return <Input.TextArea rows={4} spellCheck={false} placeholder={field.placeholder} style={{ fontFamily: 'monospace', fontSize: 12 }} />;
+  }
   if (field.secret) {
     return (
       <Input.Password
@@ -258,7 +262,11 @@ function IntegrationForm({ group, settings, save }) {
       >
         <div className={enabled ? '' : 'is-muted'}>
           {fields.map((field) => (
-            <SettingRow key={field.name} label={t(`integrations.${field.label}`)}>
+            <SettingRow
+              key={field.name}
+              label={t(`integrations.${field.label}`)}
+              description={field.hint ? t(`integrations.${field.hint}`) : undefined}
+            >
               <Form.Item
                 name={field.name}
                 valuePropName={field.type === 'switch' ? 'checked' : 'value'}

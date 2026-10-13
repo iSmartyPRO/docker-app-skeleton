@@ -1,6 +1,6 @@
 import { basename, join } from 'path';
 import { query, withTransaction } from '../../config/database.js';
-import { httpError } from './access.js';
+import { fileWithinLimits, httpError } from './access.js';
 import { kbDir } from './files.js';
 import { officePreview, sendBlob, sendPdf, storagePath } from '../shared/storage.js';
 import { attachmentShape, usableFile } from '../files/kb.js';
@@ -16,24 +16,30 @@ import { attachmentShape, usableFile } from '../files/kb.js';
 const EMBED = /kbfile:(\d{1,10})/g;
 
 /** Blob location of a material's own file (Files node, or a pre-Files upload). */
-async function itemBlob(row) {
+function limitedFile() {
+  return httpError(403, 'The API token is limited to selected spaces', 'TOKEN_LIMITED');
+}
+
+async function itemBlob(row, ctx = null) {
   if (row.kind !== 'file') throw httpError(404, 'Not found', 'NOT_FOUND');
   if (row.file_node_id) {
     const { rows } = await query(`SELECT * FROM fs_nodes WHERE id = $1`, [row.file_node_id]);
     const node = rows[0];
     if (!node) throw httpError(404, 'File is missing', 'FILE_MISSING');
+    if (!fileWithinLimits(ctx, node)) throw limitedFile();
     return { path: storagePath(node.storage_key), ext: node.ext, name: row.file_original || node.name, version: node.updated_at, key: `fs-${node.id}` };
   }
   return { path: join(kbDir, basename(row.file_name || '')), ext: row.file_ext, name: row.file_original, version: row.updated_at, key: `kb-${row.id}` };
 }
 
-export async function sendItemFile(res, row, download) {
-  const blob = await itemBlob(row);
+/** `ctx` (signed-in requests) carries API token limits; public visitors have none. */
+export async function sendItemFile(res, row, download, ctx = null) {
+  const blob = await itemBlob(row, ctx);
   await sendBlob(res, blob.path, { name: blob.name, ext: blob.ext, download });
 }
 
-export async function sendItemPreview(res, row) {
-  const blob = await itemBlob(row);
+export async function sendItemPreview(res, row, ctx = null) {
+  const blob = await itemBlob(row, ctx);
   sendPdf(res, await officePreview({ cacheKey: blob.key, version: blob.version, path: blob.path, name: blob.name, ext: blob.ext }), row.title);
 }
 
@@ -46,11 +52,12 @@ export async function attachmentsOf(itemId) {
 }
 
 /**
- * Recomputes an article's files from its Markdown (kbfile:<id>) plus the
- * explicit attachment list. New files must be ones the editor can edit in
- * Files; files already attached stay even if the editor cannot see them.
+ * Works out an article's files from its Markdown (kbfile:<id>) plus the
+ * explicit attachment list, and checks them. New files must be ones the editor
+ * can edit in Files; files already attached stay even if the editor cannot
+ * see them. Throws before anything is written.
  */
-export async function syncAttachments(ctx, itemId, content, explicit) {
+export async function planAttachments(ctx, itemId, content, explicit) {
   const embedded = new Set([...String(content || '').matchAll(EMBED)].map((match) => Number(match[1])));
   const current = await query(`SELECT node_id FROM kb_item_files WHERE item_id = $1`, [itemId]);
   const had = new Set(current.rows.map((row) => row.node_id));
@@ -60,34 +67,44 @@ export async function syncAttachments(ctx, itemId, content, explicit) {
   for (const nodeId of wanted) {
     if (!had.has(nodeId)) await usableFile(filesCtx, nodeId);
   }
-  await withTransaction(async (client) => {
-    await client.query(`DELETE FROM kb_item_files WHERE item_id = $1 AND NOT (node_id = ANY($2))`, [itemId, wanted]);
-    for (const [index, nodeId] of wanted.entries()) {
-      await client.query(
-        `INSERT INTO kb_item_files (item_id, node_id, inline, sort) VALUES ($1, $2, $3, $4)
-         ON CONFLICT (item_id, node_id) DO UPDATE SET inline = EXCLUDED.inline, sort = EXCLUDED.sort`,
-        [itemId, nodeId, embedded.has(nodeId), index]
-      );
-    }
-  });
+  return { itemId, wanted, embedded };
 }
 
-async function attachedNode(itemId, nodeId) {
+/** Writes a plan from planAttachments with `client` (inside the caller's transaction). */
+export async function writeAttachments(client, { itemId, wanted, embedded }) {
+  await client.query(`DELETE FROM kb_item_files WHERE item_id = $1 AND NOT (node_id = ANY($2))`, [itemId, wanted]);
+  for (const [index, nodeId] of wanted.entries()) {
+    await client.query(
+      `INSERT INTO kb_item_files (item_id, node_id, inline, sort) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (item_id, node_id) DO UPDATE SET inline = EXCLUDED.inline, sort = EXCLUDED.sort`,
+      [itemId, nodeId, embedded.has(nodeId), index]
+    );
+  }
+}
+
+/** Checks and stores an article's files in one go (see planAttachments). */
+export async function syncAttachments(ctx, itemId, content, explicit) {
+  const plan = await planAttachments(ctx, itemId, content, explicit);
+  await withTransaction((client) => writeAttachments(client, plan));
+}
+
+async function attachedNode(itemId, nodeId, ctx = null) {
   const { rows } = await query(
     `SELECT n.* FROM kb_item_files f JOIN fs_nodes n ON n.id = f.node_id WHERE f.item_id = $1 AND f.node_id = $2`,
     [itemId, Number(nodeId)]
   );
   if (!rows[0] || rows[0].deleted_at) throw httpError(404, 'Not found', 'NOT_FOUND');
+  if (!fileWithinLimits(ctx, rows[0])) throw limitedFile();
   return rows[0];
 }
 
-export async function sendAttachment(res, itemId, nodeId, download) {
-  const node = await attachedNode(itemId, nodeId);
+export async function sendAttachment(res, itemId, nodeId, download, ctx = null) {
+  const node = await attachedNode(itemId, nodeId, ctx);
   await sendBlob(res, storagePath(node.storage_key), { name: node.name, ext: node.ext, download });
 }
 
-export async function sendAttachmentPreview(res, itemId, nodeId) {
-  const node = await attachedNode(itemId, nodeId);
+export async function sendAttachmentPreview(res, itemId, nodeId, ctx = null) {
+  const node = await attachedNode(itemId, nodeId, ctx);
   const path = await officePreview({ cacheKey: `fs-${node.id}`, version: node.updated_at, path: storagePath(node.storage_key), name: node.name, ext: node.ext });
   sendPdf(res, path, node.name.replace(/\.[^.]+$/, ''));
 }

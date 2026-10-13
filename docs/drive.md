@@ -143,9 +143,11 @@ Reactivating the author's account makes their links work again. Deleting the acc
   - no characters Windows forbids;
   - share names and hosts are checked too.
 - **Content is served safely.** It is streamed with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Only safe types are shown inline; everything else downloads.
-- **Uploads are atomic.** They are written to a hidden temporary file (`~$portal-….tmp`) and renamed at the end, so an interrupted upload never leaves a broken document. Replacing a file swaps it with rollback on failure.
+- **Uploads are atomic.** They are written to a hidden temporary file (`~$portal-….tmp`) and renamed at the end, so an interrupted upload never leaves a broken document. When the browser goes away mid-upload the portal drops its gateway request too; the gateway also gives up on a body that stays silent for 120 s (slow but moving uploads are unaffected) and removes the temporary file. Replacing a file swaps it with rollback on failure.
 - **Locked files are reported.** Files open in Word or Excel on someone's PC are still readable. Writing to them returns *The file is open in another program*.
-- **Caches are checked on every use.** Thumbnails, Office PDFs and DWG conversions are cached in `UPLOAD_DIR/.previews/` by path, size and modification time. Each request first checks access on the server with the person's own credentials, then serves the cache.
+- **Caches are checked on every use.** Thumbnails, Office PDFs and DWG conversions are cached in `UPLOAD_DIR/.previews/` by path, size and modification time. Each request first checks access on the server with the person's own credentials. Before a cached copy (or one being made for someone else) is served, the file is also opened for reading (a one-byte read), since listing a folder alone does not grant reading its files; a positive answer is remembered for 5 minutes per credential and file. Cached copies unused for 30 days are removed by the daily `storage:previews` job.
+- **Moving a server drops its secrets.** When an administrator changes a server's host or port, the stored service-account password and the accounts people saved for that server ("Connect as…") are cleared; the service password has to be typed again. *Test* with a changed host or port never uses secrets saved for the old machine.
+- **DWG conversions** stream the drawing to disk (never into memory), run at most two at a time, and requests for the same drawing share one conversion.
 
 ## Operations
 

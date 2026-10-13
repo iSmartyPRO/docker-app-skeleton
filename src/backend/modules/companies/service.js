@@ -7,6 +7,7 @@ import { avatarOf, contextFromRequest, httpError, intId } from '../shared/acl.js
 import { COUNTRIES, COUNTRY_CODES, cleanIds, primaryIdKey, profileOf } from './countries.js';
 import { claimDocument, stashDocument } from './files.js';
 import { REGISTRIES, lookupRegistry } from './registry/index.js';
+import { canView as canViewDeal, crmContext, crmSettings } from '../crm/access.js';
 
 /*
  * Counterparties: companies, contact people, careers, timeline, ratings.
@@ -21,7 +22,8 @@ import { REGISTRIES, lookupRegistry } from './registry/index.js';
 
 export function companiesContext(req) {
   const ctx = contextFromRequest(req, 'companies.admin');
-  return { ...ctx, userName: req.user?.displayName || req.user?.username || '' };
+  // `request`: deal lines in the timeline follow the viewer's CRM access.
+  return { ...ctx, userName: req.user?.displayName || req.user?.username || '', request: req };
 }
 
 export async function companiesSettings() {
@@ -911,7 +913,29 @@ async function requireEntity(type, id) {
   return rows[0].id;
 }
 
-export async function timeline(type, id, { before, kinds } = {}) {
+/**
+ * Timeline rows of deals (kind 'deal', written by the CRM) that the viewer
+ * may not open in the CRM are left out: their title, amount and stage are
+ * the CRM's to show. Notes of kind «deal» written by hand carry no deal.
+ */
+async function withoutHiddenDeals(rows, viewer) {
+  const dealIds = [...new Set(rows.filter((row) => row.kind === 'deal' && row.data?.dealId).map((row) => Number(row.data.dealId)))];
+  if (!dealIds.length) return rows;
+  let visible = new Set();
+  if (viewer?.request) {
+    const crm = crmContext(viewer.request, await crmSettings());
+    const deals = await query(
+      `SELECT d.id, d.pipeline_id, d.owner_id, d.created_by,
+              ARRAY(SELECT w.user_id FROM crm_deal_watchers w WHERE w.deal_id = d.id) AS watchers
+       FROM crm_deals d WHERE d.id = ANY($1)`,
+      [dealIds]
+    ).catch(() => ({ rows: [] }));
+    visible = new Set(deals.rows.filter((deal) => canViewDeal(crm, deal, deal.watchers || [])).map((deal) => deal.id));
+  }
+  return rows.filter((row) => !(row.kind === 'deal' && row.data?.dealId) || visible.has(Number(row.data.dealId)));
+}
+
+export async function timeline(type, id, { before, kinds } = {}, viewer = null) {
   const entityId = await requireEntity(type, id);
   const params = [type, entityId];
   let extra = '';
@@ -931,8 +955,9 @@ export async function timeline(type, id, { before, kinds } = {}) {
      ORDER BY e.happened_at DESC, e.id DESC LIMIT 51`,
     params
   );
+  const shown = await withoutHiddenDeals(rows.slice(0, 50), viewer);
   return {
-    items: rows.slice(0, 50).map((row) => ({
+    items: shown.map((row) => ({
       id: row.id,
       kind: row.kind,
       body: row.body,
@@ -953,13 +978,15 @@ export async function addNote(ctx, type, id, input = {}) {
   const at = input.at && !Number.isNaN(new Date(input.at).getTime()) ? new Date(input.at) : null;
   await logEvent(null, { type, id: entityId, kind, body, authorId: ctx.userId, at, data: input.result ? { result: str(input.result, 40) } : {} });
   await query(`UPDATE ${type === 'company' ? 'cmp_companies' : 'cmp_people'} SET updated_at = NOW() WHERE id = $1`, [entityId]);
-  return timeline(type, entityId);
+  return timeline(type, entityId, {}, ctx);
 }
 
 export async function deleteNote(ctx, eventId) {
   const { rows } = await query(`SELECT * FROM cmp_events WHERE id = $1`, [intId(eventId)]);
   const event = rows[0];
   if (!event || !NOTE_KINDS.includes(event.kind)) throw httpError(404, 'Not found', 'NOT_FOUND');
+  // Deal lines written by the CRM are history like the other system lines.
+  if (event.kind === 'deal' && event.data?.dealId) throw httpError(403, 'Deal history cannot be deleted', 'FORBIDDEN');
   // Changes made by the system are permanent; people remove only their own notes.
   if (event.author_id !== ctx.userId && !ctx.isAdmin) throw httpError(403, 'Only the author can delete a note', 'FORBIDDEN');
   await query(`DELETE FROM cmp_events WHERE id = $1`, [event.id]);

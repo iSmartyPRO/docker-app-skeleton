@@ -8,7 +8,7 @@ import { KB_FILE_GROUPS } from '../catalog.js';
 import { convertToPdf } from '../../services/integrations.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { httpError } from './access.js';
-import { FILE_CSP, readHead } from '../shared/storage.js';
+import { FILE_CSP, readHead, touchPreview } from '../shared/storage.js';
 
 /*
  * Files live outside the public /uploads tree (uploads/kb/…) and are only
@@ -167,7 +167,11 @@ export async function previewPdf(row) {
   }
   const version = new Date(row.updated_at).getTime();
   const target = join(cacheDir, `${row.id}-${version}.pdf`);
-  if (await stat(target).catch(() => null)) return target;
+  const info = await stat(target).catch(() => null);
+  if (info) {
+    touchPreview(target, info);
+    return target;
+  }
 
   if (!inflight.has(target)) {
     const job = (async () => {

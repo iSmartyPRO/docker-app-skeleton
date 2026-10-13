@@ -1,15 +1,18 @@
-node_modules
-npm-debug.log
+# Dependencies and build output are produced inside the image (npm ci, vite build).
+**/node_modules
+**/dist
+**/build
+**/npm-debug.log
+**/*.log
 .git
-.gitignore
-.env
-.env.*
-dist
-build
-.DS_Store
-*.log
+**/.gitignore
+# Secrets and runtime data never go into the build context.
+**/.env
+**/.env.*
 data
+**/uploads
+.DS_Store
+**/.DS_Store
 docs
 .github
 *.md
-uploads

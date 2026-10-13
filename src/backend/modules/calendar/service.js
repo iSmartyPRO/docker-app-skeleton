@@ -25,7 +25,7 @@ import {
   withinLimits,
   writeAcl,
 } from '../shared/acl.js';
-import { normalizeRule, occurrences } from './recurrence.js';
+import { normalizeRule, occurrences, seriesNotOverBefore } from './recurrence.js';
 import { eventMessage } from './messages.js';
 import { regionalOfUser } from '../../services/regional.js';
 import { isValidTimeZone } from '../../services/datetime.js';
@@ -266,7 +266,7 @@ export async function listEvents(ctx, { from, to, calendars, invitations = true 
   const params = [wanted, range.start, range.end, ctx.userId, limits];
   const { rows } = await query(
     `${EVENT_SELECT}
-     WHERE e.starts_at < $3 AND (e.rrule IS NOT NULL OR e.ends_at > $2)
+     WHERE e.starts_at < $3 AND ((e.rrule IS NOT NULL AND ${seriesNotOverBefore('$2')}) OR e.ends_at > $2)
        AND ($5::int[] IS NULL OR e.calendar_id = ANY($5))
        AND (e.calendar_id = ANY($1)
             ${invitations ? 'OR EXISTS (SELECT 1 FROM cal_attendees a WHERE a.event_id = e.id AND a.user_id = $4)' : ''})`,
@@ -482,9 +482,24 @@ export async function updateEvent(ctx, id, input, { scope = 'all', occurrence } 
       );
       return eventId;
     });
+    // Same messages as an edit of the whole event, about this one occurrence.
+    const after = ((await attendeesOf([newId])).get(newId) || []).map((person) => person.id);
+    const before = new Set(attendees);
+    const now = new Set(after);
+    await notifyEventChanges(ctx, {
+      eventId: newId,
+      previous: { starts_at: base.starts_at, ends_at: base.ends_at, location: row.location, rrule: null },
+      fields,
+      changes: {
+        added: after.filter((userId) => !before.has(userId)),
+        removed: attendees.filter((userId) => !now.has(userId)),
+        kept: after.filter((userId) => before.has(userId)),
+      },
+    });
     return getEvent(ctx, newId);
   }
 
+  input = withoutEchoedOccurrence(row, input, occurrence);
   const fields = eventFields(input, row);
   const attendeeIds = input.attendees !== undefined ? await cleanAttendees(input.attendees) : null;
   const changes = await withTransaction(async (client) => {
@@ -506,19 +521,29 @@ export async function updateEvent(ctx, id, input, { scope = 'all', occurrence } 
     return attendeeIds ? setAttendees(client, row.id, attendeeIds, row.created_by) : null;
   });
 
+  await notifyEventChanges(ctx, { eventId: row.id, previous: row, fields, changes });
+  return getEvent(ctx, row.id);
+}
+
+/**
+ * Invitations / cancellations for added and removed attendees, and an
+ * "updated" message to those who stay when the time, place or rule changed.
+ * `changes` null = attendees untouched.
+ */
+async function notifyEventChanges(ctx, { eventId, previous, fields, changes }) {
   const actor = await actorName(ctx);
   const timingChanged =
-    new Date(row.starts_at).getTime() !== fields.starts_at.getTime() ||
-    new Date(row.ends_at).getTime() !== fields.ends_at.getTime() ||
-    (row.location || null) !== fields.location ||
-    row.rrule !== fields.rrule;
-  const current = changes ? changes.kept : ((await attendeesOf([row.id])).get(row.id) || []).map((person) => person.id);
+    new Date(previous.starts_at).getTime() !== fields.starts_at.getTime() ||
+    new Date(previous.ends_at).getTime() !== fields.ends_at.getTime() ||
+    (previous.location || null) !== fields.location ||
+    (previous.rrule || null) !== fields.rrule;
+  const current = changes ? changes.kept : ((await attendeesOf([eventId])).get(eventId) || []).map((person) => person.id);
   if (changes?.added.length) {
     await notify({
       userIds: changes.added,
       kind: 'calendar.invited',
       module: 'calendar',
-      link: eventLink(row.id),
+      link: eventLink(eventId),
       actorId: ctx.userId,
       render: eventMessage('invited', messageParams(fields, actor)),
     });
@@ -537,12 +562,31 @@ export async function updateEvent(ctx, id, input, { scope = 'all', occurrence } 
       userIds: current,
       kind: 'calendar.updated',
       module: 'calendar',
-      link: eventLink(row.id),
+      link: eventLink(eventId),
       actorId: ctx.userId,
       render: eventMessage('updated', messageParams(fields, actor)),
     });
   }
-  return getEvent(ctx, row.id);
+}
+
+/**
+ * A whole-series edit made from one occurrence that sends back that
+ * occurrence's own timing means "time unchanged" (older clients did this):
+ * taking it literally would make the occurrence the series' first one and
+ * wipe its history. Such echoed timing is dropped.
+ */
+function withoutEchoedOccurrence(row, input, occurrence) {
+  if (!row.rrule || !occurrence || (input.start === undefined && input.end === undefined)) return input;
+  const occurrenceStart = new Date(occurrence);
+  if (Number.isNaN(occurrenceStart.getTime()) || occurrenceStart.getTime() === new Date(row.starts_at).getTime()) return input;
+  if (input.allDay !== undefined && Boolean(input.allDay) !== Boolean(row.all_day)) return input;
+  const occurrenceEnd = new Date(occurrenceStart.getTime() + (new Date(row.ends_at) - new Date(row.starts_at)));
+  const same = row.all_day
+    ? (value, date) => String(value ?? '').slice(0, 10) === dateOnly(date)
+    : (value, date) => value !== undefined && value !== null && new Date(value).getTime() === date.getTime();
+  if (!same(input.start, occurrenceStart) || (input.end !== undefined && !same(input.end, occurrenceEnd))) return input;
+  const { start, end, allDay, ...rest } = input;
+  return rest;
 }
 
 export async function deleteEvent(ctx, id, { scope = 'all', occurrence } = {}) {

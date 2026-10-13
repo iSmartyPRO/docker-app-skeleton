@@ -1,6 +1,7 @@
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { getAccessMap } from '../../services/rbac.js';
+import { decide } from '../../api/scopes.js';
 import { httpError } from '../shared/acl.js';
 import { actCaps, globalRoles, has, readCaps, seesProject } from './rules.js';
 
@@ -94,6 +95,22 @@ export function requireRead(ctx, projectId, cap) {
   if (!has(readCaps(ctx, projectId), cap)) throw forbidden();
 }
 
+/**
+ * API tokens: what Masterplan reads from or writes into the CRM (deal titles,
+ * linking a deal, the deal's timeline and amount after a status change) also
+ * needs the token's CRM scope, as if the CRM endpoint were called. Session
+ * users (no token on the request) are not affected.
+ */
+export function crmScopeAllows(ctx, level = 'read') {
+  const policy = ctx?.request?.apiToken?.policy;
+  if (!policy) return true;
+  return decide(policy, level === 'write' ? 'POST' : 'GET', '/app/crm/deals').ok;
+}
+
+export function requireCrmScope(ctx, level = 'read') {
+  if (!crmScopeAllows(ctx, level)) throw httpError(403, `The token lacks the crm:${level} scope`, 'SCOPE_DENIED');
+}
+
 export function requireAdmin(ctx) {
   if (!ctx.isAdmin) throw forbidden();
 }
@@ -109,18 +126,41 @@ export function requireConfigure(ctx, projectId) {
 }
 
 /**
+ * Active people and the holders of global `masterplan.<role>` permissions.
+ * One scan of every user's access; pass the same `cache` object to share it
+ * across calls of one request or scheduler job.
+ */
+async function globalHolders(cache) {
+  if (cache?.holders) return cache.holders;
+  const promise = (async () => {
+    const { rows: active } = await query(`SELECT id FROM users WHERE is_active IS NOT FALSE AND is_blocked IS NOT TRUE`);
+    const map = await getAccessMap(active.map((row) => row.id));
+    const byRole = new Map();
+    for (const [userId, access] of map) {
+      for (const perm of access.permissions || []) {
+        if (!perm.startsWith('masterplan.')) continue;
+        const role = perm.slice('masterplan.'.length);
+        if (!byRole.has(role)) byRole.set(role, new Set());
+        byRole.get(role).add(userId);
+      }
+    }
+    return { active: new Set(active.map((row) => row.id)), byRole };
+  })();
+  if (cache) cache.holders = promise;
+  return promise;
+}
+
+/**
  * Active people holding one of `roles` where `node` is (for notifications).
  * Portal permissions count only when granted explicitly (super administrators'
- * `*` would make them get every sales notification).
+ * `*` would make them get every sales notification). `cache` (any object)
+ * shares the scan of users across calls.
  */
-export async function usersWithRole(roles, node) {
+export async function usersWithRole(roles, node, cache = null) {
   const wanted = new Set(roles);
   const ids = new Set();
-  const { rows: active } = await query(`SELECT id FROM users WHERE is_active IS NOT FALSE AND is_blocked IS NOT TRUE`);
-  const map = await getAccessMap(active.map((row) => row.id));
-  for (const [userId, access] of map) {
-    if ((access.permissions || []).some((perm) => perm.startsWith('masterplan.') && wanted.has(perm.slice('masterplan.'.length)))) ids.add(userId);
-  }
+  const { active, byRole } = await globalHolders(cache);
+  for (const role of wanted) for (const userId of byRole.get(role) || []) ids.add(userId);
   if (node) {
     const { rows } = await query(
       `SELECT a.subject_type, a.subject_id FROM mp_assignments a
@@ -135,6 +175,5 @@ export async function usersWithRole(roles, node) {
       for (const row of members) ids.add(row.user_id);
     }
   }
-  const activeIds = new Set(active.map((row) => row.id));
-  return [...ids].filter((id) => activeIds.has(id));
+  return [...ids].filter((id) => active.has(id));
 }

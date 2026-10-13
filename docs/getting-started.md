@@ -70,7 +70,7 @@ Behind a reverse proxy, set `FRONTEND_URL` to the public HTTPS origin, terminate
 | Step | What happens |
 |------|----------------|
 | Database | Tests credentials, writes `POSTGRES_*` into `.env`, creates tables |
-| Administrator | First account, a **super administrator** (bcrypt). Roles and the default groups are created in the wizard's language; *Add sample users* creates five password-less demo accounts. After this, setup writes are `403`. |
+| Administrator | First account, a **super administrator** (bcrypt). Roles and the default groups are created in the wizard's language; *Add sample users* (off by default) creates five password-less demo accounts. After this, setup writes are `403`. |
 | Access | **Closed** = guests hit login. **Open** = public landing; `/account` and `/admin` still need a session. |
 
 When the last step completes, `SETUP_LOCKED=true` is written to `.env` and the wizard is closed for good.

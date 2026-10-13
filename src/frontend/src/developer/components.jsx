@@ -807,10 +807,12 @@ export const VERIFY_SAMPLES = () => [
 
 // rawBody: the request body exactly as received (string)
 function verify(rawBody, header, secret = process.env.PORTAL_WEBHOOK_SECRET) {
-  const { t, v1 } = Object.fromEntries(header.split(',').map((p) => p.split('=')));
-  const expected = crypto.createHmac('sha256', secret).update(\`\${t}.\${rawBody}\`).digest('hex');
+  const { t, v1 } = Object.fromEntries(String(header || '').split(',').map((p) => p.split('=', 2)));
+  const expected = crypto.createHmac('sha256', secret).update(\`\${t}.\${rawBody}\`).digest();
+  const given = Buffer.from(String(v1 || ''), 'hex');
   const fresh = Math.abs(Date.now() / 1000 - Number(t)) < 300;
-  return fresh && crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
+  // timingSafeEqual throws on different lengths: check the length first.
+  return fresh && given.length === expected.length && crypto.timingSafeEqual(given, expected);
 }`,
   },
   {

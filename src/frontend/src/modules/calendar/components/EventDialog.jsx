@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import { App, Checkbox, DatePicker, Form, Input, InputNumber, Modal, Radio, Select, Switch, TimePicker } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { HintLabel } from '../../../help/Hint';
 import { errorMessage } from '../../../lib/errors';
 import { ColorSwatches, userOptions } from '../../shared/People';
-import { fromPicker, getRegional, nowInZone, pickerFormat, toPicker, useRegional } from '../../../lib/datetime';
+import { fromPicker, getRegional, inZone, nowInZone, pickerFormat, toPicker, useRegional } from '../../../lib/datetime';
 import { calendarApi, calendarLabel } from '../api';
 import { WEEKDAYS, customFromRule, presetOf, ruleFromCustom, ruleFromPreset } from '../recurrence';
 import { askScope } from './scope';
@@ -94,6 +94,8 @@ export default function EventDialog({ open, draft, event, calendars, googleCalen
   const [users, setUsers] = useState([]);
   const [custom, setCustom] = useState(null);
   const [saving, setSaving] = useState(false);
+  // What the dialog opened with, to tell "unchanged" from "edited" on save.
+  const initial = useRef(null);
   const editing = Boolean(event);
   const allDay = Form.useWatch('allDay', form);
   const target = Form.useWatch('target', form);
@@ -118,7 +120,9 @@ export default function EventDialog({ open, draft, event, calendars, googleCalen
         ? `g:${event.googleCalendarId}`
         : `c:${event.calendarId}`
       : draft?.target || `c:${(writable.find((calendar) => calendar.mine) || writable[0])?.id}`;
-    setCustom(rule && presetOf(rule, start) === 'custom' ? customFromRule(rule, start) : customFromRule(null, start));
+    const initialCustom = rule && presetOf(rule, start) === 'custom' ? customFromRule(rule, start) : customFromRule(null, start);
+    setCustom(initialCustom);
+    initial.current = { custom: JSON.stringify(initialCustom), repeat: presetOf(rule, start) };
     form.setFieldsValue({
       title: event?.title || '',
       target: targetValue,
@@ -153,6 +157,52 @@ export default function EventDialog({ open, draft, event, calendars, googleCalen
     form.setFieldsValue({ _prevStartDate: all.startDate, _prevStartTime: all.startTime });
   };
 
+  /*
+   * The dialog shows one occurrence of a series. Saving the whole series must
+   * not make that occurrence its new first one (that would drop the earlier
+   * history, exceptions and restart COUNT): unchanged timing is not sent at
+   * all, a changed one shifts the series' own start by the same amount, the
+   * way dragging an occurrence does.
+   */
+  const seriesTiming = async (body, values) => {
+    const sameRepeat =
+      values.repeat === initial.current?.repeat && (values.repeat !== 'custom' || JSON.stringify(custom) === initial.current?.custom);
+    const occurrenceStart = event.allDay ? event.start : dayjs(event.start).toISOString();
+    const occurrenceEnd = event.allDay ? event.end : dayjs(event.end).toISOString();
+    const timingSame =
+      Boolean(values.allDay) === Boolean(event.allDay) && body.start === occurrenceStart && body.end === occurrenceEnd;
+    const next = {};
+    if (timingSame) {
+      // An untouched repeat keeps the stored rule verbatim (a regenerated one may differ in form).
+      if (sameRepeat) next.rrule = event.rrule;
+      next.start = undefined;
+      next.end = undefined;
+      next.allDay = undefined;
+      return next;
+    }
+    const series = (await calendarApi.event(event.id)).data.event;
+    if (values.allDay) {
+      // Whole days: shift the series' first day by as many days as this occurrence moved.
+      const fromDay = event.allDay ? dayjs(event.start) : inZone(event.start).startOf('day');
+      const days = dayjs(body.start).diff(fromDay.format('YYYY-MM-DD'), 'day');
+      const span = Math.max(1, dayjs(body.end).diff(dayjs(body.start), 'day'));
+      const seriesDay = series.allDay ? dayjs(series.start) : dayjs(inZone(series.start).format('YYYY-MM-DD'));
+      const shifted = seriesDay.add(days, 'day');
+      next.start = shifted.format('YYYY-MM-DD');
+      next.end = shifted.add(span, 'day').format('YYYY-MM-DD');
+    } else {
+      // From an all-day occurrence the delta is measured from its midnight in the person's zone.
+      const from = event.allDay ? inZone(event.start).startOf('day') : dayjs(event.start);
+      const delta = dayjs(body.start).diff(from);
+      const duration = dayjs(body.end).diff(dayjs(body.start));
+      const seriesFrom = series.allDay ? inZone(series.start).startOf('day') : dayjs(series.start);
+      const shifted = seriesFrom.add(delta, 'millisecond');
+      next.start = shifted.toISOString();
+      next.end = shifted.add(duration, 'millisecond').toISOString();
+    }
+    return next;
+  };
+
   const submit = async () => {
     const values = await form.validateFields();
     const start = values.allDay ? values.startDate.startOf('day') : combine(values.startDate, values.startTime);
@@ -161,15 +211,15 @@ export default function EventDialog({ open, draft, event, calendars, googleCalen
       message.error(t('calendar.endBeforeStart'));
       return;
     }
-    const rrule = values.repeat === 'custom' ? ruleFromCustom(custom, start) : ruleFromPreset(values.repeat, start);
     const payload = {
       title: values.title,
       allDay: values.allDay,
       start: values.allDay ? start.format('YYYY-MM-DD') : fromPicker(start),
       end: values.allDay ? end.format('YYYY-MM-DD') : fromPicker(end),
-      // Repeats keep their wall-clock time in this zone (the person's).
-      timezone: getRegional().timeZone,
-      rrule,
+      // Repeats keep their wall-clock time in the event's zone: the creator's
+      // for a new event; an edit by someone else must not move it to theirs.
+      timezone: (editing && event.timezone) || getRegional().timeZone,
+      rrule: values.repeat === 'custom' ? ruleFromCustom(custom, start) : ruleFromPreset(values.repeat, start),
       location: values.location,
       description: values.description,
     };
@@ -199,6 +249,8 @@ export default function EventDialog({ open, draft, event, calendars, googleCalen
           }
           if (scope === 'single') {
             delete body.rrule;
+          } else if (event.recurring) {
+            Object.assign(body, await seriesTiming(body, values));
           }
           saved = (await calendarApi.updateEvent(event.id, { ...body, scope, occurrence: event.occurrence })).data.event;
         } else {

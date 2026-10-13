@@ -59,17 +59,38 @@ export function useOutage() {
   );
 }
 
-/** What an error says about the server: null when it is not an outage. */
+// Requests the app cannot start without: a timeout there means the server is
+// unreachable for practical purposes. Elsewhere a timeout is the request's own
+// problem (a slow report, a big export) and the page shows its own error.
+const BOOT_PATHS = ['/status', '/settings', '/auth/me'];
+
+function isBootRequest(config) {
+  const url = String(config?.url || '').split('?')[0].replace(/^\/api(?=\/)/, '');
+  return BOOT_PATHS.includes(url);
+}
+
+/**
+ * What an error says about the server: null when it is not an outage.
+ * Only the whole portal being away counts — a module's own failure (a file
+ * server gateway down, a registry answering 502, an API switched off) carries
+ * its own JSON code and is shown by that page, not by the outage screen.
+ */
 export function outageOf(error) {
   const res = error?.response;
   if (!res) {
     if (axios.isCancel?.(error) || error?.code === 'ERR_CANCELED') return null;
-    if (error?.code === 'ECONNABORTED') return { code: 'TIMEOUT', status: null };
+    if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT') {
+      return isBootRequest(error?.config) ? { code: 'TIMEOUT', status: null } : null;
+    }
     return { code: navigator.onLine === false ? 'OFFLINE' : 'NETWORK', status: null };
   }
-  const code = res.data?.code;
-  if (code === 'MAINTENANCE' || code === 'DB_UNAVAILABLE') return { code, status: res.status, requestId: res.data?.requestId || res.headers?.['x-request-id'] };
-  if ([502, 503, 504].includes(res.status)) return { code: `HTTP_${res.status}`, status: res.status, requestId: res.headers?.['x-request-id'] };
+  const data = res.data;
+  const code = data && typeof data === 'object' ? data.code : undefined;
+  if (code === 'MAINTENANCE' || code === 'DB_UNAVAILABLE') return { code, status: res.status, requestId: data?.requestId || res.headers?.['x-request-id'] };
+  // Bare gateway errors (nginx or an outer proxy with the app server away)
+  // carry no JSON code; answers of the app itself always do.
+  if (!code && [502, 504].includes(res.status)) return { code: `HTTP_${res.status}`, status: res.status, requestId: res.headers?.['x-request-id'] };
+  if (res.status === 503 && !(data && typeof data === 'object')) return { code: 'HTTP_503', status: res.status, requestId: res.headers?.['x-request-id'] };
   return null;
 }
 

@@ -1,4 +1,4 @@
-import { query } from '../config/database.js';
+import { query, withTransaction } from '../config/database.js';
 import { getSettings, parseSettings } from './settings.js';
 import { authenticateDirectory, directoryEntry, searchDirectory } from './ldap.js';
 import { emitDirectoryCredential } from './hooks.js';
@@ -104,20 +104,32 @@ async function assertFreeDn(dn, userId) {
   if (taken) throw httpError(409, `This directory account is already linked to @${taken.username}`, 'DIRECTORY_TAKEN', { username: taken.username });
 }
 
+/** Stores the DN and the directory object id (taken over from a stale link elsewhere). */
+async function setDirectoryLink(userId, entry) {
+  const guid = entry.guid ? String(entry.guid).toLowerCase() : null;
+  await withTransaction(async (client) => {
+    if (guid) await client.query(`UPDATE users SET directory_guid = NULL WHERE directory_guid = $1 AND id <> $2`, [guid, userId]);
+    await client.query(
+      `UPDATE users SET external_id = $2, directory_guid = $3, auth_source = 'ldap', updated_at = NOW() WHERE id = $1`,
+      [userId, entry.dn, guid]
+    );
+  });
+}
+
 /** Links a portal account to a directory account (by DN); sign-in with the domain login follows. */
 export async function linkDirectory(userId, dn) {
   await userRow(userId);
   const entry = await directoryEntry(await directoryConfig(), dn);
   if (!entry) throw httpError(404, 'The directory account was not found', 'DIRECTORY_NOT_FOUND');
   await assertFreeDn(entry.dn, userId);
-  await query(`UPDATE users SET external_id = $2, auth_source = 'ldap', updated_at = NOW() WHERE id = $1`, [userId, entry.dn]);
+  await setDirectoryLink(userId, entry);
   return entry;
 }
 
 /** Back to a portal account: no directory sign-in (codes, Telegram etc. keep working). */
 export async function unlinkDirectory(userId) {
   await userRow(userId);
-  await query(`UPDATE users SET external_id = NULL, auth_source = 'local', updated_at = NOW() WHERE id = $1 AND auth_source = 'ldap'`, [userId]);
+  await query(`UPDATE users SET external_id = NULL, directory_guid = NULL, auth_source = 'local', updated_at = NOW() WHERE id = $1 AND auth_source = 'ldap'`, [userId]);
 }
 
 /** Checks a domain login and password against the directory; returns the profile. */
@@ -141,7 +153,7 @@ export async function setDirectoryPassword(userId, login, password) {
   }
   if (!(row.auth_source === 'ldap' && row.external_id)) {
     await assertFreeDn(profile.dn, userId);
-    await query(`UPDATE users SET external_id = $2, auth_source = 'ldap', updated_at = NOW() WHERE id = $1`, [userId, profile.dn]);
+    await setDirectoryLink(userId, profile);
   }
   const stored = await emitDirectoryCredential({ userId, username: profile.username, password: String(password) });
   return { profile, stored };

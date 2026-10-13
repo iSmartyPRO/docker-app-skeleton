@@ -27,6 +27,17 @@ test('days and weeks start at local midnight; wall times become instants, DST in
   assert.equal(zoneLabel('Asia/Kolkata', new Date('2026-01-01')), 'UTC+5:30');
 });
 
+test('a day whose midnight is skipped by DST starts at the transition', () => {
+  // America/Santiago moves 00:00 → 01:00 on 6 Sep 2026: the day begins at 04:00Z (01:00 -03).
+  const start = startOfDay('2026-09-06T12:00:00Z', 'America/Santiago');
+  assert.equal(start.toISOString(), '2026-09-06T04:00:00.000Z');
+  assert.equal(isoDay(start, 'America/Santiago'), '2026-09-06');
+  assert.equal(startOfDay('2026-09-05T12:00:00Z', 'America/Santiago', 1).toISOString(), '2026-09-06T04:00:00.000Z');
+  // Ordinary days around it are unaffected.
+  assert.equal(startOfDay('2026-09-07T12:00:00Z', 'America/Santiago').toISOString(), '2026-09-07T03:00:00.000Z');
+  assert.equal(startOfDay('2026-09-05T12:00:00Z', 'America/Santiago').toISOString(), '2026-09-05T04:00:00.000Z');
+});
+
 test('personal settings override the portal; "device" uses the zone the browser reported', () => {
   const portal = sanitizeRegional({ timeZone: 'Asia/Bishkek', dateFormat: 'YYYY-MM-DD', timeFormat: '12', weekStart: 0 });
   assert.deepEqual(resolveRegional(portal, null), { timeZone: 'Asia/Bishkek', dateFormat: 'YYYY-MM-DD', timeFormat: '12', weekStart: 0, locale: null });

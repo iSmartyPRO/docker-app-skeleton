@@ -211,6 +211,8 @@ function withQuery(path, key, value) {
 router.get('/google/start', googleLimiter, optionalAuth, async (req, res) => {
   const purpose = GOOGLE_PURPOSES.includes(req.query.purpose) ? req.query.purpose : 'signin';
   try {
+    // A "sign in as" session never links a Google account to the person.
+    if (purpose !== 'signin' && req.auth?.imp) return res.redirect(googleFailure(purpose, 'FORBIDDEN'));
     if (purpose === 'gmail' && !hasPermission(req.access?.permissions || [], 'settings.integrations')) {
       return res.redirect(googleFailure(purpose, 'FORBIDDEN'));
     }
@@ -259,6 +261,7 @@ router.get('/google/callback', googleLimiter, optionalAuth, async (req, res) => 
 
     // Connecting must finish in the same signed-in session that started it.
     if (!req.userRow || req.userRow.id !== state.u) return res.redirect(googleFailure(purpose, 'AUTH_REQUIRED'));
+    if (req.auth?.imp) return res.redirect(googleFailure(purpose, 'FORBIDDEN'));
     if (purpose === 'connect') {
       if (!domainAllowed(claims, allowedDomains(cfg))) return res.redirect(googleFailure(purpose, 'GOOGLE_DOMAIN'));
       await saveGoogleAccount(req.userRow.id, claims, tokens);

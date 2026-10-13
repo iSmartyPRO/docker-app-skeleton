@@ -135,7 +135,15 @@ export function wallToInstant({ year, month, day, hour = 0, minute = 0, second =
 export function startOfDay(value, timeZone, addDays = 0) {
   const p = zonedParts(value, timeZone);
   const day = new Date(Date.UTC(p.year, p.month - 1, p.day + addDays));
-  return wallToInstant({ year: day.getUTCFullYear(), month: day.getUTCMonth() + 1, day: day.getUTCDate() }, timeZone);
+  const wanted = { year: day.getUTCFullYear(), month: day.getUTCMonth() + 1, day: day.getUTCDate() };
+  const instant = wallToInstant(wanted, timeZone);
+  const target = day.toISOString().slice(0, 10);
+  if (isoDay(instant, timeZone) === target) return instant;
+  // Midnight skipped by a DST change (e.g. America/Santiago): the day starts
+  // at the transition, i.e. midnight read with the offset in force before it.
+  const before = zoneOffsetMinutes(new Date(day.getTime() - 12 * 3600000), timeZone);
+  const first = new Date(day.getTime() - before * 60000);
+  return isoDay(first, timeZone) === target ? first : instant;
 }
 
 /** Start of the week (by weekStart) containing `value`, in the zone. */

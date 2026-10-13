@@ -53,12 +53,13 @@ export async function dashboard(ctx, projectId) {
       avgPricePerM2Sold: has(caps, 'price.view') && soldArea ? money(soldSum / soldArea) : null,
       paid: has(caps, 'amounts.all') ? money(units.reduce((sum, row) => sum + toBase(row.paid_amount, (row.currency || '').trim(), settings), 0)) : null,
     };
-    // Contracts and sales per month (last 12), from the history.
+    // Contracts and sales per month (last 12), from the history; months of the portal's time zone.
+    const zone = (await regionalFor(null)).timeZone || 'UTC';
     const { rows: months } = await query(
-      `SELECT to_char(date_trunc('month', e.created_at), 'YYYY-MM') AS month, e.data->>'to' AS status, COUNT(*)::int AS n
+      `SELECT to_char(date_trunc('month', e.created_at AT TIME ZONE $2), 'YYYY-MM') AS month, e.data->>'to' AS status, COUNT(*)::int AS n
        FROM mp_events e WHERE e.project_id = $1 AND e.kind = 'status' AND e.data->>'to' IN ('booking', 'contract', 'sold') AND e.created_at > NOW() - INTERVAL '12 months'
        GROUP BY 1, 2 ORDER BY 1`,
-      [project.id]
+      [project.id, zone]
     );
     const map = new Map();
     for (const row of months) {

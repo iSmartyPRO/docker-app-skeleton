@@ -12,12 +12,16 @@ export function SettingsProvider({ children }) {
     try {
       const res = await getSettings();
       setSettings(res.data?.settings || null);
+      setReady(true);
     } catch (error) {
       // Without settings the app would pretend to be a bare skeleton (default
-      // name, no logo, password only). An outage shows "technical works" instead.
-      if (outageOf(error)) reportFailure(error, { immediate: true });
-      else setSettings(null);
-    } finally {
+      // name, no logo, password only). An outage shows "technical works"
+      // instead and keeps `ready` false (or the last good settings), so route
+      // gates wait instead of redirecting; 'outage:recovered' loads them again.
+      if (outageOf(error)) {
+        reportFailure(error, { immediate: true });
+        return;
+      }
       setReady(true);
     }
   }, []);

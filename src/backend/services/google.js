@@ -2,7 +2,7 @@ import { createHash, createPublicKey, randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
 import config from '../config/app.js';
 import { query } from '../config/database.js';
-import { seal, unseal } from './crypto.js';
+import { openSealed, seal, unseal } from './crypto.js';
 import { authAvailability, getSettings, parseSettings, setGoogleSender } from './settings.js';
 
 /*
@@ -232,14 +232,27 @@ export function domainAllowed(claims, domains) {
 
 const accessCache = new Map();
 
-async function accessTokenFor(cacheKey, sealedRefresh, onRevoked) {
+/*
+ * `onRevoked` runs only when Google says the grant is gone (invalid_grant) or
+ * nothing is stored. A token that cannot be decrypted (the encryption key
+ * changed) is not a revocation: it is kept, administrators are told
+ * (security event), and restoring the old key brings it back. `onReseal`
+ * receives the token sealed with the current key when it was opened with an
+ * older one.
+ */
+async function accessTokenFor(cacheKey, sealedRefresh, onRevoked, { label = 'Google token', onReseal } = {}) {
   const cached = accessCache.get(cacheKey);
   if (cached && cached.until > Date.now() + 30_000) return cached.token;
-  const refreshToken = unseal(sealedRefresh);
+  const opened = openSealed(sealedRefresh, { label });
+  if (opened.failed) {
+    throw httpError(409, 'The stored Google token cannot be decrypted (the encryption key changed). Restore the previous key or connect Google again.', 'GOOGLE_KEY');
+  }
+  const refreshToken = opened.value;
   if (!refreshToken) {
     await onRevoked?.();
     throw httpError(409, 'Google access is not connected', 'GOOGLE_NOT_CONNECTED');
   }
+  if (opened.stale && onReseal) await Promise.resolve(onReseal(seal(refreshToken))).catch(() => {});
   const { cfg } = await googleConfig();
   try {
     const data = await tokenRequest({
@@ -288,11 +301,24 @@ export async function getGoogleAccount(userId) {
   return rows[0] || null;
 }
 
-/** Links (or refreshes) a Google identity for a user. Keeps the old refresh token if none came back. */
-export async function saveGoogleAccount(userId, claims, tokens = {}) {
+/**
+ * Links (or refreshes) a Google identity for a user. Keeps the old refresh
+ * token if none came back.
+ *
+ * `signIn: true` (a plain Google sign-in, no tokens): only refreshes the
+ * profile of the account already linked with this `sub`. A user whose
+ * Calendar is connected to another Google account keeps that connection —
+ * signing in with a second Google account must not swap or reset it — and a
+ * revoked connection stays revoked until the person connects again.
+ */
+export async function saveGoogleAccount(userId, claims, tokens = {}, { signIn = false } = {}) {
   const other = await findGoogleAccountBySub(claims.sub);
   if (other && other.user_id !== userId) {
     throw httpError(409, 'This Google account is already linked to another user', 'GOOGLE_TAKEN');
+  }
+  if (signIn && !tokens.refresh_token) {
+    const current = await getGoogleAccount(userId);
+    if (current && current.sub !== String(claims.sub)) return;
   }
   await query(
     `INSERT INTO google_accounts (user_id, sub, email, name, picture, refresh_token, scopes, status)
@@ -305,7 +331,10 @@ export async function saveGoogleAccount(userId, claims, tokens = {}) {
        scopes = CASE WHEN google_accounts.sub <> EXCLUDED.sub OR EXCLUDED.scopes <> '' THEN EXCLUDED.scopes
                      ELSE google_accounts.scopes END,
        calendars = CASE WHEN google_accounts.sub <> EXCLUDED.sub THEN '[]'::jsonb ELSE google_accounts.calendars END,
-       status = 'active', updated_at = NOW()`,
+       -- Only a new grant (or another account) clears "revoked"; a sign-in does not.
+       status = CASE WHEN google_accounts.sub <> EXCLUDED.sub OR EXCLUDED.refresh_token IS NOT NULL THEN 'active'
+                     ELSE google_accounts.status END,
+       updated_at = NOW()`,
     [
       userId,
       String(claims.sub),
@@ -351,8 +380,15 @@ export async function disconnectGoogle(userId) {
 async function userAccessToken(userId) {
   const account = await getGoogleAccount(userId);
   if (!account || !account.refresh_token) throw httpError(409, 'Google Calendar is not connected', 'GOOGLE_NOT_CONNECTED');
-  return accessTokenFor(`u:${userId}`, account.refresh_token, () =>
-    query(`UPDATE google_accounts SET status = 'revoked', updated_at = NOW() WHERE user_id = $1`, [userId])
+  return accessTokenFor(
+    `u:${userId}`,
+    account.refresh_token,
+    () => query(`UPDATE google_accounts SET status = 'revoked', updated_at = NOW() WHERE user_id = $1`, [userId]),
+    {
+      label: 'Google Calendar token',
+      onReseal: (resealed) =>
+        query(`UPDATE google_accounts SET refresh_token = $2 WHERE user_id = $1 AND refresh_token = $3`, [userId, resealed, account.refresh_token]),
+    }
   );
 }
 
@@ -478,10 +514,15 @@ export function buildMime({ from, fromName, to, subject, text, html }) {
   ].join('\r\n');
 }
 
+const gmailTokenOptions = (cfg) => ({
+  label: 'Gmail sender token',
+  onReseal: (resealed) => setGoogleSender({ email: cfg.gmailSender, sealedToken: resealed }),
+});
+
 export async function sendGmail({ to, subject, text, html, fromName }) {
   const { cfg, ready } = await googleConfig();
   if (!ready.gmail) throw httpError(400, 'Gmail sending is not connected');
-  const token = await accessTokenFor('gmail', cfg.gmailToken, () => setGoogleSender({}));
+  const token = await accessTokenFor('gmail', cfg.gmailToken, () => setGoogleSender({}), gmailTokenOptions(cfg));
   const raw = Buffer.from(buildMime({ from: cfg.gmailSender, fromName, to, subject, text, html }), 'utf8').toString('base64url');
   await googleApi(token, `${GMAIL_API}/users/me/messages/send`, { method: 'POST', body: { raw } });
 }
@@ -513,7 +554,7 @@ export async function testGoogle(override = {}) {
   }
   let gmail = '';
   if (cfg.gmailToken) {
-    await accessTokenFor('gmail', cfg.gmailToken, () => setGoogleSender({}));
+    await accessTokenFor('gmail', cfg.gmailToken, () => setGoogleSender({}), gmailTokenOptions(cfg));
     gmail = `, Gmail sender ${cfg.gmailSender} is connected`;
   }
   return { ok: true, message: `Google accepted the OAuth client${gmail}. Redirect URI: ${redirectUri()}` };

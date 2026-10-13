@@ -1,7 +1,8 @@
 import config from '../config/app.js';
 import { verifyToken } from '../services/auth.js';
 import { hasAnyPermission } from '../services/permissions.js';
-import { findUserById, getSessionUser, toPublicUser } from '../services/users.js';
+import { getSessionUser, tokenLockedChanges, toPublicUser } from '../services/users.js';
+import { isReadMethod, requestPath } from '../api/scopes.js';
 import { localeFor } from '../services/settings.js';
 import { isSessionRevoked } from '../services/security.js';
 import { createSession, getSession, legacySessionId, requestDetails, sessionState, touchSession } from '../services/sessions.js';
@@ -37,6 +38,13 @@ async function loadSessionUser(req) {
   if (!session) return null;
   const { row, access } = session;
   if (Number(payload.tv || 0) !== Number(row.token_version || 0)) return null;
+  // "Sign in as" lives only as long as the administrator who started it may
+  // still do so: active, not blocked, still a superadministrator.
+  let impersonator = null;
+  if (payload.imp) {
+    impersonator = await getSessionUser(Number(payload.imp));
+    if (!impersonatorAllowed(impersonator)) return null;
+  }
   const details = requestDetails(req);
   if (!sessionRow) {
     sessionRow = await createSession({
@@ -61,15 +69,67 @@ async function loadSessionUser(req) {
   req.locale = await localeFor(row);
   req.actor = { id: row.id, permissions: new Set(access.permissions) };
   // A superadministrator acting as this person ("sign in as"): who, for the banner and audit.
-  if (payload.imp) {
-    const admin = await findUserById(Number(payload.imp));
-    req.impersonator = admin ? { id: admin.id, username: admin.username, displayName: admin.display_name || admin.username } : { id: Number(payload.imp) };
+  if (impersonator) {
+    const admin = impersonator.row;
+    req.impersonator = { id: admin.id, username: admin.username, displayName: admin.display_name || admin.username };
     req.user = { ...req.user, impersonator: req.impersonator };
   }
   return row;
 }
 
-const IMPERSONATION_LOCKED = /^\/api(\/v1)?\/(account\/(password|sessions|telegram|google|api)|auth\/(telegram|google)|admin\/users\/\d+\/impersonate)(\/|$)/;
+/** True while the administrator behind an `imp` claim may keep acting as someone. */
+export function impersonatorAllowed(session) {
+  if (!session?.row) return false;
+  if (session.row.is_active === false || session.row.is_blocked === true) return false;
+  return (session.access?.permissions || []).includes('*');
+}
+
+/*
+ * What a "sign in as" session may not change: how the person signs in
+ * (password, sessions, Telegram/Google links, API tokens, the contacts that
+ * receive sign-in codes), their push devices, the API console, and starting
+ * another impersonation. Paths are judged normalised (lower case, collapsed
+ * slashes, /api/v1 folded) exactly like the token gate, because Express routes
+ * ignore case.
+ */
+const IMPERSONATION_LOCKED = [
+  /^\/account\/(password|sessions|telegram|google|api)(\/|$)/,
+  /^\/auth\/(telegram|google)(\/|$)/,
+  /^\/admin\/users\/[^/]+\/impersonate$/,
+  /^\/admin\/api(\/|$)/,
+  /^\/pwa\/push(\/|$)/,
+];
+
+/**
+ * Whether an impersonation session must be refused this request.
+ * `current` is the person's row (for the profile contact check).
+ * → null | { fields? }
+ */
+export function impersonationLock(method, originalUrl, body, current) {
+  if (isReadMethod(method)) return null;
+  const path = requestPath(originalUrl);
+  if (path === null) return {};
+  if (IMPERSONATION_LOCKED.some((re) => re.test(path))) return {};
+  if (path === '/account/profile') {
+    const fields = tokenLockedChanges(body, current, true);
+    if (fields.length) return { fields };
+  }
+  return null;
+}
+
+const impersonationRefusal = (res, lock) =>
+  res.status(403).json({
+    success: false,
+    code: 'IMPERSONATION_LIMIT',
+    error: 'Not available while signed in as another user',
+    ...(lock?.fields ? { fields: lock.fields } : {}),
+  });
+
+/** Explicit guard (after requireAuth) for routers whose changes a "sign in as" session may not make; reads pass. */
+export function refuseImpersonation(req, res, next) {
+  if (req.auth?.imp && !isReadMethod(req.method)) return impersonationRefusal(res);
+  return next();
+}
 
 export async function requireAuth(req, res, next) {
   try {
@@ -86,8 +146,9 @@ export async function requireAuth(req, res, next) {
     }
     // Acting as someone else ("sign in as"): look and work, but never change how
     // the person signs in — password, sessions, linked accounts, API tokens.
-    if (req.auth?.imp && req.method !== 'GET' && IMPERSONATION_LOCKED.test(req.originalUrl.split('?')[0])) {
-      return res.status(403).json({ success: false, code: 'IMPERSONATION_LIMIT', error: 'Not available while signed in as another user' });
+    if (req.auth?.imp) {
+      const lock = impersonationLock(req.method, req.originalUrl, req.body, user);
+      if (lock) return impersonationRefusal(res, lock);
     }
     return next();
   } catch (err) {

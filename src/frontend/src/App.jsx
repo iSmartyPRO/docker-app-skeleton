@@ -24,7 +24,7 @@ import './modules/crm/chatEvents';
 import { LEGACY_ADMIN_ROUTES, SETTINGS_ITEMS } from './admin/navigation';
 import { SETTINGS_PAGES } from './admin/settingsPages';
 import { loginUrl } from './lib/returnPath';
-import AppErrorBoundary from './components/AppErrorBoundary';
+import AppErrorBoundary, { RootErrorBoundary } from './components/AppErrorBoundary';
 import { getSetupStatus } from './services/api';
 import { SETTINGS_VIEW } from './lib/access';
 import { MODULE_REGISTRY } from './modules/registry';
@@ -121,8 +121,9 @@ function AuthGate({ children }) {
 
 function AdminGate({ children }) {
   const { user, ready, can } = useAuth();
+  const location = useLocation();
   if (!ready) return <Screen />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to={loginUrl(location)} replace />;
   if (!can('console.access')) return <Navigate to="/account" replace />;
   return children;
 }
@@ -136,8 +137,12 @@ function Allow({ any, children }) {
 /** A module route: hidden (redirect to /apps) when the module is switched off. */
 function ModuleGate({ id, children }) {
   const { settings, ready } = useSettings();
+  // Not loaded yet (or held back by an outage): wait, a deep link must survive.
   if (!ready) return <Screen />;
-  if (!settings?.modules?.[id]?.enabled) return <Navigate to="/apps" replace />;
+  // Settings failed to load for another reason: the module's own API still
+  // enforces whether it is on, so let the page try instead of bouncing to /apps.
+  if (!settings) return children;
+  if (!settings.modules?.[id]?.enabled) return <Navigate to="/apps" replace />;
   return children;
 }
 
@@ -347,6 +352,7 @@ function ThemedRoutes() {
 
 export default function App() {
   return (
+    <RootErrorBoundary>
     <SettingsProvider>
       <AuthProvider>
         <LocaleProvider>
@@ -361,5 +367,6 @@ export default function App() {
         </LocaleProvider>
       </AuthProvider>
     </SettingsProvider>
+    </RootErrorBoundary>
   );
 }

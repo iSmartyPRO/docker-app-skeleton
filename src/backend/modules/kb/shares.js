@@ -2,7 +2,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import config from '../../config/app.js';
 import { query } from '../../config/database.js';
-import { LEVEL, httpError, loadAccess, requireLevel } from './access.js';
+import { requestAs } from '../../api/events.js';
+import { LEVEL, contextFromRequest, httpError, loadAccess, requireLevel } from './access.js';
 import { kbSettings } from './files.js';
 
 /*
@@ -202,6 +203,22 @@ export function issueShareToken(share) {
 }
 
 /**
+ * A link lives only while its author does (as for Files links): a deleted,
+ * deactivated or blocked author, or one who no longer manages the folder,
+ * takes the link down. Links of active managers are unaffected.
+ */
+async function assertAuthor(row) {
+  const gone = () => httpError(410, 'The author of this link no longer works with the company', 'OWNER_INACTIVE');
+  if (!row.created_by) throw gone();
+  const author = await requestAs(row.created_by);
+  if (!author) throw gone();
+  const access = await loadAccess(contextFromRequest(author));
+  if (access.folderLevel(row.folder_id) < LEVEL.manage) {
+    throw httpError(403, 'The author no longer has access to this folder', 'OWNER_NO_ACCESS');
+  }
+}
+
+/**
  * Resolves /s/<slug> for a visitor. Errors carry codes the public page shows
  * nicely: NOT_FOUND, EXPIRED, PASSWORD_REQUIRED.
  */
@@ -210,6 +227,7 @@ export async function resolveShare(slug, token) {
   const row = (await query(`SELECT * FROM kb_shares WHERE slug = $1`, [String(slug || '').toLowerCase()])).rows[0];
   if (!row || row.revoked_at || !module.publicLinks) throw httpError(404, 'This link does not exist', 'NOT_FOUND');
   if (row.expires_at && new Date(row.expires_at) < new Date()) throw httpError(410, 'This link has expired', 'EXPIRED');
+  await assertAuthor(row);
   if (row.password_hash) {
     let ok = false;
     try {

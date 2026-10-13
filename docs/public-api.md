@@ -40,6 +40,7 @@ Contents: [Quick start](#quick-start) · [Authentication](#authentication) · [A
   - passwords, sessions, Telegram and Google linking;
   - push subscriptions;
   - revoking another user's sessions;
+  - "sign in as" another user (`/admin/users/:id/impersonate`: it answers with a session cookie);
   - token management itself (`/account/api`, `/admin/api`).
 - **Owners:**
   - People with `api.tokens` create tokens for themselves.
@@ -206,15 +207,18 @@ Delivery:
 - **Headers:**
   - `X-Portal-Event`;
   - `X-Portal-Delivery`;
-  - `X-Portal-Signature: t=<unix>,v1=<hex>`, where `v1 = HMAC-SHA256(secret, "<t>.<raw body>")`.
+  - `X-Portal-Signature: t=<unix>,v1=<hex>`, where `v1 = HMAC-SHA256(secret, "<t>.<raw body>")`;
+  - `X-Portal-Redelivery: 1` — only when an administrator pressed *Send again* (see below).
 - **Success:** any 2xx answer within 10 s.
 - **Retries:** after 1 min, 5 min, 30 min, 2 h and 6 h; then the delivery is marked failed. After 20 failed deliveries in a row the webhook switches itself off.
 - **Duplicates:** an event may arrive twice (a retry after a timeout). Use the event `id` to process it once.
-- **Secret:** shown once, as `whsec_…`; *New secret* replaces it. It is stored encrypted, because the portal needs it to sign.
+- **Send again keeps the event id.** It is the same event, so a receiver that dedupes on `id` will skip it. If a resend should be processed again (the first attempt reached you but your processing failed), honour `X-Portal-Redelivery: 1`: it is set only on deliveries an administrator resent by hand, never on automatic retries.
+- **Secret:** shown once, as `whsec_…`; *New secret* replaces it. It is stored encrypted, because the portal needs it to sign. If it can no longer be decrypted (the server's encryption key changed without keeping the old one — see [security.md](security.md#rotating-secrets)), the webhook pauses with *secret unreadable* instead of counting failures; its pending deliveries wait. *New secret* resumes it (give the receiver the new secret); restoring the old key and resuming works too.
+- **Run-as person deleted:** the webhook is kept, paused (*person deleted*). Choose whom it runs as and resume it; resuming without a choice runs it as you.
 - **Console tools:**
   - *Send a test* (a `ping` event) shows the answer at once;
   - each delivery shows its payload, response and attempts;
-  - *Send again* repeats a delivery.
+  - *Send again* repeats a delivery (same event id, with `X-Portal-Redelivery: 1`).
 - **Private addresses:**
   - Webhooks to private addresses (10.x, 172.16–31.x, 192.168.x, 100.64/10, localhost, link-local) are refused unless *Private network addresses* is on. The address is checked again before every delivery.
   - Redirects are not followed.
@@ -224,9 +228,12 @@ Verify a signature (Node.js):
 ```js
 import crypto from 'node:crypto';
 function verify(rawBody, header, secret) {
-  const { t, v1 } = Object.fromEntries(header.split(',').map((p) => p.split('=')));
-  const expected = crypto.createHmac('sha256', secret).update(`${t}.${rawBody}`).digest('hex');
-  return Math.abs(Date.now() / 1000 - Number(t)) < 300 && crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
+  const { t, v1 } = Object.fromEntries(String(header || '').split(',').map((p) => p.split('=', 2)));
+  const expected = crypto.createHmac('sha256', secret).update(`${t}.${rawBody}`).digest();
+  const given = Buffer.from(String(v1 || ''), 'hex');
+  const fresh = Math.abs(Date.now() / 1000 - Number(t)) < 300;
+  // timingSafeEqual throws when the lengths differ, so a malformed header must be rejected first.
+  return fresh && given.length === expected.length && crypto.timingSafeEqual(given, expected);
 }
 ```
 

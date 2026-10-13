@@ -13,11 +13,12 @@ import { ipGuard } from './middleware/ipGuard.js';
 import { trustProxy } from './services/security.js';
 import { getSettings, parseSettings } from './services/settings.js';
 import { verifyToken } from './services/auth.js';
-import { bootstrapSchema } from './services/schema.js';
+import { bootstrapSchema, schemaBootstrapped } from './services/schema.js';
 import { APP_VERSION } from './config/version.js';
 import apiRoutes from './routes/index.js';
 import { requestIds } from './services/incidents.js';
 import { tokenGate, versionPrefix } from './api/gate.js';
+import { closeAllStreams } from './modules/chat/realtime.js';
 
 const app = express();
 const PORT = config.server.port;
@@ -68,9 +69,13 @@ app.get('/ready', async (req, res) => {
     return res.status(503).json({
       status: 'not_ready',
       database: false,
+      schema: schemaBootstrapped(),
     });
   }
-  return res.json({ status: 'ready', database: true });
+  // The database is back but the delayed bootstrap has not run yet: try it now.
+  if (!schemaBootstrapped()) await bootstrapLate().catch(() => {});
+  if (!schemaBootstrapped()) return res.status(503).json({ status: 'not_ready', database: true, schema: false });
+  return res.json({ status: 'ready', database: true, schema: true });
 });
 
 app.use(ipGuard);
@@ -88,11 +93,55 @@ app.use('/uploads/avatars', express.static(avatarDir, publicUploads));
 app.use('/uploads/logos', express.static(logoDir, publicUploads));
 app.use('/uploads', (req, res) => res.status(404).json({ success: false, error: 'Not found' }));
 
+/*
+ * The database was not reachable at boot (e.g. Postgres still starting). Once
+ * setup is locked nothing else would ever create the schema or start the
+ * scheduler, so keep trying in the background (5 s, doubling up to 5 min)
+ * until it works. A fresh install still goes through the setup wizard, which
+ * bootstraps the schema itself; a successful attempt here is harmless then.
+ */
+let lateBootstrap = null;
+function bootstrapLate() {
+  if (!lateBootstrap) {
+    lateBootstrap = bootstrapSchema()
+      .then(() => {
+        console.log('PostgreSQL connected; schema bootstrapped after a delayed start');
+      })
+      .finally(() => {
+        lateBootstrap = null;
+      });
+  }
+  return lateBootstrap;
+}
+
+function retryBootstrap(attempt = 0) {
+  const delay = Math.min(5000 * 2 ** attempt, 5 * 60 * 1000);
+  const timer = setTimeout(async () => {
+    if (schemaBootstrapped() || shuttingDown) return;
+    const db = await tryConnectDB();
+    if (db.ok) {
+      try {
+        await bootstrapLate();
+        return;
+      } catch (err) {
+        console.warn(`Schema bootstrap failed (attempt ${attempt + 1}): ${err.message}`);
+      }
+    } else if (attempt % 5 === 4) {
+      console.warn(`PostgreSQL still not reachable (attempt ${attempt + 1}): ${db.error}`);
+    }
+    retryBootstrap(attempt + 1);
+  }, delay);
+  timer.unref?.();
+}
+
+let shuttingDown = false;
+
 async function bootstrapFromDatabase() {
   const db = await tryConnectDB();
   if (!db.ok) {
     console.warn(`PostgreSQL not ready: ${db.error}`);
     console.warn('Starting in setup mode — open /setup to configure.');
+    retryBootstrap();
     return { ...DEFAULT_RATE_LIMIT, appName: 'docker-app-skeleton', appVersion: APP_VERSION };
   }
 
@@ -212,11 +261,20 @@ async function start() {
   server.requestTimeout = 60 * 60 * 1000;
 
   const shutdown = async (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log(`Received ${signal}, shutting down`);
     server.close(async () => {
       await closePool();
       process.exit(0);
     });
+    // Live streams and idle keep-alive sockets would keep close() waiting
+    // forever: end the chat streams, drop idle connections, and give requests
+    // in flight a moment before every remaining connection (other streams
+    // included) is closed.
+    closeAllStreams();
+    server.closeIdleConnections?.();
+    setTimeout(() => server.closeAllConnections?.(), 3000).unref();
     setTimeout(() => {
       console.error('Shutdown timed out, exiting');
       process.exit(1);

@@ -91,14 +91,15 @@ export function ProjectProvider({ projectId, presentation = false, children }) {
     async (ids) => {
       if (!ids?.length) return;
       try {
-        const res = await mpApi.units({ project: projectId, ids: ids.join(','), pageSize: 500 });
+        // Same field hiding as the map: presentation mode never gets the hidden fields back.
+        const res = await mpApi.units({ project: projectId, ids: ids.join(','), pageSize: 500, presentation: presentation ? 1 : undefined });
         const fresh = new Map(res.data.items.map((node) => [node.id, node]));
         setData((prev) => (prev ? { ...prev, nodes: prev.nodes.map((node) => (fresh.has(node.id) ? { ...node, unit: fresh.get(node.id).unit, updatedAt: fresh.get(node.id).updatedAt } : node)) } : prev));
       } catch {
         reloadSoon();
       }
     },
-    [projectId, reloadSoon]
+    [projectId, presentation, reloadSoon]
   );
 
   useEffect(() => {

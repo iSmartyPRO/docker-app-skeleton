@@ -20,9 +20,13 @@ export const MP_MESSAGES = {
     ru: { title: `${kind === 'reserve' ? 'Резерв' : 'Бронь'} ${code} скоро истекает`, body: lines(project, `До: ${when(endsAt, 'ru', regional)}`) },
     en: { title: `${kind === 'reserve' ? 'Reserve' : 'Booking'} of ${code} expires soon`, body: lines(project, `Until: ${when(endsAt, 'en', regional)}`) },
   }),
-  expired: ({ code, project, manager }) => ({
-    ru: { title: `Бронь ${code} снята автоматически`, body: lines(project, 'Срок истёк, объект снова свободен.', manager ? `Менеджер: ${manager}` : '') },
-    en: { title: `Booking of ${code} released automatically`, body: lines(project, 'The time ran out; the unit is available again.', manager ? `Manager: ${manager}` : '') },
+  expired: ({ code, project, manager, kind }) => ({
+    ru: { title: `${kind === 'reserve' ? 'Резерв' : 'Бронь'} ${code} снят${kind === 'reserve' ? '' : 'а'} автоматически`, body: lines(project, 'Срок истёк, объект снова свободен.', manager ? `Менеджер: ${manager}` : '') },
+    en: { title: `${kind === 'reserve' ? 'Reserve' : 'Booking'} of ${code} released automatically`, body: lines(project, 'The time ran out; the unit is available again.', manager ? `Manager: ${manager}` : '') },
+  }),
+  bulkStatus: ({ count, sample, project, to, actor, reason }) => ({
+    ru: { title: `${statusName(to, 'ru')}: ${count} объект(ов)`, body: lines(project, sample, reason ? `Причина: ${reason}` : '', actor) },
+    en: { title: `${statusName(to, 'en')}: ${count} unit(s)`, body: lines(project, sample, reason ? `Reason: ${reason}` : '', actor) },
   }),
   status: ({ code, project, to, actor, reason }) => ({
     ru: { title: `${code}: ${statusName(to, 'ru')}`, body: lines(project, reason ? `Причина: ${reason}` : '', actor) },

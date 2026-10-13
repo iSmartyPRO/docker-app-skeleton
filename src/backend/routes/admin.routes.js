@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireConsole, requirePermission } from '../middleware/auth.js';
+import { refuseImpersonation, requireConsole, requirePermission } from '../middleware/auth.js';
 import { clientIp } from '../middleware/ipGuard.js';
 import { avatarUpload, logoUpload, verifyUploadedFile } from '../middleware/upload.js';
 import {
@@ -45,6 +45,7 @@ import {
   createRole,
   deleteGroup,
   deleteRole,
+  getUserAccess,
   listGroups,
   listRoles,
   saveGroup,
@@ -318,7 +319,10 @@ const linkEvent = (req, kind, target, detail) =>
   recordSecurityEvent({ kind, severity: 'info', username: req.user?.username, ip: req.ip, detail: `@${target?.username || '?'}${detail ? ` · ${detail}` : ''}` }).catch(() => {});
 
 router.get('/users/:id/links', viewUsers, wrap(async (req, res) => {
-  res.json({ success: true, links: await userLinks(Number(req.params.id)), canSetPassword: isSuperadmin(req), canImpersonate: isSuperadmin(req) });
+  const id = Number(req.params.id);
+  // Another superadministrator is never borrowed (see the impersonate route).
+  const canImpersonate = isSuperadmin(req) && !req.apiToken && !(await getUserAccess(id)).permissions.includes('*');
+  res.json({ success: true, links: await userLinks(id), canSetPassword: isSuperadmin(req), canImpersonate });
 }));
 
 router.get('/directory/search', manageUsers, wrap(async (req, res) => {
@@ -385,9 +389,15 @@ router.delete('/users/:id/google', manageUsers, wrap(async (req, res) => {
  * does. Their own session is kept aside (IMPERSONATOR_COOKIE) and returns with
  * /auth/impersonate/stop; the borrowed session lasts at most a day and cannot
  * change the person's password, sessions, links or API tokens.
+ * Only from a signed-in browser session (never with an API token: the answer
+ * is a session cookie), and never as another superadministrator.
  */
 router.post('/users/:id/impersonate', manageUsers, superadminOnly, wrap(async (req, res) => {
   const id = Number(req.params.id);
+  if (req.apiToken || !req.auth) {
+    res.status(403).json({ success: false, code: 'ROUTE_NOT_AVAILABLE', error: 'Sign in to the portal to act as another user' });
+    return;
+  }
   if (req.auth?.imp) {
     res.status(409).json({ success: false, code: 'ALREADY_IMPERSONATING', error: 'Return to your own account first' });
     return;
@@ -403,6 +413,10 @@ router.post('/users/:id/impersonate', manageUsers, superadminOnly, wrap(async (r
   }
   if (target.is_active === false || target.is_blocked === true) {
     res.status(400).json({ success: false, code: 'USER_INACTIVE', error: 'The account is disabled or blocked' });
+    return;
+  }
+  if ((await getUserAccess(id)).permissions.includes('*')) {
+    res.status(403).json({ success: false, code: 'SUPERADMIN_TARGET', error: 'Another superadministrator cannot be signed in as' });
     return;
   }
   const options = cookieOptions(req, { sessionDays: 1 });

@@ -24,6 +24,8 @@ export async function testEmail(override = {}) {
       pass,
     },
     connectionTimeout: 8000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
   });
 
   await transporter.verify();
@@ -183,7 +185,10 @@ export async function sendEmail({ to, subject, text, html }) {
     port: Number(cfg.port) || 587,
     secure: Boolean(cfg.secure),
     auth: cfg.user ? { user: cfg.user, pass: cfg.password } : undefined,
+    // A server that accepts the connection and then stalls must not hold a send forever.
     connectionTimeout: 8000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
   });
   await transporter.sendMail({ from: cfg.from || cfg.user, to, subject, text, html });
   return 'smtp';

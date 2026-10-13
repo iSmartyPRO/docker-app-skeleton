@@ -21,7 +21,12 @@ RUN npm ci --omit=dev --no-audit --no-fund
 FROM alpine:3.24 AS libredwg
 RUN apk add --no-cache build-base curl xz perl python3 pkgconf
 WORKDIR /src
-RUN curl -fsSL https://github.com/LibreDWG/libredwg/releases/download/0.14/libredwg-0.14.tar.xz | tar xJ
+# Pinned checksum: a replaced release asset fails the build instead of being compiled in.
+ARG LIBREDWG_SHA256=62ebb73b984f865960f20ed26619ea5f8789d5e3fd088fa40a2598384da81275
+RUN curl -fsSL -o libredwg.tar.xz https://github.com/LibreDWG/libredwg/releases/download/0.14/libredwg-0.14.tar.xz \
+ && echo "${LIBREDWG_SHA256}  libredwg.tar.xz" | sha256sum -c - \
+ && tar xJf libredwg.tar.xz \
+ && rm libredwg.tar.xz
 WORKDIR /src/libredwg-0.14
 RUN ./configure --prefix=/opt/libredwg --disable-bindings --enable-release --disable-static CFLAGS="-O2" >/dev/null \
  && make -j"$(nproc)" >/dev/null \

@@ -57,6 +57,8 @@ IDLE_SECONDS = int(os.environ.get("SMBGATE_IDLE", "300"))
 # Sessions are renewed after this age so AD group changes apply (like a new logon).
 MAX_AGE_SECONDS = int(os.environ.get("SMBGATE_MAX_AGE", "900"))
 CHUNK = 1024 * 1024
+# Seconds an upload body may stay silent before the gateway gives up on it.
+BODY_IDLE_TIMEOUT = 120
 FORBIDDEN = set('<>:"|?*\\/')
 
 # ── Errors ──────────────────────────────────────────────────────────────────
@@ -894,12 +896,25 @@ class Handler(BaseHTTPRequestHandler):
         written = 0
         try:
             with smbclient.open_file(temp, mode="xb", **kwargs) as handle:
-                while written < length:
-                    chunk = self.rfile.read(min(CHUNK, length - written))
-                    if not chunk:
-                        raise GateError(400, "UPLOAD_ABORTED", "Upload interrupted")
-                    handle.write(chunk)
-                    written += len(chunk)
+                # A stalled upload (the portal lost its browser without telling us)
+                # must not hold this thread and the temporary file forever. The
+                # limit is per read, so slow but moving uploads are not affected.
+                self.connection.settimeout(BODY_IDLE_TIMEOUT)
+                try:
+                    while written < length:
+                        try:
+                            chunk = self.rfile.read(min(CHUNK, length - written))
+                        except (socket.timeout, TimeoutError) as exc:
+                            # The rest of the body may still arrive: never reuse this connection.
+                            self.close_connection = True
+                            raise GateError(400, "UPLOAD_ABORTED", "Upload stalled") from exc
+                        if not chunk:
+                            self.close_connection = True
+                            raise GateError(400, "UPLOAD_ABORTED", "Upload interrupted")
+                        handle.write(chunk)
+                        written += len(chunk)
+                finally:
+                    self.connection.settimeout(None)
             target = unc(req, extra=target_name)
             if exists and conflict == "replace":
                 swap_into(temp, target, folder, kwargs)

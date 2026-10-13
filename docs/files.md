@@ -109,7 +109,9 @@ The Knowledge Base still applies its own size limit and file types to uploads ma
 - Files are served only by access-checked API routes, with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Only safe types are shown inline; everything else is an attachment.
 - Hidden items return `404`, so their existence does not leak. Trashed items are visible only to their owner or a space manager.
 - Link passwords are bcrypt-hashed. Visitor tokens are JWTs bound to the link and its version.
-- The `files:trash` scheduler job deletes expired trash every 6 hours, rows and blobs both.
+- The `files:trash` scheduler job deletes expired trash every 6 hours, rows and blobs both. The daily `storage:previews` job removes cached previews (Files, Knowledge Base, Drive) nobody opened for 30 days; they are made again on the next view.
+- The personal quota is checked again for every file under a per-owner lock (`pg_advisory_xact_lock`), so two parallel uploads cannot both slip past it.
+- Search, *Shared with me* and *Recent* check access for all candidates in a few batched queries (same rules as opening a single item).
 - Back up `UPLOAD_DIR` together with the database.
 
 ## API

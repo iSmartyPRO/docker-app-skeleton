@@ -85,6 +85,32 @@ export function stopGate() {
 }
 process.once('exit', stopGate);
 
+/**
+ * Streams an upload into the gateway request. When the browser goes away
+ * before the whole body arrived, the gateway request is destroyed too, so the
+ * gateway sees the connection end (and drops its temporary file) instead of
+ * waiting for bytes that never come. A gateway error does not destroy the
+ * browser request: its error answer (e.g. 409 "exists") must still reach it.
+ */
+function pipeBody(body, req) {
+  const aborted = () => {
+    if (body.complete !== true && !body.readableEnded && !req.destroyed) {
+      req.destroy(httpError(400, 'The upload was interrupted', 'UPLOAD_ABORTED'));
+    }
+  };
+  body.once('aborted', aborted);
+  body.once('close', aborted);
+  body.once('error', aborted);
+  req.once('close', () => {
+    body.off('aborted', aborted);
+    body.off('close', aborted);
+    body.off('error', aborted);
+    // The gateway answered early (an error) without reading everything: stop feeding it.
+    if (!body.readableEnded) body.unpipe(req);
+  });
+  body.pipe(req);
+}
+
 /** Low-level request; resolves with the raw response (status 200) or rejects with a coded error. */
 export async function gateRequest(op, params, { body, length, signal } = {}) {
   await ready();
@@ -116,10 +142,10 @@ export async function gateRequest(op, params, { body, length, signal } = {}) {
       });
     });
     req.on('error', (err) => {
-      if (err.name === 'AbortError') return reject(err);
+      if (err.name === 'AbortError' || err.code === 'UPLOAD_ABORTED') return reject(err);
       reject(httpError(503, `The file server gateway is not available: ${err.message}`, 'GATEWAY_DOWN'));
     });
-    if (body && typeof body.pipe === 'function') body.pipe(req);
+    if (body && typeof body.pipe === 'function') pipeBody(body, req);
     else req.end(body || undefined);
   });
 }

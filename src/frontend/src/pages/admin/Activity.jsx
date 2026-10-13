@@ -19,6 +19,7 @@ export const EVENT_KINDS = [
   'rate_limited',
   'code_unknown',
   'code_delivery_failed',
+  'secret_unreadable',
   'impersonation_start',
   'impersonation_end',
   'directory_linked',
@@ -43,6 +44,7 @@ export const EVENT_TAG = {
   rate_limited: 'warning',
   code_unknown: 'warning',
   code_delivery_failed: 'error',
+  secret_unreadable: 'error',
 };
 
 const SUMMARY = [

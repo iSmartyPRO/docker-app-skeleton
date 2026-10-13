@@ -1,4 +1,8 @@
+import { unlink } from 'fs/promises';
+import { resolve } from 'path';
 import { query, withTransaction } from '../../config/database.js';
+import { uploadRoot } from '../../config/paths.js';
+import { removeStored } from '../chat/files.js';
 import { notify, subscribersOf } from '../../services/notifications.js';
 import { requestAs } from '../../api/events.js';
 import {
@@ -301,7 +305,50 @@ export async function updateProject(ctx, id, input) {
 export async function deleteProject(ctx, id) {
   const project = await loadProject(id);
   requireLevel(await levelOn(ACL, project.id, ctx), LEVEL.manage);
-  await query(`DELETE FROM task_projects WHERE id = $1`, [project.id]);
+  const { rows } = await query(`SELECT id FROM tasks WHERE project_id = $1`, [project.id]);
+  await deleteWithFiles(
+    rows.map((row) => row.id),
+    (client) => client.query(`DELETE FROM task_projects WHERE id = $1`, [project.id])
+  );
+}
+
+const TASK_FILES_ROOT = resolve(uploadRoot, 'tasks');
+
+/**
+ * Deletes tasks (through `remove`, which deletes the task or project rows)
+ * together with their conversations, then the stored files that nothing
+ * references any more: task uploads and the files sent in the task chats.
+ */
+async function deleteWithFiles(taskIds, remove) {
+  const hasChat = Boolean((await query(`SELECT to_regclass('chat_files') AS t`)).rows[0]?.t);
+  const [taskKeys, chatKeys] = taskIds.length
+    ? await Promise.all([
+        query(`SELECT DISTINCT storage_key FROM task_files WHERE task_id = ANY($1) AND storage_key IS NOT NULL`, [taskIds]),
+        hasChat ? query(
+          `SELECT DISTINCT f.storage_key FROM chat_files f JOIN chat_rooms r ON r.id = f.room_id
+           WHERE r.entity_type = 'task' AND r.entity_id = ANY($1)`,
+          [taskIds]
+        ) : { rows: [] },
+      ])
+    : [{ rows: [] }, { rows: [] }];
+  await withTransaction(async (client) => {
+    if (taskIds.length && hasChat) await client.query(`DELETE FROM chat_rooms WHERE entity_type = 'task' AND entity_id = ANY($1)`, [taskIds]);
+    await remove(client);
+  });
+  // After the commit: a failed delete leaves every file in place.
+  const unused = async (table, rows) => {
+    const keys = rows.map((row) => row.storage_key);
+    if (!keys.length) return [];
+    const kept = await query(`SELECT DISTINCT storage_key FROM ${table} WHERE storage_key = ANY($1)`, [keys]);
+    const still = new Set(kept.rows.map((row) => row.storage_key));
+    return keys.filter((key) => !still.has(key));
+  };
+  try {
+    for (const key of await unused('task_files', taskKeys.rows)) await unlink(resolve(TASK_FILES_ROOT, key)).catch(() => {});
+    for (const key of await unused('chat_files', chatKeys.rows)) await removeStored(key);
+  } catch (err) {
+    console.warn('[tasks] removing files of deleted tasks failed:', err.message);
+  }
 }
 
 /** Replaces the workflow. Tasks in removed statuses move to the closest remaining one. */
@@ -388,16 +435,22 @@ export async function participantsOf(row) {
  */
 export async function taskLevel(ctx, row) {
   if (!withinLimits(ctx, ACL, row.project_id)) return LEVEL.none;
-  if (ctx.isAdmin) return LEVEL.manage;
-  let level = row.project_personal ? LEVEL.none : await levelOn(ACL, row.project_id, ctx);
+  // Tasks without a project are private to their participants, administrators included.
+  if (ctx.isAdmin && !row.project_personal) return LEVEL.manage;
+  const level = row.project_personal ? LEVEL.none : await levelOn(ACL, row.project_id, ctx);
   if ([row.assignee_id, row.originator_id, row.created_by].includes(ctx.userId)) return Math.max(level, LEVEL.edit);
   const { rows } = await query(
     `SELECT role FROM task_members WHERE task_id = $1 AND user_id = $2
      UNION ALL SELECT 'watcher' FROM task_watchers WHERE task_id = $1 AND user_id = $2`,
     [row.id, ctx.userId]
   );
-  if (rows.some((r) => r.role === 'coassignee')) level = Math.max(level, LEVEL.edit);
-  else if (rows.length) level = Math.max(level, LEVEL.view);
+  return withRoles(level, rows.map((r) => r.role));
+}
+
+/** The project level raised by the person's roles in the task (see taskLevel). */
+function withRoles(level, roles) {
+  if (roles.includes('coassignee')) return Math.max(level, LEVEL.edit);
+  if (roles.length) return Math.max(level, LEVEL.view);
   return level;
 }
 
@@ -438,14 +491,15 @@ export async function listTasks(ctx, filters = {}) {
 
   if (filters.project) {
     const project = await loadProject(filters.project);
-    if (project.is_personal) where.push(ctx.isAdmin ? 'TRUE' : PARTICIPANT_SQL(meParam()));
+    if (project.is_personal) where.push(PARTICIPANT_SQL(meParam()));
     else requireLevel(await levelOn(ACL, project.id, ctx), LEVEL.view);
     add('t.project_id = $?', project.id);
   } else if (!ctx.isAdmin) {
     params.push(await visibleProjectIds(ctx));
     where.push(`((t.project_id = ANY($${params.length}) AND NOT p.is_personal AND p.archived_at IS NULL) OR ${PARTICIPANT_SQL(meParam())})`);
   } else {
-    where.push('p.archived_at IS NULL');
+    // Administrators see every project, but other people's tasks without a project stay private.
+    where.push(`p.archived_at IS NULL AND (NOT p.is_personal OR ${PARTICIPANT_SQL(meParam())})`);
   }
   // An API token narrowed to some projects sees only their tasks.
   if (ctx.limits?.[ACL]) {
@@ -504,8 +558,11 @@ export async function listTasks(ctx, filters = {}) {
   }[filters.sort] || 's.sort, t.rank, t.id';
   const limit = Math.max(1, Math.min(Number(filters.limit) || 2000, 2000));
 
-  const { rows } = await query(`${TASK_SELECT} WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ${limit}`, params);
-  return rows.map(taskShape);
+  // One row more than asked tells whether the list was cut (`truncated`, not serialised with the array).
+  const { rows } = await query(`${TASK_SELECT} WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ${limit + 1}`, params);
+  const list = rows.slice(0, limit).map(taskShape);
+  if (rows.length > limit) Object.defineProperty(list, 'truncated', { value: true });
+  return list;
 }
 
 /**
@@ -566,9 +623,28 @@ const people = (rows) => rows.map((user) => person(user.id, user.username, user.
 
 /** Task rows the person may see (rows of TASK_SELECT or with the same access columns). */
 async function viewableRows(ctx, rows) {
-  const out = [];
-  for (const row of rows) if ((await taskLevel(ctx, row)) >= LEVEL.view) out.push(row);
-  return out;
+  if (rows.length < 2) {
+    const out = [];
+    for (const row of rows) if ((await taskLevel(ctx, row)) >= LEVEL.view) out.push(row);
+    return out;
+  }
+  // The same rules as taskLevel, with one query per project and one for all roles.
+  const projectLevels = new Map();
+  for (const projectId of new Set(rows.filter((row) => !row.project_personal).map((row) => row.project_id))) {
+    projectLevels.set(projectId, await levelOn(ACL, projectId, ctx));
+  }
+  const roles = await query(
+    `SELECT task_id, role FROM task_members WHERE task_id = ANY($1) AND user_id = $2
+     UNION ALL SELECT task_id, 'watcher' FROM task_watchers WHERE task_id = ANY($1) AND user_id = $2`,
+    [rows.map((row) => row.id), ctx.userId]
+  );
+  return rows.filter((row) => {
+    if (!withinLimits(ctx, ACL, row.project_id)) return false;
+    if (ctx.isAdmin && !row.project_personal) return true;
+    const level = row.project_personal ? LEVEL.none : projectLevels.get(row.project_id);
+    if (level >= LEVEL.view || [row.assignee_id, row.originator_id, row.created_by].includes(ctx.userId)) return true;
+    return withRoles(level, roles.rows.filter((r) => r.task_id === row.id).map((r) => r.role)) >= LEVEL.view;
+  });
 }
 
 /** Of the given task ids, those that exist and the person may see. */
@@ -669,7 +745,7 @@ export async function getTask(ctx, refOrId, { countView = true } = {}) {
   const statuses = await query(`SELECT * FROM task_statuses WHERE project_id = $1 ORDER BY sort, id`, [row.project_id]);
   const isOriginator = (row.originator_id || row.created_by) === ctx.userId;
   const isAssignee = row.assignee_id === ctx.userId;
-  const manager = ctx.isAdmin || projectLevel >= LEVEL.manage;
+  const manager = (ctx.isAdmin && !row.project_personal) || projectLevel >= LEVEL.manage;
   const done = row.status_category === 'done';
   const fileShape = (file) => ({
     id: file.id,
@@ -1107,7 +1183,7 @@ export async function updateTask(ctx, refOrId, patch = {}) {
   requireLevel(level, LEVEL.edit);
   const ref = taskRef(row.project_key, row.number);
   const isOriginator = (row.originator_id || row.created_by) === ctx.userId;
-  const manager = ctx.isAdmin || (!row.project_personal && (await levelOn(ACL, row.project_id, ctx)) >= LEVEL.manage);
+  const manager = !row.project_personal && (await levelOn(ACL, row.project_id, ctx)) >= LEVEL.manage;
   const changes = [];
   const fields = [];
   const values = [];
@@ -1385,7 +1461,12 @@ export async function checkMoveToProject(ctx, refOrId, projectRef) {
   requireLevel(await taskLevel(ctx, row), LEVEL.edit);
   const target = projectRef ? await loadProject(projectRef) : await loadProject(await personalProjectId());
   if (target.id === row.project_id) return { row, target, same: true };
+  // Taking a task out of a project is a change to that project: editing it is
+  // required (a participant role alone is not enough); tasks without a project
+  // belong to their participants.
+  if (!row.project_personal) requireLevel(await levelOn(ACL, row.project_id, ctx), LEVEL.edit);
   if (!target.is_personal) requireLevel(await levelOn(ACL, target.id, ctx), LEVEL.edit);
+  else if (!withinLimits(ctx, ACL, target.id)) throw httpError(404, 'Project not found', 'NOT_FOUND');
   if (target.archived_at) throw httpError(400, 'The project is archived', 'ARCHIVED');
   return { row, target, same: false };
 }
@@ -1415,13 +1496,12 @@ export async function deleteTask(ctx, refOrId) {
   const level = await taskLevel(ctx, row);
   const projectLevel = row.project_personal ? LEVEL.none : await levelOn(ACL, row.project_id, ctx);
   const isOriginator = (row.originator_id || row.created_by) === ctx.userId;
-  if (!(ctx.isAdmin || projectLevel >= LEVEL.manage || (level >= LEVEL.edit && isOriginator))) {
+  if (!((ctx.isAdmin && !row.project_personal) || projectLevel >= LEVEL.manage || (level >= LEVEL.edit && isOriginator))) {
     requireLevel(level, LEVEL.view);
     throw httpError(403, 'Only the originator or a project manager can delete a task', 'FORBIDDEN');
   }
   await taskWebhook('task.deleted', row, {}, ctx.userId);
-  await query(`DELETE FROM chat_rooms WHERE entity_type = 'task' AND entity_id = $1`, [row.id]).catch(() => {});
-  await query(`DELETE FROM tasks WHERE id = $1`, [row.id]);
+  await deleteWithFiles([row.id], (client) => client.query(`DELETE FROM tasks WHERE id = $1`, [row.id]));
 }
 
 export async function editableTask(ctx, taskId) {

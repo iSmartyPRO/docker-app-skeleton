@@ -284,6 +284,10 @@ async function ensureTasksV2() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // last_slot: the schedule slot the latest copy stood for (edits continue after it);
+  // anchor_at: the slot the payload's own dates were written for (copies shift them).
+  await query(`ALTER TABLE task_templates ADD COLUMN IF NOT EXISTS last_slot TIMESTAMPTZ`);
+  await query(`ALTER TABLE task_templates ADD COLUMN IF NOT EXISTS anchor_at TIMESTAMPTZ`);
   await query(`
     CREATE TABLE IF NOT EXISTS task_flows (
       id SERIAL PRIMARY KEY,

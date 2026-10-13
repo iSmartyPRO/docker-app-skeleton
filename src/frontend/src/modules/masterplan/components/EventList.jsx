@@ -28,7 +28,7 @@ function EventText({ event }) {
     case 'extend':
       return (
         <>
-          {t('mp.ev.extend', { when: fmtDateTime(d.endsAt), n: d.extensions })}
+          {d.endsAt ? t('mp.ev.extend', { when: fmtDateTime(d.endsAt), n: d.extensions }) : t('mp.ev.extendNoDate', { n: d.extensions })}
           {d.reason && <span className="mp-ev__reason">«{d.reason}»</span>}
         </>
       );

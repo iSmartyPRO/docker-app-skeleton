@@ -10,6 +10,13 @@ import { ensurePushTables } from './push.js';
 import { startScheduler } from './scheduler.js';
 import { ensureApiTables } from '../api/schema.js';
 
+let bootstrapped = false;
+
+/** True once bootstrapSchema has completed in this process (boot, setup wizard or a delayed retry). */
+export function schemaBootstrapped() {
+  return bootstrapped;
+}
+
 export async function bootstrapSchema() {
   await ensureSettingsTable();
   await ensureUsersTable();
@@ -23,4 +30,5 @@ export async function bootstrapSchema() {
   await ensureApiTables();
   // Reminders and housekeeping start once the database is ready.
   startScheduler();
+  bootstrapped = true;
 }

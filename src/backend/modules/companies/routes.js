@@ -152,7 +152,7 @@ export function privateRoutes() {
   router.delete('/positions/:id', wrap(async (req, res) => res.json({ success: true, person: await deletePosition(req.cmp, req.params.id) })));
 
   // Timeline and ratings (type = company | person)
-  router.get('/:type(company|person)/:id/timeline', wrap(async (req, res) => res.json({ success: true, ...(await timeline(req.params.type, req.params.id, req.query)) })));
+  router.get('/:type(company|person)/:id/timeline', wrap(async (req, res) => res.json({ success: true, ...(await timeline(req.params.type, req.params.id, req.query, req.cmp)) })));
   router.post('/:type(company|person)/:id/notes', wrap(async (req, res) => res.json({ success: true, ...(await addNote(req.cmp, req.params.type, req.params.id, req.body || {})) })));
   router.delete('/events/:id', wrap(async (req, res) => {
     await deleteNote(req.cmp, req.params.id);

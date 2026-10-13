@@ -597,12 +597,18 @@ async function broadcast(room, event, payload) {
   publish(await recipientsOf(room), event, payload);
 }
 
+export const ROOM_LAST_MESSAGE_SQL = `UPDATE chat_rooms
+   SET last_message_id = GREATEST(COALESCE(last_message_id, 0), $2),
+       last_message_at = CASE WHEN COALESCE(last_message_id, 0) < $2 THEN $3 ELSE last_message_at END
+   WHERE id = $1`;
+
 async function insertMessage(room, { authorId, kind = 'text', body = '', data = null, replyTo = null }) {
   const { rows } = await query(
     `INSERT INTO chat_messages (room_id, author_id, kind, body, data, reply_to_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
     [room.id, authorId, kind, body, data ? JSON.stringify(data) : null, replyTo]
   );
-  await query(`UPDATE chat_rooms SET last_message_id = $2, last_message_at = $3 WHERE id = $1`, [room.id, rows[0].id, rows[0].created_at]);
+  // Two messages committing in either order must leave the newest one as the room's last.
+  await query(ROOM_LAST_MESSAGE_SQL, [room.id, rows[0].id, rows[0].created_at]);
   return rows[0].id;
 }
 

@@ -329,7 +329,8 @@ export default function AdminUsers() {
               width: 120,
               align: 'right',
               render: (_, row) =>
-                row.id === me?.id || !can('users.delete') ? null : (
+                // Same rule as the API: people with more access than you cannot be deleted by you.
+                row.id === me?.id || !can('users.delete') || !isSubset(row.permissions || [], me?.permissions || []) ? null : (
                   <Popconfirm
                     title={t('users.confirmDelete', { name: row.displayName || row.username })}
                     okText={t('common.delete')}

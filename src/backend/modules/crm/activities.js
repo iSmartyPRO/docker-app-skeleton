@@ -292,7 +292,12 @@ export async function myActivities(ctx, input = {}) {
   );
   const dealIds = [...new Set(rows.map((row) => row.deal_id))];
   const { rows: dealRows } = dealIds.length ? await query(`SELECT ${COLUMNS} FROM ${FROM} WHERE d.id = ANY($1)`, [dealIds]) : { rows: [] };
-  // The responsible person of an activity may open its deal (they are made a watcher under 'own' visibility).
-  const titles = new Map(dealRows.filter((row) => canView(ctx, row, [ctx.userId])).map((row) => [row.id, { id: row.id, title: row.title, stage: { id: row.stage_id, name: row.stage_name, color: row.stage_color } }]));
+  // Only deals the person may open (the responsible person of an activity is made a
+  // watcher under 'own' visibility, but may have been removed from the deal since).
+  const { rows: watching } = dealIds.length
+    ? await query(`SELECT deal_id FROM crm_deal_watchers WHERE deal_id = ANY($1) AND user_id = $2`, [dealIds, ctx.userId])
+    : { rows: [] };
+  const watched = new Set(watching.map((row) => row.deal_id));
+  const titles = new Map(dealRows.filter((row) => canView(ctx, row, watched.has(row.id) ? [ctx.userId] : [])).map((row) => [row.id, { id: row.id, title: row.title, stage: { id: row.stage_id, name: row.stage_name, color: row.stage_color } }]));
   return rows.filter((row) => titles.has(row.deal_id)).map((row) => ({ ...activityShape(row), deal: titles.get(row.deal_id) }));
 }

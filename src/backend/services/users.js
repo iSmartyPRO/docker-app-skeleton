@@ -6,6 +6,8 @@ import { query, withTransaction } from '../config/database.js';
 import { avatarDir } from '../config/paths.js';
 import { LOCKED_ROLE } from './permissions.js';
 import { runBeforeUserDelete } from './hooks.js';
+import { revokeImpersonationsBy } from './sessions.js';
+import { isLockedOut, recordLoginAttempt } from './security.js';
 import { isValidTimeZone, sanitizeUserRegional } from './datetime.js';
 import {
   NO_PASSWORD,
@@ -69,12 +71,27 @@ export async function ensureUsersTable() {
   await query(`CREATE UNIQUE INDEX IF NOT EXISTS users_telegram_id_key ON users (telegram_id) WHERE telegram_id IS NOT NULL`);
   await query(`CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users (LOWER(email))`);
   await query(`CREATE INDEX IF NOT EXISTS users_phone_idx ON users (phone)`);
+  // Directory object id (AD objectGUID / LDAP entryUUID): keeps the link when
+  // the person moves to another OU and the DN changes. Filled on sign-in.
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_guid VARCHAR(64)`);
+  await query(`CREATE UNIQUE INDEX IF NOT EXISTS users_directory_guid_key ON users (directory_guid) WHERE directory_guid IS NOT NULL`);
+  // One portal account per directory DN. Older data may already hold
+  // duplicates (from concurrent first sign-ins): then the index is skipped and
+  // reported, never blocking startup; the sign-in path locks per DN anyway.
+  try {
+    await query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS users_ldap_external_id_key ON users (LOWER(external_id))
+       WHERE auth_source = 'ldap' AND external_id IS NOT NULL`
+    );
+  } catch (err) {
+    console.warn(`users: unique index on directory DNs not created (duplicate directory links exist; merge or unlink them): ${err.message}`);
+  }
 }
 
 const USER_COLUMNS = `
   id, username, email, display_name, avatar_path, locale, theme,
   role, is_active, is_blocked, last_login_at, token_version, created_at, updated_at,
-  phone, telegram_id, telegram_username, instagram, mattermost, auth_source, external_id, last_login_method, email_trusted,
+  phone, telegram_id, telegram_username, instagram, mattermost, auth_source, external_id, directory_guid, last_login_method, email_trusted,
   regional, device_tz,
   (password_hash LIKE '$2%') AS has_password
 `;
@@ -265,16 +282,45 @@ export async function findUserByPhone(phone) {
   return result.rows.length === 1 ? result.rows[0] : null;
 }
 
-/** Telegram username of an account that has linked Telegram (so the bot can write to it). */
+/**
+ * Telegram username of an account that has linked Telegram (so the bot can
+ * write to it). Usernames can move between Telegram accounts, so a name held
+ * by several portal accounts is ambiguous: nobody is chosen (and it is logged).
+ */
 export async function findUserByTelegramUsername(username) {
   const name = String(username || '').trim().replace(/^@/, '');
   if (!/^[a-zA-Z0-9_]{4,32}$/.test(name)) return null;
   const result = await query(
     `SELECT ${USER_COLUMNS} FROM users
-     WHERE LOWER(telegram_username) = LOWER($1) AND telegram_id IS NOT NULL LIMIT 1`,
+     WHERE LOWER(telegram_username) = LOWER($1) AND telegram_id IS NOT NULL ORDER BY id LIMIT 2`,
     [name]
   );
+  if (result.rows.length > 1) {
+    console.warn(`Telegram username @${name} is stored for several accounts (${result.rows.map((row) => `@${row.username}`).join(', ')}); not used until they sign in with Telegram again`);
+    return null;
+  }
   return result.rows[0] || null;
+}
+
+/**
+ * Telegram usernames change: keep the stored one current whenever Telegram
+ * vouches for it (sign-in, linking), and clear it from other accounts that
+ * still carry it from before.
+ */
+export async function refreshTelegramUsername(userId, telegram) {
+  const name = telegram?.username ? String(telegram.username).slice(0, 64) : null;
+  await withTransaction(async (client) => {
+    if (name) {
+      await client.query(
+        `UPDATE users SET telegram_username = NULL WHERE LOWER(telegram_username) = LOWER($1) AND id <> $2`,
+        [name, userId]
+      );
+    }
+    await client.query(
+      `UPDATE users SET telegram_username = $2 WHERE id = $1 AND telegram_username IS DISTINCT FROM $2`,
+      [userId, name]
+    );
+  });
 }
 
 export function normalizeInstagram(value) {
@@ -311,8 +357,18 @@ export async function findUserByTelegramId(telegramId) {
   return result.rows[0] || null;
 }
 
-export async function findUserByExternalId(source, externalId) {
-  const result = await query(
+/** Directory account by its object id (AD objectGUID / LDAP entryUUID). */
+export async function findUserByDirectoryGuid(guid, client = { query }) {
+  if (!guid) return null;
+  const result = await client.query(
+    `SELECT ${USER_COLUMNS} FROM users WHERE auth_source = 'ldap' AND directory_guid = $1 LIMIT 1`,
+    [String(guid).toLowerCase()]
+  );
+  return result.rows[0] || null;
+}
+
+export async function findUserByExternalId(source, externalId, client = { query }) {
+  const result = await client.query(
     `SELECT ${USER_COLUMNS} FROM users WHERE auth_source = $1 AND LOWER(external_id) = LOWER($2) LIMIT 1`,
     [source, externalId]
   );
@@ -475,7 +531,7 @@ export async function createUser(input, actor) {
 }
 
 /** Account created on first sign-in through Active Directory or Telegram. */
-export async function provisionExternalUser(client, { username, displayName, email, source, externalId, telegram, groupIds }) {
+export async function provisionExternalUser(client, { username, displayName, email, source, externalId, directoryGuid, telegram, groupIds }) {
   let candidate = String(username || '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 28);
   if (candidate.length < 3) candidate = `${source}-user`;
   let name = candidate;
@@ -495,8 +551,8 @@ export async function provisionExternalUser(client, { username, displayName, ema
   if (safeEmail && (await client.query(`SELECT 1 FROM users WHERE LOWER(email) = LOWER($1)`, [safeEmail])).rows.length) safeEmail = null;
   const result = await client.query(
     `INSERT INTO users (username, email, password_hash, role, display_name, auth_source, external_id,
-                        telegram_id, telegram_username, email_trusted)
-     VALUES ($1, $2::varchar, $3, 'user', $4, $5, $6, $7, $8, $2::varchar IS NOT NULL)
+                        telegram_id, telegram_username, email_trusted, directory_guid)
+     VALUES ($1, $2::varchar, $3, 'user', $4, $5, $6, $7, $8, $2::varchar IS NOT NULL, $9)
      RETURNING ${USER_COLUMNS}`,
     [
       name,
@@ -507,11 +563,20 @@ export async function provisionExternalUser(client, { username, displayName, ema
       externalId || null,
       telegram?.id || null,
       telegram?.username || null,
+      directoryGuid ? String(directoryGuid).toLowerCase() : null,
     ]
   );
   const user = result.rows[0];
-  // Everyone joins the default group; directory mappings add more.
-  const groups = [...new Set([await defaultGroupId(client), ...(groupIds || [])].filter(Boolean))];
+  // Everyone joins the default group; directory mappings add more. A mapping
+  // that points at a group deleted since is skipped, not fatal to the sign-in.
+  const wanted = [...new Set([await defaultGroupId(client), ...(groupIds || [])].map(Number).filter(Boolean))];
+  const existing = wanted.length
+    ? (await client.query(`SELECT id FROM app_groups WHERE id = ANY($1::int[])`, [wanted])).rows.map((row) => row.id)
+    : [];
+  const groups = wanted.filter((id) => existing.includes(id));
+  if (groups.length < wanted.length) {
+    console.warn(`Sign-in of ${name}: skipped unknown group(s) ${wanted.filter((id) => !existing.includes(id)).join(', ')} from the directory group map`);
+  }
   await setUserAccess(client, { userId: user.id, groupIds: groups, actor: null });
   return user;
 }
@@ -644,7 +709,11 @@ export async function updateUser(id, patch, { actor = null } = {}) {
       if (!same) throw httpError(400, 'You cannot change your own roles or groups');
     }
 
-    if (revoke) add('token_version', Number(user.token_version || 0) + 1);
+    if (revoke) {
+      add('token_version', Number(user.token_version || 0) + 1);
+      // Whatever ends this person's sessions also ends those they opened as someone else.
+      await revokeImpersonationsBy(id, client);
+    }
 
     if (fields.length) {
       values.push(id);
@@ -665,13 +734,20 @@ function sameIds(a, b) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+/*
+ * Guessing the current password from a borrowed session counts against the
+ * same per-account budget as signing in (no address part: the session already
+ * names the account), and a correct one resets it like a successful sign-in.
+ */
 export async function changePassword(id, currentPassword, nextPassword) {
-  const result = await query(`SELECT id, password_hash FROM users WHERE id = $1`, [id]);
+  const result = await query(`SELECT id, username, password_hash FROM users WHERE id = $1`, [id]);
   const user = result.rows[0];
   if (!user) throw httpError(404, 'User not found');
   // Accounts without a local password (SSO / invited) can set their first one.
   if (user.password_hash.startsWith('$2')) {
+    if (await isLockedOut(user.username, null)) throw httpError(429, 'Too many failed attempts. Try again later.', 'LOCKED');
     const ok = await bcrypt.compare(String(currentPassword || ''), user.password_hash);
+    await recordLoginAttempt({ username: user.username, ip: null, success: ok }).catch(() => {});
     if (!ok) throw httpError(400, 'Current password is incorrect');
   }
   return updateUser(id, { password: nextPassword });
@@ -705,15 +781,17 @@ export async function revokeSessions(id) {
     [id]
   );
   if (!result.rows[0]) throw httpError(404, 'User not found');
+  await revokeImpersonationsBy(id);
   return result.rows[0];
 }
 
 export async function linkTelegram(id, telegram) {
   try {
     await query(
-      `UPDATE users SET telegram_id = $2, telegram_username = $3, updated_at = NOW() WHERE id = $1`,
-      [id, String(telegram.id), telegram.username || null]
+      `UPDATE users SET telegram_id = $2, updated_at = NOW() WHERE id = $1`,
+      [id, String(telegram.id)]
     );
+    await refreshTelegramUsername(id, telegram);
   } catch (err) {
     if (err.code === '23505') throw httpError(409, 'This Telegram account is already linked to another user');
     throw err;

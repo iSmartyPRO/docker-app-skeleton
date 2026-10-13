@@ -169,6 +169,24 @@ export function bucketSql(p, bounds) {
     ELSE 'later' END`;
 }
 
+/** A number already formatted for the CSV ("-5,5"): written as is, never taken for a formula. */
+export class CsvNumber {
+  constructor(text) {
+    this.text = text;
+  }
+
+  toString() {
+    return this.text;
+  }
+}
+
+/** A number with a decimal comma for Excel, or null when `value` is not a number. */
+export function csvNumber(value) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? new CsvNumber(String(n).replace('.', ',')) : null;
+}
+
 /**
  * One CSV cell (same rules as drive/activity.js): text a spreadsheet would read
  * as a formula (= + - @, or a leading tab / CR) gets a leading apostrophe.
@@ -176,7 +194,7 @@ export function bucketSql(p, bounds) {
 export const csvCell = (value) => {
   if (value == null) return '';
   let text = String(value);
-  if (typeof value !== 'number' && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  if (typeof value !== 'number' && !(value instanceof CsvNumber) && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   return /[",;\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 

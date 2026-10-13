@@ -88,6 +88,17 @@ export function normalizeRule(raw) {
 }
 
 /**
+ * SQL condition (alias `e`) that skips series whose UNTIL lies well before
+ * `param` (a timestamptz placeholder such as '$2'), so finished series are not
+ * loaded and expanded on every request. The margin covers the longest event
+ * (62 days) and wall-clock zones; COUNT-limited series are still loaded.
+ */
+export function seriesNotOverBefore(param) {
+  const until = `substring(e.rrule from 'UNTIL=([0-9]{8})')`;
+  return `(${until} IS NULL OR to_date(${until}, 'YYYYMMDD') >= (${param}::timestamptz - interval '64 days')::date)`;
+}
+
+/**
  * Occurrence starts of an event within [from, to).
  * Non-recurring events return their start when it overlaps the window.
  */

@@ -2,11 +2,11 @@ import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { getUserAccess } from '../../services/rbac.js';
 import { hasPermission } from '../../services/permissions.js';
-import { clean, httpError, HEX } from '../shared/acl.js';
+import { clean, httpError, HEX, LEVEL, levelOn, requireLevel, withinLimits } from '../shared/acl.js';
 import { fromWall, toWall } from '../calendar/recurrence.js';
 import { isValidTimeZone, isoDay } from '../../services/datetime.js';
 import { regionalOfUser } from '../../services/regional.js';
-import { createTask, loadTaskRow } from './service.js';
+import { createTask, loadProject, loadTaskRow } from './service.js';
 import { taskEvent } from './chat.js';
 
 /*
@@ -92,7 +92,9 @@ export function nextOccurrence(rec, after = new Date(), runs = 0) {
         key = weeks % rec.every === 0 ? next : addDays(next, 7 * (rec.every - 1));
       } else key = addDays(key, 7 * rec.every);
     } else {
-      const [y, m, d] = key.split('-').map(Number);
+      // The day of the month is the start's, clamped per month: 31 → 30 Apr → 31 May, not 30 forever.
+      const [y, m] = key.split('-').map(Number);
+      const d = Number(rec.start.slice(8, 10));
       const months = rec.unit === 'month' ? rec.every : 12 * rec.every;
       const target = new Date(Date.UTC(y, m - 1 + months, 1));
       const last = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
@@ -150,6 +152,68 @@ function cleanPayload(input) {
   return payload;
 }
 
+/**
+ * The payload for one copy of a recurring template. Its own dates (reminders
+ * at a set time, planned start and end) were written for the slot `anchor`;
+ * each copy gets them moved by as much as its slot is later, so a copy never
+ * inherits reminders that already went off. Without an anchor (templates
+ * saved before it was kept) dates already in the past are left out.
+ */
+export function payloadForCopy(payload, anchor, slot, now = new Date()) {
+  const copy = { ...(payload || {}) };
+  const delta = anchor && slot ? new Date(slot).getTime() - new Date(anchor).getTime() : null;
+  const shift = (value) => {
+    if (!value) return null;
+    const time = new Date(value).getTime();
+    if (Number.isNaN(time)) return null;
+    const moved = delta === null ? time : time + delta;
+    return moved > now.getTime() ? new Date(moved).toISOString() : null;
+  };
+  if (Array.isArray(copy.reminders)) {
+    copy.reminders = copy.reminders
+      .map((reminder) => (reminder?.mode === 'before' ? reminder : { ...reminder, remindAt: shift(reminder?.remindAt) }))
+      .filter((reminder) => reminder.mode === 'before' || reminder.remindAt);
+  }
+  for (const key of ['planStart', 'planEnd']) {
+    if (!copy[key]) continue;
+    const time = new Date(copy[key]).getTime();
+    // Planned dates move with the slot even into the past (a plan is not an alarm).
+    copy[key] = delta === null ? shift(copy[key]) : Number.isNaN(time) ? null : new Date(time + delta).toISOString();
+  }
+  // A plan cut in half (one end in the past) is dropped whole.
+  if (Boolean(copy.planStart) !== Boolean(copy.planEnd) && payload?.planStart && payload?.planEnd) {
+    copy.planStart = null;
+    copy.planEnd = null;
+  }
+  return copy;
+}
+
+/** The project a template's tasks go to must be one the person (and their API token) may add tasks to. */
+async function checkPayloadProject(ctx, payload) {
+  const ref = payload?.projectId || payload?.project;
+  if (!ref) return;
+  const project = await loadProject(ref);
+  if (!project.is_personal) requireLevel(await levelOn('task_acl', project.id, ctx), LEVEL.edit);
+  else if (!withinLimits(ctx, 'task_acl', project.id)) throw httpError(404, 'Project not found', 'NOT_FOUND');
+}
+
+/** After an edit: the first slot after both now and the slot the latest copy stood for. */
+export function nextRunAfterEdit(rec, lastSlot, runs = 0, now = new Date()) {
+  const last = lastSlot ? new Date(lastSlot) : null;
+  return nextOccurrence(rec, last && last > now ? last : now, runs);
+}
+
+/**
+ * The slot the latest copy stood for, for templates saved before `last_slot`
+ * was kept: only the first copy (made right away, ahead of its slot) matters;
+ * later copies were made when their slot came, i.e. before now.
+ */
+async function legacyLastSlot(current) {
+  if (!current.recurring || current.runs !== 1 || !current.recurrence) return null;
+  const { rows } = await query(`SELECT MIN(created_at) AS at FROM tasks WHERE template_id = $1`, [current.id]);
+  return rows[0]?.at ? nextOccurrence(current.recurrence, new Date(rows[0].at), 0) : null;
+}
+
 /** The author's region zone, read only when the schedule names no zone of its own. */
 async function authorZone(ctx, recurrence) {
   if (!recurrence || typeof recurrence !== 'object' || isValidTimeZone(recurrence.tz)) return null;
@@ -160,19 +224,31 @@ export async function saveTemplate(ctx, input = {}, id = null) {
   const title = clean(input.title || input.payload?.title, 300);
   if (!title) throw httpError(400, 'Name the template', 'TITLE_REQUIRED');
   const recurrence = input.recurring ? cleanRecurrence(input.recurrence, await authorZone(ctx, input.recurrence)) : null;
-  const next = recurrence ? nextOccurrence(recurrence, new Date(), 0) : null;
+  const now = new Date();
   if (id) {
     const current = await ownTemplate(ctx, id);
     if (current.created_by !== ctx.userId && !ctx.isAdmin) throw httpError(403, 'Only its author can change a template', 'FORBIDDEN');
+    if (input.payload !== undefined) await checkPayloadProject(ctx, input.payload);
+    // The schedule goes on after the slot its latest copy stood for (that copy
+    // may have been made ahead of it), never repeating that slot.
+    let next = null;
+    if (recurrence) {
+      next = nextRunAfterEdit(recurrence, current.last_slot || (await legacyLastSlot(current)), current.runs, now);
+    }
+    // A template that starts repeating now: its dates are for the first slot.
+    const anchor = recurrence && !current.recurring ? next : current.anchor_at;
     const { rows } = await query(
-      `UPDATE task_templates SET title = $2, payload = $3, shared = $4, recurring = $5, recurrence = $6, next_run_at = $7, active = $8, updated_at = NOW()
+      `UPDATE task_templates SET title = $2, payload = $3, shared = $4, recurring = $5, recurrence = $6, next_run_at = $7, active = $8,
+         anchor_at = $9, updated_at = NOW()
        WHERE id = $1 RETURNING *`,
-      [current.id, title, JSON.stringify(cleanPayload(input.payload ?? current.payload)), Boolean(input.shared ?? current.shared), Boolean(recurrence), recurrence ? JSON.stringify(recurrence) : null, next ? nextOccurrence(recurrence, new Date(), current.runs) : null, input.active !== false]
+      [current.id, title, JSON.stringify(cleanPayload(input.payload ?? current.payload)), Boolean(input.shared ?? current.shared), Boolean(recurrence), recurrence ? JSON.stringify(recurrence) : null, next, input.active !== false, anchor]
     );
     return shape(rows[0], ctx.userId);
   }
+  await checkPayloadProject(ctx, input.payload);
+  const next = recurrence ? nextOccurrence(recurrence, now, 0) : null;
   const { rows } = await query(
-    `INSERT INTO task_templates (title, payload, created_by, shared, recurring, recurrence, next_run_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    `INSERT INTO task_templates (title, payload, created_by, shared, recurring, recurrence, next_run_at, anchor_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING *`,
     [title, JSON.stringify(cleanPayload(input.payload)), ctx.userId, Boolean(input.shared), Boolean(recurrence), recurrence ? JSON.stringify(recurrence) : null, next]
   );
   return shape(rows[0], ctx.userId);
@@ -200,12 +276,12 @@ export async function createRecurring(ctx, input, recurrenceInput) {
     throw err;
   }
   // The task made now stands for the first slot: the schedule continues after it.
-  const next = nextAfterFirstCopy(recurrence, new Date());
-  const { rows } = await query(`UPDATE task_templates SET runs = runs + 1, next_run_at = $2, active = $3 WHERE id = $1 RETURNING next_run_at, runs, active`, [
-    template.id,
-    next,
-    Boolean(next),
-  ]);
+  const firstSlot = nextOccurrence(recurrence, new Date(), 0);
+  const next = firstSlot ? nextOccurrence(recurrence, firstSlot, 1) : null;
+  const { rows } = await query(
+    `UPDATE task_templates SET runs = runs + 1, next_run_at = $2, active = $3, last_slot = $4, anchor_at = $4 WHERE id = $1 RETURNING next_run_at, runs, active`,
+    [template.id, next, Boolean(next), firstSlot]
+  );
   return { task, template: { ...template, nextRunAt: rows[0]?.next_run_at ?? next, runs: rows[0]?.runs ?? 1, active: rows[0]?.active ?? Boolean(next) } };
 }
 
@@ -242,13 +318,14 @@ export async function runRecurring() {
     try {
       const ctx = await ctxFor(template.created_by);
       const created = new Date();
-      const task = await createTask(ctx, { ...template.payload, templateId: template.id, dueAt: deadlineFrom(created, template.recurrence?.deadline) || undefined, dueTime: Boolean(template.recurrence?.deadline) });
+      const payload = payloadForCopy(template.payload, template.anchor_at, template.next_run_at, created);
+      const task = await createTask(ctx, { ...payload, templateId: template.id, dueAt: deadlineFrom(created, template.recurrence?.deadline) || undefined, dueTime: Boolean(template.recurrence?.deadline) });
       await taskEvent(task.id, null, { event: 'task.recurring', template: template.title });
     } catch (err) {
       console.warn(`[tasks] recurring template ${template.id} failed:`, err.message);
     }
     const next = nextOccurrence(template.recurrence, new Date(), runs);
-    await query(`UPDATE task_templates SET runs = $2, next_run_at = $3, active = $4 WHERE id = $1`, [template.id, runs, next, Boolean(next)]);
+    await query(`UPDATE task_templates SET runs = $2, next_run_at = $3, active = $4, last_slot = $5 WHERE id = $1`, [template.id, runs, next, Boolean(next), template.next_run_at]);
   }
 }
 

@@ -35,6 +35,8 @@ Integration secrets are currently stored in plaintext in `app_settings`; restric
 
 Sign-in codes go to the email in the user's profile. An address shared by several accounts is treated as unknown, so keep emails unique.
 
+Timeouts: 8 s to connect, 15 s for the server greeting and for any stalled step, so a hanging server cannot hold a send. A failed send is not retried automatically (sign-in codes can be requested again; the failure is in *Activity*).
+
 ## Telegram bot
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and copy the token.
@@ -82,7 +84,7 @@ When Wazzup is the WhatsApp provider for sign-in codes, codes go through the cha
 
 ### Choosing the WhatsApp provider
 
-With both WhatsApp Gateway and Wazzup configured, **Settings → Sign-in methods → Code in WhatsApp** lets you pick the main provider and turn on **fallback**: if the main provider fails, the code is sent through the other one. Delivery failures (with the provider's error) appear in **Activity** as *Code delivery failed*.
+With both WhatsApp Gateway and Wazzup configured, **Settings → Sign-in methods → Code in WhatsApp** lets you pick the main provider and turn on **fallback**: if the main provider fails, the code is sent through the other one. The method is offered on the sign-in page only when the chosen provider is configured, or fallback is on and the other one is; saving a choice that cannot deliver (e.g. *Gateway* without fallback while only Wazzup is set up) is refused. Delivery failures (with the provider's error) appear in **Activity** as *Code delivery failed*.
 
 `WAZZUP_API_URL` overrides the API base URL (tests, egress proxies).
 
@@ -142,7 +144,7 @@ One OAuth 2.0 client (OpenID Connect, no Google SDK) powers three features. Each
   - or proven by signing in with an email code or link.
 
   A self-typed profile email never captures someone's Google sign-in. Such users connect Google once in *Profile → Connected accounts*.
-- **Switching accounts:** signing in with a different Google account drops the previous account's refresh token and calendar selection.
+- **Switching accounts:** *connecting* a different Google account (Profile → Connected accounts) drops the previous account's refresh token and calendar selection. A plain *sign-in* with another Google account never does: a Calendar connected to one Google account stays connected, and a revoked connection stays revoked until the person connects again.
 
   Lockouts, login attempts and security events work as for other methods.
 - **Allowed domains** (comma-separated) restrict sign-in and connections to Google Workspace / email domains. With exactly one domain, Google's account chooser is pre-filtered (`hd`).
@@ -150,6 +152,7 @@ One OAuth 2.0 client (OpenID Connect, no Google SDK) powers three features. Each
   - refresh tokens (users' and the Gmail sender's) are **sealed with AES-256-GCM** ([notifications.md](notifications.md#sealed-secrets));
   - access tokens live only in memory;
   - a revoked grant (`invalid_grant`) marks the connection as revoked and asks the user to reconnect;
+  - a token that cannot be decrypted (the server's encryption key changed) is **not** treated as revoked: calls fail with `GOOGLE_KEY`, the connection and the Gmail sender stay, and administrators get a security event — see [security.md](security.md#rotating-secrets);
   - disconnecting revokes the token at Google.
 - **Gmail:** the sender is used for every outgoing email (notifications, sign-in codes and links) when *Send email through Gmail* is on. Otherwise SMTP is used.
 - **CSP:** profile pictures from `*.googleusercontent.com` are allowed in `img-src`.
@@ -178,12 +181,15 @@ Works with Collabora Online / CODE (`collabora/code`) or any service that expose
 |-------|-------|
 | Host / Port | Domain controller; `389`, or `636` with TLS |
 | Use TLS | `ldaps://` |
+| CA certificate (PEM) | Optional. For a domain controller whose certificate comes from an internal CA: paste the CA certificate(s) (`-----BEGIN CERTIFICATE-----`). Used only with TLS. Alternative for the whole server: mount the CA file and set `NODE_EXTRA_CA_CERTS=/path/ca.pem` in `.env` (read at start-up; affects every outgoing TLS connection) |
 | Bind DN / Password | Service account that can search users, e.g. `CN=svc-portal,OU=Service,DC=corp,DC=local` |
 | Base DN | Where users live, e.g. `DC=corp,DC=local` |
 
 **Test connection** binds with the service account and performs a search, so it catches wrong credentials and wrong base DNs — not just an open port.
 
 At sign-in the user is found by `sAMAccountName`, `userPrincipalName`, `uid` or `mail` (filters are built from escaped objects, never string concatenation), then the directory verifies the password with a bind as that user. Empty passwords are rejected to rule out anonymous binds. Profile fields (display name, email) are refreshed on every sign-in.
+
+The portal account is matched by DN, then by the directory object id (AD `objectGUID`, OpenLDAP `entryUUID`; `users.directory_guid`), so a person moved to another OU keeps their account; the stored DN is updated. Existing links pick up the object id at their next sign-in. Parallel first sign-ins of one person create one account (a lock per person, re-checked inside it).
 
 Turn on the sign-in method and group mapping in **Settings → Sign-in methods** — see [access-control.md](access-control.md#active-directory--ldap).
 

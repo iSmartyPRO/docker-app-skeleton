@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { clientSessionId, reportFailure } from '../lib/outage';
 import { isStandalone } from '../pwa/pwa';
+import { markBusy } from '../lib/busy';
 
 const api = axios.create({
   baseURL: '/api',
@@ -32,12 +33,22 @@ api.interceptors.request.use((config) => {
   config.headers['X-Client-Session'] = clientSessionId();
   config.headers['X-Client-Mode'] = isStandalone() ? 'pwa' : 'browser';
   if (platformVersion) config.headers['X-Client-Platform-Version'] = platformVersion;
+  // An upload in progress must survive: no automatic reload for an update,
+  // and the browser asks before the tab is closed (lib/busy).
+  if (config.onUploadProgress && !config.__busyDone) config.__busyDone = markBusy('upload');
   return config;
 });
-api.interceptors.response.use(undefined, (error) => {
-  reportFailure(error);
-  return Promise.reject(error);
-});
+api.interceptors.response.use(
+  (response) => {
+    response.config?.__busyDone?.();
+    return response;
+  },
+  (error) => {
+    error?.config?.__busyDone?.();
+    reportFailure(error);
+    return Promise.reject(error);
+  }
+);
 
 const SETUP_TOKEN_KEY = 'da_setup_token';
 

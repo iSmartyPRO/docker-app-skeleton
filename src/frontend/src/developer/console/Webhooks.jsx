@@ -320,7 +320,7 @@ export default function Webhooks({ meta, overview, reload }) {
                 <div className="ax-hook__main">
                   <div className="ax-hook__title">
                     <strong>{hook.name}</strong>
-                    {!hook.active && <span className="ax-state is-revoked">{hook.disabledReason === 'failures' ? t('api.webhooks.disabledFailures') : t('api.webhooks.paused')}</span>}
+                    {!hook.active && <span className="ax-state is-revoked">{t({ failures: 'api.webhooks.disabledFailures', secret_unreadable: 'api.webhooks.disabledSecret', user_deleted: 'api.webhooks.disabledUser' }[hook.disabledReason] || 'api.webhooks.paused')}</span>}
                   </div>
                   <code className="ax-hook__url">POST {hook.url}</code>
                   <div className="ax-hook__events">

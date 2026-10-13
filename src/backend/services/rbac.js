@@ -8,6 +8,7 @@ import {
   isSubset,
   normalizePermissions,
 } from './permissions.js';
+import { invalidateSettings } from './settings.js';
 
 /*
  * Roles and groups.
@@ -127,6 +128,17 @@ const DEMO_USERS = [
   { username: 'liam.novak', displayName: 'Liam Novak', group: 'employees' },
   { username: 'emma.schulz', displayName: 'Emma Schulz', group: 'employees' },
 ];
+
+/**
+ * A sample account from the setup wizard, still as seeded (its example.com
+ * address). Such accounts have no password, so they are never taken over by a
+ * directory sign-in that merely shares the username.
+ */
+export function isDemoSeedAccount(user) {
+  if (!user?.username) return false;
+  const name = String(user.username).toLowerCase();
+  return DEMO_USERS.some((demo) => demo.username === name) && String(user.email || '').toLowerCase() === `${name}@example.com`;
+}
 
 /** Marker for accounts that have no local password (SSO, invited, demo). */
 export const NO_PASSWORD = '!';
@@ -751,7 +763,27 @@ export async function deleteGroup(id, actor) {
     await client.query(`DELETE FROM app_groups WHERE id = $1`, [id]);
     await guard.verify();
     await assertSuperadminRemains(client);
+    await pruneDirectoryGroupMap(client, id);
   });
+  invalidateSettings();
+}
+
+/** Removes Active Directory mapping rules that point at a deleted group (Settings → Sign-in methods). */
+export async function pruneDirectoryGroupMap(client, groupId) {
+  const { rows } = await client.query(`SELECT value FROM app_settings WHERE key = 'auth' FOR UPDATE`);
+  if (!rows[0]) return 0;
+  let auth;
+  try {
+    auth = JSON.parse(rows[0].value);
+  } catch {
+    return 0;
+  }
+  const rules = Array.isArray(auth?.ldap?.groupMap) ? auth.ldap.groupMap : [];
+  const kept = rules.filter((rule) => Number(rule?.groupId) !== Number(groupId));
+  if (kept.length === rules.length) return 0;
+  auth.ldap.groupMap = kept;
+  await client.query(`UPDATE app_settings SET value = $1, updated_at = NOW() WHERE key = 'auth'`, [JSON.stringify(auth)]);
+  return rules.length - kept.length;
 }
 
 /** Unusable hashes (SSO, demo, invited) never match a password. */

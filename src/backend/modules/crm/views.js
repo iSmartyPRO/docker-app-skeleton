@@ -3,7 +3,7 @@ import { isoDay, zonedParts } from '../../services/datetime.js';
 import { clean, httpError, intId } from '../shared/acl.js';
 import { COLUMNS, FROM, hydrate } from './deals.js';
 import { buildFilter, cleanFilter, orderBy } from './filters.js';
-import { MAX_EXPORT, Params, boundsFor, csvCell, money, parseDateOnly, toDateString } from './util.js';
+import { CsvNumber, MAX_EXPORT, Params, boundsFor, csvCell, csvNumber, money, parseDateOnly, toDateString } from './util.js';
 
 /* Calendar, CSV export and personal saved filters (presets). */
 
@@ -57,7 +57,7 @@ const EXPORT_COLUMNS = {
   title: { title: 'Название', value: (deal) => deal.title },
   pipeline: { title: 'Воронка', value: (deal, row) => row.pipeline_name },
   stage: { title: 'Стадия', value: (deal, row) => row.stage_name },
-  amount: { title: 'Сумма', value: (deal) => deal.amount.toFixed(2).replace('.', ',') },
+  amount: { title: 'Сумма', value: (deal) => new CsvNumber(deal.amount.toFixed(2).replace('.', ',')) },
   currency: { title: 'Валюта', value: (deal) => deal.currency },
   company: { title: 'Компания', value: (deal) => deal.company?.name },
   person: { title: 'Контакт', value: (deal) => deal.person?.name },
@@ -89,7 +89,8 @@ function customCell(field, value) {
   if (value === undefined || value === null) return '';
   if (Array.isArray(value)) return value.join(', ');
   if (field.type === 'bool') return value ? 'Да' : 'Нет';
-  if (field.type === 'money' || field.type === 'number') return String(value).replace('.', ',');
+  // Numbers stay numbers in the spreadsheet ("-5" is not a formula); anything else is text.
+  if (field.type === 'money' || field.type === 'number') return csvNumber(value) ?? String(value);
   return value;
 }
 

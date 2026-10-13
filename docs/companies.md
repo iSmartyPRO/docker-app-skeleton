@@ -63,7 +63,7 @@ A [module](modules.md) with the company's directory of **companies** (clients, s
   - joining and leaving, documents, ratings;
   - manual entries: note, call, meeting, email, deal, issue (with an optional date).
 
-  Each entry shows **who** and **when**. System entries cannot be deleted; people delete only their own notes. Filters: everything, notes and contacts, changes.
+  Each entry shows **who** and **when**. System entries cannot be deleted (CRM deal lines included); people delete only their own notes. Deal lines (title, amount, stage) are shown only to people who may open that deal in the CRM. Filters: everything, notes and contacts, changes.
 - **Rating** from 1 to 5 stars, with optional criteria:
   - companies: reliability, payment discipline, quality, communication;
   - contacts: reliability, communication, quality.

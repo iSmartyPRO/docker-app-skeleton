@@ -98,7 +98,7 @@ Enforced by the API (the UI only mirrors them):
 | Setup wizard (fresh install) | Super administrator; groups *Administrators*, *Support*, *Auditors*, *Employees (default)* in the wizard's language; optionally five sample users |
 | First start after upgrading from 0.0.1 | The same groups; former `admin` users become super administrators, everyone else joins the default group |
 
-Sample users (`olivia.martin`, `daniel.kim`, `sofia.rossi`, `liam.novak`, `emma.schulz`) have **no password** and cannot sign in until an administrator sets one. Add them to an existing installation with `make seed-demo`.
+Sample users (`olivia.martin`, `daniel.kim`, `sofia.rossi`, `liam.novak`, `emma.schulz`) have **no password** and cannot sign in until an administrator sets one. The wizard's checkbox is off by default. While a sample account keeps its seeded `@example.com` address, an Active Directory sign-in with the same username never takes it over. Add them to an existing installation with `make seed-demo`.
 
 Group names on upgrade use `SEED_LOCALE` (`en` / `ru`) if set, otherwise the first user's language.
 
@@ -141,10 +141,10 @@ The sign-in page shows only the methods that are both enabled and ready. User pr
 ### Active Directory / LDAP
 
 1. **Settings → Integrations → Active Directory**: host, port (389, or 636 with TLS), service account bind DN and password, base DN. *Test connection* performs a real bind and a search.
-2. **Settings → Sign-in methods**: enable *Active Directory*. Optionally enable *Create accounts automatically* and add **group mappings** (`Portal Admins` → *Administrators*). Match by group CN or full DN.
+2. **Settings → Sign-in methods**: enable *Active Directory*. Optionally enable *Create accounts automatically* and add **group mappings** (`Portal Admins` → *Administrators*). Match by group CN or full DN. Deleting a portal group removes the mappings that point at it; a mapping to a group that no longer exists is skipped at sign-in (logged), never failing it.
 3. Users sign in on the *Password* tab with their domain login (`ivan`, `ivan@corp.local`) and domain password. Disabled AD accounts are rejected by the directory.
 
-An admin can pre-create an account without a password; the first directory sign-in with the same username links to it.
+An admin can pre-create an account without a password; the first directory sign-in with the same username links to it. A person moved to another OU keeps their account (matched by `objectGUID` / `entryUUID` when the DN changed). For LDAPS with an internal CA, see the *CA certificate* field in [integrations.md](integrations.md#active-directory--ldap).
 
 ### Telegram
 
@@ -152,13 +152,14 @@ An admin can pre-create an account without a password; the first directory sign-
 2. In BotFather run `/setdomain` and enter your site's domain. Without it Telegram shows *Bot domain invalid*.
 3. Enable *Telegram Login* and/or *Code in Telegram*.
 4. Users link Telegram in **Cabinet → Security**. Linked users can then sign in with one tap or receive codes from the bot.
+5. The stored `@username` is refreshed on every Telegram sign-in and link (Telegram usernames change hands). If one username is still stored on several accounts, *Code in Telegram* sends nothing for it (logged) until the right person signs in with Telegram again.
 
 The widget uses redirect mode (`/auth/telegram`), so the CSP does not need `unsafe-eval`. nginx allows `https://telegram.org` scripts and `https://oauth.telegram.org` frames for it.
 
 ### WhatsApp (Gateway or Wazzup)
 
 1. Configure **Integrations → WhatsApp Gateway** (URL + API key) and/or **Integrations → Wazzup** (API key + WhatsApp channel).
-2. Enable *Code in WhatsApp*, choose the main provider and, if both are set up, turn on fallback.
+2. Enable *Code in WhatsApp*, choose the main provider and, if both are set up, turn on fallback. The method appears on the sign-in page only when the chosen provider (or, with fallback, the other) is configured.
 3. Users need a valid phone number in their profile — it is validated against international numbering plans on save.
 
 ### Mattermost
@@ -202,4 +203,4 @@ Existing installations keep their built-in roles' permissions; grant the new per
 
 ## Sign in as a user
 
-A superadministrator can open the portal as another person (*Users → the person → Sign in as*). The administrator's own session is kept in the `da_impersonator` cookie; the borrowed session (`imp` claim, at most a day) shows a banner with *Back to my account* (`POST /api/auth/impersonate/stop`, which revokes the borrowed session and restores the original only if it is still valid and belongs to that administrator). While acting as someone, changing their password, sessions, Telegram/Google links and API tokens is refused (`IMPERSONATION_LIMIT`), as is starting another impersonation. Start and end are security events (`impersonation_start/end`).
+A superadministrator can open the portal as another person (*Users → the person → Sign in as*). The administrator's own session is kept in the `da_impersonator` cookie; the borrowed session (`imp` claim, at most a day) shows a banner with *Back to my account* (`POST /api/auth/impersonate/stop`, which revokes the borrowed session and restores the original only if it is still valid and belongs to that administrator). While acting as someone, changing their password, sessions, Telegram/Google links, API tokens, push devices and the sign-in contacts of the profile (e-mail, phone, Mattermost — other profile fields can be edited) is refused (`IMPERSONATION_LIMIT`), as are the API console and starting another impersonation. Paths are compared case-insensitively with repeated slashes collapsed, as Express routes them. Another superadministrator cannot be signed in as (`SUPERADMIN_TARGET`), and the route is never available to API tokens. The borrowed session ends as soon as the administrator is blocked, disabled or no longer a superadministrator, and when the administrator's own sessions are ended (sign out everywhere, password change, revoke sessions). Start and end are security events (`impersonation_start/end`).

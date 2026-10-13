@@ -45,6 +45,7 @@ Permission `dashboard.admin` (super administrators always): on the dashboard, **
 
 - Tables: `dash_layouts` (per person: widgets with type, size, settings, in order) and `dash_default` (one row, the administrator's starting layout). Without either the built-in layout in `modules/dashboard/widgets.js` is used.
 - Widgets of modules switched off are kept in a saved layout and come back with the module.
+- An API token reads a widget only with the scope of its module (`notifications` for notifications, `admin.users` for people); the welcome widget and the agenda leave out the parts the token may not read.
 - API (`/api/app/dashboard`): `GET /` (layout, available widgets, rights), `PUT /layout`, `DELETE /layout`, `PUT|DELETE /default` (`dashboard.admin`), `GET /options` (projects, calendars, link categories), `GET /data/:type?settings=<json>&tz=<zone>` (widget data; `miniCalendar` also takes `from`, `to`).
 - Charts are small SVG components (`modules/dashboard/charts.jsx`); no chart library.
 - Adding a widget: an entry in `WIDGETS` (backend, with its module and permission), a provider in `data.js` if it needs data, and an entry in the frontend `catalog.js` with the component, sizes, preview and settings fields.

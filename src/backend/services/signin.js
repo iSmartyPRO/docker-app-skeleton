@@ -6,11 +6,12 @@ import { authAvailability, getSettings, localeFor, parseSettings } from './setti
 import { authenticateDirectory, mapDirectoryGroups } from './ldap.js';
 import { emitDirectorySignIn } from './hooks.js';
 import { sendEmail, sendMattermostDirect, sendTelegram, sendWhatsapp } from './integrations.js';
-import { getUserAccess, hasLocalPassword } from './rbac.js';
+import { getUserAccess, hasLocalPassword, isDemoSeedAccount } from './rbac.js';
 import { recordSecurityEvent } from './security.js';
 import { allowedDomains, domainAllowed, findGoogleAccountBySub, saveGoogleAccount } from './google.js';
 import {
   findUserByEmail,
+  findUserByDirectoryGuid,
   findUserByExternalId,
   findUserById,
   findUserByPhone,
@@ -19,6 +20,7 @@ import {
   findUserByTelegramUsername,
   findUserByUsername,
   provisionExternalUser,
+  refreshTelegramUsername,
   syncExternalProfile,
 } from './users.js';
 
@@ -129,39 +131,77 @@ export async function signInWithPassword(username, password) {
  * and so may accounts an administrator created without a password (invited
  * people). Accounts that created themselves through Telegram or Google never
  * do: anyone can pick such a username first and would then receive the
- * directory person's groups and data on their first AD sign-in.
+ * directory person's groups and data on their first AD sign-in. Neither do the
+ * wizard's sample accounts (one of them is in the administrators group).
  */
 export function directoryMayLink(user) {
   if (!user) return false;
+  if (isDemoSeedAccount(user)) return false;
   if (user.auth_source === 'ldap') return true;
   const local = user.auth_source == null || user.auth_source === '' || user.auth_source === 'local';
   return local && !hasLocalPassword(user.password_hash);
 }
 
+/*
+ * Finds the portal account of a directory person: by DN (the current link),
+ * then by directory object id (the person moved to another OU, so the DN
+ * changed), then by username where a takeover is allowed. The stored DN and
+ * object id are refreshed on every sign-in.
+ *
+ * First sign-ins are serialized per directory person (advisory lock on the
+ * object id, else the DN) and re-checked inside the lock, so two parallel
+ * first sign-ins create one account, not two.
+ */
+async function findDirectoryUser(profile, client) {
+  const byDn = await findUserByExternalId('ldap', profile.dn, client);
+  if (byDn) return byDn;
+  return findUserByDirectoryGuid(profile.guid, client);
+}
+
+export function directoryLockKey(profile) {
+  return `directory:${profile.guid ? `guid:${String(profile.guid).toLowerCase()}` : `dn:${String(profile.dn).toLowerCase()}`}`;
+}
+
 async function resolveDirectoryUser(profile, options) {
   const mapped = mapDirectoryGroups(options.groupMap, profile.memberOf);
   let user =
-    (await findUserByExternalId('ldap', profile.dn)) ||
+    (await findDirectoryUser(profile, { query })) ||
     (await findUserByUsername(profile.username).then((found) => (directoryMayLink(found) ? found : null)));
 
   if (!user) {
     if (!options.autoProvision) throw authError('login_failed');
-    user = await withTransaction((client) =>
-      provisionExternalUser(client, {
+    let created = false;
+    user = await withTransaction(async (client) => {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [directoryLockKey(profile)]);
+      // A parallel first sign-in may have created the account meanwhile.
+      const existing = await findDirectoryUser(profile, client);
+      if (existing) return existing;
+      created = true;
+      return provisionExternalUser(client, {
         username: profile.username,
         displayName: profile.displayName,
         email: profile.email,
         source: 'ldap',
         externalId: profile.dn,
+        directoryGuid: profile.guid,
         groupIds: mapped,
-      })
-    );
-    return user;
+      });
+    });
+    if (created) return user;
   }
 
   assertActive(user);
   await syncExternalProfile(user.id, profile);
-  await query(`UPDATE users SET external_id = $2, auth_source = 'ldap' WHERE id = $1`, [user.id, profile.dn]);
+  await withTransaction(async (client) => {
+    if (profile.guid) {
+      // The object id belongs to this account now (a stale copy elsewhere would block it).
+      await client.query(`UPDATE users SET directory_guid = NULL WHERE directory_guid = $1 AND id <> $2`, [String(profile.guid).toLowerCase(), user.id]);
+    }
+    await client.query(
+      `UPDATE users SET external_id = $2, auth_source = 'ldap', directory_guid = COALESCE($3, directory_guid) WHERE id = $1`,
+      [user.id, profile.dn, profile.guid ? String(profile.guid).toLowerCase() : null]
+    );
+  });
   // Mapped directory groups are added on every sign-in; manual memberships stay.
   for (const groupId of mapped) {
     await query(
@@ -239,6 +279,10 @@ export async function signInWithTelegram(payload) {
     );
   }
   assertActive(user);
+  // Telegram usernames change; sign-in codes by @username must reach the right account.
+  if ((user.telegram_username || null) !== (telegram.username || null)) {
+    await refreshTelegramUsername(user.id, telegram).catch((err) => console.warn('Telegram username not refreshed:', err.message));
+  }
   return { user, method: 'telegram' };
 }
 
@@ -283,7 +327,7 @@ export async function signInWithGoogle(claims) {
     );
   }
   assertActive(user);
-  await saveGoogleAccount(user.id, claims);
+  await saveGoogleAccount(user.id, claims, {}, { signIn: true });
   return { user, method: 'google' };
 }
 

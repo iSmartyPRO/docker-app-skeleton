@@ -1,5 +1,7 @@
 import { query } from '../../config/database.js';
-import { contextFromRequest, LEVEL } from '../shared/acl.js';
+import { decide } from '../../api/scopes.js';
+import { getSettings, parseSettings } from '../../services/settings.js';
+import { contextFromRequest, httpError, LEVEL } from '../shared/acl.js';
 import { registerChatEntity } from '../chat/entities.js';
 import { importHistory, postSystem } from '../chat/service.js';
 import { loadTaskRow, participantsOf, taskLevel, taskRef, taskWebhook } from './service.js';
@@ -14,16 +16,33 @@ import { loadTaskRow, participantsOf, taskLevel, taskRef, taskWebhook } from './
 const linkOf = (row) => `/app/tasks/${taskRef(row.project_key, row.number)}`;
 const titleOf = (row) => `${taskRef(row.project_key, row.number)} · ${row.title}`;
 
+/**
+ * The task chat as the Tasks module allows it: nothing while the module is off
+ * or to an API token without the tasks scope; writing needs tasks:write.
+ * Session requests (no token) only depend on the module being on.
+ */
+async function moduleAccess(req) {
+  if (!parseSettings(await getSettings()).modules.tasks?.enabled) return null;
+  const policy = req?.apiToken?.policy;
+  if (!policy) return { write: true };
+  if (!decide(policy, 'GET', '/app/tasks/tasks').ok) return null;
+  return { write: decide(policy, 'POST', '/app/tasks/tasks').ok };
+}
+
 export function registerTaskChat() {
   registerChatEntity('task', {
     async access(req, id) {
+      const allowed = await moduleAccess(req);
+      // Thrown, not null: the chat treats an error as "not now" and keeps the
+      // person's membership, while null would drop them from the conversation.
+      if (!allowed) throw httpError(404, 'Not found', 'NOT_FOUND');
       const row = await loadTaskRow(id).catch(() => null);
       if (!row) return null;
       const level = await taskLevel(contextFromRequest(req, 'tasks.admin'), row);
       if (level < LEVEL.view) return { view: false };
       return {
         view: true,
-        write: true,
+        write: allowed.write,
         title: titleOf(row),
         subtitle: row.project_personal ? null : row.project_name,
         link: linkOf(row),

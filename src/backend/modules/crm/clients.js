@@ -1,4 +1,5 @@
 import { query } from '../../config/database.js';
+import { decide } from '../../api/scopes.js';
 import { clean, httpError } from '../shared/acl.js';
 import { createCompany, createPerson } from '../companies/service.js';
 import { modulesEnabled } from './access.js';
@@ -12,7 +13,20 @@ import { likePattern, posInt } from './util.js';
 
 const PERSON_NAME = `NULLIF(CONCAT_WS(' ', pp.last_name, pp.first_name, pp.middle_name), '')`;
 
-export async function searchClients(input = {}) {
+/**
+ * An API token reaches the Companies directory through the CRM only with its
+ * own companies scope, as if it called the Companies API. Session requests
+ * (no token) are not affected.
+ */
+export function companiesScopeAllows(req, level = 'read') {
+  const policy = req?.apiToken?.policy;
+  if (!policy) return true;
+  return decide(policy, level === 'write' ? 'POST' : 'GET', '/app/companies/companies').ok;
+}
+
+/** `req`: the request, for the Companies module switch and the token's scope. */
+export async function searchClients(input = {}, req = null) {
+  if (!(await modulesEnabled()).companies || !companiesScopeAllows(req)) return { companies: [], people: [] };
   const q = String(input.q ?? '').trim().slice(0, 100);
   const like = q ? likePattern(q) : null;
   const [companies, people] = await Promise.all([
@@ -52,8 +66,9 @@ export async function searchClients(input = {}) {
  * Quick create: { type: 'company' | 'person', name, phone?, email?, companyId? }
  * → { type, id, name, … }. A person's name "Иванов Иван" is split as last + first name.
  */
-export async function createClient(ctx, input = {}) {
+export async function createClient(ctx, input = {}, req = null) {
   if (!(await modulesEnabled()).companies) throw httpError(400, 'The Companies module is off', 'COMPANIES_DISABLED');
+  if (!companiesScopeAllows(req, 'write')) throw httpError(403, 'The token lacks the companies:write scope', 'SCOPE_DENIED');
   const type = input.type === 'person' ? 'person' : input.type === 'company' ? 'company' : null;
   if (!type) throw httpError(400, 'type must be company or person', 'INVALID_TYPE');
   const name = clean(input.name, 300);

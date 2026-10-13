@@ -12,18 +12,55 @@ import { AndFilter, Client, EqualityFilter, OrFilter, PresenceFilter, SubstringF
  */
 
 // All user attributes: some servers drop names from an explicit list when the
-// case differs, and memberOf must never be silently missing.
-const ATTRIBUTES = ['*'];
+// case differs, and memberOf must never be silently missing. entryUUID
+// (OpenLDAP) is operational, so it is asked for by name.
+const ATTRIBUTES = ['*', 'objectGUID', 'entryUUID'];
+// objectGUID is binary; as text it would be garbled.
+const BUFFER_ATTRIBUTES = ['objectGUID', 'objectguid', 'ObjectGUID'];
+
+/**
+ * TLS: the system trust store (plus NODE_EXTRA_CA_CERTS), and the optional
+ * CA certificate from Settings → Integrations → Active Directory for
+ * directories whose certificate comes from an internal CA.
+ */
+export function tlsOptionsFor(cfg) {
+  const ca = String(cfg?.caCert || '').trim();
+  return ca ? { ca: [ca] } : undefined;
+}
 
 function connect(cfg) {
   const secure = Boolean(cfg.useTls);
   const port = Number(cfg.port) || (secure ? 636 : 389);
+  const tlsOptions = secure ? tlsOptionsFor(cfg) : undefined;
   return new Client({
     url: `${secure ? 'ldaps' : 'ldap'}://${cfg.host}:${port}`,
     timeout: 8000,
     connectTimeout: 8000,
     strictDN: false,
+    ...(tlsOptions ? { tlsOptions } : {}),
   });
+}
+
+/**
+ * Stable directory id that survives moves between OUs (the DN changes):
+ * AD objectGUID in its usual text form, or OpenLDAP entryUUID. Lowercase.
+ */
+export function directoryGuid(attrs) {
+  const raw = first(attrs.objectguid);
+  if (Buffer.isBuffer(raw) && raw.length === 16) {
+    const hex = (bytes) => Buffer.from(bytes).toString('hex');
+    // The first three groups are little-endian.
+    return [
+      hex([...raw.subarray(0, 4)].reverse()),
+      hex([...raw.subarray(4, 6)].reverse()),
+      hex([...raw.subarray(6, 8)].reverse()),
+      hex(raw.subarray(8, 10)),
+      hex(raw.subarray(10, 16)),
+    ].join('-');
+  }
+  const uuid = first(attrs.entryuuid);
+  if (uuid && /^[0-9a-f-]{32,36}$/i.test(String(uuid))) return String(uuid).toLowerCase();
+  return null;
 }
 
 function first(value) {
@@ -118,6 +155,7 @@ export async function authenticateDirectory(cfg, login, password) {
       scope: 'sub',
       filter: personFilter(login),
       attributes: ATTRIBUTES,
+      explicitBufferAttributes: BUFFER_ATTRIBUTES,
       sizeLimit: 2,
     });
     if (searchEntries.length !== 1) return null;
@@ -139,7 +177,7 @@ export async function authenticateDirectory(cfg, login, password) {
   return profileOf(entry, login);
 }
 
-/** A directory entry as a portal profile: { dn, username, displayName, email, memberOf }. */
+/** A directory entry as a portal profile: { dn, guid, username, displayName, email, memberOf }. */
 function profileOf(entry, fallback = '') {
   // Attribute names come back in whatever case the server uses (memberOf / memberof).
   const attrs = Object.fromEntries(Object.entries(entry).map(([key, value]) => [key.toLowerCase(), value]));
@@ -147,6 +185,7 @@ function profileOf(entry, fallback = '') {
     first(attrs.samaccountname) || first(attrs.uid) || String(first(attrs.userprincipalname) || fallback).split('@')[0];
   return {
     dn: entry.dn,
+    guid: directoryGuid(attrs),
     username: String(account),
     displayName: String(first(attrs.displayname) || first(attrs.cn) || account),
     email: first(attrs.mail) ? String(first(attrs.mail)) : null,
@@ -183,6 +222,7 @@ export async function searchDirectory(cfg, text, limit = 15) {
       }),
       // All attributes: some servers match requested names case-sensitively.
       attributes: ATTRIBUTES,
+      explicitBufferAttributes: BUFFER_ATTRIBUTES,
       sizeLimit: Math.min(50, Math.max(1, limit)),
     });
     return searchEntries.map((entry) => profileOf(entry));
@@ -205,6 +245,7 @@ export async function directoryEntry(cfg, dn) {
       scope: 'base',
       filter: new PresenceFilter({ attribute: 'objectClass' }),
       attributes: ATTRIBUTES,
+      explicitBufferAttributes: BUFFER_ATTRIBUTES,
     });
     // Only the entry with exactly this DN: never trust a server that ignores the scope.
     const norm = (value) => String(value).toLowerCase().replace(/\s*,\s*/g, ',');

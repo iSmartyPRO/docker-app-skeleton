@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useLocation } from 'react-router-dom';
+import { isBusy } from '../lib/busy';
 
 /*
  * Noticing a deploy in a long-running tab or installed app (PWA).
@@ -12,6 +13,8 @@ import { useLocation } from 'react-router-dom';
  *   - at once, when the app was away long enough that nothing is being typed;
  *   - on the next move to another page (a normal page load, invisible);
  *   - or by the "Update" button of the banner.
+ * The automatic ways wait while an upload or another reload-sensitive job runs
+ * (lib/busy): the update is applied on a later page move instead.
  */
 
 const CURRENT = typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev';
@@ -47,8 +50,16 @@ export function checkForUpdate() {
 }
 
 export function applyUpdate() {
-  set({ applying: true });
+  // While busy the browser asks "leave the page?"; if the person stays, the
+  // banner button must keep working, so it is not switched to "updating".
+  if (!isBusy()) set({ applying: true });
   window.location.reload();
+}
+
+/** Automatic apply: never in the middle of an upload. */
+function applyIfIdle() {
+  if (state.applying || isBusy()) return;
+  applyUpdate();
 }
 
 export function initUpdates() {
@@ -61,7 +72,7 @@ export function initUpdates() {
     }
     const away = hiddenAt ? Date.now() - hiddenAt : 0;
     checkForUpdate().then((available) => {
-      if (available && away >= AWAY_LONG) applyUpdate();
+      if (available && away >= AWAY_LONG) applyIfIdle();
     });
   });
   window.addEventListener('focus', () => checkForUpdate());
@@ -86,6 +97,6 @@ export function useUpdate() {
 export function useApplyUpdateOnNavigate() {
   const { pathname } = useLocation();
   useEffect(() => {
-    if (state.available && !state.applying) applyUpdate();
+    if (state.available) applyIfIdle();
   }, [pathname]);
 }

@@ -2,6 +2,7 @@ import { query, withTransaction } from '../../config/database.js';
 import { onBeforeUserDelete } from '../../services/hooks.js';
 import { registerJob } from '../../services/scheduler.js';
 import { ensureAclTable } from '../shared/acl.js';
+import { prunePreviewCaches } from '../shared/storage.js';
 import { beforeUserDelete, purgeTrash } from './trash.js';
 
 /*
@@ -89,6 +90,17 @@ export async function ensureFilesSchema() {
   await query(`CREATE INDEX IF NOT EXISTS fs_links_node_idx ON fs_links (node_id)`);
 
   registerJob({ name: 'files:trash', everyMs: 6 * 60 * 60 * 1000, run: purgeTrash });
+  // Cached PDF previews, drive thumbnails and drawings (Files, Knowledge base, Drive)
+  // unused for 30 days; they are made again on the next view.
+  registerJob({
+    name: 'storage:previews',
+    everyMs: 24 * 60 * 60 * 1000,
+    timeoutMs: 30 * 60 * 1000,
+    run: async () => {
+      const removed = await prunePreviewCaches();
+      if (removed) console.log(`Preview caches: ${removed} unused file(s) removed`);
+    },
+  });
   onBeforeUserDelete(beforeUserDelete);
 }
 

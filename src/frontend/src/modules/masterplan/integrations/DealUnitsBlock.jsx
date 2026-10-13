@@ -2,11 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLocale } from '../../../context/LocaleContext';
 import { fmtDateTime } from '../../../lib/datetime';
-import { formatMoney, formatPercent, iconOf, readinessColor } from '../lib';
+import { formatMoney, formatPercent, iconOf, readinessColor, statusColor } from '../lib';
 import { mpApi } from '../api';
 import './deal-block.css';
-
-const COLORS = { not_for_sale: '#94A3B8', free: '#22C55E', reserve: '#EAB308', booking: '#F97316', deposit: '#8B5CF6', contract: '#3B82F6', sold: '#EF4444', handed: '#7F1D1D' };
 
 /**
  * The "Masterplan" block of a CRM deal (spec §11.2 CRM_DEAL_DETAIL_TAB,
@@ -48,7 +46,7 @@ export default function DealUnitsBlock({ deal }) {
               <span>{[unit.project.name, unit.type].filter(Boolean).join(' · ')}</span>
             </span>
             {unit.status && (
-              <span className="mp-dealblock__status" style={{ '--c': COLORS[unit.status] }}>
+              <span className="mp-dealblock__status" style={{ '--c': statusColor(unit.status, { statusColors: data.statusColors }) }}>
                 {t(`mp.status.${unit.status}`)}
               </span>
             )}

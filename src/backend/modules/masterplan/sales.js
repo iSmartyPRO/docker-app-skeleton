@@ -2,14 +2,14 @@ import { query, withTransaction } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { notify } from '../../services/notifications.js';
 import { httpError } from '../shared/acl.js';
-import { HELD, STATUSES, TIMED } from './constants.js';
-import { modulesEnabled, notFound, requireNode, usersWithRole, visibleProjectIds } from './access.js';
+import { FORWARD_MOVES, HELD, STATUSES, TIMED } from './constants.js';
+import { crmScopeAllows, forbidden, modulesEnabled, notFound, requireCrmScope, requireNode, usersWithRole, visibleProjectIds } from './access.js';
 import { actCaps, applyPriceChange, checkExtend, checkTransition, conflictMessage, dealLinkAllowed, has, priceCutAllowed, readCaps } from './rules.js';
 import { loadNodeRow, visibleNode } from './shapes.js';
 import { unitsChanged } from './realtime.js';
 import { afterUnitStatus, dealForLink, dealLineAfterExpiry } from './crmLink.js';
 import { mpMessage } from './messages.js';
-import { idList, intOr, iso, logEvent, money, parseDay, parseNumber, text, userName } from './util.js';
+import { dayString, idList, intOr, iso, logEvent, money, parseDay, parseNumber, text, userName } from './util.js';
 
 /*
  * Sales statuses (spec §6): every change is one transaction that locks the
@@ -22,12 +22,29 @@ import { idList, intOr, iso, logEvent, money, parseDay, parseNumber, text, userN
 
 const HOUR = 3600 * 1000;
 
-function conflict(row) {
-  const holder = { status: row.status, manager: row.manager_id ? { id: row.manager_id, name: row.manager_name } : null, version: row.version };
-  const error = httpError(409, conflictMessage({ status: row.status, managerName: row.manager_name, actorName: row.actor_name }), 'VERSION_CONFLICT');
+/**
+ * 409 VERSION_CONFLICT with who holds the unit now — only what the person may
+ * read in the project: the status with status.view, names with booking.view.
+ */
+export function conflict(row, readable) {
+  const status = has(readable, 'status.view') ? row.status : null;
+  const people = has(readable, 'booking.view');
+  const holder = { status, manager: people && row.manager_id ? { id: row.manager_id, name: row.manager_name } : null, version: row.version };
+  const error = httpError(409, conflictMessage({ status, managerName: people ? row.manager_name : null, actorName: people ? row.actor_name : null }), 'VERSION_CONFLICT');
   error.details = { holder };
   return error;
 }
+
+/** Capabilities that let a person change some sales status (checked before anything is locked or revealed). */
+const STATUS_ACTIONS = [...new Set([...Object.values(FORWARD_MOVES), 'status.rollback', 'status.not_for_sale', 'booking.release_any', 'booking.release_own'])];
+export const mayChangeStatus = (caps) => STATUS_ACTIONS.some((cap) => has(caps, cap));
+export const mayExtend = (caps) => has(caps, 'booking.extend_any') || has(caps, 'booking.extend_once');
+
+/** Advisory lock namespace of "reserves of one manager" (the reserve limit, §6.2). */
+const RESERVE_LOCK = 0x4d50; // 'MP'
+
+/** Statuses after which closing sales keeps the client, deal and contract (a deal in progress or done). */
+const KEEP_ON_CLOSE = new Set(['deposit', 'contract', 'sold', 'handed']);
 
 const RULE_MESSAGES = {
   FORBIDDEN: 'You may not move this unit to that status',
@@ -70,8 +87,17 @@ export function timerMs(kind, settings) {
  * input: { to, version, reason, dealId, client: { name }, managerId, contractNumber, contractDate, contractAmount, paidAmount, actDate, paid, amount }
  */
 export async function changeStatus(ctx, unitId, input = {}) {
+  const { node, result } = await applyStatus(ctx, unitId, input);
+  afterStatusChange(ctx, node, result).catch((err) => console.warn('[masterplan] after status change:', err.message));
+  return getUnit(ctx, node.id);
+}
+
+/** The status change itself (without notifications): → { node, result }. */
+async function applyStatus(ctx, unitId, input = {}) {
   const node = await requireNode(ctx, unitId);
   const caps = actCaps(ctx, node);
+  // Nothing is locked or revealed (holder, versions) to someone who may not change statuses here.
+  if (!mayChangeStatus(caps)) throw forbidden('You may not change the status of this unit');
   const to = String(input.to || '');
   const enabled = await modulesEnabled();
   const dealId = intOr(input.dealId);
@@ -85,8 +111,12 @@ export async function changeStatus(ctx, unitId, input = {}) {
   if (managerId && managerId !== ctx.userId && !has(caps, 'booking.release_any')) throw httpError(403, 'Only the head of sales assigns managers', 'FORBIDDEN');
 
   const result = await withTransaction(async (client) => {
+    // The reserve limit is per manager: their reserves are counted one change at a time.
+    if (to === 'reserve' && Number(ctx.settings.reserveLimit) > 0) await client.query(`SELECT pg_advisory_xact_lock($1, $2)`, [RESERVE_LOCK, managerId || ctx.userId]);
     const row = await lockUnit(client, node.id);
-    if (input.version !== undefined && input.version !== null && Number(input.version) !== row.version) throw conflict(row);
+    if (input.version !== undefined && input.version !== null && Number(input.version) !== row.version) throw conflict(row, readCaps(ctx, node.project_id));
+    // A linked deal gets a line in its timeline (and maybe its amount): an API token needs the CRM scope for that.
+    if (row.deal_id && enabled.crm) requireCrmScope(ctx, 'write');
     const { rows: activeRows } = await client.query(`SELECT * FROM mp_bookings WHERE id = $1 AND status = 'active'`, [row.booking_id || 0]);
     const booking = activeRows[0] || null;
     let activeReserves = 0;
@@ -169,8 +199,10 @@ export async function changeStatus(ctx, unitId, input = {}) {
       set.paid_amount = paid;
     }
     if (to === 'handed') set.act_date = actDate;
-    // Back to free sale: the unit forgets its client, deal and contract.
-    if (to === 'free' || to === 'not_for_sale') {
+    // Back to free sale: the unit forgets its client, deal and contract. Closing
+    // sales of a unit already paid for or sold keeps them (they are the record of the deal).
+    const clears = to === 'free' || (to === 'not_for_sale' && !KEEP_ON_CLOSE.has(row.status));
+    if (clears) {
       Object.assign(set, { manager_id: null, deal_id: null, person_id: null, company_id: null, client_name: null, booking_id: null, contract_number: null, contract_date: null, contract_amount: null, paid_amount: null, act_date: null });
     }
     const keys = Object.keys(set);
@@ -197,6 +229,10 @@ export async function changeStatus(ctx, unitId, input = {}) {
         contract: to === 'contract' ? { number: set.contract_number, date: contractDate } : undefined,
         amount: to === 'contract' ? money(set.contract_amount) : undefined,
         actDate: to === 'handed' ? actDate : undefined,
+        // What a return to sale erased stays in the history (shown with the amounts rights).
+        cleared: clears && (row.contract_number || row.contract_amount !== null || row.paid_amount !== null)
+          ? { contract: { number: row.contract_number, date: dayString(row.contract_date) }, amount: money(row.contract_amount), paid: money(row.paid_amount), actDate: dayString(row.act_date) }
+          : undefined,
       },
       authorId: ctx.userId,
     });
@@ -204,8 +240,7 @@ export async function changeStatus(ctx, unitId, input = {}) {
   });
 
   unitsChanged(node.project_id, [node.id]);
-  afterStatusChange(ctx, node, result).catch((err) => console.warn('[masterplan] after status change:', err.message));
-  return getUnit(ctx, node.id);
+  return { node, result };
 }
 
 export async function getUnit(ctx, id) {
@@ -214,11 +249,14 @@ export async function getUnit(ctx, id) {
   return visibleNode(ctx, row);
 }
 
-/** Notifications and the CRM deal after a status change (never fails the change). */
-async function afterStatusChange(ctx, node, { before, after, booking, kind, reason }) {
+/** Status changes the heads of sales hear about. */
+const notifiable = ({ after, kind }) => ['booking', 'deposit', 'contract', 'sold', 'handed'].includes(after.status) || ['rollback', 'close'].includes(kind);
+
+/** Notifications and the CRM deal after a status change (never fails the change); `quiet` skips the notification (bulk actions send one summary). */
+async function afterStatusChange(ctx, node, { before, after, booking, kind, reason }, { quiet = false } = {}) {
   const project = (await query(`SELECT name FROM mp_projects WHERE id = $1`, [node.project_id])).rows[0]?.name || '';
   const code = node.code || node.name;
-  if (['booking', 'deposit', 'contract', 'sold', 'handed'].includes(after.status) || ['rollback', 'close'].includes(kind)) {
+  if (!quiet && notifiable({ after, kind })) {
     const heads = await usersWithRole(['sales_head', 'executive'], node);
     const actor = await userName(ctx.userId);
     await notify({
@@ -239,9 +277,10 @@ export const unitLink = (node) => `/app/masterplan/p/${node.project_id}/plan?nod
 export async function extendBooking(ctx, unitId, input = {}) {
   const node = await requireNode(ctx, unitId);
   const caps = actCaps(ctx, node);
+  if (!mayExtend(caps)) throw forbidden('You may not extend reserves or bookings');
   const out = await withTransaction(async (client) => {
     const row = await lockUnit(client, node.id);
-    if (input.version !== undefined && input.version !== null && Number(input.version) !== row.version) throw conflict(row);
+    if (input.version !== undefined && input.version !== null && Number(input.version) !== row.version) throw conflict(row, readCaps(ctx, node.project_id));
     const { rows } = await client.query(`SELECT * FROM mp_bookings WHERE id = $1 AND status = 'active' FOR UPDATE`, [row.booking_id || 0]);
     const booking = rows[0] || null;
     const check = checkExtend({ unit: { status: row.status, managerId: row.manager_id }, booking, caps, userId: ctx.userId, managerExtensions: ctx.settings.managerExtensions });
@@ -316,7 +355,7 @@ export async function listBookings(ctx, input = {}) {
     if (has(caps, 'price.view')) item.price = { amount: money(row.price ?? row.unit_price), currency: (row.currency || row.unit_currency || '').trim() };
     if (has(caps, 'clients.all') || (has(caps, 'clients.own') && own)) {
       item.client = row.client_name ? { name: row.client_name, personId: row.person_id, companyId: row.company_id } : null;
-      item.deal = row.deal_id ? { id: row.deal_id, title: row.deal_title } : null;
+      item.deal = row.deal_id ? (crmScopeAllows(ctx, 'read') ? { id: row.deal_id, title: row.deal_title } : { id: row.deal_id }) : null;
     }
     out.push(item);
   }
@@ -368,9 +407,10 @@ export async function runBookingTimers(now = new Date()) {
 
   // Automatic release.
   const { rows: due } = await query(`SELECT id FROM mp_bookings WHERE status = 'active' AND ends_at <= $1 ORDER BY ends_at LIMIT 200`, [now]);
+  const cache = {};
   for (const { id } of due) {
     try {
-      const done = await expireBooking(id);
+      const done = await expireBooking(id, now, cache);
       if (done) expired += 1;
     } catch (err) {
       console.warn(`[masterplan] expiring booking ${id} failed:`, err.message);
@@ -379,14 +419,21 @@ export async function runBookingTimers(now = new Date()) {
   return { warned, expired };
 }
 
-/** Releases one expired timer; the unit becomes free only if this timer still holds it. */
-export async function expireBooking(bookingId) {
+/**
+ * Releases one expired timer; the unit becomes free only if this timer still
+ * holds it. Locks the unit first, then the timer — the order of every status
+ * change and extension — and re-checks the end under the lock: a timer
+ * extended a moment ago is not released.
+ */
+export async function expireBooking(bookingId, now = new Date(), cache = null) {
   const res = await withTransaction(async (client) => {
-    const { rows } = await client.query(`SELECT * FROM mp_bookings WHERE id = $1 AND status = 'active' FOR UPDATE`, [bookingId]);
+    const { rows: found } = await client.query(`SELECT unit_id FROM mp_bookings WHERE id = $1 AND status = 'active'`, [bookingId]);
+    if (!found[0]) return null;
+    const { rows: units } = await client.query(`SELECT u.*, n.code, n.name, n.path, n.project_id AS pid FROM mp_units u JOIN mp_nodes n ON n.id = u.node_id WHERE u.node_id = $1 FOR UPDATE OF u`, [found[0].unit_id]);
+    const unit = units[0];
+    const { rows } = await client.query(`SELECT * FROM mp_bookings WHERE id = $1 AND status = 'active' AND ends_at <= $2 FOR UPDATE`, [bookingId, now]);
     const booking = rows[0];
     if (!booking) return null;
-    const { rows: units } = await client.query(`SELECT u.*, n.code, n.name, n.path, n.project_id AS pid FROM mp_units u JOIN mp_nodes n ON n.id = u.node_id WHERE u.node_id = $1 FOR UPDATE OF u`, [booking.unit_id]);
-    const unit = units[0];
     await client.query(`UPDATE mp_bookings SET status = 'expired', closed_at = NOW(), release_reason = 'expired' WHERE id = $1`, [booking.id]);
     if (!unit || unit.booking_id !== booking.id || !TIMED.has(unit.status)) return { booking, unit: null };
     await client.query(
@@ -408,14 +455,14 @@ export async function expireBooking(bookingId) {
   unitsChanged(booking.project_id, [unit.node_id]);
   const node = { id: unit.node_id, project_id: booking.project_id, path: unit.path, code: unit.code, name: unit.name };
   const project = (await query(`SELECT name FROM mp_projects WHERE id = $1`, [booking.project_id])).rows[0]?.name || '';
-  const heads = await usersWithRole(['sales_head'], node);
+  const heads = await usersWithRole(['sales_head'], node, cache);
   const manager = booking.manager_id ? await userName(booking.manager_id) : '';
   await notify({
     userIds: [...new Set([booking.manager_id, ...heads].filter(Boolean))],
     kind: 'masterplan.expired',
     module: 'masterplan',
     link: unitLink(node),
-    render: mpMessage('expired', { code: unit.code || unit.name, project, manager }),
+    render: mpMessage('expired', { code: unit.code || unit.name, project, manager, kind: booking.kind }),
   }).catch(() => {});
   if (unit.deal_id) await dealLineAfterExpiry(unit.deal_id, node, booking).catch(() => {});
   return true;
@@ -471,16 +518,23 @@ export async function bulkPrice(ctx, input = {}) {
   return { affected: [...changed.values()].reduce((sum, list) => sum + list.length, 0), skipped };
 }
 
-/** Bulk status for management: close from sale / open for sale (§9.2) — each unit through changeStatus. */
+/**
+ * Bulk status for management: close from sale / open for sale (§9.2) — each
+ * unit through the same status change; the heads of sales get one summary
+ * per project instead of a notification per unit.
+ */
 export async function bulkStatus(ctx, input = {}) {
   const ids = idList(input.ids, 1000);
   if (!['not_for_sale', 'free'].includes(input.to)) throw httpError(400, 'Only closing or opening sales in bulk', 'INVALID_FIELD');
   let affected = 0;
   const skipped = [];
+  const done = [];
   for (const id of ids) {
     try {
-      await changeStatus(ctx, id, { to: input.to, reason: input.reason });
+      const { node, result } = await applyStatus(ctx, id, { to: input.to, reason: input.reason });
       affected += 1;
+      done.push({ node, result });
+      afterStatusChange(ctx, node, result, { quiet: true }).catch((err) => console.warn('[masterplan] after status change:', err.message));
     } catch (err) {
       skipped.push({ id, reason: err.code || 'ERROR' });
     }
@@ -489,7 +543,38 @@ export async function bulkStatus(ctx, input = {}) {
     const { rows } = await query(`SELECT id, code FROM mp_nodes WHERE id = ANY($1::int[])`, [skipped.map((item) => item.id)]);
     for (const item of skipped) item.code = rows.find((row) => row.id === item.id)?.code || null;
   }
+  notifyBulkStatus(ctx, done, input).catch((err) => console.warn('[masterplan] bulk status notification:', err.message));
   return { affected, skipped };
+}
+
+async function notifyBulkStatus(ctx, done, input) {
+  const byProject = new Map();
+  for (const item of done.filter(({ result }) => notifiable(result))) {
+    if (!byProject.has(item.node.project_id)) byProject.set(item.node.project_id, []);
+    byProject.get(item.node.project_id).push(item);
+  }
+  if (!byProject.size) return;
+  const cache = {};
+  const actor = await userName(ctx.userId);
+  const reason = text(input.reason, 300) || null;
+  for (const [projectId, items] of byProject) {
+    const recipients = new Set();
+    for (const { node, result } of items) {
+      for (const id of await usersWithRole(['sales_head', 'executive'], node, cache)) recipients.add(id);
+      if (result.kind === 'rollback' && result.before.manager_id) recipients.add(result.before.manager_id);
+    }
+    const project = (await query(`SELECT name FROM mp_projects WHERE id = $1`, [projectId])).rows[0]?.name || '';
+    const codes = items.map(({ node }) => node.code || node.name).filter(Boolean);
+    const sample = codes.length > 5 ? `${codes.slice(0, 5).join(', ')} +${codes.length - 5}` : codes.join(', ');
+    await notify({
+      userIds: [...recipients],
+      kind: 'masterplan.status',
+      module: 'masterplan',
+      link: `/app/masterplan/p/${projectId}/registry`,
+      actorId: ctx.userId,
+      render: mpMessage('bulkStatus', { count: items.length, sample, project, to: input.to, actor, reason }),
+    });
+  }
 }
 
 /** Assigns the responsible manager of held units (heads of sales). */
@@ -500,7 +585,7 @@ export async function assignManager(ctx, unitId, input = {}) {
   if (!managerId) throw httpError(400, 'Choose a manager', 'INVALID_FIELD');
   await withTransaction(async (client) => {
     const row = await lockUnit(client, node.id);
-    if (input.version !== undefined && Number(input.version) !== row.version) throw conflict(row);
+    if (input.version !== undefined && Number(input.version) !== row.version) throw conflict(row, readCaps(ctx, node.project_id));
     if (!HELD.has(row.status)) throw httpError(409, 'The unit is not held', 'NOT_HELD');
     await client.query(`UPDATE mp_units SET manager_id = $2, version = version + 1, updated_by = $3, updated_at = NOW() WHERE node_id = $1`, [node.id, managerId, ctx.userId]);
     if (row.booking_id) await client.query(`UPDATE mp_bookings SET manager_id = $2 WHERE id = $1`, [row.booking_id, managerId]);

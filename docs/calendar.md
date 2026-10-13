@@ -67,6 +67,9 @@ The views are **Month**, **Week**, **Work week** (no weekends), **Day** and **Ag
   - an expansion stops at 1,000 occurrences;
   - one broken event never stops the reminder job.
 - Changing a series' start time or rule removes its exceptions, because they belonged to the old schedule.
+- Editing *all events* from one occurrence keeps the series' own start when the time was not changed; a changed time shifts the series' start by as much as the occurrence moved (as dragging does). The event keeps its own time zone when someone else edits it.
+- Changing one occurrence (time, place, attendees) notifies the attendees like a change of the whole event.
+- Series that ended (`UNTIL`) long before the requested range are not loaded or expanded.
 - All-day reminders fire relative to local midnight in the event's time zone.
 - Editing or deleting one occurrence asks *this event* or *all events*:
   - *This event* stores an exception: the original date goes to `exdates`, and a changed occurrence becomes a separate event linked to the series.

@@ -137,12 +137,24 @@ export async function revokeSessionById(id, userId) {
   return result.rowCount > 0;
 }
 
-/** Ends every session of the user, except `exceptId` when given. */
+/**
+ * Ends every session of the user, except `exceptId` when given — including the
+ * "sign in as" sessions the user started as an administrator.
+ */
 export async function revokeUserSessions(userId, { exceptId = null } = {}) {
   const result = await query(
     `UPDATE user_sessions SET revoked_at = NOW()
-      WHERE user_id = $1 AND revoked_at IS NULL AND ($2::text IS NULL OR id <> $2)`,
+      WHERE (user_id = $1 OR impersonated_by = $1) AND revoked_at IS NULL AND ($2::text IS NULL OR id <> $2)`,
     [Number(userId), exceptId]
+  );
+  return result.rowCount;
+}
+
+/** Ends the "sign in as" sessions an administrator started (signed out, blocked, disabled). */
+export async function revokeImpersonationsBy(adminId, client = { query }) {
+  const result = await client.query(
+    `UPDATE user_sessions SET revoked_at = NOW() WHERE impersonated_by = $1 AND revoked_at IS NULL`,
+    [Number(adminId)]
   );
   return result.rowCount;
 }
@@ -205,11 +217,17 @@ export async function listUserSessions(userId, { currentId = null } = {}) {
   return result.rows.map((row) => presentSession(row, currentId));
 }
 
-/** Housekeeping: rows ended or expired more than PURGE_AFTER_DAYS ago. */
+/**
+ * Housekeeping: rows ended or expired more than PURGE_AFTER_DAYS ago. A
+ * revoked row of a token from before sessions (id 'l…', no `sid` claim) is the
+ * only thing keeping that token out — without it the next request would make a
+ * fresh active row — so it stays until the token itself has expired.
+ */
 export async function purgeSessions() {
   await query(
     `DELETE FROM user_sessions
-      WHERE (revoked_at IS NOT NULL AND revoked_at < NOW() - make_interval(days => $1))
+      WHERE (revoked_at IS NOT NULL AND revoked_at < NOW() - make_interval(days => $1)
+             AND (id NOT LIKE 'l%' OR expires_at < NOW()))
          OR expires_at < NOW() - make_interval(days => $1)`,
     [PURGE_AFTER_DAYS]
   );

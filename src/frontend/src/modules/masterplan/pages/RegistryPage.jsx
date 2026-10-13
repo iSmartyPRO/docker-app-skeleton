@@ -114,7 +114,7 @@ export default function RegistryPage() {
       message.error(errorMessage(err));
     }
   };
-  const csvParams = Object.fromEntries(Object.entries({ project: project.id, ...filterParams(filter), sort: page.sort, order: page.order }).filter(([, value]) => value !== undefined));
+  const csvParams = Object.fromEntries(Object.entries({ project: project.id, ...filterParams(filter), sort: page.sort, order: page.order, presentation: presentation ? 1 : undefined }).filter(([, value]) => value !== undefined));
 
   const chooser = (
     <div className="mp-cols">

@@ -6,7 +6,7 @@ import { requestAs } from '../../api/events.js';
 import { httpError } from '../shared/acl.js';
 import { crmContext, crmSettings } from '../crm/access.js';
 import { requireDeal } from '../crm/deals.js';
-import { modulesEnabled, mpContext, usersWithRole } from './access.js';
+import { modulesEnabled, mpContext, requireCrmScope, usersWithRole } from './access.js';
 import { readCaps, has } from './rules.js';
 import { statusName } from './messages.js';
 import { iso, logEvent, money } from './util.js';
@@ -24,10 +24,15 @@ import { iso, logEvent, money } from './util.js';
  *   - GET /deals/:id/units feeds the "Masterplan" block of the deal panel.
  */
 
-/** A deal the person may see in the CRM, open (not lost, not in the trash). */
-export async function dealForLink(ctx, dealId, { allowClosed = false } = {}) {
+/**
+ * A deal the person may see in the CRM, open (not lost, not in the trash).
+ * `scope`: what an API token must hold in the CRM area — 'write' to link the
+ * deal (its timeline gets written), 'read' to show it.
+ */
+export async function dealForLink(ctx, dealId, { allowClosed = false, scope = 'write' } = {}) {
   if (!(await modulesEnabled()).crm) throw httpError(400, 'The CRM is turned off', 'CRM_DISABLED');
   if (!ctx.request) throw httpError(400, 'No CRM context', 'CRM_DISABLED');
+  requireCrmScope(ctx, scope);
   const cctx = crmContext(ctx.request, await crmSettings());
   const { row } = await requireDeal(cctx, dealId);
   if (!allowClosed && row.stage_kind === 'lost') throw httpError(400, 'The deal is closed as lost', 'DEAL_CLOSED');
@@ -81,7 +86,7 @@ export async function dealLineAfterExpiry(dealId, node, booking) {
 
 /** Units linked to a deal, for the CRM deal panel; units of projects the person does not see are only counted. */
 export async function dealUnits(ctx, dealId) {
-  const deal = await dealForLink(ctx, dealId, { allowClosed: true });
+  const deal = await dealForLink(ctx, dealId, { allowClosed: true, scope: 'read' });
   const { rows } = await query(
     `SELECT n.id, n.code, n.name, n.project_id,
             (SELECT o.readiness FROM mp_nodes o JOIN mp_types ot ON ot.id = o.type_id WHERE o.id = ANY(n.path) AND ot.stage_set IS NOT NULL AND o.kind <> 'level' ORDER BY o.depth DESC LIMIT 1) AS readiness,
@@ -116,7 +121,7 @@ export async function dealUnits(ctx, dealId) {
       link: `/app/masterplan/p/${row.project_id}/plan?node=${row.id}`,
     });
   }
-  return { deal: { id: deal.id, title: deal.title }, units, hidden, canPick: Boolean(ctx.globalRoles.size || ctx.assignments.length) };
+  return { deal: { id: deal.id, title: deal.title }, units, hidden, canPick: Boolean(ctx.globalRoles.size || ctx.assignments.length), statusColors: ctx.settings.statusColors || null };
 }
 
 // ── CRM deal stage → unit status (settings.stageMap) ────────────────────────

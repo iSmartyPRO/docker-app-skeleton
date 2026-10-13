@@ -2,7 +2,7 @@ import { query } from '../../config/database.js';
 import { notify } from '../../services/notifications.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { eventMessage } from './messages.js';
-import { fromWall, occurrences } from './recurrence.js';
+import { fromWall, occurrences, seriesNotOverBefore } from './recurrence.js';
 
 const MINUTE = 60 * 1000;
 const DAY = 24 * 60 * MINUTE;
@@ -26,7 +26,7 @@ export async function runEventReminders() {
   const to = new Date(now.getTime() + MAX_LEAD + MINUTE);
   const { rows } = await query(
     `SELECT e.*, c.owner_id, c.is_personal FROM cal_events e JOIN cal_calendars c ON c.id = e.calendar_id
-     WHERE cardinality(e.reminders) > 0 AND e.starts_at < $2 AND (e.rrule IS NOT NULL OR e.starts_at > $1)`,
+     WHERE cardinality(e.reminders) > 0 AND e.starts_at < $2 AND ((e.rrule IS NOT NULL AND ${seriesNotOverBefore('$1')}) OR e.starts_at > $1)`,
     // A day of slack: all-day events start at local, not UTC, midnight.
     [new Date(from.getTime() - DAY), to]
   );

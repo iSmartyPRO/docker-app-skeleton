@@ -1,6 +1,6 @@
 import webpush from 'web-push';
 import { query } from '../config/database.js';
-import { seal, unseal } from './crypto.js';
+import { openSealed, seal } from './crypto.js';
 import { publicBase } from './google.js';
 import { getSetting, setSetting } from './settings.js';
 
@@ -10,7 +10,15 @@ import { getSetting, setSetting } from './settings.js';
  *
  * VAPID keys are generated on first use and stored in app_settings
  * (`webpush`), the private key sealed. Each device subscription belongs to a
- * user; subscriptions the push service reports as gone (404/410) are removed.
+ * user; subscriptions the push service reports as gone (404/410) or as made
+ * for other VAPID keys (403 key mismatch) are removed.
+ *
+ * If the stored private key cannot be decrypted (the encryption key changed,
+ * see services/crypto.js) new keys are generated, administrators are told, and
+ * every stored subscription is dropped: they were made for the old public key
+ * and cannot work any more. Devices that already allowed notifications
+ * re-subscribe silently on their next visit (frontend pwa/push.js compares
+ * the key).
  */
 
 let keysCache = null;
@@ -39,15 +47,30 @@ export async function vapidKeys() {
   } catch {
     stored = null;
   }
-  let privateKey = stored ? unseal(stored.privateKey) : null;
+  const opened = stored?.privateKey ? openSealed(stored.privateKey, { label: 'Web Push private key' }) : { value: null };
+  let privateKey = opened.value;
   if (!stored?.publicKey || !privateKey) {
+    const replacing = Boolean(stored?.publicKey);
     const generated = webpush.generateVAPIDKeys();
     stored = { publicKey: generated.publicKey, privateKey: seal(generated.privateKey) };
     privateKey = generated.privateKey;
     await setSetting('webpush', JSON.stringify(stored));
+    if (replacing) {
+      const { rowCount } = await query(`DELETE FROM push_subscriptions`);
+      console.warn(`Web Push keys were replaced (the old private key could not be decrypted); ${rowCount} device subscription(s) dropped, devices re-subscribe on their next visit.`);
+    }
+  } else if (opened.stale) {
+    // Opened with a previous encryption key: store it sealed with the current one.
+    await setSetting('webpush', JSON.stringify({ ...stored, privateKey: seal(privateKey) }));
   }
   keysCache = { publicKey: stored.publicKey, privateKey };
   return keysCache;
+}
+
+/** 403 from the push service because the subscription was made for other VAPID keys. */
+export function isKeyMismatch(err) {
+  if (err?.statusCode !== 403) return false;
+  return /do not correspond|VapidPkHashMismatch|mismatch/i.test(String(err.body || err.message || ''));
 }
 
 function subject() {
@@ -127,7 +150,7 @@ export async function pushToUser(userId, payload) {
         delivered += 1;
         await query(`UPDATE push_subscriptions SET last_used_at = NOW() WHERE id = $1`, [row.id]);
       } catch (err) {
-        if (err.statusCode === 404 || err.statusCode === 410) {
+        if (err.statusCode === 404 || err.statusCode === 410 || isKeyMismatch(err)) {
           await query(`DELETE FROM push_subscriptions WHERE id = $1`, [row.id]);
         } else {
           console.warn(`Push to user ${userId} failed:`, err.statusCode || '', err.body || err.message);

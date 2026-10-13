@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Avatar, Dropdown, Tooltip } from 'antd';
+import { App, Avatar, Dropdown, Tooltip } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
@@ -56,6 +56,7 @@ function AppsLauncher() {
 function UserMenu({ user }) {
   const { logout } = useAuth();
   const { t } = useLocale();
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const name = user.displayName || user.username;
   const isAdmin = can(user, 'console.access');
@@ -93,7 +94,13 @@ function UserMenu({ user }) {
 
   const onClick = async ({ key }) => {
     if (key === 'logout') {
-      await logout();
+      try {
+        await logout();
+      } catch {
+        // The server did not end the session: the person stays signed in.
+        message.error(t('common.signOutFailed'));
+        return;
+      }
       navigate('/login', { replace: true });
       return;
     }

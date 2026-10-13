@@ -102,12 +102,20 @@ const ROLE_SQL = {
 export async function runCustomReminders() {
   const parsed = parseSettings(await getSettings());
   if (!parsed.modules.tasks?.enabled) return;
+  const due = `r.sent_at IS NULL AND t.completed_at IS NULL
+       AND ((r.mode = 'at' AND r.remind_at <= NOW())
+         OR (r.mode = 'before' AND t.due_at IS NOT NULL AND t.due_at - make_interval(mins => r.before_minutes) <= NOW()))`;
+  // Deferred tasks and archived projects get no reminders (as with the deadline
+  // ones): those that come due meanwhile are dropped, not saved up for later.
+  await query(
+    `UPDATE task_reminders r SET sent_at = NOW()
+     FROM tasks t JOIN task_projects p ON p.id = t.project_id
+     WHERE t.id = r.task_id AND ${due} AND (t.deferred_at IS NOT NULL OR p.archived_at IS NOT NULL)`
+  );
   const { rows } = await query(
     `UPDATE task_reminders r SET sent_at = NOW()
      FROM tasks t JOIN task_projects p ON p.id = t.project_id
-     WHERE t.id = r.task_id AND r.sent_at IS NULL AND t.completed_at IS NULL
-       AND ((r.mode = 'at' AND r.remind_at <= NOW())
-         OR (r.mode = 'before' AND t.due_at IS NOT NULL AND t.due_at - make_interval(mins => r.before_minutes) <= NOW()))
+     WHERE t.id = r.task_id AND ${due} AND t.deferred_at IS NULL AND p.archived_at IS NULL
      RETURNING r.*, t.title, t.number, t.due_at, p.key`
   );
   for (const reminder of rows) {

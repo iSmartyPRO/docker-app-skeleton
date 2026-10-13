@@ -32,6 +32,18 @@ export function ChatProvider({ children }) {
       .catch(() => {});
   }, [enabled]);
 
+  // Bursts of events (a busy group, several tabs reading) cost one request.
+  // The first event schedules it; later ones ride along (a steady stream of
+  // messages never postpones the update indefinitely).
+  const refreshTimer = useRef(null);
+  const refreshSoon = useCallback(() => {
+    if (refreshTimer.current) return;
+    refreshTimer.current = setTimeout(() => {
+      refreshTimer.current = null;
+      refreshUnread();
+    }, 700);
+  }, [refreshUnread]);
+
   const sendFocus = useCallback(() => {
     if (!connection.current) return;
     chatApi.focus({ connection: connection.current, roomId: focus.current, visible: document.visibilityState === 'visible' }).catch(() => {});
@@ -57,10 +69,14 @@ export function ChatProvider({ children }) {
       // The stream is shared by all of the person's tabs and marks nothing as "mine",
       // so own messages are recognised by the author.
       const own = data.message?.mine || (me.current != null && data.message?.author?.id === me.current);
+      // The server's count knows which chats are muted or hidden; counting
+      // here would light the badge for those too.
       if (type === 'message' && !own && data.message?.kind !== 'system') {
-        if (focus.current !== data.roomId || document.visibilityState !== 'visible') setUnread((n) => n + 1);
+        if (focus.current !== data.roomId || document.visibilityState !== 'visible') refreshSoon();
       }
-      if (type === 'read' || type === 'room') refreshUnread();
+      // Only my own reads (in any tab) change my count; others reading do not.
+      if (type === 'read' && me.current != null && Number(data.userId) === Number(me.current)) refreshSoon();
+      if (type === 'room') refreshSoon();
       listeners.current.forEach((listener) => listener(type, data));
     };
     ['hello', 'message', 'message.update', 'message.delete', 'read', 'typing', 'room'].forEach((type) => source.addEventListener(type, emit(type)));
@@ -71,12 +87,14 @@ export function ChatProvider({ children }) {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
+      clearTimeout(refreshTimer.current);
+      refreshTimer.current = null;
       source.close();
       connection.current = null;
       setConnected(false);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [enabled, refreshUnread, sendFocus]);
+  }, [enabled, refreshUnread, refreshSoon, sendFocus]);
 
   const subscribe = useCallback((listener) => {
     listeners.current.add(listener);

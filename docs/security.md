@@ -28,7 +28,8 @@ Assumptions:
 - Lockout: separate streaks per **username** and per **IP**.
 - Login limiter: 20 / 15 min / IP, plus global `/api` limiter.
 - Password change increments `token_version` (other sessions die).
-- Cookie: httpOnly, SameSite=Lax, Secure when `FRONTEND_URL` is `https://`, `X-Forwarded-Proto` is https, or `COOKIE_SECURE=true`.
+- Cookie: httpOnly, SameSite=Lax, Secure when `FRONTEND_URL` is `https://`, `X-Forwarded-Proto` is https, or `COOKIE_SECURE=true`. The bundled nginx passes on an outer proxy's `X-Forwarded-Proto` (http/https only) and otherwise sends its own scheme; the app trusts the header from loopback only.
+- Changing one's password in the cabinet: wrong current passwords count towards the same per-username lockout as sign-in (`429 LOCKED`).
 
 **Authorization** (full model: [access-control.md](access-control.md))
 
@@ -37,9 +38,9 @@ Assumptions:
 - The last active super administrator cannot be removed by any path — changes run in a transaction and roll back with `409 LAST_SUPERADMIN`.
 - Administrators cannot demote, disable, block or delete their own account.
 - Role change, disabling, blocking and password reset bump `token_version` — the user is signed out everywhere.
-- Sessions: the cookie is a JWT whose `sid` claim names a row in `user_sessions` (device user agent, first and last IP, `X-Client-Mode` pwa/browser, sign-in method, `impersonated_by`, expiry). A cookie only works while its row exists, is not revoked and has not expired; last activity is written at most once a minute per session. Rows ended or expired more than 30 days ago are purged by the `sessions:purge` job.
+- Sessions: the cookie is a JWT whose `sid` claim names a row in `user_sessions` (device user agent, first and last IP, `X-Client-Mode` pwa/browser, sign-in method, `impersonated_by`, expiry). A cookie only works while its row exists, is not revoked and has not expired; last activity is written at most once a minute per session. Rows ended or expired more than 30 days ago are purged by the `sessions:purge` job; a revoked `legacy` row is kept until its token expires (it is what keeps that token out).
 - Users see their sessions in Account → Security (`GET /api/account/sessions`) and end one (`DELETE /api/account/sessions/:id`) or all others (`POST /api/account/sessions/revoke-others`, which also bumps `token_version` and re-issues the current cookie with the same `sid`). Administrators with `users.manage` see and end a user's sessions (`GET`/`DELETE /api/admin/users/:id/sessions[/:sid]`, `POST /api/admin/users/:id/revoke-sessions`). None of this is available while signed in as another user or to API tokens.
-- Sign out ends the current row. "Sign in as" sessions are listed for the person with the administrator's name and end on "Return to my account".
+- Sign out ends the current row. "Sign in as" sessions are listed for the person with the administrator's name and end on "Return to my account"; they also end with the administrator's own sessions and stop working once the administrator is blocked, disabled or no longer a superadministrator (see [access-control.md](access-control.md#sign-in-as-a-user)).
 - Cookies issued before sessions existed (no `sid`) keep working until they expire; on their first request they get a row (method `legacy`, id derived from the token hash) so they appear in the list and can be ended. The older `revoked_sessions` list is still honoured for them.
 
 **Sign-in methods**
@@ -91,7 +92,7 @@ Assumptions:
 4. **Do not publish Postgres** on `0.0.0.0:5432` without a firewall.
 5. **Closed access** unless the landing must be public.
 6. **Allow-list** if only office IPs should reach the app. Add your IPv4/CIDR first (*Allow my IP* in Settings → IP filtering); the API refuses to enable it otherwise.
-7. **Rotate** DB password and JWT if they ever appeared in chat, tickets, or screenshots.
+7. **Rotate** DB password and JWT if they ever appeared in chat, tickets, or screenshots — keep the old JWT secret for decryption as described in [Rotating secrets](#rotating-secrets), or stored tokens and webhook secrets stop opening.
 8. **Backups** of Postgres + `data/uploads/`.
 9. **Proxy count**: set `TRUST_PROXY_HOPS` to the number of proxies in front of Express (bundled nginx + any outer proxy). Too low and every client shares the proxy IP (lockouts hit everyone); too high and clients can spoof `X-Forwarded-For`.
 10. Run **`make env`** on every new deploy; never copy a production `.env` into git.
@@ -126,3 +127,26 @@ Assumptions:
 | Session JWT | httpOnly cookie | never in JSON |
 
 `.env` is mounted writable so the wizard can persist DB settings. Restrict who can `docker exec` or read the host file.
+
+### Rotating secrets
+
+Some credentials are stored **encrypted** (AES-256-GCM) because the portal must use them later: Google refresh tokens (Calendar, Gmail sender), webhook signing secrets, the Web Push private key, domain passwords kept for file servers, company secrets. The key is `ENCRYPTION_KEY`, or — when it is not set — derived from `JWT_SECRET`. So rotating `JWT_SECRET` on an install without `ENCRYPTION_KEY` also changes the encryption key.
+
+Rotate without losing anything:
+
+| You change | Also set (comma-separated lists are fine) |
+|------------|-------------------------------------------|
+| `JWT_SECRET`, no `ENCRYPTION_KEY` | `JWT_SECRET_PREVIOUS=<old JWT_SECRET>` |
+| `ENCRYPTION_KEY` | `ENCRYPTION_KEY_PREVIOUS=<old ENCRYPTION_KEY>` |
+| Introduce `ENCRYPTION_KEY` for the first time | nothing: values sealed with the JWT-derived key still open while `JWT_SECRET` is unchanged |
+
+New values are always sealed with the current key; old ones are opened with any listed key and re-sealed with the current one when read (Google tokens, webhook secrets, the push key). Keep the `*_PREVIOUS` entries for a while (a few weeks covers people who rarely use Calendar), then remove them.
+
+Rotating `JWT_SECRET` signs everyone out (sessions are JWTs) — that is the point of rotating it.
+
+If a value can be opened with **no** known key, nothing is deleted or treated as revoked:
+
+- a **security event** *Stored secret cannot be decrypted* appears in *Activity* (and in Mattermost, as a danger event), at most once an hour per secret;
+- **Google** Calendar / Gmail calls fail with `GOOGLE_KEY`; the connection and the Gmail sender stay configured — restore the old key, or reconnect;
+- **webhooks** pause with *secret unreadable* (no failure counted, deliveries wait); *New secret* resumes them;
+- **Web Push**: new keys are generated and old device subscriptions dropped; devices that already allowed notifications re-subscribe on their next visit without asking.

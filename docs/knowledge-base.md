@@ -58,6 +58,8 @@ You can keep several links per folder with different settings. Each link shows i
 
 Module settings can switch public links off entirely, require a password on every link, and cap the lifetime (*maximum days*).
 
+A link lives only while its author does (as in Files): when the author is deleted, deactivated or blocked, or no longer manages the folder, visitors see *This link no longer works* (`OWNER_INACTIVE` / `OWNER_NO_ACCESS`).
+
 ## Files from the Files module
 
 With the [Files](files.md) module enabled:
@@ -88,6 +90,8 @@ Office conversion shows its status here. Its URL is configured under **Integrati
 - Uploads are checked against the allowed extensions and the size limit. PDF and image files must also match their magic bytes, so a renamed executable is rejected.
 - Files are served by the API rather than as static files, with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Only safe types are shown inline; everything else is sent as an attachment.
 - Article Markdown and HTML are sanitised with DOMPurify before rendering (HTML articles use their own instance: scripts, handlers, style sheets and forms are removed, checklist boxes are shown read-only), and links open with `rel="noopener noreferrer"`.
+- Saving an article checks its attached and embedded files first; the text and the file list are then written in one transaction, so a rejected file leaves the article unchanged.
+- API tokens limited to selected Files spaces reach Files through the Knowledge Base only inside those spaces: uploads into *My files* and files outside the spaces answer `403 TOKEN_LIMITED`.
 - Back up `UPLOAD_DIR` together with the database.
 
 ### Reverse proxy

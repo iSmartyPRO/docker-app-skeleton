@@ -40,8 +40,10 @@ export function dueFor(column, dueAt) {
       return target.isBefore(now) ? now.add(1, 'hour').minute(0).second(0).millisecond(0) : target;
     }
     case 'week': {
+      // «This week» starts tomorrow; on the week's last day no day of it is left
+      // (moving to today would land the deal in «Today»).
       const tomorrow = now.add(1, 'day');
-      return tomorrow.isBefore(thisMonday.add(7, 'day')) ? at(tomorrow) : at(thisMonday.add(6, 'day'));
+      return tomorrow.isBefore(thisMonday.add(7, 'day')) ? at(tomorrow) : null;
     }
     case 'nextWeek':
       return at(thisMonday.add(7, 'day'));
@@ -148,6 +150,10 @@ export default function ActivitiesView({ params, version, onOpen, onChanged }) {
     }
     const next = deal.activity.next;
     const dueAt = dueFor(target, next.dueAt);
+    if (!dueAt) {
+      message.info(t('crm.acts.weekOver'));
+      return;
+    }
     const moved = { ...deal, activity: { ...deal.activity, next: { ...next, dueAt: dueAt.toISOString(), overdue: false }, overdue: Math.max(0, (deal.activity.overdue || 0) - (next.overdue ? 1 : 0)) } };
     const previous = columns;
     setColumns((prev) =>

@@ -1,7 +1,7 @@
 import { query, withTransaction } from '../../config/database.js';
 import { LEVEL, LEVEL_NAMES, httpError, loadAccess, readAcl, requireLevel, writeAcl } from './access.js';
 import { removeStoredFile } from './files.js';
-import { attachmentsOf, syncAttachments } from './attachments.js';
+import { attachmentsOf, planAttachments, syncAttachments, writeAttachments } from './attachments.js';
 
 const HEX = /^#[0-9a-f]{6}$/i;
 const ICON = /^[a-z0-9_-]{2,32}$/i;
@@ -331,23 +331,30 @@ export async function updateItem(ctx, id, input) {
   }
   const title = clean(input.title ?? row.title, 200);
   if (!title) throw httpError(400, 'Title is required');
-  await query(
-    `UPDATE kb_items SET folder_id = $2, title = $3, description = $4, content = $5, url = $6,
-       updated_by = $7, content_format = $8, updated_at = NOW() WHERE id = $1`,
-    [
-      id,
-      folderId,
-      title,
-      clean(input.description ?? row.description, 1000),
-      row.kind === 'article' ? String(input.content ?? row.content ?? '').slice(0, 500000) : null,
-      row.kind === 'link' ? validUrl(input.url ?? row.url) : null,
-      ctx.userId,
-      contentFormat(input.format ?? row.content_format),
-    ]
-  );
-  if (row.kind === 'article' && (input.content !== undefined || input.attachments !== undefined)) {
-    await syncAttachments(ctx, id, input.content ?? row.content, input.attachments);
-  }
+  // Everything is checked before anything is written: a rejected attachment
+  // must not leave the new text saved without its files (or the other way round).
+  const values = [
+    id,
+    folderId,
+    title,
+    clean(input.description ?? row.description, 1000),
+    row.kind === 'article' ? String(input.content ?? row.content ?? '').slice(0, 500000) : null,
+    row.kind === 'link' ? validUrl(input.url ?? row.url) : null,
+    ctx.userId,
+    contentFormat(input.format ?? row.content_format),
+  ];
+  const plan =
+    row.kind === 'article' && (input.content !== undefined || input.attachments !== undefined)
+      ? await planAttachments(ctx, id, input.content ?? row.content, input.attachments)
+      : null;
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE kb_items SET folder_id = $2, title = $3, description = $4, content = $5, url = $6,
+         updated_by = $7, content_format = $8, updated_at = NOW() WHERE id = $1`,
+      values
+    );
+    if (plan) await writeAttachments(client, plan);
+  });
 }
 
 export async function deleteItem(ctx, id) {

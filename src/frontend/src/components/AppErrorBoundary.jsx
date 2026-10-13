@@ -95,3 +95,41 @@ export default function AppErrorBoundary({ resetKey, children }) {
     </Boundary>
   );
 }
+
+/**
+ * Last line of defence around the providers themselves (settings, auth,
+ * locale, theme): plain markup and no context hooks, since those providers
+ * may be exactly what failed.
+ */
+export class RootErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    if (isReloading() || (isChunkError(error) && reloadOnce())) return;
+    console.error('App failed to start', error, info?.componentStack);
+    reportClientError({ message: error?.message, stack: `${error?.stack || ''}\n${info?.componentStack || ''}` }, 'APP_ROOT_CRASH');
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    const ru = /^ru\b/i.test(document.documentElement.lang || navigator.language || '');
+    const text = ru
+      ? { title: 'Не удалось открыть портал', body: 'Обновите страницу. Если ошибка повторяется, сообщите в поддержку код сессии:', reload: 'Обновить' }
+      : { title: 'The portal could not start', body: 'Reload the page. If it happens again, tell support this session code:', reload: 'Reload' };
+    return (
+      <div role="alert" style={{ maxWidth: 480, margin: '15vh auto', padding: 16, fontFamily: 'system-ui, sans-serif', textAlign: 'center' }}>
+        <h1 style={{ fontSize: 20 }}>{text.title}</h1>
+        <p>{text.body}</p>
+        <p><code>{clientSessionId()}</code></p>
+        <button type="button" onClick={() => window.location.reload()} style={{ padding: '8px 20px', fontSize: 16 }}>{text.reload}</button>
+      </div>
+    );
+  }
+}

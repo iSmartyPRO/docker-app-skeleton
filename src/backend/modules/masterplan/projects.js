@@ -241,6 +241,11 @@ export async function updatePlan(ctx, id, input) {
   const plan = await requirePlan(ctx, id);
   const name = input.name !== undefined ? text(input.name, 160) || null : plan.name;
   const mediaId = input.mediaId !== undefined ? intOr(input.mediaId) : plan.media_id;
+  // As on creation: the image must be one of this project's files.
+  if (mediaId && mediaId !== plan.media_id) {
+    const { rows } = await query(`SELECT id FROM mp_media WHERE id = $1 AND project_id = $2`, [mediaId, plan.project_id]);
+    if (!rows[0]) throw httpError(400, 'Unknown image', 'INVALID_FIELD');
+  }
   const width = input.width !== undefined ? Math.min(20000, Math.max(100, intOr(input.width, plan.width))) : plan.width;
   const height = input.height !== undefined ? Math.min(20000, Math.max(100, intOr(input.height, plan.height))) : plan.height;
   const { rows } = await query(`UPDATE mp_plans SET name = $2, media_id = $3, width = $4, height = $5, updated_at = NOW() WHERE id = $1 RETURNING *`, [plan.id, name, mediaId, width, height]);

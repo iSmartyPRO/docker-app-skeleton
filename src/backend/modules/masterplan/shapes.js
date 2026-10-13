@@ -1,6 +1,7 @@
 import { query } from '../../config/database.js';
 import { avatarOf } from '../shared/acl.js';
 import { projectUnit, readCaps } from './rules.js';
+import { crmScopeAllows } from './access.js';
 import { dayString, iso, money } from './util.js';
 
 /*
@@ -115,6 +116,8 @@ export function nodeShape(row) {
 export function visibleNode(ctx, row, { presentation = false, caps } = {}) {
   const node = nodeShape(row);
   if (node.unit) node.unit = projectUnit(node.unit, { caps: caps || readCaps(ctx, row.project_id), userId: ctx.userId, presentation });
+  // A deal's title is CRM data: an API token without the CRM scope gets the id only.
+  if (node.unit?.deal && !crmScopeAllows(ctx, 'read')) node.unit.deal = { id: node.unit.deal.id };
   if (presentation) {
     delete node.buildUserId;
     delete node.salesUserId;

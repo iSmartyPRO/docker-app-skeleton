@@ -26,6 +26,13 @@ import { AccessTags, SourceBadge, UserStatusTag } from './Users';
 import { HintLabel } from '../../help/Hint';
 import SessionList from '../../components/sessions/SessionList';
 
+/** Sign-in method name; an unknown (newer) method shows as stored, not as an i18n key. */
+function methodLabel(method, t) {
+  const key = `users.method_${method}`;
+  const label = t(key);
+  return label === key ? method : label;
+}
+
 function UserForm({ user, onUpdated, roles, groups }) {
   const { t, locale } = useLocale();
   const { message } = App.useApp();
@@ -105,7 +112,7 @@ function UserForm({ user, onUpdated, roles, groups }) {
           </div>
           <div className="profile-hero__meta">
             {t('users.lastLogin')}: {user.lastLoginAt ? formatDateTime(user.lastLoginAt, locale) : t('common.never')}
-            {user.lastLoginMethod ? ` · ${t(`users.method_${user.lastLoginMethod}`)}` : ''}
+            {user.lastLoginMethod ? ` · ${methodLabel(user.lastLoginMethod, t)}` : ''}
             {' · '}
             {t('users.created')}: {formatDateTime(user.createdAt, locale, { dateStyle: 'medium' })}
           </div>

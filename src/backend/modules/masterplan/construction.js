@@ -222,15 +222,27 @@ async function reportTargets(client, projectId, nodeIds) {
   return { selected: rows, targets: [...targets.values()] };
 }
 
-/** Applies a published report: the stage percent of every target of that stage set, readiness, "last report". */
+/**
+ * Applies a published report: the stage percent of every target of that stage
+ * set, readiness, "last report". A report dated before one already published
+ * for the same object and stage (published late, or backdated) does not move
+ * the percent back: the newer fact stands.
+ */
 async function applyReport(client, ctx, report, targets) {
   const { rows } = report.stage_id ? await client.query(`SELECT * FROM mp_stages WHERE id = $1`, [report.stage_id]) : { rows: [] };
   const stage = rows[0];
   const day = dayString(report.fact_date);
   for (const target of targets) {
     if (stage && report.percent !== null && target.stage_set === stage.set_key) {
-      await writeStage(client, ctx, target.id, stage.id, { percent: Number(report.percent) }, day);
-      await recomputeReadiness(client, target.id);
+      const { rows: newer } = await client.query(
+        `SELECT 1 FROM mp_reports r JOIN mp_report_nodes rn ON rn.report_id = r.id
+         WHERE rn.node_id = $1 AND r.stage_id = $2 AND r.status = 'published' AND r.percent IS NOT NULL AND r.id <> $3 AND r.fact_date > $4 LIMIT 1`,
+        [target.id, stage.id, report.id, day]
+      );
+      if (!newer.length) {
+        await writeStage(client, ctx, target.id, stage.id, { percent: Number(report.percent) }, day);
+        await recomputeReadiness(client, target.id);
+      }
     }
     await client.query(`UPDATE mp_nodes SET last_report_at = NOW(), stale_notified_at = NULL WHERE id = $1`, [target.id]);
   }
@@ -262,7 +274,9 @@ export async function createReport(ctx, input = {}) {
   }
   const out = await withTransaction(async (client) => {
     const { selected, targets } = await reportTargets(client, project.id, nodeIds);
-    for (const node of selected) {
+    // Every chosen object and every object whose stages the report moves (the
+    // building above a chosen apartment, the objects inside a chosen level).
+    for (const node of [...selected, ...targets]) {
       if (!has(actCaps(ctx, { project_id: project.id, path: node.path }), 'build.edit')) throw forbidden(`${node.code || node.name} is outside your zone`, 'OUT_OF_ZONE');
     }
     const moderator = selected.every((node) => has(actCaps(ctx, { project_id: project.id, path: node.path }), 'build.moderate'));
@@ -297,7 +311,8 @@ async function afterReport(ctx, project, report, selected, stage) {
   const actor = await userName(report.author_id);
   if (report.status === 'review') {
     const heads = new Set();
-    for (const node of selected) for (const id of await usersWithRole(['construction_head'], { project_id: project.id, path: node.path })) heads.add(id);
+    const cache = {};
+    for (const node of selected) for (const id of await usersWithRole(['construction_head'], { project_id: project.id, path: node.path }, cache)) heads.add(id);
     await notify({ userIds: [...heads], kind: 'masterplan.review', module: 'masterplan', link: `/app/masterplan/p/${project.id}/construction?tab=review`, actorId: ctx.userId, render: mpMessage('reportReview', { objects: objectsLabel(selected), project: project.name, actor }) });
   }
   if (report.status === 'published' && report.visibility !== 'internal') await notifyReportPublished(project, report, selected, stage, ctx.userId, actor);
@@ -440,10 +455,13 @@ export async function reviewReport(ctx, id, input = {}) {
   if (!publish && input.action !== 'reject') throw httpError(400, 'Unknown action', 'INVALID_FIELD');
   const note = text(input.note, 500) || null;
   const touched = await withTransaction(async (client) => {
+    // Only from a state that can still be reviewed: two moderators at once publish (and apply) it once.
     const { rows } = await client.query(
-      `UPDATE mp_reports SET status = $2::text, reviewer_id = $3, reviewed_at = NOW(), review_note = $4, published_at = CASE WHEN $2::text = 'published' THEN NOW() ELSE published_at END, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      `UPDATE mp_reports SET status = $2::text, reviewer_id = $3, reviewed_at = NOW(), review_note = $4, published_at = CASE WHEN $2::text = 'published' THEN NOW() ELSE published_at END, updated_at = NOW()
+       WHERE id = $1 AND status IN ('review', 'draft', 'rejected') RETURNING *`,
       [report.id, publish ? 'published' : 'rejected', ctx.userId, note]
     );
+    if (!rows.length) throw httpError(409, 'The report is already published', 'ALREADY_PUBLISHED');
     if (!publish) return [];
     const { targets } = await reportTargets(client, report.project_id, nodes.map((node) => node.id));
     return applyReport(client, ctx, rows[0], targets);
@@ -560,8 +578,9 @@ export async function runDailyChecks() {
       staleByProject.get(row.project_id).push(row);
     }
   }
+  const cache = {};
   for (const [projectId, list] of staleByProject) {
-    const heads = await usersWithRole(['construction_head'], { project_id: projectId, path: [] });
+    const heads = await usersWithRole(['construction_head'], { project_id: projectId, path: [] }, cache);
     const recipients = new Map();
     for (const id of heads) recipients.set(id, list);
     for (const row of list) if (row.build_user_id) recipients.set(row.build_user_id, [...new Set([...(recipients.get(row.build_user_id) || []), row])]);
@@ -577,13 +596,27 @@ export async function runDailyChecks() {
     await query(`UPDATE mp_nodes SET stale_notified_at = NOW() WHERE id = ANY($1::int[])`, [list.map((row) => row.id)]);
   }
   // Delays: notify when crossing the threshold, then again every further week of delay.
+  const { rows: allStages } = rows.length
+    ? await query(`SELECT ns.node_id, ns.plan_end, ns.fact_end, ns.percent, s.name FROM mp_node_stages ns JOIN mp_stages s ON s.id = ns.stage_id WHERE ns.node_id = ANY($1::int[]) ORDER BY s.sort, s.id`, [rows.map((row) => row.id)])
+    : { rows: [] };
+  const stagesOf = new Map();
+  for (const item of allStages) {
+    if (!stagesOf.has(item.node_id)) stagesOf.set(item.node_id, []);
+    stagesOf.get(item.node_id).push(item);
+  }
+  const caughtUp = [];
   for (const row of rows) {
-    const { rows: stages } = await query(`SELECT ns.plan_end, ns.fact_end, ns.percent, s.name FROM mp_node_stages ns JOIN mp_stages s ON s.id = ns.stage_id WHERE ns.node_id = $1`, [row.id]);
+    const stages = stagesOf.get(row.id) || [];
     const schedule = scheduleState(stages.map((item) => ({ planEnd: dayString(item.plan_end), factEnd: dayString(item.fact_end), percent: Number(item.percent) })), day);
-    if (schedule.state !== 'behind' || schedule.delayDays <= settings.delayAlertDays) continue;
+    // Back on schedule: the next delay is reported from the threshold again.
+    if (schedule.state !== 'behind') {
+      if (row.delay_notified_days !== null) caughtUp.push(row.id);
+      continue;
+    }
+    if (schedule.delayDays <= settings.delayAlertDays) continue;
     if (row.delay_notified_days && schedule.delayDays < row.delay_notified_days + 7) continue;
     const late = stages.filter((item) => Number(item.percent) < 100 && item.plan_end && dayString(item.plan_end) < day).map((item) => item.name)[0];
-    const users = await usersWithRole(['construction_head', 'executive'], row);
+    const users = await usersWithRole(['construction_head', 'executive'], row, cache);
     await notify({
       userIds: users,
       kind: 'masterplan.construction',
@@ -593,6 +626,7 @@ export async function runDailyChecks() {
     }).catch(() => {});
     await query(`UPDATE mp_nodes SET delay_notified_days = $2 WHERE id = $1`, [row.id, schedule.delayDays]);
   }
+  if (caughtUp.length) await query(`UPDATE mp_nodes SET delay_notified_days = NULL WHERE id = ANY($1::int[])`, [caughtUp]);
 }
 
 export { unitsChanged };

@@ -174,6 +174,7 @@ export const crmEn = {
       col: { overdue: 'Overdue', today: 'Today', week: 'This week', nextWeek: 'Next week', later: 'Later', none: 'No activities' },
       empty: { overdue: 'Nothing overdue 🎉', today: 'Nothing for today', week: 'Nothing this week', nextWeek: 'Nothing next week', later: 'Nothing later', none: 'Every deal has a next step' },
       cannotDrop: 'Drop a deal on a date column: the nearest activity moves there.',
+      weekOver: 'Today is the last day of the week: drop the deal on “Today” or “Next week”.',
       moved: 'Activity moved to {when}',
     },
     list: {
@@ -566,6 +567,7 @@ export const crmRu = {
       col: { overdue: 'Просрочены', today: 'На сегодня', week: 'На этой неделе', nextWeek: 'На следующей неделе', later: 'Позже', none: 'Без дел' },
       empty: { overdue: 'Просроченных нет 🎉', today: 'На сегодня ничего', week: 'На этой неделе ничего', nextWeek: 'На следующей неделе ничего', later: 'Дальше ничего', none: 'У всех сделок есть следующий шаг' },
       cannotDrop: 'Перетаскивайте сделку в колонку с датой: туда переедет её ближайшее дело.',
+      weekOver: 'Сегодня последний день недели: перетащите сделку в «На сегодня» или «На следующей неделе».',
       moved: 'Дело перенесено на {when}',
     },
     list: {

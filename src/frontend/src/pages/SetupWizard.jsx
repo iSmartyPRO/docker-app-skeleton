@@ -248,7 +248,7 @@ export default function SetupWizard() {
           )}
 
           {current === 1 && (
-            <Form form={adminForm} layout="vertical" initialValues={{ demoUsers: true }}>
+            <Form form={adminForm} layout="vertical" initialValues={{ demoUsers: false }}>
               <Form.Item
                 name="username"
                 label={t('users.username')}

@@ -30,7 +30,8 @@ Each project has a short **key** (2–10 Latin letters or digits). The key prefi
 
   The creator always gets *manage*.
 - **Task participants** have their own rights regardless of the project level (see [Roles](#roles)).
-- The `tasks.admin` permission gives *manage* on every project.
+- The `tasks.admin` permission gives *manage* on every project. Other people's tasks without a project stay private to their participants, administrators included.
+- Moving a task to another project (or out of one) needs *edit* on both projects; a participant role alone is not enough to take a task out of its project.
 - *Settings → Modules → Tasks* decides who may create projects: everyone, or administrators only.
 - A starter project **GEN** ("General" / «Общие задачи») is created once, with *everyone: edit*.
 
@@ -54,6 +55,8 @@ Editing the workflow (*⋯ → Workflow*) lets you:
 ## Tasks without a project
 
 A task does not need a project. Such tasks live in a hidden personal project with the key **TSK** («Без проекта» / "No project"): they get numbers like `TSK-12`, never appear in the project list, and are visible only to their participants. Choosing a project later moves the task and gives it a new number in that project; the old link still finds it through the chat history.
+
+The task chat is closed while the module is off and to API tokens without the `tasks` scope (writing needs `tasks:write`). Deleting a task or a project deletes the task chats and the uploaded files nothing else uses (task files and files sent in those chats). The project board loads at most 2,000 tasks and says so when there are more.
 
 ## Roles
 
@@ -110,7 +113,7 @@ An existing task opens in the same panel:
 - the status, the creation date and the ID; an overdue deadline is highlighted with how late it is;
 - the footer: **Start**, **Complete** (or *Return to work*), **⋯** (defer, delegate, delete), **Rate** for the originator after completion, and the number of views.
 
-Deferred tasks drop out of reminders and are shown in their own group in My tasks.
+Deferred tasks drop out of reminders (custom reminders that come due meanwhile are dropped, as in archived projects) and are shown in their own group in My tasks.
 
 ## Task chat
 
@@ -119,6 +122,11 @@ Each task has a [chat](chat.md) that replaces comments and history. It holds the
 ## Templates and recurring tasks
 
 Both are stored the same way, as a saved form (`task_templates`). A template is filled in by hand; a recurring task is a template with a schedule, and the `tasks:recurring` job creates a new task from it on each occurrence.
+
+- A recurring task made from the form creates its first copy right away; that copy stands for the first slot of the schedule. Editing the template later continues after that slot (`last_slot`), so no slot is made twice.
+- Monthly and yearly schedules keep the start's day: the 31st falls on the last day of shorter months and returns to the 31st afterwards; 29 February falls on the 28th in common years.
+- Reminders at a set time and planned dates in the template were written for one slot (`anchor_at`): each copy gets them moved by as much as its slot is later. Reminders "before the deadline" are kept as they are. Templates saved before this simply leave out reminders and plans that are already in the past.
+- The project in a template must be one the person (and their API token) may add tasks to.
 
 ## My tasks
 

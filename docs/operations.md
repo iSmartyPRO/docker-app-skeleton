@@ -86,10 +86,11 @@ Replace `my-product-app` with your compose project's image name (`docker compose
 
 ## Backup
 
-Minimum:
+Minimum — all three, taken together:
 
-1. PostgreSQL dump of `POSTGRES_DB` (users, settings, IP rules, events).
-2. Directory `data/uploads/` (avatars, logos) from the compose volume.
+1. PostgreSQL dump of `POSTGRES_DB` (users, settings, IP rules, events, module data).
+2. Directory `data/uploads/` from the compose volume: avatars and logos **and the files of the modules** (Files, chat attachments, tasks, knowledge base, CRM/companies, masterplan media). The database only references these files; a dump without them restores broken links.
+3. The `.env` file. It holds `JWT_SECRET` (sessions) and `ENCRYPTION_KEY` (when it is not set, the key is derived from `JWT_SECRET`), which encrypts the integration secrets stored in the database (SMB/Drive passwords, API keys, bot tokens). A dump restored with a different key cannot decrypt them — every integration has to be configured again. Keep the `.env` copy as secret as the database itself (not next to it in plain view).
 
 Restore: recreate the role/database, `psql` the dump, copy uploads back, start the container with the same `.env`.
 
@@ -151,9 +152,28 @@ Override path: `make postgres-up POSTGRES_DIR=/path/to/postgres`.
 
 Every `make rebuild` leaves Docker build-cache layers behind (a few GB per build). Left alone they fill the disk; PostgreSQL then cannot start (`could not write lock file "postmaster.pid": No space left on device`) and the portal answers `Database is not connected` — the sign-in page falls back to the skeleton defaults. `make rebuild` now ends with `make prune-build`, which trims the build cache to 4 GB and removes untagged images. Check with `docker system df` and `df -h /`; `docker builder prune -a -f` frees all build cache at once (the next build is just slower).
 
+## Startup and shutdown
+
+- If PostgreSQL is not reachable when the container starts, the backend keeps retrying the schema bootstrap in the background (5 s, doubling up to 5 min) until it succeeds. `/health` answers as before (process alive); `/ready` answers `503` with `"schema": false` until the bootstrap has run (it also tries the bootstrap itself once the database is back).
+- On `SIGTERM`/`SIGINT` the backend ends the live streams (chat), closes idle connections, gives requests in flight 3 s, closes the database pool and exits `0` (forced exit after 10 s).
+- Notifications have an index on `created_at`, so the retention job does not scan the whole table.
+
+## Logs
+
+nginx writes its access and error logs to the container output (`docker logs portal`), next to the app's own lines; health checks (`/health`, `/ready`) and static bundles (`/assets/`) are not logged. `docker-compose.yml` caps the log at 5 files × 10 MB (`logging.options`), so it can no longer fill the disk. Before this, nginx wrote to `/var/log/nginx/*.log` inside the container, which grew until the container was recreated.
+
+## Known hardening items
+
+- **The container runs as root.** nginx (port 80) and Node both run as `root` inside the container. Not changed yet on purpose: the files in `data/uploads/` on the host are owned by root, and the Drive module's SMB gateway (Python, `smbprotocol`) runs in the same container, so switching the user blindly could break uploads or the gateway. Plan:
+  1. Create a fixed non-root user in the image (e.g. `app`, uid/gid 10001); `chown -R 10001:10001 data/uploads` on the host once, during a maintenance window, after a backup.
+  2. Let nginx listen on an unprivileged port (8080, compose maps `${DOCKER_PORT}:8080`) and keep its pid/temp paths in writable dirs (`/run/nginx`, `/var/lib/nginx/tmp` owned by the user); or keep nginx as the only root process and drop Node and the SMB gateway to the user (`su-exec app node server.js` in `start.sh`).
+  3. Check on a test copy: avatar/logo upload, Files and Drive upload/download, DWG preview (`dwg2dxf`), the Setup Wizard writing `.env` (the mounted file must be writable by the user), then roll out with the usual tag/rollback routine.
+- **Third-party downloads are pinned.** The LibreDWG source tarball in the `Dockerfile` is checked against a SHA-256 (`LIBREDWG_SHA256`); when upgrading LibreDWG, download the new tarball once, run `sha256sum` and update both the URL and the checksum.
+
 ## Outages, error screens and incident ids
 
-- **Technical works screen.** When the server restarts (deploys), the database is unavailable or the connection is lost, the app shows "Портал обновляется / Технические работы / Нет связи" instead of falling back to default settings. It checks `/api/status` every 5 s and disappears by itself; the page underneath keeps what was typed. Triggers: nginx answers `503 {"code":"MAINTENANCE"}` while the app server is down (`error_page 502 504`), the API answers `503 {"code":"DB_UNAVAILABLE"}`, or two network failures within 20 s.
+- **Technical works screen.** When the server restarts (deploys), the database is unavailable or the connection is lost, the app shows "Портал обновляется / Технические работы / Нет связи" instead of falling back to default settings. It checks `/api/status` every 5 s and disappears by itself; the page underneath keeps what was typed. Triggers: nginx answers `503 {"code":"MAINTENANCE"}` while the app server is down (`error_page 502 504`), the API answers `503 {"code":"DB_UNAVAILABLE"}`, a bare gateway error without a JSON code (`502`/`504`, or a non-JSON `503` from an outer proxy), or two network failures within 20 s. A module's own error (a registry answering 502, the Drive gateway down, an API switched off — all with their own `code`) and a timeout of an ordinary request do not count: the page shows them itself. Timeouts count only for the requests the app cannot start without (`/status`, `/settings`, `/auth/me`). During an outage the app keeps the person signed in and stays on the same address: it does not fall back to the sign-in page or to `/apps`, and asks the server again once it is back.
+- **Updates and uploads.** A new build is applied automatically (on the next page change, or when the app comes back after 10 minutes away) only while nothing reload-sensitive runs. Requests with upload progress are marked busy automatically (`lib/busy.js`); other long jobs can call `markBusy(key)` / the returned unmark function. While busy the browser also asks before the tab is closed.
 - **Ids a person can send.** Every request has an id (`X-Request-Id`, `R-XXXXXXXX`); each browser tab has a session id (`X-Client-Session`, `S-XXXX-XXXX`). Error screens show the code, the request id (when known), the session id and the time, with "Copy details". The app-crash screen also reports the crash to the server (`POST /api/client-errors`) and shows its incident id.
 - **Finding an incident.** Admin → Activity → "Failures and errors" lists server errors (5xx) and browser crashes since the last restart (in memory, newest first, 500 kept) — search by code, request id or session id. The same lines are in the container log: `docker logs portal 2>&1 | grep R-1A2B3C4D` (or the session id).
 - **Offline page.** With no network or the whole container down, the installed app shows "Портал временно недоступен" and reloads by itself once `/version.json` answers.

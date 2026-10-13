@@ -1,3 +1,4 @@
+import { X509Certificate } from 'crypto';
 import { unlink } from 'fs/promises';
 import { basename, join } from 'path';
 import { query } from '../config/database.js';
@@ -94,6 +95,8 @@ export const DEFAULTS = {
       bindDn: '',
       bindPassword: '',
       baseDn: '',
+      // Optional PEM bundle of the CA that issued the domain controller's certificate (LDAPS).
+      caCert: '',
     },
   }),
   // Sign-in methods. Each one beyond the password needs its integration configured.
@@ -301,6 +304,19 @@ export function parseSettings(raw) {
 }
 
 /**
+ * Whether WhatsApp sign-in codes can be delivered with these options — the
+ * same choice services/integrations.js sendWhatsapp makes: the chosen
+ * provider (or, unset, whichever is configured), then the other one only
+ * when fallback is on.
+ */
+export function whatsappSignInReady(ready, options = {}) {
+  const providers = { gateway: Boolean(ready.whatsappGateway), wazzup: Boolean(ready.whatsappWazzup) };
+  const primary = options?.provider === 'wazzup' || options?.provider === 'gateway' ? options.provider : providers.gateway ? 'gateway' : 'wazzup';
+  const backup = primary === 'gateway' ? 'wazzup' : 'gateway';
+  return providers[primary] || Boolean(options?.fallback && providers[backup]);
+}
+
+/**
  * Whether each sign-in method can actually work right now: enabled in
  * Settings → Sign-in methods AND its integration is enabled and configured.
  */
@@ -321,8 +337,11 @@ export function authAvailability(parsed) {
   };
   // Email goes through SMTP or, when connected, through Gmail.
   ready.emailCode = ready.smtp || ready.gmail;
+  // Some WhatsApp provider is configured (notifications; lets the method be switched on).
   ready.whatsappCode = ready.whatsappGateway || ready.whatsappWazzup;
-  ready.magicLink = ready.emailCode || ready.whatsappCode || ready.telegramCode || ready.mattermostCode;
+  // Sign-in codes go through the provider chosen in Sign-in methods (the other one only with fallback on).
+  ready.whatsappSignIn = whatsappSignInReady(ready, auth?.whatsappCode);
+  ready.magicLink = ready.emailCode || ready.whatsappSignIn || ready.telegramCode || ready.mattermostCode;
   return {
     ready,
     password: auth.password?.enabled !== false,
@@ -330,7 +349,7 @@ export function authAvailability(parsed) {
     telegram: Boolean(auth.telegram?.enabled && ready.telegram),
     google: Boolean(auth.google?.enabled && ready.google),
     emailCode: Boolean(auth.emailCode?.enabled && ready.emailCode),
-    whatsappCode: Boolean(auth.whatsappCode?.enabled && ready.whatsappCode),
+    whatsappCode: Boolean(auth.whatsappCode?.enabled && ready.whatsappSignIn),
     telegramCode: Boolean(auth.telegramCode?.enabled && ready.telegramCode),
     mattermostCode: Boolean(auth.mattermostCode?.enabled && ready.mattermostCode),
     magicLink: Boolean(auth.magicLink?.enabled),
@@ -374,6 +393,21 @@ export function sanitizeAuth(current, incoming, readiness) {
     if (turnedOn && !readiness[method]) {
       const error = new Error(`Configure and enable the ${AUTH_INTEGRATION[method]} integration first`);
       error.statusCode = 400;
+      throw error;
+    }
+  }
+  // On, but the chosen provider is not configured and fallback is off: codes would never arrive.
+  if (next.whatsappCode?.enabled && readiness.whatsappCode && !whatsappSignInReady(readiness, next.whatsappCode)) {
+    const changed =
+      !current.whatsappCode?.enabled ||
+      current.whatsappCode?.provider !== next.whatsappCode.provider ||
+      Boolean(current.whatsappCode?.fallback) !== Boolean(next.whatsappCode.fallback);
+    if (changed) {
+      const error = new Error(
+        `WhatsApp codes are set to go through ${next.whatsappCode.provider === 'wazzup' ? 'Wazzup' : 'WhatsApp Gateway'}, which is not configured. Choose the configured provider or turn on fallback.`
+      );
+      error.statusCode = 400;
+      error.code = 'WHATSAPP_PROVIDER_NOT_READY';
       throw error;
     }
   }
@@ -590,6 +624,32 @@ export function mergeKeepSecrets(current, incoming) {
   return next;
 }
 
+/**
+ * Optional CA certificate(s) for LDAPS, PEM. Empty clears it; anything that
+ * is not one or more parseable certificates is refused.
+ */
+export function sanitizeCaCert(value) {
+  const text = String(value ?? '').replace(/\r\n/g, '\n').trim();
+  if (!text) return '';
+  const blocks = text.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) || [];
+  const invalid = () => {
+    const error = new Error('The CA certificate must be in PEM format (-----BEGIN CERTIFICATE----- … -----END CERTIFICATE-----)');
+    error.statusCode = 400;
+    error.code = 'CA_CERT_INVALID';
+    error.expose = true;
+    return error;
+  };
+  if (!blocks.length || text.length > 64 * 1024) throw invalid();
+  for (const block of blocks) {
+    try {
+      new X509Certificate(block);
+    } catch {
+      throw invalid();
+    }
+  }
+  return blocks.join('\n');
+}
+
 /** Keeps only `{ transport: channelId }` string pairs; drops the pre-release `channelId` field. */
 export function sanitizeWazzup(group = {}) {
   const next = { ...group };
@@ -666,6 +726,7 @@ export async function updateAdminSettings(patch) {
   if (patch.integrations) {
     const merged = mergeKeepSecrets(parsed.integrations, patch.integrations);
     merged.wazzup = sanitizeWazzup(merged.wazzup);
+    if (merged.activeDirectory) merged.activeDirectory.caCert = sanitizeCaCert(merged.activeDirectory.caCert);
     await setSetting('integrations', JSON.stringify(merged));
   }
   if (patch.modules) {

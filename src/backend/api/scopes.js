@@ -35,7 +35,9 @@ const BLOCKED = [
   /^\/pwa\/push/,
   /^\/account\/(password|sessions|telegram|google|api)(\/|$)/,
   /^\/admin\/api(\/|$)/,
-  /^\/admin\/users\/\d+\/revoke-sessions$/,
+  /^\/admin\/users\/[^/]+\/revoke-sessions$/,
+  // Answers with a session cookie for someone else ("sign in as").
+  /^\/admin\/users\/[^/]+\/impersonate$/,
 ];
 
 /** Open to any valid token: bootstrap reads and the developer reference. */

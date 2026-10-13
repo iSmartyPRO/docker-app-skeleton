@@ -2,7 +2,8 @@ import { hasPermission } from '../../services/permissions.js';
 
 /*
  * Widget catalog (server side): which module a widget needs and which
- * permission, plus the built-in starting layout. Rendering, settings forms
+ * permission (`area`: the API token scope it needs when not the module's),
+ * plus the built-in starting layout. Rendering, settings forms
  * and sizes for the UI live in the frontend catalog (modules/dashboard/catalog.js).
  */
 
@@ -11,7 +12,7 @@ export const WIDGETS = {
   quickActions: {},
   clock: {},
   note: {},
-  notifications: {},
+  notifications: { area: 'notifications' },
   myTasks: { module: 'tasks' },
   taskStats: { module: 'tasks' },
   taskTrend: { module: 'tasks' },
@@ -23,7 +24,7 @@ export const WIDGETS = {
   kbRecent: { module: 'kb' },
   links: { module: 'resources' },
   companies: { module: 'companies' },
-  people: { permission: 'users.view' },
+  people: { permission: 'users.view', area: 'admin.users' },
 };
 
 /** The starting dashboard; widgets of switched-off modules drop out, the grid closes the gaps. */

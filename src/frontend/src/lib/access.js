@@ -11,7 +11,8 @@ export function canAny(user, permissions = []) {
   return permissions.some((permission) => can(user, permission));
 }
 
-export const SETTINGS_VIEW = ['settings.view', 'settings.general', 'settings.security', 'settings.auth', 'settings.integrations', 'settings.system'];
+/** Any of these opens the settings console (each section checks its own). */
+export const SETTINGS_VIEW = ['settings.view', 'settings.general', 'settings.security', 'settings.auth', 'settings.integrations', 'settings.modules', 'settings.system'];
 
 /** Built-in role names are translated; custom roles show their own name. */
 export function roleLabel(role, t) {

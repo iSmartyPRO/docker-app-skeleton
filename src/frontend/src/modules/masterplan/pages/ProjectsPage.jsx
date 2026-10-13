@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { App, Button, Form, Input, Modal, Select } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -16,6 +16,9 @@ export default function ProjectsPage() {
   const { message } = App.useApp();
   const navigate = useNavigate();
   const { projects, isAdmin, settings, meta, refresh } = useMp();
+  // «Подобрать объект» from a CRM deal: keep the picking mode when a project is chosen here.
+  const dealParam = new URLSearchParams(useLocation().search).get('deal');
+  const pickSearch = dealParam ? `?deal=${encodeURIComponent(dealParam)}` : '';
   const [creating, setCreating] = useState(false);
   const [form] = Form.useForm();
   const create = async () => {
@@ -50,7 +53,7 @@ export default function ProjectsPage() {
           {projects.map((project) => {
             const total = Object.values(project.counts || {}).reduce((sum, n) => sum + n, 0);
             return (
-              <Link key={project.id} to={`/app/masterplan/p/${project.id}/plan`} className="mp-project">
+              <Link key={project.id} to={`/app/masterplan/p/${project.id}/plan${pickSearch}`} className="mp-project">
                 <div className="mp-project__head">
                   <strong>{project.name}</strong>
                   {project.code && <span className="mod-pill">{project.code}</span>}

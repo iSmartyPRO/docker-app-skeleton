@@ -378,12 +378,13 @@ export async function moveNode(ctx, id, input) {
 export async function deleteNode(ctx, id) {
   const node = await requireNode(ctx, id);
   requireConfigure(ctx, node.project_id);
-  const { rows } = await query(
-    `SELECT COUNT(*)::int AS n FROM mp_units u JOIN mp_nodes n ON n.id = u.node_id WHERE n.path @> ARRAY[$1]::int[] AND u.status NOT IN ('free', 'not_for_sale')`,
-    [node.id]
-  );
-  if (rows[0].n) throw httpError(409, 'Units here are held for clients', 'NODE_HAS_SALES');
   await withTransaction(async (client) => {
+    // Checked under the units' locks: a reserve made a moment ago is not deleted with the subtree.
+    const { rows } = await client.query(
+      `SELECT u.status FROM mp_units u JOIN mp_nodes n ON n.id = u.node_id WHERE n.path @> ARRAY[$1]::int[] FOR UPDATE OF u`,
+      [node.id]
+    );
+    if (rows.some((row) => !['free', 'not_for_sale'].includes(row.status))) throw httpError(409, 'Units here are held for clients', 'NODE_HAS_SALES');
     await logEvent(client, { projectId: node.project_id, nodeId: null, kind: 'deleted', data: { id: node.id, code: node.code, name: node.name }, authorId: ctx.userId });
     await client.query(`DELETE FROM mp_nodes WHERE id = $1`, [node.id]);
   });
@@ -503,13 +504,25 @@ export async function nodeEvents(ctx, id, { before } = {}) {
   const items = rows.slice(0, 50).map((row) => {
     const data = { ...(row.data || {}) };
     if (!has(caps, 'price.view') && row.kind === 'price') return null;
-    if (!has(caps, 'status.view') && ['status', 'booking', 'extend', 'expired'].includes(row.kind)) return null;
+    if (!has(caps, 'status.view') && ['status', 'booking', 'extend', 'expired', 'manager', 'crm_stage'].includes(row.kind)) return null;
+    // Who holds a unit and until when: booking.view (as on the unit itself).
+    if (!has(caps, 'booking.view') && row.kind === 'manager') return null;
     const ownBooking = data.manager?.id && data.manager.id === ctx.userId;
+    if (!has(caps, 'booking.view')) {
+      delete data.manager;
+      delete data.endsAt;
+    }
     if (!(has(caps, 'clients.all') || (has(caps, 'clients.own') && ownBooking))) {
       delete data.client;
       delete data.deal;
+      delete data.dealId;
     }
-    if (!(has(caps, 'amounts.all') || (has(caps, 'amounts.own') && ownBooking))) delete data.amount;
+    if (!(has(caps, 'amounts.all') || (has(caps, 'amounts.own') && ownBooking))) {
+      delete data.amount;
+      delete data.contract;
+      delete data.actDate;
+      delete data.cleared;
+    }
     if (Array.isArray(data.changes) && !has(caps, 'minprice.view')) data.changes = data.changes.filter((change) => change.field !== 'min_price');
     return { id: row.id, kind: row.kind, data, author: row.author_id ? { id: row.author_id, name: row.author_name } : null, createdAt: iso(row.created_at) };
   });

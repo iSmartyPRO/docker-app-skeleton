@@ -32,7 +32,16 @@ export function contextFromRequest(req) {
     groupIds: new Set(access.groupIds || []),
     roleIds: new Set((access.roles || []).map((role) => role.id)),
     isAdmin: hasPermission(access.permissions || [], 'kb.admin'),
+    // An API token's resource limits travel along: the KB reaches Files
+    // (uploads into My files, files picked from Files, file materials).
+    limits: req.apiLimits || null,
   };
+}
+
+/** A token narrowed to some Files spaces reaches only files inside them through the KB too. */
+export function fileWithinLimits(ctx, node) {
+  const narrowed = ctx?.limits?.fs_space_acl;
+  return !narrowed || Boolean(node?.space_id && narrowed.has(Number(node.space_id)));
 }
 
 function matches(entry, ctx) {

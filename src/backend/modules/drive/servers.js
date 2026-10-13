@@ -75,7 +75,19 @@ export async function adminOverview() {
   };
 }
 
-function serverInput(input, current = {}) {
+/** True when an edit points an existing server at another machine (host or port). */
+export function endpointChanged(current, host, port) {
+  if (!current?.id) return false;
+  return String(current.host || '').toLowerCase() !== String(host || '').toLowerCase() || Number(current.port || 445) !== Number(port || 445);
+}
+
+/**
+ * Validated server fields. Saved secrets belong to the machine they were
+ * entered for: when the host or port changes, the stored service password is
+ * not carried over (the administrator types it again), so it is never sent to
+ * a different machine.
+ */
+export function serverInput(input, current = {}, { requireSecret = true } = {}) {
   const name = clean(input.name ?? current.name, 120);
   const host = String(input.host ?? current.host ?? '').trim().replace(/^\\+|\\+$/g, '').slice(0, 255);
   if (!name) throw httpError(400, 'Enter a name', 'NAME_REQUIRED');
@@ -85,9 +97,10 @@ function serverInput(input, current = {}) {
   const auth = ['user', 'service'].includes(input.auth) ? input.auth : current.auth || 'user';
   const serviceUser = clean(input.serviceUser ?? current.service_user ?? '', 255) || null;
   if (auth === 'service' && !serviceUser) throw httpError(400, 'Enter the service account', 'SERVICE_REQUIRED');
-  let secret = current.service_secret || null;
+  const moved = endpointChanged(current, host, port);
+  let secret = moved ? null : current.service_secret || null;
   if (typeof input.servicePassword === 'string' && input.servicePassword) secret = seal(input.servicePassword);
-  if (auth === 'service' && !secret) throw httpError(400, 'Enter the service account password', 'SERVICE_REQUIRED');
+  if (auth === 'service' && !secret && requireSecret) throw httpError(400, 'Enter the service account password', 'SERVICE_REQUIRED');
   return {
     name,
     host,
@@ -98,6 +111,7 @@ function serverInput(input, current = {}) {
     serviceUser,
     secret: auth === 'service' ? secret : null,
     encrypt: typeof input.encrypt === 'boolean' ? input.encrypt : current.encrypt ?? false,
+    moved,
   };
 }
 
@@ -106,11 +120,16 @@ export async function saveServer(input = {}, id = null) {
   const value = serverInput(input, current);
   const params = [value.name, value.host, value.port, value.domain, value.auth, value.useLogin, value.serviceUser, value.secret, value.encrypt];
   const { rows } = id
-    ? await query(
-        `UPDATE drive_servers SET name = $1, host = $2, port = $3, domain = $4, auth = $5, use_login = $6,
-           service_user = $7, service_secret = $8, encrypt = $9, updated_at = NOW() WHERE id = $10 RETURNING *`,
-        [...params, current.id]
-      )
+    ? await withTransaction(async (client) => {
+        const result = await client.query(
+          `UPDATE drive_servers SET name = $1, host = $2, port = $3, domain = $4, auth = $5, use_login = $6,
+             service_user = $7, service_secret = $8, encrypt = $9, updated_at = NOW() WHERE id = $10 RETURNING *`,
+          [...params, current.id]
+        );
+        // Accounts people saved for this server ("Connect as…") were meant for the old machine.
+        if (value.moved) await client.query(`DELETE FROM drive_credentials WHERE server_id = $1`, [current.id]);
+        return result;
+      })
     : await query(
         `INSERT INTO drive_servers (name, host, port, domain, auth, use_login, service_user, service_secret, encrypt, sort)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, (SELECT COALESCE(MAX(sort), 0) + 1 FROM drive_servers)) RETURNING *`,
@@ -189,10 +208,13 @@ export async function reorderShares(ids = []) {
  */
 export async function testServer(adminId, input = {}) {
   const base = input.id ? await loadServer(input.id) : {};
-  const draft = serverInput({ ...input, name: input.name || base.name || 'test' }, base);
-  const server = { ...base, ...draft, id: base.id || 0, use_login: draft.useLogin, service_user: draft.serviceUser, service_secret: draft.secret };
+  const typed = Boolean(input.username && input.password);
+  const draft = serverInput({ ...input, name: input.name || base.name || 'test' }, base, { requireSecret: !typed });
+  // Another host or port is tested like a new server: no secrets saved for the
+  // old one (service password, the administrator's "Connect as…") go there.
+  const server = { ...base, ...draft, id: draft.moved ? 0 : base.id || 0, use_login: draft.useLogin, service_user: draft.serviceUser, service_secret: draft.secret };
   let cred;
-  if (input.username && input.password) {
+  if (typed) {
     cred = { username: String(input.username), password: String(input.password), domain: draft.domain || (await directoryDomain()) };
   } else {
     cred = (await credentialFor(adminId, server)).cred;

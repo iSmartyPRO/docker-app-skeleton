@@ -7,6 +7,12 @@ export function errorMessage(err, fallback = 'Request failed') {
       ? `Слишком много запросов подряд. Повторите через ${minutes} мин.`
       : `Too many requests in a row. Try again in ${minutes} min.`;
   }
+  // nginx answers an over-limit upload with an HTML 413 page before the app sees it.
+  if (err?.response?.status === 413 && !data?.code) {
+    return document.documentElement.lang === 'ru'
+      ? 'Файл слишком большой для загрузки. Выберите файл поменьше.'
+      : 'The file is too large to upload. Choose a smaller file.';
+  }
   if (data?.code === 'CONTACT_TAKEN') return contactTaken(data.info || {});
   const known = CODE_MESSAGES[data?.code];
   if (known) return document.documentElement.lang === 'ru' ? known.ru : known.en;
@@ -59,6 +65,8 @@ const CODE_MESSAGES = {
   SUPERADMIN_ONLY: { ru: 'Это может только суперадминистратор.', en: 'Only a superadministrator can do this.' },
   IMPERSONATION_LIMIT: { ru: 'Недоступно, пока вы вошли как другой пользователь.', en: 'Not available while signed in as another user.' },
   ALREADY_IMPERSONATING: { ru: 'Сначала вернитесь в свою учётную запись.', en: 'Return to your own account first.' },
+  LOCKED: { ru: 'Слишком много неудачных попыток. Попробуйте позже.', en: 'Too many failed attempts. Try again later.' },
+  SUPERADMIN_TARGET: { ru: 'Войти как другой суперадминистратор нельзя.', en: 'You cannot sign in as another superadministrator.' },
   TELEGRAM_ID: { ru: 'ID в Telegram — это число.', en: 'A Telegram id is a number.' },
   QUOTA_EXCEEDED: {
     ru: 'Хранилище заполнено: место по квоте закончилось.',

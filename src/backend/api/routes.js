@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { query } from '../config/database.js';
-import { optionalAuth, requireAuth, requirePermission } from '../middleware/auth.js';
+import { optionalAuth, refuseImpersonation, requireAuth, requirePermission } from '../middleware/auth.js';
 import { hasAnyPermission, hasPermission } from '../services/permissions.js';
 import { getSettings, parseSettings } from '../services/settings.js';
 import { publicBase } from '../services/google.js';
@@ -34,7 +34,7 @@ async function modulesState() {
 
 export function adminApiRoutes() {
   const router = Router();
-  router.use(requirePermission('api.admin'));
+  router.use(requirePermission('api.admin'), refuseImpersonation);
 
   router.get('/', wrap(async (req, res) => {
     const [config, stats, tokens, hooks, templates] = await Promise.all([apiConfig(), requestStats({ days: 1 }), listTokens(), listWebhooks(), listTemplates()]);
@@ -109,7 +109,7 @@ export function adminApiRoutes() {
 
 export function accountApiRoutes() {
   const router = Router();
-  router.use(requireAuth, wrap(async (req, res, next) => {
+  router.use(requireAuth, refuseImpersonation, wrap(async (req, res, next) => {
     const config = await apiConfig();
     const admin = hasPermission(req.access.permissions, 'api.admin');
     if (!admin && (!config.personalTokens || !hasPermission(req.access.permissions, 'api.tokens'))) {

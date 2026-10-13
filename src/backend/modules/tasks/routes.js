@@ -115,7 +115,10 @@ export function privateRoutes() {
   router.get('/subjects', wrap(async (req, res) => res.json({ success: true, ...(await listSubjects()) })));
 
   // Tasks
-  router.get('/tasks', wrap(async (req, res) => res.json({ success: true, tasks: await listTasks(req.tasks, req.query) })));
+  router.get('/tasks', wrap(async (req, res) => {
+    const tasks = await listTasks(req.tasks, req.query);
+    res.json({ success: true, tasks, ...(tasks.truncated ? { truncated: true } : {}) });
+  }));
   router.get('/calendar', wrap(async (req, res) => {
     res.json({ success: true, tasks: await calendarFeed(req.tasks, { from: req.query.from, to: req.query.to, mine: req.query.mine === '1', scope: ['doing', 'participant', 'all'].includes(req.query.scope) ? req.query.scope : undefined, done: req.query.done !== '0' }) });
   }));

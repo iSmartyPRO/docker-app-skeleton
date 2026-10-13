@@ -214,6 +214,7 @@ function SharedItem({ slug, token, onLocked }) {
 function ShareError({ code }) {
   const { t } = useLocale();
   if (code === 'EXPIRED') return <Notice icon="⏳" title={t('kb.public.expired')} text={t('kb.public.expiredText')} />;
+  if (code === 'OWNER_INACTIVE' || code === 'OWNER_NO_ACCESS') return <Notice icon="🔒" title={t('kb.public.ownerGone')} text={t('kb.public.ownerGoneText')} />;
   return <Notice icon="🔍" title={t('kb.public.notFound')} text={t('kb.public.notFoundText')} />;
 }
 

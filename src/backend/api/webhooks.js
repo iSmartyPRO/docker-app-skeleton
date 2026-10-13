@@ -5,7 +5,8 @@ import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
 import { query } from '../config/database.js';
-import { seal, unseal } from '../services/crypto.js';
+import { openSealed, seal } from '../services/crypto.js';
+import { onBeforeUserDelete } from '../services/hooks.js';
 import { apiConfig } from './config.js';
 import { cleanEvents, eventMatches, requestAs, setEventSink } from './events.js';
 import { cleanLimits } from './scopes.js';
@@ -21,6 +22,17 @@ import { assertMayActFor, httpError } from './tokens.js';
  * where v1 = HMAC-SHA256(secret, "<t>.<raw body>"). A 2xx answer within 10 s
  * is a success; otherwise the delivery is retried after 1 min, 5 min, 30 min,
  * 2 h and 6 h. Twenty failed deliveries in a row switch the webhook off.
+ * "Send again" keeps the event id (receivers dedupe on it) and adds
+ * X-Portal-Redelivery: 1.
+ *
+ * A signing secret that cannot be decrypted (the encryption key changed) is
+ * not a receiver failure: the webhook is paused with reason
+ * `secret_unreadable`, its deliveries stay pending, administrators are told,
+ * and rotating the secret (or restoring the old key and resuming) continues.
+ *
+ * When the person a webhook runs as is deleted, the webhook stays (paused,
+ * reason `user_deleted`, no run-as person) instead of cascading away; resuming
+ * it without choosing someone runs it as whoever resumes it.
  *
  * A webhook runs as a person: it only receives events about things that
  * person may see, optionally narrowed to some projects, calendars or spaces.
@@ -163,6 +175,8 @@ async function cleanHook(input, current, actor) {
     if (input.active) {
       out.disabled_reason = null;
       out.failure_streak = 0;
+      // Its person was deleted: it runs as whoever resumes it, unless someone else was chosen.
+      if (current && !current.user_id && !out.user_id) out.user_id = actor.id;
     }
   }
   return out;
@@ -198,7 +212,14 @@ export async function updateWebhook(actor, id, input = {}) {
 
 export async function rotateWebhookSecret(id) {
   const secret = newSecret();
-  const { rowCount } = await query(`UPDATE api_webhooks SET secret = $2, updated_at = NOW() WHERE id = $1`, [Number(id), seal(secret)]);
+  // A webhook paused because its old secret became unreadable resumes with the new one.
+  const { rowCount } = await query(
+    `UPDATE api_webhooks SET secret = $2, updated_at = NOW(),
+       active = CASE WHEN disabled_reason = 'secret_unreadable' THEN TRUE ELSE active END,
+       disabled_reason = CASE WHEN disabled_reason = 'secret_unreadable' THEN NULL ELSE disabled_reason END
+     WHERE id = $1`,
+    [Number(id), seal(secret)]
+  );
   if (!rowCount) throw httpError(404, 'Webhook not found', 'NOT_FOUND');
   hooksCache = null;
   return { secret };
@@ -223,6 +244,11 @@ function envelope(type, data, eventId = crypto.randomUUID()) {
   return { id: eventId, type, createdAt: new Date().toISOString(), data };
 }
 
+/** Forgets the cached list of active webhooks (after changes made elsewhere). */
+export function invalidateWebhookCache() {
+  hooksCache = null;
+}
+
 async function enqueueEvent(type, data, { visible }) {
   const config = await apiConfig();
   if (!config.webhooks || !config.enabled) return;
@@ -231,14 +257,20 @@ async function enqueueEvent(type, data, { visible }) {
   const event = envelope(type, data);
   let queued = 0;
   for (const hook of hooks) {
-    if (visible) {
-      const req = hook.user_id ? await requestAs(hook.user_id, hook.limits) : null;
-      if (!req) continue;
-      const ok = await Promise.resolve(visible(req)).catch(() => false);
-      if (!ok) continue;
+    // One webhook (e.g. deleted since the list was cached) never stops the others.
+    try {
+      if (visible) {
+        const req = hook.user_id ? await requestAs(hook.user_id, hook.limits) : null;
+        if (!req) continue;
+        const ok = await Promise.resolve(visible(req)).catch(() => false);
+        if (!ok) continue;
+      }
+      await query(`INSERT INTO api_deliveries (webhook_id, event_id, event, payload) VALUES ($1, $2, $3, $4)`, [hook.id, event.id, type, JSON.stringify(event)]);
+      queued += 1;
+    } catch (err) {
+      if (err.code === '23503') hooksCache = null;
+      else console.warn(`Webhook ${hook.id}: event ${type} not queued:`, err.message);
     }
-    await query(`INSERT INTO api_deliveries (webhook_id, event_id, event, payload) VALUES ($1, $2, $3, $4)`, [hook.id, event.id, type, JSON.stringify(event)]);
-    queued += 1;
   }
   if (queued) setImmediate(() => deliverDue().catch(() => {}));
 }
@@ -318,10 +350,23 @@ export function post(url, headers, body, { allowPrivate, timeoutMs = TIMEOUT_MS 
   });
 }
 
-async function send(hook, payload, deliveryId) {
+/** The webhook's signing secret; re-sealed when it was opened with an older key. null = unreadable. */
+async function signingSecret(hook) {
+  const opened = openSealed(hook.secret, { label: `Webhook "${hook.name}" signing secret` });
+  if (opened.failed || !opened.value) return null;
+  if (opened.stale) {
+    await query(`UPDATE api_webhooks SET secret = $2 WHERE id = $1 AND secret = $3`, [hook.id, seal(opened.value), hook.secret]).catch(() => {});
+  }
+  return opened.value;
+}
+
+const SECRET_UNREADABLE = 'The signing secret cannot be decrypted (the encryption key changed). Rotate the secret, or restore the previous key and resume the webhook.';
+
+async function send(hook, payload, deliveryId, { redelivery = false } = {}) {
   const body = JSON.stringify(payload);
   const timestamp = Math.floor(Date.now() / 1000);
-  const secret = unseal(hook.secret);
+  const secret = await signingSecret(hook);
+  if (!secret) return { ok: false, status: null, error: SECRET_UNREADABLE, ms: 0, secretUnreadable: true };
   const started = Date.now();
   const { webhooksPrivate } = await apiConfig();
   try {
@@ -333,6 +378,7 @@ async function send(hook, payload, deliveryId) {
         'X-Portal-Event': payload.type,
         'X-Portal-Delivery': String(deliveryId),
         'X-Portal-Signature': `t=${timestamp},v1=${signature(secret, timestamp, body)}`,
+        ...(redelivery ? { 'X-Portal-Redelivery': '1' } : {}),
       },
       body,
       { allowPrivate: webhooksPrivate }
@@ -390,6 +436,11 @@ export async function deliverDue() {
 async function attempt(delivery) {
   const { rows } = await query(`SELECT * FROM api_webhooks WHERE id = $1`, [delivery.webhook_id]);
   const hook = rows[0];
+  if (hook && !hook.active && hook.disabled_reason === 'secret_unreadable') {
+    // Paused until the secret is readable again: keep it for then.
+    await query(`UPDATE api_deliveries SET next_attempt_at = NOW() + INTERVAL '1 hour', error = $2 WHERE id = $1`, [delivery.id, SECRET_UNREADABLE]);
+    return;
+  }
   if (!hook || !hook.active) {
     await query(`UPDATE api_deliveries SET status = 'failed', error = 'Webhook is off' WHERE id = $1`, [delivery.id]);
     return;
@@ -403,9 +454,19 @@ async function attempt(delivery) {
   let result;
   try {
     await checkUrl(hook.url, { allowPrivate: config.webhooksPrivate });
-    result = await send(hook, delivery.payload, delivery.id);
+    result = await send(hook, delivery.payload, delivery.id, { redelivery: delivery.redelivery });
   } catch (err) {
     result = { ok: false, status: null, error: err.message, ms: 0 };
+  }
+  if (result.secretUnreadable) {
+    // Not the receiver's fault: no attempt is charged and the failure streak is untouched.
+    await query(`UPDATE api_deliveries SET next_attempt_at = NOW() + INTERVAL '1 hour', error = $2 WHERE id = $1`, [delivery.id, result.error]);
+    await query(
+      `UPDATE api_webhooks SET active = FALSE, disabled_reason = 'secret_unreadable', last_status = 'failed', updated_at = NOW() WHERE id = $1`,
+      [hook.id]
+    );
+    hooksCache = null;
+    return;
   }
   const attempts = delivery.attempts + 1;
   const final = result.ok || attempts > RETRY_MINUTES.length;
@@ -499,10 +560,14 @@ export async function listDeliveries({ webhookId, status, event, before, limit =
   };
 }
 
-/** Sends a delivery again as a new attempt chain. */
+/**
+ * Sends a delivery again as a new attempt chain. The event id stays the same
+ * (it is the same event); the request carries X-Portal-Redelivery: 1 so a
+ * receiver that dedupes on the id can tell a deliberate resend apart.
+ */
 export async function redeliver(id) {
   const { rows } = await query(
-    `UPDATE api_deliveries SET status = 'pending', attempts = 0, next_attempt_at = NOW(), error = NULL WHERE id = $1 RETURNING id`,
+    `UPDATE api_deliveries SET status = 'pending', attempts = 0, next_attempt_at = NOW(), error = NULL, redelivery = TRUE WHERE id = $1 RETURNING id`,
     [Number(id)]
   );
   if (!rows[0]) throw httpError(404, 'Delivery not found', 'NOT_FOUND');
@@ -510,6 +575,21 @@ export async function redeliver(id) {
   const { deliveries } = await listDeliveries({ before: Number(id) + 1, limit: 1 });
   return deliveries[0];
 }
+
+/**
+ * Before a person is deleted: their webhooks would cascade away (with their
+ * delivery history), silently cutting off an integration. Keep them, paused,
+ * without a run-as person, for an administrator to reassign and resume.
+ */
+export async function keepWebhooksOfDeletedUser(client, userId) {
+  const { rowCount } = await client.query(
+    `UPDATE api_webhooks SET user_id = NULL, active = FALSE, disabled_reason = 'user_deleted', updated_at = NOW() WHERE user_id = $1`,
+    [userId]
+  );
+  hooksCache = null;
+  return rowCount;
+}
+onBeforeUserDelete(keepWebhooksOfDeletedUser);
 
 export async function purgeDeliveries() {
   await query(`DELETE FROM api_deliveries WHERE created_at < NOW() - INTERVAL '30 days' AND status <> 'pending'`);

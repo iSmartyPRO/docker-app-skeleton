@@ -85,8 +85,8 @@ export function privateRoutes() {
   }));
 
   // ── Clients (Companies module) ──
-  router.get('/clients', wrap(async (req, res) => ok(res, await searchClients(req.query))));
-  router.post('/clients', wrap(async (req, res) => ok(res, { client: await createClient(req.crm, req.body || {}) }, 201)));
+  router.get('/clients', wrap(async (req, res) => ok(res, await searchClients(req.query, req))));
+  router.post('/clients', wrap(async (req, res) => ok(res, { client: await createClient(req.crm, req.body || {}, req) }, 201)));
 
   // ── Views over the filter ──
   router.get('/counters', wrap(async (req, res) => ok(res, await counters(req.crm, req.query))));

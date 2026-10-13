@@ -345,7 +345,21 @@ const EVENT_KINDS = new Set([
   'rate_limited',
   'code_unknown',
   'code_delivery_failed',
+  // Recorded by the admin console (sign in as a user, links to the directory).
+  'impersonation_start',
+  'impersonation_end',
+  'directory_linked',
+  'directory_unlinked',
+  'directory_password',
+  'directory_password_removed',
+  // A stored secret could not be decrypted (encryption key changed, see services/crypto.js).
+  'secret_unreadable',
 ]);
+
+/** Kinds recordSecurityEvent accepts (anything else is dropped). */
+export function isSecurityEventKind(kind) {
+  return EVENT_KINDS.has(kind);
+}
 
 export async function recordSecurityEvent({ kind, severity, username, ip, detail, debounceMinutes = 0 }) {
   if (!EVENT_KINDS.has(kind)) return null;

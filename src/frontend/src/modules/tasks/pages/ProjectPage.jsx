@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { App, Button, Dropdown, Input, Result, Segmented, Select, Skeleton, Switch } from 'antd';
+import { Alert, App, Button, Dropdown, Input, Result, Segmented, Select, Skeleton, Switch } from 'antd';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -46,6 +46,8 @@ export default function ProjectPage({ projectKey, taskRef }) {
   const { config, refresh: refreshProjects } = useTasks();
   const [meta, setMeta] = useState(null);
   const [tasks, setTasks] = useState(null);
+  // The server sends at most `limit` tasks; more exist when it says so.
+  const [truncated, setTruncated] = useState(null);
   const [error, setError] = useState(null);
   const [view, setView] = useStoredView(projectKey, config?.defaultView || 'board');
   const [q, setQ] = useState('');
@@ -59,6 +61,7 @@ export default function ProjectPage({ projectKey, taskRef }) {
   const loadTasks = useCallback(async () => {
     const res = await tasksApi.tasks({ project: projectKey });
     setTasks(res.data.tasks);
+    setTruncated(res.data.truncated ? res.data.tasks.length : null);
   }, [projectKey]);
 
   const loadMeta = useCallback(async () => {
@@ -209,6 +212,7 @@ export default function ProjectPage({ projectKey, taskRef }) {
           )}
         </div>
       </header>
+      {truncated && <Alert type="warning" showIcon message={t('tasks.v2.boardTruncated', { n: truncated })} style={{ marginBottom: 12 }} />}
 
       <div className="mod-toolbar">
         <Segmented

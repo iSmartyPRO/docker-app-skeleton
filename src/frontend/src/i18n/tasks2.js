@@ -138,6 +138,7 @@ const en = {
     project: '{actor} moved the task to “{to}”', noProject: '{actor} took the task out of the project', parent: '{actor} made it a subtask', noParent: '{actor} detached it from the parent task',
     flow: '{actor} put the task into the flow “{to}”', noFlow: '{actor} took the task out of the flow', planning: '{actor} changed the planned dates', changed: '{actor} changed the task',
   },
+  boardTruncated: 'The project has more than {n} tasks: only the first {n} are shown.',
 };
 
 const ru = {
@@ -278,6 +279,7 @@ const ru = {
     project: '{actor} перенёс(ла) задачу в «{to}»', noProject: '{actor} убрал(а) задачу из проекта', parent: '{actor} сделал(а) задачу подзадачей', noParent: '{actor} отвязал(а) от родительской задачи',
     flow: '{actor} поместил(а) задачу в поток «{to}»', noFlow: '{actor} убрал(а) задачу из потока', planning: '{actor} изменил(а) плановые сроки', changed: '{actor} изменил(а) задачу',
   },
+  boardTruncated: 'В проекте больше {n} задач: показаны только первые {n}.',
 };
 
 export const tasks2En = { tasks: { v2: en } };
