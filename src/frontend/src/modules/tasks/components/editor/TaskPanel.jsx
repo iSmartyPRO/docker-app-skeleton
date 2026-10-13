@@ -37,6 +37,8 @@ import {
 import { DeadlinePicker, PeopleSelect, PersonPill, defaultDeadline, usePeople } from './pickers';
 import { createdToast } from './createdToast';
 import { Hint, HintLabel } from '../../../../help/Hint';
+import { fmtDateTime } from '../../../../lib/datetime';
+import { OrderIcon, isLate, untilText, waitingHours } from '../acceptance';
 import './editor.css';
 
 export const CHIPS = [
@@ -79,6 +81,7 @@ export function emptyDraft(overrides = {}) {
   return {
     title: '',
     important: false,
+    isOrder: false,
     description: '',
     descriptionFormat: 'html',
     originatorId: null,
@@ -116,6 +119,7 @@ function fromTask(task) {
   return {
     title: task.title,
     important: task.important,
+    isOrder: task.orderFlag,
     description: task.description,
     descriptionFormat: task.descriptionFormat,
     originatorId: task.originator?.id || null,
@@ -144,6 +148,7 @@ export function draftPayload(draft, me) {
   return {
     title: draft.title,
     important: draft.important,
+    isOrder: Boolean(draft.isOrder),
     description: draft.description,
     descriptionFormat: 'html',
     originatorId: draft.originatorId || me,
@@ -199,6 +204,88 @@ function Flame({ on, onClick, disabled }) {
         </svg>
       </button>
     </Tooltip>
+  );
+}
+
+/** The «Поручение» toggle next to the flame; set by the leadership it is on and fixed. */
+function OrderToggle({ on, auto, onClick, disabled }) {
+  const { t } = useLocale();
+  const active = on || auto;
+  return (
+    <Tooltip title={auto && !on ? t('tasks.acc.orderAuto') : on ? t('tasks.acc.orderOn') : t('tasks.acc.orderOff')}>
+      <button type="button" className={`te-order${active ? ' is-on' : ''}`} onClick={onClick} disabled={disabled || (auto && !on)} aria-pressed={active} aria-label={t('tasks.acc.order')}>
+        <OrderIcon size={20} />
+        {active && <span>{t('tasks.acc.order')}</span>}
+      </button>
+    </Tooltip>
+  );
+}
+
+/**
+ * «Принять в работу» above the task: the assignee accepts it (optionally with a
+ * comment) or opens the chat to discuss; everybody else sees who it waits for.
+ */
+function AcceptBanner({ task, onAccept, onDiscuss, chatOn }) {
+  const { t } = useLocale();
+  const [comment, setComment] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const late = isLate(task);
+  const mine = task.can?.accept;
+  const at = task.acceptance.dueAt ? untilText(task.acceptance.dueAt) : '—';
+  const n = waitingHours(task);
+  const title = mine
+    ? late ? t('tasks.acc.bannerMineLate', { n }) : t('tasks.acc.bannerMine')
+    : late ? t('tasks.acc.bannerOtherLate', { name: task.assignee?.name, n }) : t('tasks.acc.bannerOther', { name: task.assignee?.name });
+  const hint = mine
+    ? late ? t('tasks.acc.bannerMineLateHint', { at, name: task.originator?.name || '—' }) : t('tasks.acc.bannerMineHint', { at })
+    : late ? t('tasks.acc.bannerOtherLateHint', { at }) : t('tasks.acc.bannerOtherHint', { at });
+  const accept = async () => {
+    setBusy(true);
+    try {
+      await onAccept(comment?.trim() || null);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className={`te-accept${late ? ' is-late' : ''}${mine ? ' is-mine' : ''}`} role="status">
+      <div className="te-accept__icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 1.8h8M4 14.2h8M4.6 1.8c0 3.2 3.4 3.9 3.4 6.2s-3.4 3-3.4 6.2M11.4 1.8c0 3.2-3.4 3.9-3.4 6.2s3.4 3 3.4 6.2" />
+        </svg>
+      </div>
+      <div className="te-accept__text">
+        <strong>{title}</strong>
+        <span>{hint}</span>
+        {mine && comment !== null && (
+          <Input.TextArea
+            autoFocus
+            className="te-accept__comment"
+            value={comment}
+            maxLength={1000}
+            autoSize={{ minRows: 2, maxRows: 5 }}
+            placeholder={t('tasks.acc.commentPlaceholder')}
+            onChange={(event) => setComment(event.target.value)}
+            onPressEnter={(event) => {
+              if (event.ctrlKey || event.metaKey) accept();
+            }}
+          />
+        )}
+      </div>
+      {mine && (
+        <div className="te-accept__actions">
+          <Button type="primary" loading={busy} onClick={accept}>
+            ✓ {t('tasks.acc.accept')}
+          </Button>
+          {chatOn && <Button onClick={onDiscuss}>{t('tasks.acc.discuss')}</Button>}
+          {comment === null && (
+            <button type="button" className="te-accept__more" onClick={() => setComment('')}>
+              {t('tasks.acc.acceptWithComment')}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -454,6 +541,17 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
     return () => window.removeEventListener('task-action', onAction);
   }, [task, change]);
 
+  const acceptTask = async (comment) => {
+    const res = await run(() => tasksApi.accept(task.ref, comment), t('tasks.acc.acceptedToast'));
+    if (res) refreshHome();
+  };
+
+  // «Обсудить»: the task chat, ready to type (on phones its own tab).
+  const discuss = () => {
+    setMobileTab('chat');
+    setTimeout(() => document.querySelector('.tp-chat textarea, .tp-chat [contenteditable="true"]')?.focus(), 120);
+  };
+
   const copyLink = () => navigator.clipboard?.writeText(`${window.location.origin}/app/tasks/${task.ref}`).then(() => message.success(t('common.copied')));
 
   if (!open) return null;
@@ -584,8 +682,17 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
                     }}
                   />
                   <Flame on={value.important} disabled={!editable} onClick={() => change({ important: !value.important })} />
+                  <OrderToggle
+                    on={Boolean(value.isOrder)}
+                    auto={mode === 'task' && task.order && !task.orderFlag}
+                    disabled={mode === 'task' ? !can.setOrder : false}
+                    onClick={() => change({ isOrder: !value.isOrder })}
+                  />
                   <Hint id="tasks.important" />
                 </div>
+                {mode === 'task' && task.acceptance?.state === 'pending' && task.statusCategory !== 'done' && (
+                  <AcceptBanner key={task.ref} task={task} chatOn={chatOn} onAccept={acceptTask} onDiscuss={discuss} />
+                )}
 
                 <RichText
                   key={mode === 'task' ? `${task.ref}-d` : `new-d-${draftVersion}`}
@@ -651,6 +758,11 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
                       <BaseRow label={t('tasks.fields.status')}>
                         <Select variant="borderless" className="te-select" value={task.statusId} disabled={!editable} options={statusOptions} onChange={(statusId) => change({ statusId })} popupMatchSelectWidth={220} />
                         {task.deferred && <span className="te-tag is-deferred">{t('tasks.v2.deferred')}</span>}
+                        {task.acceptance?.state === 'accepted' && task.assignee && task.assignee.id !== task.originator?.id && (
+                          <Tooltip title={t('tasks.acc.acceptedTip', { name: task.acceptedByUser?.name || task.assignee.name, at: fmtDateTime(task.acceptance.acceptedAt) })}>
+                            <span className="te-tag is-accepted">✓ {t('tasks.acc.acceptedAt', { at: fmtDateTime(task.acceptance.acceptedAt) })}</span>
+                          </Tooltip>
+                        )}
                         {task.rating && <span className={`te-tag is-${task.rating}`}>{task.rating === 'good' ? '👍' : '👎'} {t(`tasks.v2.rating.${task.rating}`)}</span>}
                       </BaseRow>
                       <BaseRow label={t('tasks.v2.created')}>

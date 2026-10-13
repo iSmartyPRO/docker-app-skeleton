@@ -82,6 +82,11 @@ export const SETTINGS_GROUPS = [
         defaultIcon: 'project',
         keywords: 'name brand logo description language region time zone date format week название логотип бренд описание язык регион часовой пояс время дата формат неделя',
       },
+      {
+        id: 'legalEntities',
+        defaultIcon: 'building',
+        keywords: 'legal entities companies payer tax id inn bank details юрлица юридические лица плательщик инн реквизиты организации',
+      },
     ],
   },
   {
@@ -211,6 +216,11 @@ export const SETTINGS_GROUPS = [
         keywords: 'dashboard widgets home charts дашборд виджеты главная графики сводка',
       },
       {
+        id: 'approvals',
+        defaultIcon: 'inbox',
+        keywords: 'approvals routes urgency sla substitutes inbox согласования маршруты срочность сроки замещения заместитель ждёт меня входящие',
+      },
+      {
         id: 'chat',
         defaultIcon: 'chat',
         keywords: 'chat messenger messages calls чат мессенджер сообщения звонки переписка',
@@ -254,6 +264,16 @@ export const SETTINGS_GROUPS = [
         id: 'masterplan',
         defaultIcon: 'siteplan',
         keywords: 'masterplan site plan chessboard units booking construction real estate генплан мастерплан шахматка юниты брони стройка застройка недвижимость',
+      },
+      {
+        id: 'procurement',
+        defaultIcon: 'cart',
+        keywords: 'procurement purchase requests invoices payments suppliers закупки заявки счета оплаты реестр оплат поставщики снабжение',
+      },
+      {
+        id: 'contracts',
+        defaultIcon: 'clipboard',
+        keywords: 'contracts agreements legal lawyer risks expiry prolongation numbering договоры юрист риски пролонгация окончание нумерация',
       },
       {
         id: 'assistant',

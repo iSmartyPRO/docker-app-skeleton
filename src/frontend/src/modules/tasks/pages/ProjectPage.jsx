@@ -16,6 +16,7 @@ import FollowButton from '../components/FollowButton';
 import ProjectDialog from '../components/ProjectDialog';
 import StatusesDialog from '../components/StatusesDialog';
 import { priorityOptions } from '../components/bits';
+import { FILTERS, FilterChips } from '../components/acceptance';
 
 function useStoredView(key, fallback) {
   const storageKey = `tasks_view_${key}`;
@@ -55,6 +56,7 @@ export default function ProjectPage({ projectKey, taskRef }) {
   const [priority, setPriority] = useState();
   const [label, setLabel] = useState();
   const [showDone, setShowDone] = useState(true);
+  const [chip, setChip] = useState(null);
   const [dialog, setDialog] = useState(null);
   const editor = useTaskEditor();
 
@@ -91,7 +93,8 @@ export default function ProjectPage({ projectKey, taskRef }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskRef]);
 
-  const filtered = useMemo(() => {
+  // The toolbar filters; the chips count over these and narrow them further.
+  const narrowed = useMemo(() => {
     if (!tasks) return [];
     const needle = q.trim().toLowerCase();
     return tasks.filter((task) => {
@@ -104,6 +107,7 @@ export default function ProjectPage({ projectKey, taskRef }) {
       return true;
     });
   }, [tasks, q, assignee, priority, label, user]);
+  const filtered = useMemo(() => (chip ? narrowed.filter(FILTERS[chip]) : narrowed), [narrowed, chip]);
 
   if (error) {
     return <Result status="404" title={t('tasks.projectNotFound')} subTitle={errorMessage(error)} extra={<Button onClick={() => navigate('/app/tasks')}>{t('common.back')}</Button>} />;
@@ -178,7 +182,7 @@ export default function ProjectPage({ projectKey, taskRef }) {
       label: status.name,
       color: status.color,
       tasks: filtered.filter((task) => task.statusId === status.id),
-      collapsed: status.category === 'done',
+      collapsed: status.category === 'done' && chip !== 'done',
     }))
     .filter((group) => showDone || !statuses.find((status) => `s${status.id}` === group.key && status.category === 'done'));
 
@@ -248,6 +252,8 @@ export default function ProjectPage({ projectKey, taskRef }) {
         )}
       </div>
 
+      <FilterChips tasks={narrowed} value={chip} onChange={setChip} />
+
       {view === 'board' ? (
         <Board
           statuses={statuses}
@@ -258,7 +264,7 @@ export default function ProjectPage({ projectKey, taskRef }) {
           onQuickCreate={canEdit && !project.archived ? quickCreate : null}
         />
       ) : (
-        <TaskList groups={listGroups} onOpen={(task) => editor.openTask(task.ref)} onToggle={toggleDone} canEdit={canEditTask} />
+        <TaskList key={chip || 'all'} groups={listGroups} onOpen={(task) => editor.openTask(task.ref)} onToggle={toggleDone} canEdit={canEditTask} />
       )}
 
       <ProjectDialog

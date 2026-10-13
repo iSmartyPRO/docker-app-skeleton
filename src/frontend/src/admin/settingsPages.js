@@ -28,6 +28,7 @@ export const SETTINGS_PAGES = {
   documents: Integration,
   google: lazy(() => import('../pages/admin/settings/GoogleSettings')),
   dashboard: lazy(() => import('../modules/dashboard/DashboardSettings')),
+  approvals: lazy(() => import('../modules/approvals/ApprovalsSettings')),
   chat: lazy(() => import('../modules/chat/ChatSettings')),
   files: lazy(() => import('../modules/files/FilesSettings')),
   drive: lazy(() => import('../modules/drive/DriveSettings')),
@@ -36,6 +37,9 @@ export const SETTINGS_PAGES = {
   tasks: lazy(() => import('../modules/tasks/TasksSettings')),
   crm: lazy(() => import('../modules/crm/CrmSettings')),
   masterplan: lazy(() => import('../modules/masterplan/MasterplanSettings')),
+  procurement: lazy(() => import('../modules/procurement/ProcurementSettings')),
+  contracts: lazy(() => import('../modules/contracts/ContractsSettings')),
+  legalEntities: lazy(() => import('../pages/admin/settings/LegalEntities')),
   assistant: lazy(() => import('../modules/assistant/AssistantSettings')),
   calendar: lazy(() => import('../modules/calendar/CalendarSettings')),
 };

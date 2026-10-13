@@ -27,6 +27,7 @@ import { taskMessage } from './messages.js';
 import { taskEvent } from './chat.js';
 import { emitEvent } from '../../api/events.js';
 import { publicBase } from '../../services/google.js';
+import { acceptDueAt, cachedLeadership, isOrderRow, leadershipIds, parseProjectHours } from './orders.js';
 
 const ACL = 'task_acl';
 const KEY_RE = /^[A-Z][A-Z0-9]{1,9}$/;
@@ -52,6 +53,9 @@ function projectShape(row, level) {
     icon: row.icon || null,
     archived: Boolean(row.archived_at),
     level: LEVEL_NAMES[level],
+    // Hours to accept a task here; null = as in the module settings.
+    acceptHours: row.accept_hours ?? null,
+    acceptHoursImportant: row.accept_hours_important ?? null,
     counts: {
       open: row.open_count ?? undefined,
       done: row.done_count ?? undefined,
@@ -70,7 +74,7 @@ const person = (id, username, name, avatar) => (id ? { id, username, name: name 
 
 const TASK_SELECT = `
   SELECT t.*, p.key AS project_key, p.name AS project_name, p.color AS project_color, p.archived_at AS project_archived,
-         p.is_personal AS project_personal,
+         p.is_personal AS project_personal, p.accept_hours AS project_accept_hours, p.accept_hours_important AS project_accept_hours_important,
          s.category AS status_category, s.name AS status_name, s.color AS status_color,
          a.username AS a_username, COALESCE(a.display_name, a.username) AS a_name, a.avatar_path AS a_avatar,
          o.username AS o_username, COALESCE(o.display_name, o.username) AS o_name, o.avatar_path AS o_avatar,
@@ -85,6 +89,20 @@ const TASK_SELECT = `
   LEFT JOIN users a ON a.id = t.assignee_id
   LEFT JOIN users o ON o.id = COALESCE(t.originator_id, t.created_by)
 `;
+
+/** Acceptance of the task by its assignee (null without an assignee). */
+function acceptanceShape(row) {
+  if (!row.assignee_id) return null;
+  const pending = !row.accepted_at && !row.completed_at;
+  return {
+    state: row.accepted_at ? 'accepted' : pending ? 'pending' : 'skipped',
+    assignedAt: row.assigned_at || null,
+    acceptedAt: row.accepted_at || null,
+    acceptedBy: row.accepted_by || null,
+    dueAt: row.accept_due_at || null,
+    overdue: Boolean(pending && row.accept_due_at && new Date(row.accept_due_at) < new Date()),
+  };
+}
 
 function taskShape(row) {
   return {
@@ -116,6 +134,10 @@ function taskShape(row) {
     checklist: { done: row.check_done || 0, total: row.check_total || 0 },
     comments: row.comment_count || 0,
     overdue: Boolean(row.due_at && !row.completed_at && new Date(row.due_at) < new Date()),
+    acceptance: acceptanceShape(row),
+    // An order («поручение»): flagged by hand, or set by someone of the leadership groups.
+    order: isOrderRow(row, cachedLeadership()),
+    orderFlag: Boolean(row.is_order),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     completedAt: row.completed_at,
@@ -295,6 +317,9 @@ export async function updateProject(ctx, id, input) {
   if (input.color !== undefined) set('color', HEX.test(input.color || '') ? input.color.toUpperCase() : null);
   if (input.icon !== undefined) set('icon', ICON_RE.test(input.icon || '') ? input.icon : null);
   if (typeof input.archived === 'boolean') set('archived_at', input.archived ? new Date() : null);
+  // Time to accept a task of this project (null: as in the module settings).
+  if (input.acceptHours !== undefined) set('accept_hours', parseProjectHours(input.acceptHours));
+  if (input.acceptHoursImportant !== undefined) set('accept_hours_important', parseProjectHours(input.acceptHoursImportant));
   if (fields.length) {
     values.push(project.id);
     await query(`UPDATE task_projects SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${values.length}`, values);
@@ -473,6 +498,7 @@ const PARTICIPANT_SQL = (me) =>
  * sort ('board' | 'due' | 'priority' | 'updated' | 'created').
  */
 export async function listTasks(ctx, filters = {}) {
+  const leaders = await leadershipIds();
   const where = [];
   const params = [];
   const add = (sql, value) => {
@@ -543,6 +569,16 @@ export async function listTasks(ctx, filters = {}) {
     }
   }
   if (filters.open === '1') where.push('t.completed_at IS NULL');
+  // Acceptance: pending — the assignee has not accepted yet; late — and the time to accept is over.
+  const PENDING = 't.assignee_id IS NOT NULL AND t.accepted_at IS NULL AND t.completed_at IS NULL';
+  if (filters.acceptance === 'pending') where.push(`(${PENDING})`);
+  if (filters.acceptance === 'late') where.push(`(${PENDING} AND t.accept_due_at < NOW())`);
+  if (filters.acceptance === 'accepted') where.push('t.accepted_at IS NOT NULL');
+  if (filters.orders === '1') {
+    params.push([...leaders]);
+    where.push(`(t.is_order OR (COALESCE(t.originator_id, t.created_by) = ANY($${params.length}) AND t.assignee_id IS NOT NULL
+                AND t.assignee_id <> COALESCE(t.originator_id, t.created_by)))`);
+  }
   if (filters.nodue === '1') where.push('t.due_at IS NULL');
   // Other people's tasks without a project stay private even for administrators.
   if (filters.foreignPersonal === '0') where.push(`(NOT p.is_personal OR ${PARTICIPANT_SQL(meParam())})`);
@@ -608,6 +644,7 @@ async function notifyProjectFollowers(row, message, actorId, exclude = []) {
 }
 
 export async function loadTaskRow(refOrId) {
+  await leadershipIds();
   const value = String(refOrId || '');
   const match = REF_RE.exec(value);
   const { rows } = match
@@ -747,6 +784,9 @@ export async function getTask(ctx, refOrId, { countView = true } = {}) {
   const isAssignee = row.assignee_id === ctx.userId;
   const manager = (ctx.isAdmin && !row.project_personal) || projectLevel >= LEVEL.manage;
   const done = row.status_category === 'done';
+  const acceptedBy = row.accepted_by
+    ? (await query(`SELECT id, username, COALESCE(display_name, username) AS name, avatar_path FROM users WHERE id = $1`, [row.accepted_by])).rows[0]
+    : null;
   const fileShape = (file) => ({
     id: file.id,
     kind: file.kind,
@@ -840,6 +880,7 @@ export async function getTask(ctx, refOrId, { countView = true } = {}) {
       createdAt: entry.created_at,
       actor: person(entry.actor_id, entry.username, entry.name, entry.avatar_path),
     })),
+    acceptedByUser: acceptedBy ? person(acceptedBy.id, acceptedBy.username, acceptedBy.name, acceptedBy.avatar_path) : null,
     myRole: isAssignee ? 'assignee' : isOriginator ? 'originator' : members.rows.find((m) => m.id === ctx.userId)?.role || (watchers.rows.some((w) => w.id === ctx.userId) ? 'watcher' : null),
     can: {
       edit: level >= LEVEL.edit,
@@ -851,6 +892,10 @@ export async function getTask(ctx, refOrId, { countView = true } = {}) {
       rate: (isOriginator || manager) && done,
       delegate: (isAssignee || isOriginator || manager) && !done,
       defer: level >= LEVEL.edit && !done,
+      // Only the assignee accepts, while the task waits for it.
+      accept: isAssignee && !done && !row.accepted_at,
+      // The «Поручение» flag is the originator's (and managers') to set.
+      setOrder: level >= LEVEL.edit && (isOriginator || manager),
     },
   };
 }
@@ -998,6 +1043,8 @@ export async function createTask(ctx, input = {}) {
   const depIds = await viewableTaskIds(ctx, depList.map((dep) => dep?.taskId));
   const deps = depList.filter((dep) => depIds.includes(Number(dep?.taskId)));
   const templateId = await usableTemplateId(ctx, input.templateId);
+  // Acceptance: a task given to someone else waits for them until this deadline.
+  const acceptBy = await acceptDueAt(project, Boolean(input.important));
 
   const created = [];
   for (const assigneeId of assignees.length ? assignees : [null]) {
@@ -1044,6 +1091,17 @@ export async function createTask(ctx, input = {}) {
         ]
       );
       const id = rows[0].id;
+      // Self-assigned tasks (the originator's own, or taken by whoever creates them) are accepted at once.
+      const selfAccepted = Boolean(assignee && (assignee === originator || assignee === ctx.userId));
+      await client.query(
+        `UPDATE tasks SET is_order = $2,
+                assigned_at = CASE WHEN assignee_id IS NULL THEN NULL ELSE NOW() END,
+                accepted_at = CASE WHEN $3 THEN NOW() END,
+                accepted_by = CASE WHEN $3 THEN assignee_id END,
+                accept_due_at = CASE WHEN assignee_id IS NOT NULL AND NOT $3 THEN $4::timestamptz END
+         WHERE id = $1`,
+        [id, Boolean(input.isOrder), selfAccepted, acceptBy]
+      );
       // Checklists: the full form sends named lists; the old one sends plain lines.
       if (Array.isArray(input.checklists)) await insertChecklists(client, id, input.checklists);
       else if (Array.isArray(input.checklist) && input.checklist.length) await insertChecklists(client, id, [{ title: 'Checklist', items: input.checklist }]);
@@ -1089,15 +1147,15 @@ export async function createTask(ctx, input = {}) {
     await taskWebhook('task.created', row, {}, ctx.userId);
     notifyProjectFollowers(row, 'projectNew', ctx.userId, [row.assignee_id, ...coassignees, ...auditors]);
     const notifyIds = [row.assignee_id, ...coassignees, ...auditors].filter((uid) => uid && uid !== ctx.userId);
-    if (notifyIds.length) {
-      await notify({
-        userIds: notifyIds,
-        kind: 'tasks.assigned',
-        module: 'tasks',
-        link: link(ref),
-        actorId: ctx.userId,
-        render: taskMessage('assigned', { ref, title, actor, project: project.is_personal ? '' : project.name }),
-      });
+    const waiting = row.assignee_id && !row.accepted_at && row.assignee_id !== ctx.userId ? row.assignee_id : null;
+    const params = { ref, title, actor, project: project.is_personal ? '' : project.name };
+    // The assignee is asked to accept the task; the others just hear about it.
+    if (waiting) {
+      await notify({ userIds: [waiting], kind: 'tasks.assigned', module: 'tasks', link: link(ref), actorId: ctx.userId, render: taskMessage('assigned', { ...params, acceptBy: row.accept_due_at }) });
+    }
+    const others = notifyIds.filter((uid) => uid !== waiting);
+    if (others.length) {
+      await notify({ userIds: others, kind: 'tasks.assigned', module: 'tasks', link: link(ref), actorId: ctx.userId, render: taskMessage('assigned', params) });
     }
     shapes.push(taskShape(row));
   }
@@ -1220,6 +1278,11 @@ export async function updateTask(ctx, refOrId, patch = {}) {
   flag('skipWeekends', 'skip_weekends', 'skipWeekends');
   flag('deadlineFromSubtasks', 'deadline_from_subtasks', 'deadlineFromSubtasks');
   flag('timeTracking', 'time_tracking', 'timeTracking');
+  if (typeof patch.isOrder === 'boolean' && patch.isOrder !== Boolean(row.is_order)) {
+    if (!isOriginator && !manager && !(ctx.isAdmin && !row.project_personal)) throw httpError(403, 'Only the originator marks a task as an order', 'FORBIDDEN');
+    set('is_order', patch.isOrder);
+    changes.push({ field: 'order', to: patch.isOrder });
+  }
 
   // `complete: true|false` picks the first "done" (or first open) status of the project.
   if (typeof patch.complete === 'boolean' && patch.statusId === undefined) {
@@ -1277,10 +1340,12 @@ export async function updateTask(ctx, refOrId, patch = {}) {
       changes.push({ field: 'assignee', from: names.find((n) => n.id === row.assignee_id)?.name || null, to: names.find((n) => n.id === assigneeId)?.name || null });
     }
   }
+  let newOriginator = null;
   if (patch.originatorId !== undefined) {
     if (!isOriginator && !manager) throw httpError(403, 'Only the originator can hand the task over', 'FORBIDDEN');
     const [originatorId] = await activeUsers([patch.originatorId]);
     if (originatorId && originatorId !== row.originator_id) {
+      newOriginator = originatorId;
       set('originator_id', originatorId);
       const names = await namesOf([row.originator_id, originatorId]);
       changes.push({ field: 'originator', from: names[0]?.name, to: names[names.length - 1]?.name });
@@ -1382,6 +1447,31 @@ export async function updateTask(ctx, refOrId, patch = {}) {
     set('overdue_notified_at', null);
   }
 
+  // Acceptance. A new assignee starts over (accepted at once when it is the originator
+  // or the person making the change); the assignee starting or completing the task accepts it.
+  let accepted = null;
+  const assigneeAfter = newAssignee !== undefined ? newAssignee : row.assignee_id;
+  const originatorAfter = newOriginator || row.originator_id || row.created_by;
+  const importantAfter = typeof patch.important === 'boolean' ? patch.important : Boolean(row.important);
+  if (newAssignee !== undefined) {
+    const self = Boolean(newAssignee && (newAssignee === originatorAfter || newAssignee === ctx.userId));
+    set('assigned_at', newAssignee ? new Date() : null);
+    set('accepted_at', self ? new Date() : null);
+    set('accepted_by', self ? newAssignee : null);
+    set('accept_due_at', newAssignee && !self ? await acceptDueAt(projectHoursOf(row), importantAfter) : null);
+    set('accept_notified_at', null);
+  } else if (assigneeAfter && !row.accepted_at && !row.completed_at) {
+    if (newStatus && newStatus.category !== 'todo' && ctx.userId === assigneeAfter) accepted = newStatus.category === 'done' ? 'complete' : 'start';
+    else if (assigneeAfter === originatorAfter) accepted = 'self';
+    if (accepted) {
+      set('accepted_at', new Date());
+      set('accepted_by', assigneeAfter);
+    } else if (importantAfter !== Boolean(row.important) && row.assigned_at) {
+      // Important tasks have their own (shorter) time to accept.
+      set('accept_due_at', await acceptDueAt(projectHoursOf(row), importantAfter, row.assigned_at));
+    }
+  }
+
   await withTransaction(async (client) => {
     const statusId = newStatus?.id || row.status_id;
     if (patch.move || newStatus) set('rank', await rankBetween(client, statusId, Number(patch.move?.beforeId) || null, Number(patch.move?.afterId) || null));
@@ -1400,7 +1490,9 @@ export async function updateTask(ctx, refOrId, patch = {}) {
     }
     for (const change of changes) await logActivity(client, row.id, ctx.userId, 'change', change);
     if (newAssignee) await watch(client, row.id, newAssignee);
+    if (accepted && accepted !== 'self') await logActivity(client, row.id, ctx.userId, 'accepted', { via: accepted });
   });
+  if (accepted && accepted !== 'self') await afterAccepted(ctx, row, { via: accepted });
 
   for (const change of changes) await taskEvent(row.id, ctx.userId, { event: 'task.change', ...change });
   for (const change of roleChanges) {
@@ -1423,7 +1515,11 @@ export async function updateTask(ctx, refOrId, patch = {}) {
     const project = row.project_personal ? '' : row.project_name;
     const added = [...(newAssignee ? [newAssignee] : []), ...roleChanges.flatMap((change) => change.added)].filter((id) => id !== ctx.userId);
     if (added.length) {
-      await notify({ userIds: added, kind: 'tasks.assigned', module: 'tasks', link: link(ref), actorId: ctx.userId, render: taskMessage('assigned', { ref, title, actor, project }) });
+      const fresh = newAssignee ? (await query(`SELECT accepted_at, accept_due_at FROM tasks WHERE id = $1`, [row.id])).rows[0] : null;
+      const waiting = fresh && !fresh.accepted_at && added.includes(newAssignee) ? newAssignee : null;
+      if (waiting) await notify({ userIds: [waiting], kind: 'tasks.assigned', module: 'tasks', link: link(ref), actorId: ctx.userId, render: taskMessage('assigned', { ref, title, actor, project, acceptBy: fresh.accept_due_at }) });
+      const rest = added.filter((id) => id !== waiting);
+      if (rest.length) await notify({ userIds: rest, kind: 'tasks.assigned', module: 'tasks', link: link(ref), actorId: ctx.userId, render: taskMessage('assigned', { ref, title, actor, project }) });
     }
     if (newStatus) {
       const recipients = (await followers({ ...row, assignee_id: newAssignee ?? row.assignee_id })).filter((id) => !added.includes(id));
@@ -1444,6 +1540,32 @@ export async function updateTask(ctx, refOrId, patch = {}) {
     return taskShape(fresh);
   }
   return taskShape(await loadTaskRow(row.id));
+}
+
+/** The project's acceptance hours as found on a TASK_SELECT row. */
+function projectHoursOf(row) {
+  return { accept_hours: row.project_accept_hours, accept_hours_important: row.project_accept_hours_important };
+}
+
+/**
+ * After a task was accepted (by the button, or by starting or completing it):
+ * the mark «Принято … в …» in its chat, the webhook and a word to the originator.
+ */
+export async function afterAccepted(ctx, row, { via = 'button', comment = null } = {}) {
+  const fresh = await loadTaskRow(row.id).catch(() => null);
+  if (!fresh) return;
+  const ref = taskRef(fresh.project_key, fresh.number);
+  await taskEvent(fresh.id, ctx.userId, { event: 'task.accepted', via, comment: comment || null, at: fresh.accepted_at });
+  await taskWebhook('task.accepted', fresh, { acceptance: { acceptedAt: fresh.accepted_at, via, comment: comment || null } }, ctx.userId);
+  const originator = fresh.originator_id || fresh.created_by;
+  if (originator && originator !== ctx.userId) {
+    try {
+      const actor = await actorName(ctx);
+      await notify({ userIds: [originator], kind: 'tasks.accepted', module: 'tasks', link: link(ref), actorId: ctx.userId, render: taskMessage('accepted', { ref, title: fresh.title, actor, comment }) });
+    } catch (err) {
+      console.warn('[tasks] acceptance notification failed:', err.message);
+    }
+  }
 }
 
 /** Moves a task to another project: new number (and reference), status by category. */
@@ -1476,7 +1598,10 @@ export async function moveTaskToProject(ctx, refOrId, projectRef) {
   if (same) return taskShape(row);
   const statuses = await query(`SELECT * FROM task_statuses WHERE project_id = $1 ORDER BY sort, id`, [target.id]);
   const status = statuses.rows.find((item) => item.category === row.status_category) || statuses.rows[0];
+  // A task still waiting for acceptance gets the new project's time to accept.
+  const acceptBy = row.assignee_id && !row.accepted_at && !row.completed_at && row.assigned_at ? await acceptDueAt(target, Boolean(row.important), row.assigned_at) : null;
   await withTransaction(async (client) => {
+    if (acceptBy) await client.query(`UPDATE tasks SET accept_due_at = $2 WHERE id = $1`, [row.id, acceptBy]);
     const seq = await client.query(`UPDATE task_projects SET seq = seq + 1 WHERE id = $1 RETURNING seq`, [target.id]);
     await client.query(`UPDATE tasks SET project_id = $2, number = $3, status_id = $4, rank = $5, updated_at = NOW() WHERE id = $1`, [
       row.id,
@@ -1549,7 +1674,12 @@ export async function overview(ctx) {
        COUNT(*) FILTER (WHERE t.completed_at >= NOW() - INTERVAL '7 days' AND t.assignee_id = $1)::int AS done_week,
        COUNT(*) FILTER (WHERE t.completed_at IS NULL AND COALESCE(t.originator_id, t.created_by) = $1 AND t.assignee_id IS DISTINCT FROM $1)::int AS assigned,
        COUNT(*) FILTER (WHERE t.completed_at IS NULL AND EXISTS (SELECT 1 FROM task_members m WHERE m.task_id = t.id AND m.user_id = $1 AND m.role = 'coassignee'))::int AS helping,
-       COUNT(*) FILTER (WHERE t.completed_at IS NULL AND EXISTS (SELECT 1 FROM task_members m WHERE m.task_id = t.id AND m.user_id = $1 AND m.role = 'auditor'))::int AS auditing
+       COUNT(*) FILTER (WHERE t.completed_at IS NULL AND EXISTS (SELECT 1 FROM task_members m WHERE m.task_id = t.id AND m.user_id = $1 AND m.role = 'auditor'))::int AS auditing,
+       COUNT(*) FILTER (WHERE t.completed_at IS NULL AND t.assignee_id = $1 AND t.accepted_at IS NULL)::int AS awaiting,
+       COUNT(*) FILTER (WHERE t.completed_at IS NULL AND t.accepted_at IS NULL AND t.assignee_id IS NOT NULL AND t.assignee_id <> $1
+                          AND COALESCE(t.originator_id, t.created_by) = $1)::int AS not_accepted,
+       COUNT(*) FILTER (WHERE t.completed_at IS NULL AND t.accepted_at IS NULL AND t.assignee_id IS NOT NULL AND t.assignee_id <> $1
+                          AND COALESCE(t.originator_id, t.created_by) = $1 AND t.accept_due_at < NOW())::int AS not_accepted_late
      FROM tasks t
      WHERE $2::int[] IS NULL OR t.project_id = ANY($2)`,
     [ctx.userId, ctx.limits?.[ACL] ? [...ctx.limits[ACL]] : null]

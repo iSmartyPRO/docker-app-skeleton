@@ -327,6 +327,8 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Adapting a fork](docs/adapt.md) | Renaming, branding and what not to rewrite |
 | [Access control & sign-in](docs/access-control.md) | Roles, groups, permissions, safety rules, sign-in methods and their setup |
 | [Modules](docs/modules.md) | The app platform: `/apps`, `/app/<id>`, enabling modules, writing a new one |
+| [Approvals](docs/approvals.md) | Core approvals service and the «Ждёт меня» inbox: routes with conditions, decisions, SLA and escalation, substitutes, module API, inbox providers |
+| [Contracts](docs/contracts.md) | Contracts registry: card, file versions, lawyer’s risks, approval, statuses by dates, expiry calendar and reminders, links, API |
 | [Tasks](docs/tasks.md) | Projects, roles, quick and full forms, blocks, task chat, templates and recurring tasks, flows, API |
 | [Chat](docs/chat.md) | Direct, group and record conversations, real time, push, adapters for modules, API |
 | [In-app help](docs/help.md) | Field hints, quick guides, the help center and how to write guides for a module |
@@ -337,6 +339,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Installable app (PWA)](docs/pwa.md) | Manifest, service worker, icons, install guide, deployment notes |
 | [Counterparties](docs/companies.md) | Companies, contacts, registers (Minjust KG, DaData, EGRUL), careers, history, ratings, API |
 | [Masterplan](docs/masterplan.md) | Development projects: site plan with contours, chessboard, registry, sales statuses and bookings, prices, construction journal, roles with zones, CRM link, API |
+| [Procurement](docs/procurement.md) | Purchase requests: line items, invoice by photo, approval via the approvals service, payments registry with partial payments, delivery, summary, webhooks; shared legal entities directory |
 | [Dashboard](docs/dashboard.md) | Personal widgets over the modules: catalog, customization, starting layout, API |
 | [Online resources](docs/resources.md) | Home page board, visibility, personal layouts, icons, API |
 | [File server (Drive)](docs/drive.md) | SMB file servers, sign-in, viewers, public links, security, operations, API |

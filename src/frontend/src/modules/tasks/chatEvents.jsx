@@ -57,6 +57,14 @@ registerSystemEvents('task.', (data, { t, locale, actor, navigate }) => {
       return { icon: '⏰', text: t('tasks.v2.ev.dueSoon', { at: when(data.dueAt, locale) }), tone: 'warn', actions: deadlineActions };
     case 'task.overdue':
       return { icon: '🔥', text: t('tasks.v2.ev.overdue', { at: when(data.dueAt, locale) }), tone: 'danger', actions: deadlineActions };
+    case 'task.accepted': {
+      // «Принято … в …», with how it happened and the assignee's comment.
+      const via = data.via === 'start' || data.via === 'complete' ? ` — ${t(`tasks.acc.ev.via.${data.via}`)}` : '';
+      const text = `${t('tasks.acc.ev.accepted', { actor, at: when(data.at, locale) })}${via}${data.comment ? `: «${data.comment}»` : ''}`;
+      return { icon: '✓', text, tone: 'ok' };
+    }
+    case 'task.not_accepted':
+      return { icon: '⏳', text: t('tasks.acc.ev.notAccepted', { n: data.hours }), tone: 'danger' };
     case 'task.reminder':
       return { icon: '⏰', text: t('tasks.v2.ev.reminder'), tone: 'warn' };
     case 'task.change': {
@@ -77,6 +85,8 @@ registerSystemEvents('task.', (data, { t, locale, actor, navigate }) => {
           return { icon: '✎', text: k('description') };
         case 'important':
           return { icon: '🔥', text: k(data.to ? 'importantOn' : 'importantOff') };
+        case 'order':
+          return { icon: '🔖', text: t(`tasks.acc.ev.${data.to ? 'orderOn' : 'orderOff'}`, { actor }) };
         case 'resultRequired':
           return { icon: '🏁', text: k(data.to ? 'resultOn' : 'resultOff') };
         case 'deferred':

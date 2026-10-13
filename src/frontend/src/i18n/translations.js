@@ -20,6 +20,9 @@ import { masterplanEn, masterplanRu } from './masterplan.js';
 import { masterplanSalesEn, masterplanSalesRu } from './masterplanSales.js';
 import { masterplanMarkersEn, masterplanMarkersRu } from './masterplanMarkers.js';
 import { masterplanReportsEn, masterplanReportsRu } from './masterplanReports.js';
+import { approvalsEn, approvalsRu } from './approvals.js';
+import { procurementEn, procurementRu } from './procurement.js';
+import { contractsEn, contractsRu } from './contracts.js';
 
 const en = {
   brand: 'docker-app-skeleton',
@@ -2001,6 +2004,12 @@ mergeDeep(en, masterplanMarkersEn);
 mergeDeep(ru, masterplanMarkersRu);
 mergeDeep(en, masterplanReportsEn);
 mergeDeep(ru, masterplanReportsRu);
+mergeDeep(en, approvalsEn);
+mergeDeep(ru, approvalsRu);
+mergeDeep(en, contractsEn);
+mergeDeep(ru, contractsRu);
+mergeDeep(en, procurementEn);
+mergeDeep(ru, procurementRu);
 mergeDeep(en, { appUpdate: { title: 'A new version is out', text: 'Update to see what’s new — it takes a second.', button: 'Update', updating: 'Updating…', later: 'Later' } });
 mergeDeep(ru, { appUpdate: { title: 'Вышла новая версия', text: 'Обновите, чтобы увидеть новое — это секунда.', button: 'Обновить', updating: 'Обновляем…', later: 'Позже' } });
 

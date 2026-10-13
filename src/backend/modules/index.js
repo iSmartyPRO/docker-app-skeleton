@@ -14,6 +14,9 @@ import masterplan from './masterplan/index.js';
 import dashboard from './dashboard/index.js';
 import chat from './chat/index.js';
 import assistant from './assistant/index.js';
+import approvals from './approvals/index.js';
+import contracts from './contracts/index.js';
+import procurement from './procurement/index.js';
 
 /*
  * Module platform.
@@ -33,7 +36,9 @@ import assistant from './assistant/index.js';
 // Chat before tasks: task conversations are entity rooms of the chat module.
 // CRM after companies and chat: deals point at companies and people, and have conversations.
 // Masterplan after CRM: units point at CRM deals and Counterparties.
-export const MODULES = [files, kb, chat, tasks, calendar, drive, resources, companies, crm, masterplan, dashboard, assistant];
+// Procurement after the modules it links to (Counterparties, CRM, Masterplan, Files, Chat).
+// Approvals first: modules register their document types against it at import time and its tables must exist for theirs.
+export const MODULES = [approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, masterplan, procurement, dashboard, assistant, contracts];
 
 async function moduleState(id) {
   const parsed = parseSettings(await getSettings());

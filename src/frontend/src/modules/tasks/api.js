@@ -37,6 +37,7 @@ export const tasksApi = {
   // Version 2: roles, blocks, templates
   favorite: (ref, on) => api.put(`${base}/tasks/${encodeURIComponent(ref)}/favorite`, { on }),
   start: (ref) => api.post(`${base}/tasks/${encodeURIComponent(ref)}/start`),
+  accept: (ref, comment) => api.post(`${base}/tasks/${encodeURIComponent(ref)}/accept`, comment ? { comment } : {}),
   delegate: (ref, userId) => api.post(`${base}/tasks/${encodeURIComponent(ref)}/delegate`, { userId }),
   rate: (ref, payload) => api.post(`${base}/tasks/${encodeURIComponent(ref)}/rate`, payload),
   copy: (ref, payload = {}) => api.post(`${base}/tasks/${encodeURIComponent(ref)}/copy`, payload),

@@ -18,6 +18,7 @@ const ITEMS = [
   { key: '/account/security', icon: 'lock', labelKey: 'account.security' },
   { key: '/account/notifications', icon: 'bell', labelKey: 'notifications.prefsTitle' },
   { key: '/account/connections', icon: 'integrations', labelKey: 'connections.title' },
+  { key: '/account/substitute', icon: 'people', labelKey: 'account.substitute' },
   { key: '/account/api', icon: 'code', labelKey: 'account.api', permissions: ['api.tokens', 'api.admin'] },
 ];
 

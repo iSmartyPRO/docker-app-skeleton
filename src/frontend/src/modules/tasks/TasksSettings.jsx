@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Form, InputNumber, Radio, Switch } from 'antd';
+import { Form, InputNumber, Radio, Select, Switch } from 'antd';
+import { tasksApi } from './api';
 import SaveBar from '../../components/ui/SaveBar';
 import LoadState from '../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
@@ -17,6 +18,10 @@ function TasksForm({ settings, save }) {
     save({ modules: { tasks: { enabled, settings: rest } } })
   );
   const reminders = Form.useWatch('reminders', form);
+  const [groups, setGroups] = useState([]);
+  useEffect(() => {
+    tasksApi.subjects().then((res) => setGroups(res.data.groups || [])).catch(() => {});
+  }, []);
   return (
     <Form {...formProps}>
       <SettingsSection>
@@ -56,6 +61,30 @@ function TasksForm({ settings, save }) {
         <SettingRow label={t('tasksSettings.dueSoon')} description={t('tasksSettings.dueSoonDesc')}>
           <Form.Item name="dueSoonHours" noStyle>
             <InputNumber min={1} max={168} disabled={!reminders} addonAfter={t('tasksSettings.hours')} style={{ width: 150 }} />
+          </Form.Item>
+        </SettingRow>
+      </SettingsSection>
+      <SettingsSection title={t('tasks.acc.settings.title')} description={t('tasks.acc.settings.desc')}>
+        <SettingRow label={t('tasks.acc.settings.hours')} description={t('tasks.acc.settings.hoursDesc')}>
+          <Form.Item name="acceptHours" noStyle>
+            <InputNumber min={1} max={720} addonAfter={t('tasksSettings.hours')} style={{ width: 150 }} />
+          </Form.Item>
+        </SettingRow>
+        <SettingRow label={t('tasks.acc.settings.importantHours')} description={t('tasks.acc.settings.importantHoursDesc')}>
+          <Form.Item name="acceptHoursImportant" noStyle>
+            <InputNumber min={1} max={720} addonAfter={t('tasksSettings.hours')} style={{ width: 150 }} />
+          </Form.Item>
+        </SettingRow>
+        <SettingRow label={t('tasks.acc.settings.groups')} description={t('tasks.acc.settings.groupsDesc')}>
+          <Form.Item name="ordersGroupIds" noStyle>
+            <Select
+              mode="multiple"
+              allowClear
+              style={{ minWidth: 260, maxWidth: '100%' }}
+              placeholder={t('tasks.acc.settings.groupsPlaceholder')}
+              options={groups.map((group) => ({ value: group.id, label: group.name }))}
+              optionFilterProp="label"
+            />
           </Form.Item>
         </SettingRow>
       </SettingsSection>

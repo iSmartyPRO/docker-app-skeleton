@@ -1667,3 +1667,167 @@
 .te-sheet .te-deadline__calendar .ant-picker-calendar {
   width: 100%;
 }
+
+/* «Поручение» toggle next to the flame */
+.te-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 40px;
+  height: 40px;
+  margin-top: 2px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 12px;
+  color: color-mix(in srgb, var(--da-text) 22%, transparent);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.te-order:hover:not(:disabled) {
+  color: #6366f1;
+  background: color-mix(in srgb, #6366f1 10%, transparent);
+}
+
+.te-order.is-on {
+  color: #4f46e5;
+  background: color-mix(in srgb, #6366f1 13%, transparent);
+}
+
+.te-order:disabled {
+  cursor: default;
+}
+
+:root[data-theme='dark'] .te-order.is-on {
+  color: #a5b4fc;
+}
+
+/* «Принять в работу» banner */
+.te-accept {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 2px 0 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, #f59e0b 35%, var(--da-hairline));
+  background: color-mix(in srgb, #f59e0b 8%, var(--da-surface));
+  animation: da-fade 0.25s var(--da-ease-out) backwards;
+}
+
+.te-accept.is-late {
+  border-color: color-mix(in srgb, var(--da-error) 40%, var(--da-hairline));
+  background: color-mix(in srgb, var(--da-error) 7%, var(--da-surface));
+}
+
+.te-accept__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+}
+
+.te-accept.is-late .te-accept__icon {
+  color: var(--da-error);
+  background: color-mix(in srgb, var(--da-error) 14%, transparent);
+}
+
+:root[data-theme='dark'] .te-accept:not(.is-late) .te-accept__icon {
+  color: #fbbf24;
+}
+
+.te-accept__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.te-accept__text strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.te-accept.is-late .te-accept__text strong {
+  color: var(--da-error);
+}
+
+.te-accept__text > span {
+  color: var(--da-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.te-accept__comment {
+  margin-top: 8px;
+}
+
+.te-accept__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  max-width: 260px;
+}
+
+.te-accept__more {
+  flex-basis: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--da-muted);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: right;
+  cursor: pointer;
+}
+
+.te-accept__more:hover {
+  color: var(--da-primary);
+}
+
+.te-tag.is-accepted {
+  color: #047857;
+  background: color-mix(in srgb, #10b981 13%, transparent);
+}
+
+:root[data-theme='dark'] .te-tag.is-accepted {
+  color: #34d399;
+}
+
+@media (max-width: 900px) {
+  .te-accept {
+    flex-wrap: wrap;
+  }
+
+  .te-accept__actions {
+    flex-basis: 100%;
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .te-accept__actions .ant-btn {
+    flex: 1;
+  }
+
+  .te-accept__more {
+    text-align: left;
+  }
+
+  .te-order span {
+    display: none;
+  }
+}

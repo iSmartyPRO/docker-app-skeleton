@@ -16,6 +16,8 @@ export const HELP_ORDER = [
   'account',
   'notifications',
   'dashboard',
+  'approvals',
+  'contracts',
   'tasks',
   'calendar',
   'chat',
@@ -25,6 +27,7 @@ export const HELP_ORDER = [
   'companies',
   'crm',
   'masterplan',
+  'procurement',
   'resources',
   'admin',
   'api',
@@ -55,6 +58,7 @@ export function helpForPath(pathname) {
   if (pathname.startsWith('/admin')) return 'admin';
   if (pathname.startsWith('/account/notifications')) return 'notifications';
   if (pathname.startsWith('/account/api')) return 'api';
+  if (pathname.startsWith('/account/substitute')) return 'approvals';
   if (pathname.startsWith('/account')) return 'account';
   const app = pathname.match(/^\/app\/([a-z]+)/);
   if (app) return app[1];

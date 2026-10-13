@@ -3,6 +3,8 @@ import { MyTasks, TaskStats, TaskTrend } from './widgets/Tasks';
 import { Agenda, MiniCalendar } from './widgets/Calendar';
 import { Companies, Drive, DriveActivity, KbRecent, Links, People, RecentFiles } from './widgets/Content';
 import { getRegional } from '../../lib/datetime';
+import InboxWidget from '../approvals/InboxWidget';
+import ProcurementWidget from '../procurement/ProcurementWidget';
 
 /*
  * Frontend widget catalog. Each entry: the component, where it sits in the
@@ -44,6 +46,16 @@ export const WIDGET_CATALOG = {
       { key: 'modules', type: 'multi', from: 'modules', allowEmpty: 'dashboard.fields.allModules' },
       { key: 'style', type: 'segmented', default: 'tiles', options: ['tiles', 'list'].map((value) => ({ value, labelKey: `dashboard.fields.style.${value}` })) },
     ],
+  },
+  inbox: {
+    Component: InboxWidget,
+    module: 'approvals',
+    category: 'overview',
+    icon: 'inbox',
+    color: '#1C7ED6',
+    size: { w: 4, h: 6, minW: 3, minH: 3 },
+    preview: 'list',
+    fields: [limit(6, 3, 20)],
   },
   notifications: {
     Component: Notifications,
@@ -181,6 +193,17 @@ export const WIDGET_CATALOG = {
       { key: 'style', type: 'segmented', default: 'tiles', options: ['tiles', 'list'].map((value) => ({ value, labelKey: `dashboard.fields.style.${value}` })) },
       limit(12, 2, 40),
     ],
+  },
+  procurement: {
+    Component: ProcurementWidget,
+    module: 'procurement',
+    category: 'business',
+    icon: 'cart',
+    color: '#F97316',
+    link: '/app/procurement',
+    size: { w: 4, h: 6, minW: 3, minH: 4 },
+    preview: 'list',
+    fields: [],
   },
   companies: {
     Component: Companies,

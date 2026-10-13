@@ -54,6 +54,8 @@ import {
   updateChecklist,
   updateChecklistItem,
 } from './extras.js';
+import { acceptTask } from './acceptance.js';
+import { ACCEPT_DEFAULTS } from './orders.js';
 import { addField, createRecurring, deleteField, deleteFlow, deleteTemplate, listFields, listFlows, listTemplates, saveFlow, saveTemplate } from './templates.js';
 
 async function moduleSettings() {
@@ -88,6 +90,8 @@ export function privateRoutes() {
         defaultView: settings.defaultView,
         isAdmin: req.tasks.isAdmin,
         chat: Boolean(parseSettings(await getSettings()).modules.chat?.enabled),
+        // Hours to accept a task (projects may set their own).
+        acceptance: { hours: settings.acceptHours || ACCEPT_DEFAULTS.hours, importantHours: settings.acceptHoursImportant || ACCEPT_DEFAULTS.importantHours },
       },
     });
   }));
@@ -154,6 +158,7 @@ export function privateRoutes() {
   }));
   router.put('/tasks/:ref/watch', wrap(async (req, res) => res.json({ success: true, watching: await setWatching(req.tasks, req.params.ref, Boolean(req.body?.on)) })));
   router.put('/tasks/:ref/favorite', wrap(async (req, res) => res.json({ success: true, favorite: await setFavorite(req.tasks, req.params.ref, Boolean(req.body?.on)) })));
+  router.post('/tasks/:ref/accept', wrap(async (req, res) => res.json({ success: true, ...(await acceptTask(req.tasks, req.params.ref, { comment: req.body?.comment })) })));
   router.post('/tasks/:ref/start', wrap(async (req, res) => res.json({ success: true, task: await startTask(req.tasks, req.params.ref) })));
   router.post('/tasks/:ref/delegate', wrap(async (req, res) => res.json({ success: true, task: await delegateTask(req.tasks, req.params.ref, req.body?.userId) })));
   router.post('/tasks/:ref/rate', wrap(async (req, res) => res.json({ success: true, ...(await rateTask(req.tasks, req.params.ref, req.body || {})) })));

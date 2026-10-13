@@ -54,6 +54,7 @@ import {
 
 import { disconnectGmailSender, publicBase, redirectUri } from '../services/google.js';
 import { listIncidents } from '../services/incidents.js';
+import { archiveLegalEntity, createLegalEntity, listLegalEntities, updateLegalEntity } from '../services/legalEntities.js';
 import rateLimit from 'express-rate-limit';
 import config from '../config/app.js';
 import { IMPERSONATOR_COOKIE, cookieOptions, issueSessionToken } from '../services/auth.js';
@@ -521,6 +522,24 @@ router.delete('/security/ip-rules/:id', securitySettings, wrap(async (req, res) 
   await assertAdminKeepsAccess(req, { rules: remaining });
   await removeIpRule(id);
   res.json({ success: true });
+}));
+
+// ── Legal entities (shared directory for Procurement, Contracts…) ───────────
+
+router.get('/legal-entities', anySettings, wrap(async (req, res) => {
+  res.json({ success: true, entities: await listLegalEntities({ includeArchived: true }) });
+}));
+
+router.post('/legal-entities', generalSettings, wrap(async (req, res) => {
+  res.status(201).json({ success: true, entity: await createLegalEntity(req.body || {}) });
+}));
+
+router.put('/legal-entities/:id', generalSettings, wrap(async (req, res) => {
+  res.json({ success: true, entity: await updateLegalEntity(req.params.id, req.body || {}) });
+}));
+
+router.delete('/legal-entities/:id', generalSettings, wrap(async (req, res) => {
+  res.json({ success: true, entity: await archiveLegalEntity(req.params.id) });
 }));
 
 export default router;

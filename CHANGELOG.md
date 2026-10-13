@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Business processes: approvals, procurement, contracts, orders
+
+Spec: [docs/specs/business-processes.ru.md](docs/specs/business-processes.ru.md).
+
+- **Approvals** ([docs/approvals.md](docs/approvals.md)), an always-on core service: routes with stages (people, roles, groups; all / any) and conditions (amount, category, project, legal entity) built in a drag-and-drop builder with a preview; decisions approve / reject / question / return / delegate / withdraw; urgency levels with reaction times, reminders at 75 %, escalation; substitutes; `approval.*` notifications and webhooks.
+- **«Ждёт меня»** inbox (`/app/approvals`): everything waiting for the person across modules — grouped by overdue / today / the rest, inline approve, question and accept, bulk approve, side card with ↑/↓; header counter and a dashboard widget. Modules add items through `registerInboxProvider()`.
+- **Procurement** ([docs/procurement.md](docs/procurement.md)), off by default: requests with items, invoice (also from the phone camera or Files), urgency, pay-by and deliver-by; approval → «К оплате» → partial/full payments with payment orders → delivery → closed; payments registry for accountants with totals per currency; summary and dashboard widget; shared legal entities directory (Settings → Project).
+- **Contracts** ([docs/contracts.md](docs/contracts.md)), off by default: contract cards with file versions («что изменено»), the lawyer's risk list next to approval decisions, discussion, links to procurement, CRM and Masterplan; statuses by date (in force, expiring, finished, auto-prolongation), reminders 30 / 7 days before the end and before the refusal deadline; expiry calendar.
+- **Orders in Tasks:** «Принять в работу» for tasks assigned to someone else, acceptance deadline (24 h, 4 h for important) with red «Не принята N ч», reminders; «Поручение» flag and leadership groups; chips Срочные / Просрочено / Не приняты / В работе / Отработано / Поручения; existing tasks are treated as accepted.
+
 ### Masterplan: point markers and construction reports
 
 - **Point markers:** place an object on the site plan as a circle with its number instead of a contour — editor mode «Точки» with «Размещено X из N», chain placement («Ставить подряд»), drag with alignment, S/M/L size, labels, contour ↔ point, undo; markers follow the layers (status, readiness arc, type), apartment buildings get a ring of unit statuses and a «free/total» chip; numbers shrink to dots where markers would touch; works in presentation, search and on phones. Projects with several plans get a plan picker.

@@ -441,6 +441,13 @@ export async function delegateTask(ctx, taskRefOrId, userId) {
 export async function startTask(ctx, taskRefOrId) {
   const row = await editableTask(ctx, taskRefOrId);
   const { rows } = await query(`SELECT id FROM task_statuses WHERE project_id = $1 AND category = 'active' ORDER BY sort, id LIMIT 1`, [row.project_id]);
+  // Starting accepts the task: moving into an "in progress" status does it in updateTask;
+  // a task already in such a status (or a workflow without one) is accepted here.
+  const pendingMine = row.assignee_id === ctx.userId && !row.accepted_at && !row.completed_at;
+  if (pendingMine && (!rows[0] || row.status_category === 'active')) {
+    const { acceptTask } = await import('./acceptance.js');
+    await acceptTask(ctx, row.id, { via: 'start' });
+  }
   if (rows[0]) return updateTask(ctx, row.id, { statusId: rows[0].id, deferred: false });
   await query(`UPDATE tasks SET started_at = NOW() WHERE id = $1`, [row.id]);
   return updateTask(ctx, row.id, { deferred: false });
@@ -454,6 +461,7 @@ export async function formPayload(ctx, taskRefOrId) {
     description: task.description,
     descriptionFormat: task.descriptionFormat,
     important: task.important,
+    isOrder: task.orderFlag,
     priority: task.priority,
     projectId: task.project.personal ? null : task.project.id,
     assigneeId: task.assignee?.id || null,

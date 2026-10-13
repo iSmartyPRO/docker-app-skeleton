@@ -186,8 +186,10 @@ Administrators create webhooks in the console. A webhook has:
 | `task.created`, `task.updated`, `task.completed`, `task.deleted` | Task lifecycle (`task.updated` carries the list of `changes`) |
 | `task.comment`, `task.result` | A message in the task chat, a result added |
 | `task.due_soon`, `task.overdue` | Deadline reminders |
+| `task.accepted` | The assignee accepted the task (button, start or completion); `acceptance: { acceptedAt, via, comment }` |
 | `chat.message` | A message in any conversation |
 | `deal.created`, `deal.updated`, `deal.stage_changed`, `deal.won`, `deal.lost`, `deal.deleted` | CRM deals (`deal.updated` carries `changes`, `deal.stage_changed` `from`/`to`); only deals the run-as person may see |
+| `contracts.created`, `.updated`, `.status_changed`, `.prolonged`, `.version_added`, `.risk_changed`, `.reminder`, `.deleted` | Contracts ([contracts.md](contracts.md#notifications-and-webhooks)); only contracts the run-as person may see |
 | `calendar.event.created`, `.updated`, `.deleted` | Calendar events |
 | `user.created`, `.updated`, `.deleted` | Accounts changed in the console or through the API (needs `users.view` for the run-as person) |
 

@@ -3,11 +3,12 @@ import { Checkbox } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { Person } from '../../shared/People';
 import { ChecklistBadge, CommentBadge, DueChip, LabelTag, PriorityIcon } from './bits';
+import { AcceptBadge, OrderBadge, isLate } from './acceptance';
 
 function Row({ task, onOpen, onToggle, showProject, canEdit }) {
   const done = task.statusCategory === 'done';
   return (
-    <div className={`task-row${done ? ' is-done' : ''}`} role="button" tabIndex={0} onClick={() => onOpen(task)} onKeyDown={(event) => event.key === 'Enter' && onOpen(task)}>
+    <div className={`task-row${done ? ' is-done' : ''}${isLate(task) ? ' is-late' : ''}`} role="button" tabIndex={0} onClick={() => onOpen(task)} onKeyDown={(event) => event.key === 'Enter' && onOpen(task)}>
       <span className="task-row__check" onClick={(event) => event.stopPropagation()} role="presentation">
         <Checkbox checked={done} disabled={!canEdit(task)} onChange={(event) => onToggle(task, event.target.checked)} />
       </span>
@@ -19,6 +20,8 @@ function Row({ task, onOpen, onToggle, showProject, canEdit }) {
       <span className="task-row__title">
         {task.important && <span className="task-flame" title="🔥">🔥</span>}
         <span>{task.title}</span>
+        <OrderBadge task={task} compact />
+        <AcceptBadge task={task} compact />
         {task.deferred && <span className="task-deferred">⏸</span>}
         {task.subtasks > 0 && <span className="task-subs">⤵ {task.subtasks}</span>}
         {task.labels.slice(0, 2).map((label) => (
@@ -62,6 +65,7 @@ export default function TaskList({ groups, onOpen, onToggle, showProject, canEdi
               <strong>{group.label}</strong>
               <span className="task-group__count">{group.tasks.length}</span>
             </button>
+            {group.hint && !collapsed.has(group.key) && <div className="task-group__hint">{group.hint}</div>}
             {!collapsed.has(group.key) && (
               <div className="task-group__rows">
                 {group.tasks.map((task) => (

@@ -16,6 +16,17 @@ export const MODULE_REGISTRY = [
     Settings: lazy(() => import('./dashboard/DashboardSettings')),
   },
   {
+    // Approvals: the «Ждёт меня» inbox. A core service, always on (no switch in Settings → Modules).
+    id: 'approvals',
+    path: '/app/approvals',
+    icon: 'inbox',
+    core: true,
+    labelKey: 'apps.approvals.name',
+    descKey: 'apps.approvals.desc',
+    App: lazy(() => import('./approvals/ApprovalsApp')),
+    Settings: lazy(() => import('./approvals/ApprovalsSettings')),
+  },
+  {
     id: 'chat',
     path: '/app/chat',
     icon: 'chat',
@@ -86,6 +97,24 @@ export const MODULE_REGISTRY = [
     descKey: 'apps.masterplan.desc',
     App: lazy(() => import('./masterplan/MasterplanApp')),
     Settings: lazy(() => import('./masterplan/MasterplanSettings')),
+  },
+  {
+    id: 'procurement',
+    path: '/app/procurement',
+    icon: 'cart',
+    labelKey: 'apps.procurement.name',
+    descKey: 'apps.procurement.desc',
+    App: lazy(() => import('./procurement/ProcurementApp')),
+    Settings: lazy(() => import('./procurement/ProcurementSettings')),
+  },
+  {
+    id: 'contracts',
+    path: '/app/contracts',
+    icon: 'clipboard',
+    labelKey: 'apps.contracts.name',
+    descKey: 'apps.contracts.desc',
+    App: lazy(() => import('./contracts/ContractsApp')),
+    Settings: lazy(() => import('./contracts/ContractsSettings')),
   },
   {
     id: 'calendar',

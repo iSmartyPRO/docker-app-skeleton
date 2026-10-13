@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { App, Form, Input, Modal, Radio } from 'antd';
+import { App, Form, Input, InputNumber, Modal, Radio } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { ColorSwatches } from '../../shared/People';
 import { tasksApi } from '../api';
+import { useTasks } from '../TasksContext';
 import { HintLabel } from '../../../help/Hint';
 
 /**
@@ -14,6 +15,7 @@ import { HintLabel } from '../../../help/Hint';
 export default function ProjectDialog({ open, project, onClose }) {
   const { t } = useLocale();
   const { message } = App.useApp();
+  const { config } = useTasks() || {};
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
   const [keyState, setKeyState] = useState(null);
@@ -27,7 +29,7 @@ export default function ProjectDialog({ open, project, onClose }) {
     setKeyState(null);
     form.setFieldsValue(
       project
-        ? { name: project.name, description: project.description, color: project.color || '#6366F1' }
+        ? { name: project.name, description: project.description, color: project.color || '#6366F1', acceptHours: project.acceptHours, acceptHoursImportant: project.acceptHoursImportant }
         : { name: '', key: '', description: '', color: '#6366F1', visibility: 'team' }
     );
   }, [open, project, form]);
@@ -62,7 +64,13 @@ export default function ProjectDialog({ open, project, onClose }) {
     setSaving(true);
     try {
       const res = editing
-        ? await tasksApi.updateProject(project.key, { name: values.name, description: values.description, color: values.color })
+        ? await tasksApi.updateProject(project.key, {
+            name: values.name,
+            description: values.description,
+            color: values.color,
+            acceptHours: values.acceptHours ?? null,
+            acceptHoursImportant: values.acceptHoursImportant ?? null,
+          })
         : await tasksApi.createProject(values);
       message.success(t(editing ? 'common.saved' : 'tasks.projectCreated'));
       onClose(res.data.project || res.data);
@@ -118,6 +126,21 @@ export default function ProjectDialog({ open, project, onClose }) {
         <Form.Item name="color" label={t('kb.color')}>
           <ColorSwatches small />
         </Form.Item>
+        {editing && (
+          <Form.Item
+            label={<HintLabel id="tasks.acceptHours">{t('tasks.acc.project.title')}</HintLabel>}
+            help={t('tasks.acc.project.hint', { n: config?.acceptance?.hours ?? 24, m: config?.acceptance?.importantHours ?? 4 })}
+          >
+            <div className="accept-hours">
+              <Form.Item name="acceptHours" noStyle>
+                <InputNumber min={1} max={720} addonBefore={t('tasks.acc.project.normal')} addonAfter={t('tasksSettings.hours')} placeholder={String(config?.acceptance?.hours ?? 24)} />
+              </Form.Item>
+              <Form.Item name="acceptHoursImportant" noStyle>
+                <InputNumber min={1} max={720} addonBefore={t('tasks.acc.project.important')} addonAfter={t('tasksSettings.hours')} placeholder={String(config?.acceptance?.importantHours ?? 4)} />
+              </Form.Item>
+            </div>
+          </Form.Item>
+        )}
         {!editing && (
           <Form.Item name="visibility" label={<HintLabel id="tasks.projectAccess">{t('tasks.visibility')}</HintLabel>}>
             <Radio.Group className="visibility-options">

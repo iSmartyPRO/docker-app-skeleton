@@ -21,6 +21,8 @@ import { HelpProvider } from './help/HelpContext';
 import './modules/tasks/chatEvents';
 // …and of deal events (deal chats of the CRM).
 import './modules/crm/chatEvents';
+// …and of contract events (contract discussions).
+import './modules/contracts/chatEvents';
 import { LEGACY_ADMIN_ROUTES, SETTINGS_ITEMS } from './admin/navigation';
 import { SETTINGS_PAGES } from './admin/settingsPages';
 import { loginUrl } from './lib/returnPath';
@@ -64,6 +66,7 @@ const AccountNotifications = lazy(() => import('./pages/account/Notifications'))
 const AccountConnections = lazy(() => import('./pages/account/Connections'));
 const ApiConsole = lazy(() => import('./developer/ApiConsole'));
 const ApiTokensPage = lazy(() => import('./developer/ApiTokensPage'));
+const MySubstitute = lazy(() => import('./modules/approvals/MySubstitute'));
 const Developers = lazy(() => import('./developer/Developers'));
 const HelpCenter = lazy(() => import('./help/HelpCenter'));
 
@@ -227,6 +230,8 @@ function ThemedRoutes() {
                 </SetupGate>
               }
             />
+            {/* «Ждёт меня» lives in the approvals module; /inbox is the short address. */}
+            <Route path="/inbox" element={<Navigate to="/app/approvals" replace />} />
             <Route
               path="/apps"
               element={
@@ -333,6 +338,7 @@ function ThemedRoutes() {
               <Route path="notifications" element={<AccountNotifications />} />
               <Route path="connections" element={<AccountConnections />} />
               <Route path="api" element={<ApiTokensPage />} />
+              <Route path="substitute" element={<MySubstitute />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

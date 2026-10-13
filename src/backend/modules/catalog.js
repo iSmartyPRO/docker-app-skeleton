@@ -219,6 +219,194 @@ export function sanitizeMasterplan(current, incoming = {}) {
   return next;
 }
 
+// ── Approvals settings (docs/approvals.md) ──────────────────────────────────
+
+/** Stock urgency levels: reaction time of a stage per level (spec: Критично 4 ч · Срочно 24 ч · Обычно 72 ч). */
+export const APPROVAL_DEFAULT_URGENCIES = [
+  { key: 'critical', label: '', color: '#E5484D', hours: 4, icon: 'flame' },
+  { key: 'urgent', label: '', color: '#F59E0B', hours: 24, icon: 'bolt' },
+  { key: 'normal', label: '', color: '#3B82F6', hours: 72, icon: 'clock' },
+];
+export const APPROVAL_URGENCY_ICONS = ['flame', 'bolt', 'clock', 'alert', 'flag', 'hourglass', 'star', 'leaf'];
+
+export const APPROVALS_DEFAULTS = {
+  // Ordered from the most urgent; empty `label` = the translated stock name.
+  urgencies: APPROVAL_DEFAULT_URGENCIES,
+  defaultUrgency: 'normal',
+  // A deadline closer than this many hours is shown in yellow.
+  soonHours: 24,
+  // Share of the reaction time after which approvers get a reminder (75 = the last quarter is left).
+  reminderPercent: 75,
+  // Notify the escalation people when a stage is overdue.
+  escalation: true,
+};
+
+const approvalText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
+
+export function sanitizeApprovalUrgencies(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  const seen = new Set();
+  for (const raw of list.slice(0, 8)) {
+    if (!raw || typeof raw !== 'object') continue;
+    let key = String(raw.key || '').trim().toLowerCase();
+    if (!/^[a-z][a-z0-9_]{0,23}$/.test(key)) key = `u${out.length + 1}`;
+    if (seen.has(key)) continue;
+    const stock = APPROVAL_DEFAULT_URGENCIES.find((level) => level.key === key);
+    const label = approvalText(raw.label, 40);
+    // Custom levels need a name; stock ones fall back to the translation.
+    if (!label && !stock) continue;
+    seen.add(key);
+    out.push({
+      key,
+      label,
+      color: typeof raw.color === 'string' && HEX.test(raw.color) ? raw.color.toUpperCase() : stock?.color || '#64748B',
+      hours: clampInt(raw.hours, 1, 24 * 90, stock?.hours || 72),
+      icon: APPROVAL_URGENCY_ICONS.includes(raw.icon) ? raw.icon : stock?.icon || 'clock',
+    });
+  }
+  return out.length ? out : null;
+}
+
+export function sanitizeApprovals(current, incoming = {}) {
+  const next = { ...current };
+  const urgencies = sanitizeApprovalUrgencies(incoming.urgencies);
+  if (urgencies) next.urgencies = urgencies;
+  if (typeof incoming.defaultUrgency === 'string') next.defaultUrgency = incoming.defaultUrgency;
+  if (!next.urgencies?.some((level) => level.key === next.defaultUrgency)) next.defaultUrgency = next.urgencies?.[next.urgencies.length - 1]?.key || 'normal';
+  if (incoming.soonHours !== undefined) next.soonHours = clampInt(incoming.soonHours, 1, 24 * 14, 24);
+  if (incoming.reminderPercent !== undefined) next.reminderPercent = clampInt(incoming.reminderPercent, 10, 95, 75);
+  if (typeof incoming.escalation === 'boolean') next.escalation = incoming.escalation;
+  return next;
+}
+
+// ── Procurement settings (docs/procurement.md) ───────────────────────────────
+
+const PROCUREMENT_CATEGORY_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#64748B'];
+
+export const PROCUREMENT_DEFAULTS = {
+  // Directory of request categories: stable keys (route conditions test them), names, colours.
+  categories: [
+    { key: 'equipment', name: 'Оборудование', color: '#3B82F6' },
+    { key: 'materials', name: 'Материалы', color: '#10B981' },
+    { key: 'services', name: 'Услуги', color: '#8B5CF6' },
+    { key: 'it', name: 'IT и связь', color: '#0EA5E9' },
+    { key: 'office', name: 'Канцелярия и хозтовары', color: '#F59E0B' },
+    { key: 'transport', name: 'Транспорт', color: '#EC4899' },
+    { key: 'other', name: 'Прочее', color: '#64748B' },
+  ],
+  currencies: ['USD', 'KGS', 'RUB'],
+  currency: 'USD',
+  // Request numbers: «ЗК-0001».
+  numberPrefix: 'ЗК',
+  numberDigits: 4,
+  // An invoice must be attached before a request goes to approval.
+  invoiceRequired: true,
+  // Everyone signed in may file requests (off: only holders of procurement.create).
+  anyoneCanCreate: true,
+  // People see the requests of colleagues from their groups (besides their own).
+  groupVisibility: true,
+  // «Pay by» / «deliver by» reminders this many days before the date (0 = on the day); overdue on the day after.
+  reminderDays: 1,
+  // Units offered in line items (free text is allowed too).
+  units: ['шт', 'кг', 'м', 'м²', 'м³', 'л', 'компл', 'усл', 'ч'],
+};
+
+const procText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
+
+export function sanitizeProcurement(current, incoming = {}) {
+  const next = { ...current };
+  if (Array.isArray(incoming.categories)) {
+    const seen = new Set();
+    const list = [];
+    for (const raw of incoming.categories.slice(0, 60)) {
+      const name = procText(raw?.name, 60);
+      if (!name) continue;
+      let key = String(raw?.key || '').trim().toLowerCase();
+      if (!/^[a-z][a-z0-9_]{0,31}$/.test(key) || seen.has(key)) {
+        let n = list.length + 1;
+        while (seen.has(`c${n}`)) n += 1;
+        key = `c${n}`;
+      }
+      seen.add(key);
+      list.push({ key, name, color: typeof raw?.color === 'string' && HEX.test(raw.color) ? raw.color.toUpperCase() : PROCUREMENT_CATEGORY_COLORS[list.length % PROCUREMENT_CATEGORY_COLORS.length], ...(raw?.archived === true ? { archived: true } : {}) });
+    }
+    next.categories = list;
+  }
+  if (Array.isArray(incoming.currencies)) {
+    const list = [...new Set(incoming.currencies.map((code) => String(code || '').trim().toUpperCase()).filter((code) => /^[A-Z]{3}$/.test(code)))].slice(0, 20);
+    if (list.length) next.currencies = list;
+  }
+  if (typeof incoming.currency === 'string' && /^[A-Z]{3}$/.test(incoming.currency.trim().toUpperCase())) next.currency = incoming.currency.trim().toUpperCase();
+  if (!next.currencies?.includes(next.currency)) next.currency = next.currencies?.[0] || 'USD';
+  if (typeof incoming.numberPrefix === 'string') {
+    const prefix = incoming.numberPrefix.replace(/[^\p{L}\p{N}_./-]/gu, '').slice(0, 10);
+    if (prefix) next.numberPrefix = prefix;
+  }
+  if (incoming.numberDigits !== undefined) next.numberDigits = clampInt(incoming.numberDigits, 1, 8, 4);
+  for (const flag of ['invoiceRequired', 'anyoneCanCreate', 'groupVisibility']) {
+    if (typeof incoming[flag] === 'boolean') next[flag] = incoming[flag];
+  }
+  if (incoming.reminderDays !== undefined) next.reminderDays = clampInt(incoming.reminderDays, 0, 30, 1);
+  if (Array.isArray(incoming.units)) next.units = [...new Set(incoming.units.map((unit) => procText(unit, 16)).filter(Boolean))].slice(0, 40);
+  return next;
+}
+
+// ── Contracts settings (docs/contracts.md) ──────────────────────────────────
+
+/** Stock contract types; an empty label means the translated stock name. */
+export const CONTRACT_STOCK_TYPES = ['supply', 'services', 'lease', 'work', 'employment', 'sale', 'agency', 'loan', 'nda', 'other'];
+
+export const CONTRACTS_DEFAULTS = {
+  // Number prefix: «ДГ-0001». Changing it applies to new contracts only.
+  prefix: 'ДГ',
+  types: CONTRACT_STOCK_TYPES.map((key) => ({ key, label: '' })),
+  currencies: ['USD', 'KGS', 'RUB'],
+  defaultCurrency: 'KGS',
+  // Reminders to the business owner and the lawyer, days before the end and before the refusal deadline.
+  reminderDays: [30, 7],
+  // A running contract becomes «Истекает» this many days before its end.
+  expiringDays: 30,
+  // Largest file version, MB.
+  maxUploadMb: 50,
+};
+
+const contractText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
+
+export function sanitizeContracts(current, incoming = {}) {
+  const next = { ...current };
+  if (incoming.prefix !== undefined) next.prefix = contractText(incoming.prefix, 12).replace(/[\s/\\]+/g, '') || 'ДГ';
+  if (Array.isArray(incoming.types)) {
+    const seen = new Set();
+    const types = [];
+    for (const raw of incoming.types.slice(0, 40)) {
+      if (!raw || typeof raw !== 'object') continue;
+      let key = String(raw.key || '').trim().toLowerCase();
+      const label = contractText(raw.label, 60);
+      if (!/^[a-z][a-z0-9_]{0,23}$/.test(key)) key = `t${types.length + 1}${Date.now().toString(36).slice(-3)}`;
+      if (seen.has(key)) continue;
+      // Custom types need a name; stock ones fall back to the translation.
+      if (!label && !CONTRACT_STOCK_TYPES.includes(key)) continue;
+      seen.add(key);
+      types.push({ key, label });
+    }
+    if (types.length) next.types = types;
+  }
+  if (Array.isArray(incoming.currencies)) {
+    const list = [...new Set(incoming.currencies.map((code) => String(code || '').trim().toUpperCase()).filter((code) => /^[A-Z]{3}$/.test(code)))].slice(0, 12);
+    if (list.length) next.currencies = list;
+  }
+  if (typeof incoming.defaultCurrency === 'string' && /^[A-Z]{3}$/.test(incoming.defaultCurrency.toUpperCase())) next.defaultCurrency = incoming.defaultCurrency.toUpperCase();
+  if (!next.currencies?.includes(next.defaultCurrency)) next.defaultCurrency = next.currencies?.[0] || 'KGS';
+  if (Array.isArray(incoming.reminderDays)) {
+    const days = [...new Set(incoming.reminderDays.map(Number).filter((d) => Number.isFinite(d) && d >= 1).map((d) => clampInt(d, 1, 365, 1)))].sort((a, b) => b - a).slice(0, 5);
+    next.reminderDays = days;
+  }
+  if (incoming.expiringDays !== undefined) next.expiringDays = clampInt(incoming.expiringDays, 1, 365, 30);
+  if (incoming.maxUploadMb !== undefined) next.maxUploadMb = clampInt(incoming.maxUploadMb, 1, 500, 50);
+  return next;
+}
+
 export const MODULE_CATALOG = [
   {
     id: 'files',
@@ -499,6 +687,11 @@ export const MODULE_CATALOG = [
       defaultView: 'board',
       reminders: true,
       dueSoonHours: 24,
+      // «Принять в работу»: hours the assignee has to accept a task (important ones: their own).
+      acceptHours: 24,
+      acceptHoursImportant: 4,
+      // «Поручения»: tasks set by members of these groups ("leadership") are orders.
+      ordersGroupIds: [],
     },
     sanitize(current, incoming = {}) {
       const next = { ...current };
@@ -506,6 +699,11 @@ export const MODULE_CATALOG = [
       if (['board', 'list'].includes(incoming.defaultView)) next.defaultView = incoming.defaultView;
       if (typeof incoming.reminders === 'boolean') next.reminders = incoming.reminders;
       if (incoming.dueSoonHours !== undefined) next.dueSoonHours = clampInt(incoming.dueSoonHours, 1, 168, 24);
+      if (incoming.acceptHours !== undefined) next.acceptHours = clampInt(incoming.acceptHours, 1, 720, 24);
+      if (incoming.acceptHoursImportant !== undefined) next.acceptHoursImportant = clampInt(incoming.acceptHoursImportant, 1, 720, 4);
+      if (Array.isArray(incoming.ordersGroupIds)) {
+        next.ordersGroupIds = [...new Set(incoming.ordersGroupIds.map(Number).filter((id) => Number.isInteger(id) && id > 0 && id < 2 ** 31))].slice(0, 50);
+      }
       return next;
     },
   },
@@ -573,6 +771,34 @@ export const MODULE_CATALOG = [
       return next;
     },
   },
+  {
+    id: 'approvals',
+    // A core service: always on (other modules route their documents through it).
+    core: true,
+    defaultEnabled: true,
+    permissions: ['approvals.admin'],
+    defaults: APPROVALS_DEFAULTS,
+    sanitize: sanitizeApprovals,
+  },
+  {
+    id: 'procurement',
+    // A business module: off until an administrator turns it on (Settings → Modules).
+    defaultEnabled: false,
+    // create: file requests (when anyoneCanCreate is off); view_all: every request;
+    // pay: payments registry and marking payments; admin: directories, settings, routes.
+    permissions: ['procurement.create', 'procurement.view_all', 'procurement.pay', 'procurement.admin'],
+    defaults: PROCUREMENT_DEFAULTS,
+    sanitize: sanitizeProcurement,
+  },
+  {
+    id: 'contracts',
+    // A business module: off until an administrator turns it on (docs/contracts.md).
+    defaultEnabled: false,
+    // create: new contracts; view_all: every contract; legal: risks, «Подписан» / «Расторгнут»; admin: settings and everything.
+    permissions: ['contracts.create', 'contracts.view_all', 'contracts.legal', 'contracts.admin'],
+    defaults: CONTRACTS_DEFAULTS,
+    sanitize: sanitizeContracts,
+  },
 ];
 
 export const MODULE_IDS = MODULE_CATALOG.map((module) => module.id);
@@ -585,7 +811,7 @@ export function resolveModules(stored = {}) {
       return [
         module.id,
         {
-          enabled: typeof saved.enabled === 'boolean' ? saved.enabled : module.defaultEnabled,
+          enabled: module.core ? true : typeof saved.enabled === 'boolean' ? saved.enabled : module.defaultEnabled,
           settings: { ...module.defaults, ...(saved.settings || {}) },
         },
       ];
@@ -598,7 +824,7 @@ export function sanitizeModules(current, incoming = {}) {
   for (const module of MODULE_CATALOG) {
     const patch = incoming[module.id];
     if (!patch || typeof patch !== 'object') continue;
-    if (typeof patch.enabled === 'boolean') next[module.id].enabled = patch.enabled;
+    if (typeof patch.enabled === 'boolean' && !module.core) next[module.id].enabled = patch.enabled;
     if (patch.settings && typeof patch.settings === 'object') {
       next[module.id].settings = module.sanitize(next[module.id].settings, patch.settings);
     }

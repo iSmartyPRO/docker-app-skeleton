@@ -49,7 +49,11 @@ export default function ModulesSettings() {
                     {state.enabled && module.path && <Link to={module.path}>{t('modules.open')} ↗</Link>}
                   </div>
                 </div>
-                <Switch checked={Boolean(state.enabled)} onChange={(value) => toggle(module.id, value)} />
+                {module.core ? (
+                  <Tag bordered={false} color="blue">{t('modules.alwaysOn')}</Tag>
+                ) : (
+                  <Switch checked={Boolean(state.enabled)} onChange={(value) => toggle(module.id, value)} />
+                )}
               </section>
             );
           })}

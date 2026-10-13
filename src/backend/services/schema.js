@@ -9,6 +9,7 @@ import { ensureNotificationTables } from './notifications.js';
 import { ensurePushTables } from './push.js';
 import { startScheduler } from './scheduler.js';
 import { ensureApiTables } from '../api/schema.js';
+import { ensureLegalEntitiesTable } from './legalEntities.js';
 
 let bootstrapped = false;
 
@@ -26,6 +27,7 @@ export async function bootstrapSchema() {
   await ensureGoogleTables();
   await ensurePushTables();
   await ensureNotificationTables();
+  await ensureLegalEntitiesTable();
   await ensureModuleSchemas();
   await ensureApiTables();
   // Reminders and housekeeping start once the database is ready.

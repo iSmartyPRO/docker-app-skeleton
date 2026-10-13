@@ -226,7 +226,7 @@ function SidePanel({ room, tab, setTab, members, reloadMembers, onJump, onClose 
  * search). Opens a room by id or a record's conversation by `entity`
  * ({ type, id }). Live through the shared ChatProvider.
  */
-export default function Conversation({ roomId, entity, header = true, placeholder, emptyHint, extraActions, onRoomLoaded, compact = false }) {
+export default function Conversation({ roomId, entity, header = true, bareTitle, placeholder, emptyHint, extraActions, onRoomLoaded, compact = false }) {
   const { t, locale } = useLocale();
   const { message, modal } = App.useApp();
   const { user } = useAuth();
@@ -622,7 +622,7 @@ export default function Conversation({ roomId, entity, header = true, placeholde
                   <strong>{title}</strong>
                 </Link>
               ) : (
-                <strong>{header === 'bare' ? t(entity?.type === 'deal' ? 'chat.dealChat' : 'chat.taskChat') : title}</strong>
+                <strong>{header === 'bare' ? bareTitle || t(entity?.type === 'deal' ? 'chat.dealChat' : 'chat.taskChat') : title}</strong>
               )}
               <span>
                 {room.muted && '🔕 '}

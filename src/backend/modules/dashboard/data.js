@@ -15,6 +15,7 @@ import { contextFromRequest as kbContext } from '../kb/access.js';
 import { board, resourcesContext } from '../resources/service.js';
 import { companiesContext, companiesSettings, listCompanies } from '../companies/service.js';
 import { WIDGETS } from './widgets.js';
+import { inboxFor } from '../../services/inbox.js';
 import { isoDay, startOfDay, zonedParts } from '../../services/datetime.js';
 import { requestZone } from '../../services/regional.js';
 
@@ -421,6 +422,13 @@ async function notifications(req, settings) {
   return listNotifications(req.user.id, { limit: int(settings.limit, 3, 20, 6), unreadOnly: Boolean(settings.unreadOnly) });
 }
 
+/** «Ждёт меня»: the first items of the inbox (approvals, tasks waiting for acceptance…) and the counters. */
+async function inbox(req, settings) {
+  const { items } = await inboxFor(req);
+  const list = settings.module ? items.filter((item) => item.module === settings.module) : items;
+  return { items: list.slice(0, int(settings.limit, 3, 20, 6)), total: list.length, overdue: list.filter((item) => item.overdue).length };
+}
+
 async function welcome(req, settings, tz) {
   const modules = parseSettings(await getSettings()).modules;
   const { today, tomorrow } = await bounds(tz);
@@ -453,6 +461,7 @@ async function welcome(req, settings, tz) {
 
 export const PROVIDERS = {
   welcome,
+  inbox,
   notifications,
   myTasks,
   taskStats,

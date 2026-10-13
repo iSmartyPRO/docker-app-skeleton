@@ -13,6 +13,7 @@ import { MenuIcon } from './icons/menuIcons';
 import { enabledModules, moduleLabel } from '../modules/registry';
 import NotificationBell from './NotificationBell';
 import ChatButton from '../modules/chat/components/ChatButton';
+import InboxButton from '../modules/approvals/InboxButton';
 import { isStandalone } from '../pwa/pwa';
 import { useHelp } from '../help/HelpContext';
 import api from '../services/api';
@@ -189,6 +190,7 @@ export default function Chrome({ dense }) {
               </button>
             </Tooltip>
             <ChatButton />
+            <InboxButton />
             <NotificationBell />
             <AppsLauncher />
             {can(user, 'console.access') && (

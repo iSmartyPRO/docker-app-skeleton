@@ -6,6 +6,7 @@ import { runCustomReminders, runReminders } from './reminders.js';
 import { runRecurring } from './templates.js';
 import { registerTaskChat } from './chat.js';
 import { purgeDraftFiles } from './extras.js';
+import { registerTasksInbox, runAcceptanceJob } from './acceptance.js';
 
 /*
  * Tasks: projects (with access lists and their own workflow of statuses),
@@ -106,8 +107,11 @@ export async function ensureTasksSchema() {
   await query(`CREATE INDEX IF NOT EXISTS task_activity_task_idx ON task_activity (task_id, id)`);
 
   await ensureTasksV2();
+  await ensureAcceptance();
 
   registerJob({ name: 'tasks:reminders', everyMs: 5 * 60 * 1000, run: runReminders });
+  registerJob({ name: 'tasks:acceptance', everyMs: 5 * 60 * 1000, run: runAcceptanceJob });
+  registerTasksInbox();
   registerJob({ name: 'tasks:custom-reminders', everyMs: 60 * 1000, run: runCustomReminders });
   registerJob({ name: 'tasks:recurring', everyMs: 5 * 60 * 1000, run: runRecurring });
   registerJob({ name: 'tasks:draft-files', everyMs: 6 * 60 * 60 * 1000, run: purgeDraftFiles });
@@ -328,6 +332,47 @@ async function ensureTasksV2() {
       PRIMARY KEY (user_id, task_id)
     )
   `);
+}
+
+/*
+ * Acceptance and orders («Принять в работу», «Поручения»):
+ *   tasks.assigned_at         when the current assignee got the task
+ *   tasks.accepted_at / _by   when (and by whom) it was accepted; NULL = waiting
+ *   tasks.accept_due_at       the acceptance deadline (set when assigned)
+ *   tasks.accept_notified_at  the "not accepted in time" notifications went out
+ *   tasks.is_order            flagged as an order by hand
+ *   task_projects.accept_hours[_important]  the project's own deadline (NULL = module settings)
+ */
+async function ensureAcceptance() {
+  for (const column of [
+    `assigned_at TIMESTAMPTZ`,
+    `accepted_at TIMESTAMPTZ`,
+    `accepted_by INTEGER REFERENCES users(id) ON DELETE SET NULL`,
+    `accept_due_at TIMESTAMPTZ`,
+    `accept_notified_at TIMESTAMPTZ`,
+    `is_order BOOLEAN NOT NULL DEFAULT FALSE`,
+  ]) {
+    await query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ${column}`);
+  }
+  await query(`ALTER TABLE task_projects ADD COLUMN IF NOT EXISTS accept_hours INTEGER`);
+  await query(`ALTER TABLE task_projects ADD COLUMN IF NOT EXISTS accept_hours_important INTEGER`);
+  await query(`CREATE INDEX IF NOT EXISTS tasks_accept_pending_idx ON tasks (assignee_id) WHERE accepted_at IS NULL AND completed_at IS NULL`);
+  await markExistingAccepted();
+}
+
+/**
+ * Once: every task that existed before acceptance is treated as accepted, so
+ * nothing turns red on the first start. Later starts change nothing (a flag
+ * in the settings), so new tasks keep waiting for their assignees.
+ */
+export async function markExistingAccepted() {
+  if ((await getSetting('tasks_acceptance_v1')) === 'true') return 0;
+  const { rowCount } = await query(
+    `UPDATE tasks SET accepted_at = COALESCE(started_at, created_at), accepted_by = assignee_id, assigned_at = COALESCE(assigned_at, created_at)
+     WHERE accepted_at IS NULL AND assignee_id IS NOT NULL`
+  );
+  await setSetting('tasks_acceptance_v1', 'true');
+  return rowCount;
 }
 
 /**

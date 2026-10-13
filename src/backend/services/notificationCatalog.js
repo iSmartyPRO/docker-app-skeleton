@@ -27,6 +27,10 @@ export const NOTIFICATION_GROUPS = [
       { kind: 'tasks.priority', defaults: on(true, false, true) },
       { kind: 'tasks.due_soon', defaults: on(true, true, true) },
       { kind: 'tasks.overdue', defaults: on(true, true, true) },
+      // «Принять в работу»: my task was accepted / not accepted in time; I have not accepted one in time.
+      { kind: 'tasks.accepted', defaults: on(true, false, false) },
+      { kind: 'tasks.not_accepted', defaults: on(true, true, true) },
+      { kind: 'tasks.accept_overdue', defaults: on(true, true, true) },
       { kind: 'tasks.project', defaults: on(true, false, false), subscription: true },
       { kind: 'tasks.reminder', defaults: on(true, true, true), urgent: true },
     ],
@@ -84,6 +88,61 @@ export const NOTIFICATION_GROUPS = [
     key: 'files',
     module: 'files',
     events: [{ kind: 'files.shared', defaults: on(true, true, false) }],
+  },
+  {
+    // Approvals (docs/approvals.md): a core service, so the group is always shown.
+    key: 'approvals',
+    module: 'approvals',
+    events: [
+      // Something waits for my decision (also: passed to me by another approver).
+      { kind: 'approval.request', defaults: on(true, true, true) },
+      // A question about my document, or one addressed to me.
+      { kind: 'approval.question', defaults: on(true, true, true) },
+      { kind: 'approval.answer', defaults: on(true, true, true) },
+      // My document: final approval, rejection, return for rework; a stage passed.
+      { kind: 'approval.approved', defaults: on(true, true, true) },
+      { kind: 'approval.rejected', defaults: on(true, true, true) },
+      { kind: 'approval.returned', defaults: on(true, true, true) },
+      { kind: 'approval.progress', defaults: on(false, false, false) },
+      // Deadline reminders and "overdue" to the approvers.
+      { kind: 'approval.reminder', defaults: on(true, true, true) },
+      // An overdue stage, to the route's escalation people (module administrators by default).
+      { kind: 'approval.escalation', defaults: on(true, true, false) },
+      { kind: 'approval.withdrawn', defaults: on(false, false, false) },
+    ],
+  },
+  {
+    // Contracts (docs/contracts.md); approvals of contracts use the approval.* kinds above.
+    key: 'contracts',
+    module: 'contracts',
+    events: [
+      // I became the lawyer or the business owner of a contract.
+      { kind: 'contracts.assigned', defaults: on(true, true, false) },
+      // Signed, in force, expiring, completed, terminated, prolonged — on contracts I own, handle or created.
+      { kind: 'contracts.status', defaults: on(true, false, false) },
+      { kind: 'contracts.version', defaults: on(true, false, false) },
+      // A high-importance risk on my contract.
+      { kind: 'contracts.risk', defaults: on(true, true, false) },
+      // N days before the end or before the refusal deadline of an auto-prolonged contract.
+      { kind: 'contracts.reminder', defaults: on(true, true, true) },
+    ],
+  },
+  {
+    // Procurement (docs/procurement.md); approvals of requests use the approval.* kinds above.
+    key: 'procurement',
+    module: 'procurement',
+    events: [
+      // An approved request waits for payment (accounting: procurement.pay).
+      { kind: 'procurement.to_pay', defaults: on(true, true, true) },
+      // My request was paid (also partly) / delivered.
+      { kind: 'procurement.paid', defaults: on(true, true, true) },
+      { kind: 'procurement.delivered', defaults: on(true, false, false) },
+      // I became the responsible person of a request.
+      { kind: 'procurement.assigned', defaults: on(true, true, false) },
+      // «Pay by» / «deliver by» is near, or has passed (once each).
+      { kind: 'procurement.due_soon', defaults: on(true, true, true) },
+      { kind: 'procurement.overdue', defaults: on(true, true, true) },
+    ],
   },
   {
     key: 'system',

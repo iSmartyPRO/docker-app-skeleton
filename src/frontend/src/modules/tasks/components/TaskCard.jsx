@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { UserAvatar } from '../../shared/People';
 import { ChecklistBadge, CommentBadge, DueChip, LabelTag, PriorityIcon } from './bits';
+import { AcceptBadge, OrderBadge, isLate } from './acceptance';
 
 /** Compact card used on the board, in overlays and in lists of "my tasks". */
 const TaskCard = forwardRef(function TaskCard({ task, onOpen, dragging, overlay, showProject, style, ...rest }, ref) {
@@ -9,7 +10,7 @@ const TaskCard = forwardRef(function TaskCard({ task, onOpen, dragging, overlay,
     <div
       ref={ref}
       style={style}
-      className={`task-card${dragging ? ' is-dragging' : ''}${overlay ? ' is-overlay' : ''}${done ? ' is-done' : ''}`}
+      className={`task-card${dragging ? ' is-dragging' : ''}${overlay ? ' is-overlay' : ''}${done ? ' is-done' : ''}${isLate(task) ? ' is-late' : ''}`}
       onClick={() => onOpen?.(task)}
       onKeyDown={(event) => {
         if (event.key === 'Enter') onOpen?.(task);
@@ -23,7 +24,10 @@ const TaskCard = forwardRef(function TaskCard({ task, onOpen, dragging, overlay,
           {showProject && <span className="mod-dot" style={{ '--c': task.project.color }} />}
           {task.ref}
         </span>
-        <PriorityIcon value={task.priority} />
+        <span className="task-card__flags">
+          <OrderBadge task={task} />
+          <PriorityIcon value={task.priority} />
+        </span>
       </div>
       <div className="task-card__title">
         {task.important && <span className="task-flame">🔥</span>}
@@ -35,6 +39,11 @@ const TaskCard = forwardRef(function TaskCard({ task, onOpen, dragging, overlay,
             <LabelTag key={label} label={label} />
           ))}
           {task.labels.length > 3 && <span className="task-card__more">+{task.labels.length - 3}</span>}
+        </div>
+      )}
+      {!done && task.acceptance?.state === 'pending' && (
+        <div className="task-card__accept">
+          <AcceptBadge task={task} compact />
         </div>
       )}
       <div className="task-card__foot">

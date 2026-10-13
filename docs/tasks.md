@@ -6,7 +6,7 @@ The second [module](modules.md): projects with their own workflows, a kanban boa
 
 | URL | Page |
 |-----|------|
-| `/app/tasks` | **My tasks** by role, grouped into Overdue / Today / Tomorrow / Next 7 days / Later / No due date / Deferred / Done recently |
+| `/app/tasks` | **My tasks** by role, grouped into Awaiting my acceptance / Overdue / Today / Tomorrow / Next 7 days / Later / No due date / Deferred / Done recently |
 | `/app/tasks/projects` | All projects I can see, with progress and archived ones on demand |
 | `/app/tasks/HR` | Project **HR**: board or list, filters, quick add |
 | `/app/tasks/HR-12` | Task **HR-12** opened in a side panel over its board (full screen on phones) |
@@ -69,6 +69,34 @@ The task chat is closed while the module is off and to API tokens without the `t
 
 Participants have these rights in addition to the project level, so a task can be shared with someone who cannot open its project. Several assignees picked at creation produce one copy of the task per person. **Delegating** hands the task to someone else; the previous assignee becomes an auditor.
 
+## Acceptance («Принять в работу»)
+
+A task given to someone other than its originator **waits for acceptance** by its assignee.
+
+- The task card shows the assignee a banner with **Accept** (optionally with a comment) and **Discuss** (opens the task chat, ready to type). Everyone else sees whom the task waits for and until when.
+- **Starting** the task, moving it to an *In progress*-kind status or **completing** it also accepts it — only when the assignee does it; the originator moving the card does not.
+- Tasks the originator gives themselves, and tasks the person creating or reassigning them takes themselves, are accepted at once.
+- **Reassigning or delegating** starts over: the new assignee has to accept the task, with a new deadline to accept.
+- **Co-assignees** help the assignee and do not accept separately: the assignee's acceptance covers the task.
+- The chat feed gets «Принято в работу: name · time» (with the comment, or "by starting / completing it"); the originator gets the `tasks.accepted` notification; webhooks get `task.accepted`.
+- **Time to accept**: 24 h, 4 h for important tasks (module settings); a project may set its own hours (*⋯ → Edit project*). Marking a waiting task important recalculates it; moving it to another project uses that project's hours.
+- **Not accepted in time**: the task turns red with «Не принята N ч» (N = hours since it was assigned) in lists, on the board, in the card and in My tasks. The `tasks:acceptance` job (every 5 minutes) sends the assignee `tasks.accept_overdue` and the originator `tasks.not_accepted` — once per assignment, through `notify()` (quiet hours and preferences apply) — and posts an event to the task chat. Deferred tasks and archived projects wait. The execution deadline keeps its own red label.
+- Tasks that existed before acceptance are marked accepted once on the first start (flag `tasks_acceptance_v1`), so nothing turns red on deploy.
+
+Stored on the task: `assigned_at`, `accepted_at`, `accepted_by`, `accept_due_at`, `accept_notified_at`; on the project `accept_hours`, `accept_hours_important` (NULL = module settings).
+
+## Orders («Поручения»)
+
+A task is an **order** when it carries the **Order** flag (the bookmark next to the flame; the originator or a project manager sets it) or when its originator belongs to one of the **leadership groups** chosen in the settings and someone else is the assignee. Orders carry a badge on cards and rows; the **Orders** chip in My tasks and in a project shows only them; `GET /tasks?orders=1` filters them.
+
+## Quick filters
+
+Above My tasks and the project board and list: chips with counters over the tasks on screen — **Urgent** (important or urgent priority, open), **Overdue**, **Not accepted**, **In progress** (open, accepted, not deferred), **Done** and **Orders**. One at a time; a second click clears it.
+
+## «Ждёт меня» (inbox)
+
+The module registers the inbox provider `tasks.acceptance`: the tasks waiting for **my** acceptance that I may see (`listTasks` access rules; an API token needs the tasks scope and its project limits apply). Each item has `actions: ['accept', 'open']`, `dueAt` = the deadline to accept, `overdue`, `url` and `meta.acceptPath` — `POST /api/app/tasks/tasks/:ref/accept` accepts it.
+
 ## Creating a task
 
 **Quick form** (*＋ Создать*):
@@ -130,7 +158,7 @@ Both are stored the same way, as a saved form (`task_templates`). A template is 
 
 ## My tasks
 
-Tabs by role: **Doing** (I am the assignee or a co-assignee), **Helping** (co-assignee), **Assigned** (I am the originator), **Auditing**, **All**. The tab is remembered. Tasks are grouped by deadline, with deferred and recently completed tasks at the end. Important tasks show a flame, tasks with subtasks show a counter.
+Tabs by role: **Doing** (I am the assignee or a co-assignee), **Helping** (co-assignee), **Assigned** (I am the originator), **Auditing**, **All**. The tab is remembered. Tasks waiting for my acceptance come first (**Awaiting my acceptance**, late ones on top), the rest is grouped by deadline, with deferred and recently completed tasks at the end. Important tasks show a flame, tasks with subtasks show a counter. The header shows how many tasks I still have to accept; the quick filters (above) narrow the tab, e.g. **Not accepted** on *Assigned* for the originator.
 
 ## Board and list
 
@@ -153,6 +181,8 @@ All go through the [notification center](notifications.md), so they reach the be
 | Priority raised to urgent | Assignee |
 | Due within N hours (default 24) | Assignee, once per deadline |
 | Overdue | Assignee and originator, once |
+| Task accepted (`tasks.accepted`) | Originator |
+| Not accepted in time (`tasks.accept_overdue` / `tasks.not_accepted`) | Assignee / originator, once per assignment |
 | Custom reminder | As set in the reminder, through its channels |
 
 Moving the deadline re-arms both deadline reminders; deferred tasks get none. The deadline job runs every 5 minutes, custom reminders every minute, in the [scheduler](notifications.md#scheduler).
@@ -165,6 +195,8 @@ Moving the deadline re-arms both deadline reminders; deferred tasks get none. Th
 | Who creates projects | everyone (`everyone` \| `admins`) |
 | Default view | board |
 | Deadline reminders / hours before | on / 24 (1–168) |
+| Time to accept / for important tasks | 24 / 4 hours (1–720); projects may override |
+| Leadership groups (`ordersGroupIds`) | none — tasks their members give to others are orders |
 
 ## API (`/api/app/tasks`, signed-in users)
 
@@ -174,16 +206,17 @@ Moving the deadline re-arms both deadline reminders; deferred tasks get none. Th
 | GET | `/projects[?archived=1]` | Visible projects |
 | GET | `/projects/key?from=` or `?key=` | Suggest a key from a name / check one |
 | POST | `/projects` | `{ name, key?, description, color, icon, visibility }` |
-| GET / PUT / DELETE | `/projects/:key` | Project with statuses, members and labels / update (`archived`) / delete |
+| GET / PUT / DELETE | `/projects/:key` | Project with statuses, members and labels / update (`archived`, `acceptHours`, `acceptHoursImportant`) / delete |
 | PUT | `/projects/:key/statuses` | Replace the workflow |
 | GET / PUT | `/projects/:key/access` | Access list |
 | GET | `/subjects` | People who can be given a task |
-| GET | `/tasks` | Filters: `project`, `role` (`doing`, `helping`, `assigned`, `auditing`, `all`), `assignee` (`me`, `none`, id), `status`, `priority`, `label`, `important`, `flow`, `parent`, `deferred`, `nodue=1` (no deadline), `q` (text or `KEY-12`), `open=1`, `dueFrom`, `dueTo`, `doneSince`, `sort`, `limit` |
+| GET | `/tasks` | Filters: `project`, `role` (`doing`, `helping`, `assigned`, `auditing`, `all`), `assignee` (`me`, `none`, id), `status`, `priority`, `label`, `important`, `flow`, `parent`, `deferred`, `nodue=1` (no deadline), `q` (text or `KEY-12`), `open=1`, `dueFrom`, `dueTo`, `doneSince`, `acceptance` (`pending`, `late`, `accepted`), `orders=1`, `sort`, `limit` |
 | POST | `/tasks` | Create from the form payload: `title`, `description`, `descriptionFormat`, `important`, `projectId`, `assigneeIds[]`, `originatorId`, `coassigneeIds[]`, `auditorIds[]`, `dueAt`, `checklists[]`, `fileIds[]`, `reminders[]`, `links[]`, `deps[]`, `parentId`, `flowId`, `resultRequired`, planning and time fields, `custom`; with `recurrence` creates a recurring template instead |
 | GET / PUT / DELETE | `/tasks/:ref` | `ref` = `KEY-12` or id. `PUT` is partial; `complete: true` moves the task to the first *done* status; `projectId` moves it; `deferred`; `move: { beforeId, afterId }` positions it on the board |
 | GET | `/tasks/:ref/form` | The task as a form payload (copy, template) |
 | PUT | `/tasks/:ref/watch`, `/tasks/:ref/favorite` | `{ on }` |
 | POST | `/tasks/:ref/start`, `/delegate` (`{ userId }`), `/rate` (`{ rating, comment }`), `/copy`, `/timer` (`{ action: start\|stop }`) | Actions |
+| POST | `/tasks/:ref/accept` (`{ comment? }`) | Accept the task (assignee only; again → `accepted: false`) |
 | POST / PUT / DELETE | `/tasks/:ref/checklists`, `/checklists/:id[/order]` | Checklists |
 | POST / PUT / DELETE | `/tasks/:ref/checklist`, `/checklist/:id`, `/tasks/:ref/checklist/order`, `/checklist/bulk` | Checklist items |
 | POST | `/files`, `/files/link` | Upload or link files for a task not yet created (draft) |
@@ -198,4 +231,6 @@ Moving the deadline re-arms both deadline reminders; deferred tasks get none. Th
 | GET / POST / DELETE | `/fields[/:id]` | Custom fields |
 | GET | `/calendar?from&to&scope=doing\|participant\|all&done=0` | Tasks due in a range (used by the Calendar); `participant` (default) = any role of mine; other people's tasks without a project are never included |
 
-Errors: `NOT_FOUND`, `FORBIDDEN`, `KEY_TAKEN`, `KEY_FORMAT`, `TITLE_REQUIRED`, `ASSIGNEE_ACCESS`, `STATUS_UNKNOWN`, `ARCHIVED`, `RESULT_REQUIRED`, `DEADLINE_LOCKED`, `PARENT_LOOP`, `NOT_DONE` (rating an open task), `SELF`.
+Errors: `NOT_FOUND`, `FORBIDDEN`, `KEY_TAKEN`, `KEY_FORMAT`, `TITLE_REQUIRED`, `ASSIGNEE_ACCESS`, `STATUS_UNKNOWN`, `ARCHIVED`, `RESULT_REQUIRED`, `DEADLINE_LOCKED`, `PARENT_LOOP`, `NOT_DONE` (rating an open task), `SELF`, `NOT_ASSIGNEE` / `NOT_PENDING` (accepting).
+
+A task in lists carries `acceptance: { state: 'pending'|'accepted'|'skipped', assignedAt, acceptedAt, acceptedBy, dueAt, overdue }` (null without an assignee), `order` and `orderFlag`; the full task also `acceptedByUser` and `can.accept`, `can.setOrder`. `PUT /tasks/:ref` takes `isOrder`, `POST /tasks` takes `isOrder`.

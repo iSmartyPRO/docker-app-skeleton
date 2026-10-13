@@ -53,6 +53,14 @@ export default {
       },
     },
     {
+      icon: '🤝',
+      title: { ru: 'Принять в работу', en: 'Accept the task' },
+      text: {
+        ru: 'Исполнитель подтверждает, что взял задачу; не принятая в срок горит красным, а постановщик узнаёт об этом сам.',
+        en: 'The assignee confirms they have taken the task; one not accepted in time turns red, and the originator hears about it.',
+      },
+    },
+    {
       icon: '🔁',
       title: { ru: 'Шаблоны и повторы', en: 'Templates and repeats' },
       text: {
@@ -154,6 +162,62 @@ Task participants see the task even without access to its project.
           ru: 'Финансовый директор — постановщик задачи «Квартальный отчёт». Исполнитель — главный бухгалтер, соисполнитель — экономист, который собирает данные, а генеральный директор добавлен наблюдателем, чтобы видеть готовность без лишних вопросов.',
           en: 'The CFO is the originator of «Quarterly report». The chief accountant is the assignee, an economist who gathers the figures is a co-assignee, and the CEO is added as an auditor to see the progress without asking.',
         },
+      },
+    },
+    {
+      id: 'acceptance',
+      title: { ru: 'Принять в работу', en: 'Accepting a task' },
+      body: {
+        ru: `Задача, которую поставили **другому человеку**, сначала **ждёт принятия**. Исполнитель видит сверху карточки плашку и две кнопки:
+- **«Принять»** — подтвердить, что задача понятна и взята в работу. Можно добавить короткий комментарий для постановщика;
+- **«Обсудить»** — открыть чат задачи и уточнить детали до того, как браться за неё.
+
+**Начать** задачу, перевести её в статус «В работе» или сразу **завершить** — тоже значит принять. В ленте чата остаётся отметка «Принято в работу: имя · время», а постановщику приходит уведомление.
+
+Задачи, которые вы ставите **себе**, принимаются сами. Если задачу **делегировали** или сменили исполнителя, новый исполнитель снова должен её принять. Соисполнители помогают исполнителю и отдельно задачу не принимают.
+
+**Срок принятия** — 24 часа, для важных задач (с огоньком) — 4 часа. Администратор меняет их в настройках модуля, руководитель проекта — для своего проекта (меню проекта → «Изменить»). Не принятая вовремя задача **горит красным** с меткой «Не принята N ч» в списках, на доске, в карточке и в «Моих задачах»; исполнителю приходит напоминание, постановщику — уведомление (по одному разу). Просрочка исполнения — отдельная красная метка у срока.`,
+        en: `A task given to **someone else** first **waits for acceptance**. The assignee sees a banner on top of the task with two buttons:
+- **«Accept»** confirms the task is clear and taken on. You can add a short comment for the originator;
+- **«Discuss»** opens the task chat to clear things up before taking it on.
+
+**Starting** the task, moving it to an «In progress» status or **completing** it straight away also accepts it. The chat keeps an «Accepted by name · time» mark, and the originator gets a notification.
+
+Tasks you give **yourself** are accepted automatically. When a task is **delegated** or gets another assignee, the new assignee accepts it again. Co-assignees help the assignee and do not accept it separately.
+
+**Time to accept** is 24 hours, 4 hours for important tasks (with the flame). An administrator changes it in the module settings, a project manager for their project (project menu → «Edit»). A task not accepted in time **turns red** with a «Not accepted N h» label in lists, on the board, in the task and in My tasks; the assignee gets a reminder and the originator a notification (once each). A missed deadline is a separate red label at the deadline.`,
+      },
+      steps: [
+        { ru: 'Откройте задачу из уведомления, из «Моих задач» (группа «Ждут принятия») или со страницы «Ждёт меня».', en: 'Open the task from the notification, from My tasks (the «Awaiting my acceptance» group) or from the «Waiting for me» page.' },
+        { ru: 'Прочитайте описание. Если что-то непонятно — нажмите «Обсудить» и спросите в чате.', en: 'Read the description. If something is unclear, click «Discuss» and ask in the chat.' },
+        { ru: 'Нажмите «Принять» (при желании — «С комментарием»).', en: 'Click «Accept» (or «Add a comment» first).' },
+      ],
+      example: {
+        title: { ru: 'Пример: «Найти администратора, срок 5 дней»', en: 'Example: «Find an administrator, 5 days»' },
+        body: {
+          ru: 'Директор ставит поручение кадровику. Через 24 часа задача всё ещё не принята — она горит красным «Не принята 24 ч», кадровику приходит напоминание, а директору — уведомление. Кадровик нажимает «Обсудить», уточняет требования к кандидату и принимает задачу.',
+          en: 'The director gives an order to the HR officer. 24 hours later it is still not accepted: it turns red with «Not accepted 24 h», the HR officer gets a reminder and the director a notification. The HR officer clicks «Discuss», clarifies the requirements and accepts the task.',
+        },
+      },
+    },
+    {
+      id: 'orders',
+      title: { ru: 'Поручения', en: 'Orders' },
+      body: {
+        ru: `**Поручение** — задача, которую дало руководство. Задача считается поручением, если:
+- её постановщик состоит в одной из групп «Руководство» (администратор выбирает их в настройках модуля), а исполнитель — другой человек;
+- или на задаче включён флажок **«Поручение»** (значок закладки рядом с огоньком; ставит постановщик или руководитель проекта).
+
+Поручения отмечены значком на карточках и в списках. Чип **«Поручения»** над списком в «Моих задачах» и в проекте показывает только их.
+
+Над списками есть **быстрые фильтры со счётчиками**: «Срочные», «Просрочено», «Не приняты», «В работе», «Отработано» и «Поручения». Повторное нажатие на чип снимает фильтр.`,
+        en: `An **order** («поручение») is a task given by the management. A task is an order when:
+- its originator belongs to one of the «Leadership» groups (an administrator chooses them in the module settings) and someone else is the assignee;
+- or the **«Order»** flag is on (the bookmark icon next to the flame; set by the originator or a project manager).
+
+Orders carry a badge on cards and in lists. The **«Orders»** chip above the list in My tasks and in a project shows only them.
+
+Above the lists there are **quick filters with counters**: «Urgent», «Overdue», «Not accepted», «In progress», «Done» and «Orders». Click a chip again to clear it.`,
       },
     },
     {
@@ -510,6 +574,20 @@ Which tasks to show (the ones you do, all yours, or all you can see) and whether
 
   faq: [
     {
+      q: { ru: 'Почему задача горит красным «Не принята»?', en: 'Why is a task red with «Not accepted»?' },
+      a: {
+        ru: 'Исполнитель не принял её за срок принятия (по умолчанию 24 ч, для важных — 4 ч). Достаточно нажать «Принять» в задаче или начать её — метка исчезнет. Срок исполнения от этого не меняется.',
+        en: 'The assignee has not accepted it within the time to accept (24 h by default, 4 h for important tasks). Click «Accept» in the task or start it and the label goes away. The deadline itself does not change.',
+      },
+    },
+    {
+      q: { ru: 'Нужно ли принимать задачу, которую я поставил себе?', en: 'Do I accept a task I gave myself?' },
+      a: {
+        ru: 'Нет, такие задачи принимаются автоматически. Принимать нужно только задачи, которые вам поставил кто-то другой.',
+        en: 'No, those are accepted automatically. Only tasks someone else gave you need accepting.',
+      },
+    },
+    {
       q: { ru: 'Почему задача не видна в календаре?', en: 'Why is my task not in the calendar?' },
       a: {
         ru: `Задача появляется **в день своего срока**. Проверьте:
@@ -591,8 +669,8 @@ The reminder is always in the portal's bell.`,
     important: {
       title: { ru: 'Важная задача', en: 'Important task' },
       text: {
-        ru: 'Огонёк выделяет задачу в списках и на доске, чтобы её не пропустили. Срок и уведомления это не меняет.',
-        en: 'The flame highlights the task in lists and on the board so nobody misses it. It does not change the deadline or notifications.',
+        ru: 'Огонёк выделяет задачу в списках и на доске, чтобы её не пропустили. Срок исполнения он не меняет, но принять важную задачу нужно быстрее — по умолчанию за 4 ч.',
+        en: 'The flame highlights the task in lists and on the board so nobody misses it. It does not change the deadline, but an important task has to be accepted sooner — within 4 h by default.',
       },
       more: 'create',
     },
@@ -699,6 +777,14 @@ The reminder is always in the portal's bell.`,
         en: 'The order of work between tasks. Most often you need «Finish → Start»: this task starts after the linked one.',
       },
       more: 'subtasks',
+    },
+    acceptHours: {
+      title: { ru: 'Срок принятия', en: 'Time to accept' },
+      text: {
+        ru: 'Сколько часов у исполнителя, чтобы принять задачу этого проекта. Пусто — как в настройках модуля.',
+        en: 'How many hours the assignee has to accept a task of this project. Empty means as in the module settings.',
+      },
+      more: 'acceptance',
     },
     projectKey: {
       title: { ru: 'Ключ проекта', en: 'Project key' },

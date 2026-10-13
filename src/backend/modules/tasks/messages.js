@@ -8,9 +8,21 @@ const PRIORITY = {
 };
 
 export const TASK_MESSAGES = {
-  assigned: ({ ref, title, actor, project }) => ({
-    en: { title: `${ref} is assigned to you`, body: `${title}\n${actor ? `${actor} · ` : ''}${project}` },
-    ru: { title: `Вам назначена задача ${ref}`, body: `${title}\n${actor ? `${actor} · ` : ''}${project}` },
+  assigned: ({ ref, title, actor, project, acceptByText }) => ({
+    en: { title: `${ref} is assigned to you`, body: `${title}\n${actor ? `${actor} · ` : ''}${project}${acceptByText ? `\nPlease accept it by ${acceptByText}` : ''}` },
+    ru: { title: `Вам назначена задача ${ref}`, body: `${title}\n${actor ? `${actor} · ` : ''}${project}${acceptByText ? `\nПримите её в работу до ${acceptByText}` : ''}` },
+  }),
+  accepted: ({ ref, title, actor, comment }) => ({
+    en: { title: `${ref} is accepted`, body: `${title}\n${actor}${comment ? `: “${comment}”` : ''}` },
+    ru: { title: `Задача ${ref} принята в работу`, body: `${title}\n${actor}${comment ? `: «${comment}»` : ''}` },
+  }),
+  acceptOverdue: ({ ref, title, hours }) => ({
+    en: { title: `Accept ${ref}: waiting ${hours} h`, body: `${title}\nThe originator is waiting for you to accept the task or discuss it.` },
+    ru: { title: `Примите задачу ${ref}: ждёт ${hours} ч`, body: `${title}\nПостановщик ждёт, что вы примете задачу или обсудите её.` },
+  }),
+  notAccepted: ({ ref, title, hours, assignee }) => ({
+    en: { title: `${ref} is not accepted in ${hours} h`, body: `${title}${assignee ? `\nAssignee: ${assignee}` : ''}` },
+    ru: { title: `Задача ${ref} не принята за ${hours} ч`, body: `${title}${assignee ? `\nИсполнитель: ${assignee}` : ''}` },
   }),
   status: ({ ref, title, actor, status }) => ({
     en: { title: `${ref}: status changed to “${status}”`, body: `${title}${actor ? `\n${actor}` : ''}` },
@@ -53,7 +65,8 @@ export const TASK_MESSAGES = {
 export function taskMessage(kind, params) {
   return (locale, regional) => {
     const due = params.dueAt ? formatDateTime(params.dueAt, regional || undefined, locale) : '';
-    const texts = TASK_MESSAGES[kind]({ ...params, due });
+    const acceptByText = params.acceptBy ? formatDateTime(params.acceptBy, regional || undefined, locale) : '';
+    const texts = TASK_MESSAGES[kind]({ ...params, due, acceptByText });
     return texts[locale] || texts.en;
   };
 }

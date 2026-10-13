@@ -1,6 +1,6 @@
 # Modules (apps)
 
-The skeleton is a platform for **modules**: self-contained applications that plug into the same users, roles, settings, theme and navigation. Built in: [Dashboard](dashboard.md), [Counterparties](companies.md), [Online resources](resources.md), [File server (Drive)](drive.md), [Files](files.md), [Knowledge Base](knowledge-base.md), [Tasks](tasks.md), [Chat](chat.md), [Calendar](calendar.md), [CRM](crm.md) and [Masterplan](masterplan.md) (development projects: site plan, chessboard, bookings, construction). Modules notify people through the shared [notification center](notifications.md) and can schedule background work with `registerJob()`. A module gives its records a conversation with `registerChatEntity()` (see [Chat](chat.md#chats-for-other-modules)), and publishes webhook events with `emitEvent()` (see [Public API](public-api.md#for-module-authors)). Its endpoints appear in the API reference and get their own token area automatically.
+The skeleton is a platform for **modules**: self-contained applications that plug into the same users, roles, settings, theme and navigation. Built in: [Dashboard](dashboard.md), [Counterparties](companies.md), [Online resources](resources.md), [File server (Drive)](drive.md), [Files](files.md), [Knowledge Base](knowledge-base.md), [Tasks](tasks.md), [Chat](chat.md), [Calendar](calendar.md), [CRM](crm.md) and [Masterplan](masterplan.md) (development projects: site plan, chessboard, bookings, construction) and [Contracts](contracts.md) (registry with versions, risks, approval and expiry reminders; off by default), [Procurement](procurement.md) (purchase requests, approval, payments registry, delivery; off by default). Modules notify people through the shared [notification center](notifications.md) and can schedule background work with `registerJob()`. A module gives its records a conversation with `registerChatEntity()` (see [Chat](chat.md#chats-for-other-modules)), and publishes webhook events with `emitEvent()` (see [Public API](public-api.md#for-module-authors)). Its endpoints appear in the API reference and get their own token area automatically. Documents that need sign-off go through the always-on [Approvals](approvals.md) service (`registerApprovalType()`, `startApproval()`), and anything waiting for a person's decision can join the «Ждёт меня» inbox with `registerInboxProvider()`.
 
 | URL | What it is |
 |-----|------------|
@@ -78,6 +78,8 @@ The registry wraps every router with `enabledOnly(id)`, and wraps the private ro
 ```
 
 Unknown keys in a settings patch are ignored. Each field is validated by `sanitize`.
+
+`core: true` marks a module that can never be switched off (Approvals): it is always enabled and Settings → Modules shows *Always on* instead of a switch.
 
 ### Frontend
 
