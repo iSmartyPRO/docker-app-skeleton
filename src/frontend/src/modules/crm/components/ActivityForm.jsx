@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import dayjs from 'dayjs';
-import { App, Button, DatePicker, Input, Select, TimePicker } from 'antd';
+import { App, Button, Input, Select } from 'antd';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
+import { getRegional, inZone } from '../../../lib/datetime';
+import { DateField, TimeField } from '../../../components/ui/DateTimeField';
 import WhenPicker, { defaultWhen } from '../../../components/ui/WhenPicker';
 import { crmApi } from '../api';
 import { useCrm } from '../CrmContext';
@@ -24,6 +26,12 @@ export function KindPicker({ value, onChange }) {
     </div>
   );
 }
+
+/** Any moment (ISO, Date, dayjs) → ISO instant with whole minutes, or null. */
+const toIso = (value) => (value ? dayjs(value).second(0).millisecond(0).toISOString() : null);
+
+/** A day ('YYYY-MM-DD') and a wall-clock time ('HH:mm') in the person's zone → ISO instant. */
+const joinDayTime = (day, time) => dayjs.tz(`${day}T${time}:00`, getRegional().timeZone).toISOString();
 
 export function remindLabel(minutes, t) {
   if (minutes === null || minutes === undefined) return t('crm.act.remind.none');
@@ -47,7 +55,9 @@ export default function ActivityForm({ dealId, activity, compact, onDone, onCanc
   const [kind, setKind] = useState(activity?.kind || 'call');
   const [title, setTitle] = useState(activity?.title || '');
   const [note, setNote] = useState(activity?.note || '');
-  const [due, setDue] = useState(() => (activity ? (activity.dueAt ? dayjs(activity.dueAt) : null) : defaultWhen()));
+  // The due moment as an ISO instant; the compact form edits its day and time in the person's zone.
+  const [due, setDue] = useState(() => (activity ? toIso(activity.dueAt) : toIso(defaultWhen())));
+  const dueLocal = inZone(due || toIso(defaultWhen()));
   const [ownerId, setOwnerId] = useState(activity?.owner?.id || user.id);
   const [remind, setRemind] = useState(activity ? activity.remindMinutes ?? null : remindersOn ? 15 : null);
   const [busy, setBusy] = useState(false);
@@ -58,7 +68,7 @@ export default function ActivityForm({ dealId, activity, compact, onDone, onCanc
       kind,
       title: title.trim() || t(`crm.act.kind.${kind}`),
       note: note.trim(),
-      dueAt: due ? due.second(0).millisecond(0).toISOString() : null,
+      dueAt: due,
       ownerId,
       remindMinutes: due && remindersOn ? remind : null,
     };
@@ -68,7 +78,7 @@ export default function ActivityForm({ dealId, activity, compact, onDone, onCanc
       if (!activity) {
         setTitle('');
         setNote('');
-        setDue(defaultWhen());
+        setDue(toIso(defaultWhen()));
       }
       onDone?.(res.data.activity);
     } catch (err) {
@@ -91,12 +101,12 @@ export default function ActivityForm({ dealId, activity, compact, onDone, onCanc
       <Input autoFocus={autoFocus} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t(`crm.act.titlePlaceholder.${kind}`)} maxLength={300} aria-label={t('crm.act.title')} />
       {compact ? (
         <div className="crm-actform__when">
-          <DatePicker value={due} onChange={(date) => setDue(date ? (due || defaultWhen()).year(date.year()).month(date.month()).date(date.date()) : null)} format="DD.MM.YYYY" aria-label={t('crm.act.due')} />
-          <TimePicker value={due} onChange={(time) => time && setDue((due || defaultWhen()).hour(time.hour()).minute(time.minute()))} format="HH:mm" minuteStep={5} needConfirm={false} allowClear={false} aria-label={t('crm.act.time')} />
+          <DateField value={due ? dueLocal.format('YYYY-MM-DD') : null} onChange={(day) => setDue(day ? joinDayTime(day, dueLocal.format('HH:mm')) : null)} aria-label={t('crm.act.due')} />
+          <TimeField value={due ? dueLocal.format('HH:mm') : null} onChange={(time) => time && setDue(joinDayTime(dueLocal.format('YYYY-MM-DD'), time))} needConfirm={false} allowClear={false} aria-label={t('crm.act.time')} />
         </div>
       ) : (
         <>
-          <WhenPicker value={due} onChange={setDue} />
+          <WhenPicker value={due} onChange={(next) => setDue(toIso(next))} />
           <div className="crm-actform__row">
             <label>
               <span>{t('crm.act.owner')}</span>

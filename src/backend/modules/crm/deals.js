@@ -5,7 +5,7 @@ import { GROUPS, buildFilter, orderBy, pageOf } from './filters.js';
 import { defaultPipelineId, loadPipeline, stageShape } from './pipelines.js';
 import { afterDealChange } from './integrations.js';
 import { listActivities } from './activities.js';
-import { MAX_BULK, Params, RANK_STEP, bucketBounds, idList, midRank, money, parseAmount, parseDateOnly, posInt, sumsByCurrency, toDateString } from './util.js';
+import { MAX_BULK, Params, RANK_STEP, boundsFor, idList, midRank, money, parseAmount, parseDateOnly, posInt, sumsByCurrency, toDateString } from './util.js';
 
 /*
  * Deals: reading (board, stage pages, list, one deal), writing (create, patch
@@ -165,7 +165,7 @@ export async function dealById(ctx, id) {
   return row ? (await hydrate(ctx, [row]))[0] : null;
 }
 
-const filterOptions = (ctx, input, extra = {}) => ({ fields: ctx.settings.fields || [], bounds: bucketBounds(new Date(), input.tz), ...extra });
+const filterOptions = (ctx, input, extra = {}) => ({ fields: ctx.settings.fields || [], bounds: boundsFor(ctx, input), ...extra });
 const limitOf = (value, fallback = 30, max = 100) => Math.min(max, Math.max(1, Number.parseInt(value, 10) || fallback));
 
 // ── Board ───────────────────────────────────────────────────────────────────

@@ -5,7 +5,8 @@ import { useLocale } from '../../../context/LocaleContext';
 import { HintLabel } from '../../../help/Hint';
 import { errorMessage } from '../../../lib/errors';
 import { ColorSwatches, userOptions } from '../../shared/People';
-import { calendarApi, calendarLabel, localTimeZone } from '../api';
+import { fromPicker, getRegional, nowInZone, pickerFormat, toPicker, useRegional } from '../../../lib/datetime';
+import { calendarApi, calendarLabel } from '../api';
 import { WEEKDAYS, customFromRule, presetOf, ruleFromCustom, ruleFromPreset } from '../recurrence';
 import { askScope } from './scope';
 
@@ -70,6 +71,11 @@ function CustomRepeat({ value, onChange, start }) {
   );
 }
 
+/*
+ * The form holds picker values: dayjs objects whose wall-clock time is the
+ * person's (toPicker), so a person in Bishkek working from a laptop set to
+ * Moscow still picks *their* 9:00. fromPicker() turns them back into instants.
+ */
 function combine(date, time) {
   return date.hour(time.hour()).minute(time.minute()).second(0).millisecond(0);
 }
@@ -81,6 +87,8 @@ function combine(date, time) {
  */
 export default function EventDialog({ open, draft, event, calendars, googleCalendars, config, onClose }) {
   const { t } = useLocale();
+  const regional = useRegional();
+  const timeFormat = pickerFormat(regional).time;
   const { message, modal } = App.useApp();
   const [form] = Form.useForm();
   const [users, setUsers] = useState([]);
@@ -100,8 +108,9 @@ export default function EventDialog({ open, draft, event, calendars, googleCalen
     calendarApi.subjects().then((res) => setUsers(res.data.users)).catch(() => {});
     const source = event || draft || {};
     const isAllDay = Boolean(source.allDay);
-    const start = dayjs(source.start || dayjs().add(1, 'hour').startOf('hour'));
-    let end = dayjs(source.end || start.add(1, 'hour'));
+    // All-day values are 'YYYY-MM-DD' (end exclusive), timed ones instants.
+    const start = toPicker(source.start || nowInZone().add(1, 'hour').startOf('hour').toISOString());
+    let end = source.end ? toPicker(source.end) : start.add(1, 'hour');
     if (isAllDay) end = end.subtract(1, 'day');
     const rule = event?.rrule || null;
     const targetValue = event
@@ -156,9 +165,10 @@ export default function EventDialog({ open, draft, event, calendars, googleCalen
     const payload = {
       title: values.title,
       allDay: values.allDay,
-      start: values.allDay ? start.format('YYYY-MM-DD') : start.toISOString(),
-      end: values.allDay ? end.format('YYYY-MM-DD') : end.toISOString(),
-      timezone: localTimeZone(),
+      start: values.allDay ? start.format('YYYY-MM-DD') : fromPicker(start),
+      end: values.allDay ? end.format('YYYY-MM-DD') : fromPicker(end),
+      // Repeats keep their wall-clock time in this zone (the person's).
+      timezone: getRegional().timeZone,
       rrule,
       location: values.location,
       description: values.description,
@@ -246,9 +256,9 @@ export default function EventDialog({ open, draft, event, calendars, googleCalen
         </Form.Item>
         <div className="event-when">
           <Form.Item name="startDate" noStyle><DatePicker allowClear={false} format="dd, D MMM" /></Form.Item>
-          {!allDay && <Form.Item name="startTime" noStyle><TimePicker className="event-when__time" allowClear={false} format="HH:mm" minuteStep={5} needConfirm={false} /></Form.Item>}
+          {!allDay && <Form.Item name="startTime" noStyle><TimePicker className="event-when__time" allowClear={false} format={timeFormat} use12Hours={regional.timeFormat === '12'} minuteStep={5} needConfirm={false} /></Form.Item>}
           <span className="event-when__dash">—</span>
-          {!allDay && <Form.Item name="endTime" noStyle><TimePicker className="event-when__time" allowClear={false} format="HH:mm" minuteStep={5} needConfirm={false} /></Form.Item>}
+          {!allDay && <Form.Item name="endTime" noStyle><TimePicker className="event-when__time" allowClear={false} format={timeFormat} use12Hours={regional.timeFormat === '12'} minuteStep={5} needConfirm={false} /></Form.Item>}
           <Form.Item name="endDate" noStyle><DatePicker allowClear={false} format="dd, D MMM" disabledDate={(day) => startDate && day.isBefore(startDate, 'day')} /></Form.Item>
         </div>
         <div className="event-row">

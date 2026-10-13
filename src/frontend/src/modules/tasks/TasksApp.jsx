@@ -1,6 +1,7 @@
 import { Suspense, lazy, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Button, Drawer, Result, Spin } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import Chrome from '../../components/Chrome';
 import PageTransition from '../../components/ui/PageTransition';
 import { MenuIcon } from '../../components/icons/menuIcons';
@@ -13,6 +14,7 @@ import { TaskEditorProvider, useTaskEditor } from './components/editor/EditorCon
 import { CreateButton } from './components/editor/QuickTask';
 import '../shared/module.css';
 import './tasks.css';
+import SideRail, { useSideRail } from '../shared/SideRail';
 
 const MyTasks = lazy(() => import('./pages/MyTasks'));
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
@@ -24,13 +26,18 @@ function Sidebar({ onNavigate }) {
   const { projects, mine, config } = useTasks();
   const editor = useTaskEditor();
   const [dialog, setDialog] = useState(null);
+  const { collapsed } = useSideRail();
   return (
     <div className="mod-side">
       <NavLink to="/app/tasks" end className="mod-side__brand" onClick={onNavigate}>
         <MenuIcon name="tasks" />
         <span>{t('apps.tasks.name')}</span>
       </NavLink>
+      {collapsed ? (
+        <Button type="primary" className="mod-rail-keep mod-rail-create" aria-label={t('tasks.newTask')} data-tip={t('tasks.newTask')} icon={<PlusOutlined />} onClick={() => editor.openQuick()} />
+      ) : (
       <CreateButton block onQuick={() => { onNavigate?.(); editor.openQuick(); }} onFull={() => { onNavigate?.(); editor.openFull(); }} onTemplate={(draft) => { onNavigate?.(); editor.openFull(draft); }} />
+      )}
       <nav className="mod-nav">
         <NavLink to="/app/tasks" end className="mod-nav__link" onClick={onNavigate}>
           <MenuIcon name="user" variant="mono" />
@@ -103,9 +110,9 @@ function Shell() {
   }
   return (
     <div className="mod-shell">
-      <aside className="mod-shell__side">
+      <SideRail moduleKey="tasks">
         <Sidebar />
-      </aside>
+      </SideRail>
       <Drawer open={drawer} onClose={() => setDrawer(false)} placement="left" width={300} styles={{ body: { padding: 0 } }}>
         <Sidebar onNavigate={() => setDrawer(false)} />
       </Drawer>

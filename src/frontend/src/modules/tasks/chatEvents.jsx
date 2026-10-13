@@ -1,4 +1,5 @@
 import { registerSystemEvents } from '../chat/system';
+import { formatDateTime } from '../../lib/format';
 
 /*
  * How task events read in the task's conversation. Deadline reminders carry
@@ -8,7 +9,7 @@ import { registerSystemEvents } from '../chat/system';
 
 function when(value, locale) {
   if (!value) return '—';
-  return new Date(value).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return formatDateTime(value, locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 /** Asks an open task card to act; opens the task when no card is listening. */

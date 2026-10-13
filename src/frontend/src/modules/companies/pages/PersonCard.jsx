@@ -11,12 +11,14 @@ import { JobDialog, LeaveDialog } from '../components/JobDialogs';
 import Rating from '../components/Rating';
 import Timeline from '../components/Timeline';
 import { Avatar, ContactLinks, Facts, Flag, Stars, formatDate } from '../components/ui';
+import { todayISO } from '../../../lib/datetime';
 
 function years(from, to) {
   if (!from) return null;
-  const start = new Date(from);
-  const end = to ? new Date(to) : new Date();
-  const months = Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth());
+  // Calendar days ('YYYY-MM-DD'); "now" is today in the person's zone.
+  const [fy, fm] = String(from).slice(0, 10).split('-').map(Number);
+  const [ty, tm] = String(to || todayISO()).slice(0, 10).split('-').map(Number);
+  const months = Math.max(0, (ty - fy) * 12 + tm - fm);
   return { years: Math.floor(months / 12), months: months % 12 };
 }
 

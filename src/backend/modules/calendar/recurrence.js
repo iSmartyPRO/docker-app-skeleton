@@ -1,4 +1,5 @@
 import rrulePkg from 'rrule';
+import { isValidTimeZone } from '../../services/datetime.js';
 
 const { RRule } = rrulePkg;
 
@@ -13,13 +14,9 @@ const FREQS = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
 const MAX_OCCURRENCES = 1000;
 const DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 
+/** A named IANA zone (a missing one is not: Intl would quietly use the server's). */
 export function validTimeZone(tz) {
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
+  return isValidTimeZone(tz);
 }
 
 const formatters = new Map();

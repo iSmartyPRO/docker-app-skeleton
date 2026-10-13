@@ -1,4 +1,5 @@
 import express, { Router } from 'express';
+import { requestRegional } from '../../services/regional.js';
 import rateLimit from 'express-rate-limit';
 import { optionalAuth } from '../../middleware/auth.js';
 import { httpError, intId, listSubjects, wrap } from '../shared/acl.js';
@@ -305,7 +306,7 @@ export function privateRoutes() {
   }));
   router.get('/admin/activity/export.csv', wrap(async (req, res) => {
     requireAudit(req);
-    await exportActivity(res, req.query);
+    await exportActivity(res, req.query, (await requestRegional(req)).timeZone);
   }));
   router.put('/admin/order', wrap(async (req, res) => {
     requireAdmin(req);

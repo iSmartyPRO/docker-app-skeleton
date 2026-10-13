@@ -8,6 +8,7 @@ import { useLocale } from '../../context/LocaleContext';
 import { useHelp } from '../../help/HelpContext';
 import { helpForPath, loadHelp, tr } from '../../help/registry';
 import Rich from '../../help/Rich';
+import { nowInZone } from '../../lib/datetime';
 import { ROBOTS, Robot } from './robots';
 import Cast from './Cast';
 import { livePrefs, readPosition, savePrefs, searchHelp, useAssistantPrefs, writePosition } from './store';
@@ -71,7 +72,7 @@ function useBlink(active) {
 }
 
 const greetingKey = () => {
-  const hour = new Date().getHours();
+  const hour = nowInZone().hour();
   if (hour < 5) return 'night';
   if (hour < 12) return 'morning';
   if (hour < 18) return 'day';

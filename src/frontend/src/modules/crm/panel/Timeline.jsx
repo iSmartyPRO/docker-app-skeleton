@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { App, Button, Checkbox, Input, Popconfirm, Segmented, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
+import { fmtTime } from '../../../lib/datetime';
 import { UserAvatar } from '../../shared/People';
 import { crmApi } from '../api';
 import { formatDue, isOverdue } from '../lib';
@@ -185,7 +186,7 @@ function History({ events, hasMore, onMore }) {
                   <div className="dp-ev__body">
                     <div className="dp-ev__head">
                       <strong>{event.author?.name || t('crm.tl.system')}</strong>
-                      <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString(locale === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}</time>
+                      <time dateTime={event.createdAt}>{fmtTime(event.createdAt)}</time>
                     </div>
                     <div className={view.comment ? 'dp-ev__comment' : 'dp-ev__text'}>{view.text}</div>
                   </div>

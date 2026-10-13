@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
-import { App, AutoComplete, DatePicker, Form, Input, Modal, Radio, Switch } from 'antd';
-import dayjs from 'dayjs';
+import { App, AutoComplete, Form, Input, Modal, Radio, Switch } from 'antd';
+import { todayISO } from '../../../lib/datetime';
 import { useLocale } from '../../../context/LocaleContext';
+import { DateField } from '../../../components/ui/DateTimeField';
 import { errorMessage } from '../../../lib/errors';
 import { cmpApi } from '../api';
 import { CompanyPicker } from './pickers';
 import { TITLES } from './PersonForm';
 import { HintLabel } from '../../../help/Hint';
 
+// Dates here are calendar days ('YYYY-MM-DD'): DateField edits them without any zone shift.
 const dateProps = {
-  getValueProps: (value) => ({ value: value ? dayjs(value) : null }),
-  normalize: (value) => (value ? value.format('YYYY-MM-DD') : null),
+  getValueProps: (value) => ({ value: value ? String(value).slice(0, 10) : null }),
 };
 
 function JobFields({ prefix = [], withCompany = true, excludeId }) {
@@ -29,7 +30,7 @@ function JobFields({ prefix = [], withCompany = true, excludeId }) {
         <Input />
       </Form.Item>
       <Form.Item name={[...prefix, 'startedOn']} label={t('companies.p.startedOn')} {...dateProps}>
-        <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+        <DateField style={{ width: '100%' }} />
       </Form.Item>
       <Form.Item name={[...prefix, 'isDecisionMaker']} valuePropName="checked" label={<HintLabel id="companies.decisionMaker">{t('companies.p.decisionMaker')}</HintLabel>}>
         <Switch />
@@ -74,7 +75,7 @@ export function JobDialog({ open, personId, position, onClose }) {
         <JobFields withCompany={!position} />
         {position && !position.current && (
           <Form.Item name="endedOn" label={t('companies.p.endedOn')} {...dateProps}>
-            <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+            <DateField style={{ width: '100%' }} />
           </Form.Item>
         )}
       </Form>
@@ -97,7 +98,7 @@ export function LeaveDialog({ open, position, onClose }) {
   useEffect(() => {
     if (open) {
       form.resetFields();
-      form.setFieldsValue({ endedOn: dayjs().format('YYYY-MM-DD'), reasonKey: 'resigned', next: 'none' });
+      form.setFieldsValue({ endedOn: todayISO(), reasonKey: 'resigned', next: 'none' });
     }
   }, [open, form]);
   const submit = async () => {
@@ -125,7 +126,7 @@ export function LeaveDialog({ open, position, onClose }) {
       <Form form={form} layout="vertical" requiredMark={false} className="cmp-form">
         <div className="cmp-grid">
           <Form.Item name="endedOn" label={t('companies.p.endedOn')} {...dateProps}>
-            <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+            <DateField style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="reasonKey" label={t('companies.p.reason')}>
             <Radio.Group optionType="button" size="small" options={REASONS.map((value) => ({ value, label: t(`companies.reason.${value}`) }))} className="cmp-reasons" />

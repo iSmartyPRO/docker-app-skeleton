@@ -4774,3 +4774,22 @@ h4,
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Region and time settings: live example ── */
+.regional-sample {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--da-primary) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--da-primary) 15%, transparent);
+  font-size: 13px;
+}
+
+.regional-sample strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}

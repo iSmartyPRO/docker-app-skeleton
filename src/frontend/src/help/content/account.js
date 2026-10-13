@@ -128,6 +128,14 @@ export default {
       },
     },
     {
+      id: 'regional',
+      title: { ru: 'Дата и время', en: 'Date and time' },
+      body: {
+        ru: 'В [Оформление → Дата и время](/account/appearance) можно выбрать свой **часовой пояс**, **формат даты**, **формат времени** (14:30 или 2:30 PM) и **первый день недели**. По умолчанию всё «Как в портале» — так, как настроил администратор.\n\n- **Часовой пояс** влияет на всё: какое время показано у задач и встреч, когда наступает «сегодня» и «завтра», когда приходят напоминания и начинаются тихие часы.\n- **Как на этом устройстве** — пояс берётся из телефона или компьютера. Удобно в командировке: время само перейдёт на местное.\n- Даты без времени (день рождения, дата закрытия сделки) не сдвигаются при смене пояса.\n\nВнизу блока видно, как будут выглядеть даты. После «Сохранить» настройки действуют на всех ваших устройствах.',
+        en: 'In [Appearance → Date and time](/account/appearance) you can choose your own **time zone**, **date format**, **time format** (14:30 or 2:30 PM) and **first day of the week**. By default everything is “As the portal” — what your administrator set.\n\n- The **time zone** affects everything: the times shown on tasks and meetings, when “today” and “tomorrow” begin, when reminders arrive and quiet hours start.\n- **As on this device** takes the zone from your phone or computer. Handy when travelling: times switch to local by themselves.\n- Dates without a time (a birthday, a deal’s close date) never shift when the zone changes.\n\nThe bottom of the block shows how dates will look. After “Save” the settings apply on all your devices.',
+      },
+    },
+    {
       id: 'security',
       title: { ru: 'Безопасность: пароль и сессии', en: 'Security: password and sessions' },
       body: {
@@ -317,6 +325,14 @@ export default {
         en: '“System” follows your phone or computer setting: light or dark.',
       },
       more: 'appearance',
+    },
+    regional: {
+      title: { ru: 'Дата и время', en: 'Date and time' },
+      text: {
+        ru: 'Ваш часовой пояс и форматы. «Как в портале» — как у всех; «Как на этом устройстве» — пояс телефона или компьютера, удобно в поездках.',
+        en: 'Your time zone and formats. “As the portal” matches everyone; “As on this device” uses your phone or computer zone, handy when travelling.',
+      },
+      more: 'regional',
     },
     password: {
       title: { ru: 'Пароль', en: 'Password' },

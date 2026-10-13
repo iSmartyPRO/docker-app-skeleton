@@ -1,4 +1,5 @@
 import { useLocale } from '../../context/LocaleContext';
+import { formatDateTime } from '../../lib/format';
 import { Bars, Donut, Legend, TimeChart } from '../../modules/dashboard/charts';
 import { CodeTabs, MethodBadge, PathText, requestSamples } from '../components';
 
@@ -11,7 +12,7 @@ export default function Overview({ overview, go, openEditor }) {
   const totals = stats.totals;
   const statusData = stats.statuses.map((item) => ({ key: item.class, label: item.class, value: item.total, color: STATUS_COLORS[item.class] || '#94A3B8' }));
   const errorRate = totals.total ? Math.round((totals.errors / totals.total) * 1000) / 10 : 0;
-  const hour = (value) => new Date(value).toLocaleTimeString(locale === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+  const hour = (value) => formatDateTime(value, locale, { timeStyle: 'short' });
   const attention = [
     counts.expiringSoon ? { tone: 'warn', text: t('api.expiring', { n: counts.expiringSoon }), action: () => go('tokens') } : null,
     counts.unusedMonth ? { tone: 'info', text: t('api.unused', { n: counts.unusedMonth }), action: () => go('tokens') } : null,

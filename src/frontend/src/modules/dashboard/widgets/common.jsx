@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
+import dayjs from 'dayjs';
 import { Button, Skeleton } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatRelative } from '../../../lib/format';
+import { fmtTime, inZone, todayISO } from '../../../lib/datetime';
 
 /** Loading, error and empty states shared by data widgets. */
 export function WidgetState({ state, rows = 4, empty, emptyIcon = '✦', emptyAction, children }) {
@@ -54,21 +56,30 @@ export function When({ value }) {
   return <time dateTime={value}>{formatRelative(value, locale)}</time>;
 }
 
-/** "14:30", in the person's locale. */
+/** "14:30" / "2:30 PM": a moment's time in the person's zone and time format. */
 export function timeOf(value, locale) {
-  return new Date(value).toLocaleTimeString(locale === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+  return fmtTime(value);
 }
 
-/** Today / tomorrow / weekday + date. */
-export function dayTitle(date, locale, t) {
-  const day = new Date(date);
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const diff = Math.round((new Date(day.getFullYear(), day.getMonth(), day.getDate()) - start) / 86400000);
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 'YYYY-MM-DD' of a day key or of an instant in the person's zone. */
+export const dayKeyOf = (value) => (typeof value === 'string' && DAY_KEY.test(value) ? value : inZone(value)?.format('YYYY-MM-DD') || '');
+
+const dayDate = (key) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/** Today / tomorrow / weekday + date. `value` is a day key ('YYYY-MM-DD') or an instant (its day in the person's zone). */
+export function dayTitle(value, locale, t) {
+  const key = dayKeyOf(value);
+  const diff = dayjs(key).diff(dayjs(todayISO()), 'day');
   if (diff === 0) return t('dashboard.today');
   if (diff === 1) return t('dashboard.tomorrow');
   if (diff === -1) return t('dashboard.yesterday');
-  return cap(day.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' }));
+  // A calendar day (local Date at midnight, formatted in the same device zone): no shift.
+  return cap(dayDate(key).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' }));
 }
 
 export const localeTag = (locale) => (locale === 'ru' ? 'ru-RU' : 'en-GB');

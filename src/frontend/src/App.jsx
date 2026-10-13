@@ -30,6 +30,7 @@ import { SETTINGS_VIEW } from './lib/access';
 import { MODULE_REGISTRY } from './modules/registry';
 import UpdateBanner from './pwa/UpdateBanner';
 import Maintenance from './components/Maintenance';
+import RegionalSync from './components/RegionalSync';
 import { applyAppIcon } from './pwa/appIcon';
 
 // Public entry points stay in the main bundle; consoles load on demand.
@@ -204,6 +205,7 @@ function ThemedRoutes() {
       <AntApp className="ant-app-root">
         <AppErrorBoundary resetKey={location.pathname}>
         <HelpProvider>
+        <RegionalSync>
         <Suspense fallback={<Screen />}>
           <Routes>
             <Route path="/setup" element={<SetupWizard />} />
@@ -335,6 +337,7 @@ function ThemedRoutes() {
         </Suspense>
         <UpdateBanner />
         <Maintenance />
+        </RegionalSync>
         </HelpProvider>
         </AppErrorBoundary>
       </AntApp>

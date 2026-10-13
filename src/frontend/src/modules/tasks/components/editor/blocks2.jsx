@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { App, Button, Checkbox, DatePicker, Input, InputNumber, Modal, Radio, Segmented, Select, Switch, Tag, TimePicker } from 'antd';
+import { App, Button, Checkbox, Input, InputNumber, Modal, Radio, Segmented, Select, Switch, Tag } from 'antd';
 import { useLocale } from '../../../../context/LocaleContext';
 import { errorMessage } from '../../../../lib/errors';
+import { getRegional, todayISO, nowInZone } from '../../../../lib/datetime';
+import { formatDateTime } from '../../../../lib/format';
+import { DateField, DateTimeField, TimeField } from '../../../../components/ui/DateTimeField';
 import { Person } from '../../../shared/People';
 import { tasksApi } from '../../api';
 import { labelColor } from '../bits';
@@ -206,7 +209,7 @@ export function reminderText(reminder, t, locale) {
   const how = reminder.channels.map((key) => t(`tasks.v2.rem.channels.${key}`)).join(', ');
   const when =
     reminder.mode === 'at'
-      ? new Date(reminder.remindAt).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      ? formatDateTime(reminder.remindAt, locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
       : t('tasks.v2.rem.beforeText', { time: reminder.beforeMinutes % 1440 === 0 ? t('tasks.v2.plan.days', { n: reminder.beforeMinutes / 1440 }) : reminder.beforeMinutes % 60 === 0 ? t('tasks.v2.plan.hours', { n: reminder.beforeMinutes / 60 }) : t('tasks.v2.plan.minutes', { n: reminder.beforeMinutes }) });
   return { whom, how, when };
 }
@@ -338,11 +341,11 @@ export function PlanningBlock({ value, onChange, onRemove, disabled }) {
       <div className="te-plan">
         <label>
           <span>{t('tasks.v2.plan.start')}</span>
-          <DatePicker showTime={{ format: 'HH:mm', minuteStep: 15 }} format="DD.MM.YYYY HH:mm" value={value.planStart ? dayjs(value.planStart) : null} disabled={disabled} onChange={(date) => onChange({ planStart: date ? date.toISOString() : null })} />
+          <DateTimeField value={value.planStart || null} disabled={disabled} onChange={(planStart) => onChange({ planStart })} />
         </label>
         <label>
           <span>{t('tasks.v2.plan.end')}</span>
-          <DatePicker showTime={{ format: 'HH:mm', minuteStep: 15 }} format="DD.MM.YYYY HH:mm" value={value.planEnd ? dayjs(value.planEnd) : null} disabled={disabled} onChange={(date) => onChange({ planEnd: date ? date.toISOString() : null })} />
+          <DateTimeField value={value.planEnd || null} disabled={disabled} onChange={(planEnd) => onChange({ planEnd })} />
         </label>
         <label>
           <span>{t('tasks.v2.plan.duration')}</span>
@@ -453,7 +456,7 @@ export function FieldsBlock({ value, onChange, onRemove, disabled }) {
           const current = value?.[field.id];
           let control;
           if (field.type === 'number') control = <InputNumber value={current} disabled={disabled} onChange={(next) => set(field.id, next)} style={{ width: 180 }} />;
-          else if (field.type === 'datetime') control = <DatePicker showTime={{ format: 'HH:mm' }} format="DD.MM.YYYY HH:mm" value={current ? dayjs(current) : null} disabled={disabled} onChange={(date) => set(field.id, date ? date.toISOString() : null)} />;
+          else if (field.type === 'datetime') control = <DateTimeField value={current || null} disabled={disabled} onChange={(next) => set(field.id, next)} />;
           else if (field.type === 'bool') control = <Switch checked={Boolean(current)} disabled={disabled} onChange={(on) => set(field.id, on)} />;
           else control = <Input value={current || ''} disabled={disabled} onChange={(event) => set(field.id, event.target.value)} style={{ maxWidth: 360 }} />;
           return (
@@ -475,10 +478,12 @@ export function defaultRecurrence() {
   return {
     every: 1,
     unit: 'week',
-    weekdays: [((dayjs().day() + 6) % 7) + 1],
-    start: dayjs().add(1, 'day').format('YYYY-MM-DD'),
+    // Days and the time of day are the person's: the backend creates the tasks
+    // at `time` wall-clock in `tz`.
+    weekdays: [((nowInZone().day() + 6) % 7) + 1],
+    start: dayjs(todayISO()).add(1, 'day').format('YYYY-MM-DD'),
     time: '09:00',
-    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    tz: getRegional().timeZone,
     end: { mode: 'never', count: 10, date: null },
     deadline: { amount: 1, unit: 'day' },
     weekends: 'keep',
@@ -514,15 +519,15 @@ export function RecurrenceForm({ value, onChange, disabled }) {
       )}
       <div className="te-inline te-inline--wrap">
         <span>{t('tasks.v2.rec.start')}</span>
-        <DatePicker value={dayjs(rec.start)} disabled={disabled} allowClear={false} format="DD.MM.YYYY" onChange={(date) => date && set({ start: date.format('YYYY-MM-DD') })} />
+        <DateField value={rec.start} disabled={disabled} allowClear={false} onChange={(start) => start && set({ start })} />
         <span>{t('tasks.v2.rec.time')}</span>
-        <TimePicker format="HH:mm" minuteStep={5} value={dayjs(`2000-01-01T${rec.time}`)} disabled={disabled} allowClear={false} needConfirm={false} onChange={(time) => time && set({ time: time.format('HH:mm') })} />
+        <TimeField value={rec.time} disabled={disabled} allowClear={false} needConfirm={false} onChange={(time) => time && set({ time })} />
       </div>
       <div className="te-inline te-inline--wrap">
         <span>{t('tasks.v2.rec.end')}</span>
         <Segmented value={rec.end.mode} disabled={disabled} onChange={(mode) => set({ end: { ...rec.end, mode } })} options={['never', 'count', 'date'].map((key) => ({ value: key, label: t(`tasks.v2.rec.endModes.${key}`) }))} />
         {rec.end.mode === 'count' && <InputNumber min={1} max={1000} value={rec.end.count} disabled={disabled} onChange={(count) => set({ end: { ...rec.end, count: count || 1 } })} addonAfter={t('tasks.v2.rec.times')} style={{ width: 140 }} />}
-        {rec.end.mode === 'date' && <DatePicker value={rec.end.date ? dayjs(rec.end.date) : null} disabled={disabled} format="DD.MM.YYYY" onChange={(date) => set({ end: { ...rec.end, date: date ? date.format('YYYY-MM-DD') : null } })} />}
+        {rec.end.mode === 'date' && <DateField value={rec.end.date || null} disabled={disabled} onChange={(date) => set({ end: { ...rec.end, date: date || null } })} />}
       </div>
       <div className="te-inline te-inline--wrap">
         <span>{t('tasks.v2.rec.deadline')}</span>
@@ -546,7 +551,7 @@ export function RecurringBlock({ mode, value, onChange, task, onRemove, onSaveTe
         <RecurrenceForm value={task.template.recurrence} onChange={(rec) => onSaveTemplate({ ...task.template, recurrence: rec })} disabled={disabled} />
         <div className="te-hint">
           {task.template.active && task.template.nextRunAt
-            ? t('tasks.v2.rec.next', { at: new Date(task.template.nextRunAt).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) })
+            ? t('tasks.v2.rec.next', { at: formatDateTime(task.template.nextRunAt, locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) })
             : t('tasks.v2.rec.finished')}
           {' · '}
           {t('tasks.v2.rec.templateHint')}

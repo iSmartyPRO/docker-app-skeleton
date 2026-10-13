@@ -13,6 +13,7 @@ import PersonCard from './pages/PersonCard';
 import '../shared/module.css';
 import '../kb/kb.css';
 import './companies.css';
+import SideRail from '../shared/SideRail';
 
 function Sidebar({ onNavigate }) {
   const { t } = useLocale();
@@ -56,7 +57,7 @@ function Shell() {
   if (!meta) return <div className="boot-screen"><Spin size="large" /></div>;
   return (
     <div className="mod-shell">
-      <aside className="mod-shell__side"><Sidebar /></aside>
+      <SideRail moduleKey="companies"><Sidebar /></SideRail>
       <Drawer open={drawer} onClose={() => setDrawer(false)} placement="left" width={290} styles={{ body: { padding: 0 } }}>
         <Sidebar onNavigate={() => setDrawer(false)} />
       </Drawer>

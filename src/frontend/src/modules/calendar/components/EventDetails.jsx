@@ -1,27 +1,28 @@
-import dayjs from 'dayjs';
 import { App, Button, Modal, Segmented, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
+import { fmtTime, inZone } from '../../../lib/datetime';
 import { UserAvatar } from '../../shared/People';
 import { calendarApi } from '../api';
 import { describeRule } from '../recurrence';
 import { reminderLabel } from './EventDialog';
 import { askScope } from './scope';
 
+/** "Monday, 13 October, 09:00 – 10:00" in the person's zone and time format. */
 export function formatRange(event, locale) {
-  const lang = locale === 'ru' ? 'ru-RU' : 'en-GB';
-  const start = dayjs(event.start);
+  const lang = locale === 'ru' ? 'ru' : 'en-gb';
+  // All-day values are 'YYYY-MM-DD' days (end exclusive); inZone keeps them as is.
+  const start = inZone(event.start).locale(lang);
   if (event.allDay) {
-    const end = dayjs(event.end).subtract(1, 'day');
-    const day = new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' });
-    return end.isAfter(start, 'day') ? `${day.format(start.toDate())} — ${day.format(end.toDate())}` : day.format(start.toDate());
+    const end = inZone(event.end || event.start).locale(lang).subtract(1, 'day');
+    const day = (value) => value.format('dddd, D MMMM');
+    return end.isAfter(start, 'day') ? `${day(start)} — ${day(end)}` : day(start);
   }
-  const end = dayjs(event.end);
-  const date = new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' }).format(start.toDate());
-  const time = (value) => value.format('HH:mm');
+  const end = inZone(event.end || event.start).locale(lang);
+  const date = start.format('dddd, D MMMM');
+  const time = (value) => fmtTime(value.toISOString());
   if (end.isSame(start, 'day')) return `${date}, ${time(start)} – ${time(end)}`;
-  const endDate = new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'long' }).format(end.toDate());
-  return `${date}, ${time(start)} — ${endDate}, ${time(end)}`;
+  return `${date}, ${time(start)} — ${end.format('D MMMM')}, ${time(end)}`;
 }
 
 const STATUS_ICON = { accepted: '✓', declined: '✕', tentative: '?', needs: '…', needsAction: '…' };

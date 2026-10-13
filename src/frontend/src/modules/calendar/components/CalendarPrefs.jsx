@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { App, Button, Drawer, InputNumber, Segmented, Select, Switch, TimePicker } from 'antd';
-import dayjs from 'dayjs';
+import { Link } from 'react-router-dom';
+import { App, Button, Drawer, InputNumber, Segmented, Select, Switch } from 'antd';
+import { TimeField } from '../../../components/ui/DateTimeField';
+import { useRegional } from '../../../lib/datetime';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { Hint } from '../../../help/Hint';
@@ -9,6 +11,7 @@ import { calendarApi, calendarLabel } from '../api';
 /** Personal calendar settings: how it looks, what it shows, defaults for new events. */
 export default function CalendarPrefs({ open, prefs, calendars, tasksAvailable, onClose, onSaved }) {
   const { t } = useLocale();
+  const regional = useRegional();
   const { message } = App.useApp();
   const [draft, setDraft] = useState(prefs);
   const [saving, setSaving] = useState(false);
@@ -82,14 +85,18 @@ export default function CalendarPrefs({ open, prefs, calendars, tasksAvailable, 
       )}
       {row(
         'weekStart',
-        <Segmented value={draft.weekStart} onChange={(weekStart) => set({ weekStart })} options={[{ value: 1, label: t('calendarPrefs.monday') }, { value: 0, label: t('calendarPrefs.sunday') }]} />
+        // The week start is a regional setting (portal-wide, overridable per person
+        // in Account → Appearance); the calendar follows it instead of keeping its own.
+        <Link to="/account/appearance" onClick={onClose}>
+          {t(`regional.${{ 1: 'monday', 0: 'sunday', 6: 'saturday' }[regional.weekStart] || 'monday'}`)} →
+        </Link>
       )}
       {row(
         'hours',
         <div className="calp-hours">
-          <TimePicker value={dayjs(draft.dayStart, 'HH:mm')} format="HH:mm" minuteStep={30} allowClear={false} needConfirm={false} onChange={(value) => value && set({ dayStart: value.format('HH:mm') })} />
+          <TimeField value={draft.dayStart} minuteStep={30} allowClear={false} needConfirm={false} onChange={(value) => value && set({ dayStart: value })} />
           <span>—</span>
-          <TimePicker value={dayjs(draft.dayEnd, 'HH:mm')} format="HH:mm" minuteStep={30} allowClear={false} needConfirm={false} onChange={(value) => value && set({ dayEnd: value.format('HH:mm') })} />
+          <TimeField value={draft.dayEnd} minuteStep={30} allowClear={false} needConfirm={false} onChange={(value) => value && set({ dayEnd: value })} />
         </div>,
         'workHours'
       )}

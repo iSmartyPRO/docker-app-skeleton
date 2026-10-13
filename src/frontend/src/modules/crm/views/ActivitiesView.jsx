@@ -4,6 +4,7 @@ import { DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, clos
 import { App, Button, Skeleton } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
+import { fmtDateTime, getRegional, inZone, nowInZone } from '../../../lib/datetime';
 import { crmApi } from '../api';
 import { useCrm } from '../CrmContext';
 import DealCard from '../components/DealCard';
@@ -18,18 +19,21 @@ const collision = (args) => {
 const COLUMNS = ['overdue', 'today', 'week', 'nextWeek', 'later', 'none'];
 const TONES = { overdue: '#EF4444', today: '#F59E0B', week: '#3B82F6', nextWeek: '#6366F1', later: '#8B5CF6', none: '#94A3B8' };
 
-/** Monday of the week of `date` (weeks start on Monday). */
-const monday = (date) => date.subtract((date.day() + 6) % 7, 'day').startOf('day');
+/** First day of the week of `date` (the person's week start: 1 Monday, 0 Sunday, 6 Saturday). */
+const weekStartOf = (date) => date.subtract((date.day() - getRegional().weekStart + 7) % 7, 'day').startOf('day');
 
 /**
  * New due moment of the nearest activity when its deal is dropped in a column;
- * the time of day stays. Overdue and «no activities» are not drop targets.
+ * the time of day (in the person's zone) stays. Overdue and «no activities» are
+ * not drop targets. Works on dayjs objects in the person's zone.
  */
 export function dueFor(column, dueAt) {
-  const now = dayjs();
-  const old = dueAt ? dayjs(dueAt) : now.hour(10).minute(0);
-  const at = (day) => day.hour(old.hour()).minute(old.minute()).second(0).millisecond(0);
-  const thisMonday = monday(now);
+  const now = nowInZone();
+  const old = dueAt ? inZone(dueAt) : now.hour(10).minute(0);
+  const zone = getRegional().timeZone;
+  // Re-anchor in the zone so the wall-clock time survives a DST change between the days.
+  const at = (day) => dayjs.tz(`${day.format('YYYY-MM-DD')}T${old.format('HH:mm')}:00`, zone);
+  const thisMonday = weekStartOf(now);
   switch (column) {
     case 'today': {
       const target = at(now);
@@ -155,7 +159,7 @@ export default function ActivitiesView({ params, version, onOpen, onChanged }) {
     );
     try {
       await crmApi.updateActivity(next.id, { dueAt: dueAt.toISOString() });
-      message.success(t('crm.acts.moved', { when: dueAt.format('DD.MM HH:mm') }));
+      message.success(t('crm.acts.moved', { when: fmtDateTime(dueAt.toISOString()) }));
       onChanged?.();
     } catch (err) {
       setColumns(previous);

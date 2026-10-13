@@ -2,7 +2,8 @@ import { Component } from 'react';
 import { Button } from 'antd';
 import { useLocale } from '../context/LocaleContext';
 import { isChunkError, isReloading, reloadOnce } from '../lib/chunkReload';
-import { BUILD, clientSessionId, reportClientError } from '../lib/outage';
+import { fmtTime } from '../lib/datetime';
+import { BUILD, clientSessionId, reportClientError, supportTime } from '../lib/outage';
 
 class Boundary extends Component {
   constructor(props) {
@@ -59,7 +60,7 @@ class Boundary extends Component {
               )}
               <div>
                 <dt>{t('outage.since')}</dt>
-                <dd>{new Date().toLocaleTimeString()}</dd>
+                <dd>{fmtTime(new Date())}</dd>
               </div>
             </dl>
           )}
@@ -69,7 +70,7 @@ class Boundary extends Component {
               <Button
                 size="large"
                 onClick={() => {
-                  const text = [`Код: APP_CRASH`, `Инцидент: ${this.state.incident || '—'}`, `Сессия: ${clientSessionId()}`, `Время: ${new Date().toLocaleString()}`, `Страница: ${window.location.pathname}`, `Сборка: ${BUILD}`, `Ошибка: ${String(error?.message || '').slice(0, 200)}`].join('\n');
+                  const text = [`Код: APP_CRASH`, `Инцидент: ${this.state.incident || '—'}`, `Сессия: ${clientSessionId()}`, `Время: ${supportTime()}`, `Страница: ${window.location.pathname}`, `Сборка: ${BUILD}`, `Ошибка: ${String(error?.message || '').slice(0, 200)}`].join('\n');
                   navigator.clipboard?.writeText(text).catch(() => {});
                   this.setState({ copied: true });
                 }}

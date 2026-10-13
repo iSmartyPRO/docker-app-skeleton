@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import { fmtDate, fmtDateTime, inZone, intlOptions, nowInZone } from '../../../lib/datetime';
 import { formatDue, formatMoney } from '../lib';
 
 /** A stage of an event (string or { name, color }) as a coloured chip. */
@@ -25,7 +25,8 @@ function plain(value, t, locale, data) {
   if (typeof value === 'object' && value.amount !== undefined) return formatMoney(value.amount, value.currency, locale);
   if (typeof value === 'object') return nameOf(value) || '…';
   if (data?.field === 'amount' && data?.currency) return formatMoney(value, data.currency, locale);
-  if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(String(value))) return dayjs(value).format(String(value).length > 10 ? 'DD.MM.YYYY HH:mm' : 'DD.MM.YYYY');
+  // A calendar day stays that day; an instant is shown in the person's zone.
+  if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(String(value))) return String(value).length > 10 ? fmtDateTime(value) : fmtDate(value);
   return String(value);
 }
 
@@ -105,8 +106,10 @@ export function eventView(event, { t, locale }) {
 
 /** "Сегодня", "Вчера", "12 октября" — headings of the history. */
 export function dayLabel(value, { t, locale }) {
-  const date = dayjs(value);
-  if (date.isSame(dayjs(), 'day')) return t('crm.due.today');
-  if (date.isSame(dayjs().subtract(1, 'day'), 'day')) return t('crm.due.yesterday');
-  return date.toDate().toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', ...(date.isSame(dayjs(), 'year') ? {} : { year: 'numeric' }) });
+  const date = inZone(value);
+  if (!date) return '';
+  const now = nowInZone();
+  if (date.isSame(now, 'day')) return t('crm.due.today');
+  if (date.isSame(now.subtract(1, 'day'), 'day')) return t('crm.due.yesterday');
+  return new Date(value).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', intlOptions({ day: 'numeric', month: 'long', ...(date.isSame(now, 'year') ? {} : { year: 'numeric' }) }));
 }

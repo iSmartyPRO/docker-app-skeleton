@@ -1,12 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
-import dayjs from 'dayjs';
-import { App, Button, DatePicker, Input, Modal, Popconfirm, Select, Skeleton, Switch, Tabs, Tag, Tooltip } from 'antd';
+import { App, Button, Input, Modal, Popconfirm, Select, Skeleton, Switch, Tabs, Tag, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
+import { nowInZone, todayISO } from '../../../lib/datetime';
+import { DateTimeField } from '../../../components/ui/DateTimeField';
 import { Person, UserAvatar } from '../../shared/People';
 import { filesApi } from '../api';
 import { Hint, HintLabel } from '../../../help/Hint';
+
+/*
+ * Link expiry in the person's zone: the picker shows their wall-clock time,
+ * whole days (disabled dates, max days) are their calendar days.
+ */
+const expiryDisabled = (maxDays) => (day) => {
+  const value = day.format('YYYY-MM-DD');
+  return value < todayISO() || Boolean(maxDays && value > nowInZone().add(maxDays, 'day').format('YYYY-MM-DD'));
+};
 
 function People({ node, onChanged }) {
   const { t } = useLocale();
@@ -148,16 +158,14 @@ function LinkForm({ config, onCreate }) {
       <div className="fs-linkform__row">
         <span>{t('files.linkExpires')} <Hint id="files.linkExpires" /></span>
         <div className="fs-linkform__expiry">
-          <DatePicker
+          <DateTimeField
             value={expires}
             onChange={setExpires}
-            showTime={{ format: 'HH:mm' }}
-            format="DD.MM.YYYY HH:mm"
             placeholder={config.maxLinkDays ? t('files.maxDays', { n: config.maxLinkDays }) : t('files.noExpiry')}
-            disabledDate={(day) => day.isBefore(dayjs(), 'day') || (config.maxLinkDays && day.isAfter(dayjs().add(config.maxLinkDays, 'day')))}
+            disabledDate={expiryDisabled(config.maxLinkDays)}
           />
           {presets.map((days) => (
-            <Button key={days} size="small" onClick={() => setExpires(dayjs().add(days, 'day'))}>{t('files.days', { n: days })}</Button>
+            <Button key={days} size="small" onClick={() => setExpires(nowInZone().add(days, 'day').second(0).millisecond(0).toISOString())}>{t('files.days', { n: days })}</Button>
           ))}
         </div>
       </div>
@@ -173,7 +181,7 @@ function LinkForm({ config, onCreate }) {
         onClick={async () => {
           setBusy(true);
           try {
-            await onCreate({ password: password || undefined, expiresAt: expires ? expires.toISOString() : null, allowDownload: download });
+            await onCreate({ password: password || undefined, expiresAt: expires || null, allowDownload: download });
             setPassword('');
             setExpires(null);
           } finally {

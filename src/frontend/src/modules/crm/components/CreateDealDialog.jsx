@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import dayjs from 'dayjs';
-import { App, DatePicker, Form, Input, InputNumber, Modal, Select, Space } from 'antd';
+import { nowInZone } from '../../../lib/datetime';
+import { DateField } from '../../../components/ui/DateTimeField';
+import { App, Form, Input, InputNumber, Modal, Select, Space } from 'antd';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -58,7 +59,7 @@ export default function CreateDealDialog({ open, onClose }) {
         ...rest,
         amount: rest.amount || 0,
         ...clientPayload(client),
-        closeDate: closeDate ? closeDate.format('YYYY-MM-DD') : null,
+        closeDate: closeDate || null,
         custom: custom || {},
       });
       message.success(t('crm.create.done', { title: res.data.deal.title }));
@@ -126,7 +127,7 @@ export default function CreateDealDialog({ open, onClose }) {
                 <UserSelect allowClear={false} />
               </Form.Item>
               <Form.Item name="closeDate" label={t('crm.fields.closeDate')}>
-                <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} disabledDate={(date) => date.isBefore(dayjs().subtract(1, 'year'))} />
+                <DateField style={{ width: '100%' }} disabledDate={(date) => date.format('YYYY-MM-DD') < nowInZone().subtract(1, 'year').format('YYYY-MM-DD')} />
               </Form.Item>
             </div>
             <Form.Item name="source" label={t('crm.fields.source')}>

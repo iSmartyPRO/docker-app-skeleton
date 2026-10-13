@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import dayjs from 'dayjs';
 import { App, Button, DatePicker, Drawer, Input, InputNumber, Modal, Select, Switch, Tooltip } from 'antd';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
 import { MenuIcon } from '../components/icons/menuIcons';
 import { errorMessage } from '../lib/errors';
+import { fromPicker, inZone, nowInZone, pickerFormat, toPicker } from '../lib/datetime';
 import { areaKey, decide, effective } from './policy';
 import { rawCall } from './client';
 import { Hint, HintLabel } from '../help/Hint';
@@ -539,7 +539,7 @@ function initialDraft(token, templates) {
     };
   }
   const fallback = templates.find((template) => template.key === 'read_only') || templates[0];
-  return { name: '', description: '', userId: null, templateId: fallback?.id ?? null, scopes: {}, rules: [], limits: {}, ipAllow: [], rateLimit: null, expiresAt: dayjs().add(90, 'day').endOf('day').toISOString() };
+  return { name: '', description: '', userId: null, templateId: fallback?.id ?? null, scopes: {}, rules: [], limits: {}, ipAllow: [], rateLimit: null, expiresAt: nowInZone().add(90, 'day').endOf('day').toISOString() };
 }
 
 /**
@@ -578,7 +578,7 @@ export function TokenEditor({ open, token, templates, areas, resources, resource
   const preset = (() => {
     if (customDate) return 'custom';
     if (!draft.expiresAt) return 'never';
-    const days = Math.round(dayjs(draft.expiresAt).endOf('day').diff(dayjs().endOf('day'), 'day'));
+    const days = Math.round(inZone(draft.expiresAt).endOf('day').diff(nowInZone().endOf('day'), 'day'));
     return PRESETS.find(([, n]) => n === days)?.[0] || 'custom';
   })();
 
@@ -686,20 +686,21 @@ export function TokenEditor({ open, token, templates, areas, resources, resource
                       disabled={key === 'never' && config?.maxLifetimeDays > 0}
                       onClick={() => {
                         setCustomDate(false);
-                        set({ expiresAt: days ? dayjs().add(days, 'day').endOf('day').toISOString() : null });
+                        // Tokens expire at the end of the day in the person's time zone.
+                        set({ expiresAt: days ? nowInZone().add(days, 'day').endOf('day').toISOString() : null });
                       }}
                     >
                       {t(`api.editor.expiryPresets.${key}`)}
                     </button>
                   ))}
                   <DatePicker
-                    value={draft.expiresAt ? dayjs(draft.expiresAt) : null}
+                    value={toPicker(draft.expiresAt)}
                     onChange={(date) => {
                       setCustomDate(true);
-                      set({ expiresAt: date ? date.endOf('day').toISOString() : null });
+                      set({ expiresAt: date ? fromPicker(date.endOf('day')) : null });
                     }}
-                    disabledDate={(date) => date.isBefore(dayjs(), 'day') || (config?.maxLifetimeDays > 0 && date.isAfter(dayjs().add(config.maxLifetimeDays, 'day')))}
-                    format={locale === 'ru' ? 'D MMM YYYY' : 'MMM D, YYYY'}
+                    disabledDate={(date) => date.isBefore(toPicker(new Date()), 'day') || (config?.maxLifetimeDays > 0 && date.isAfter(toPicker(new Date()).add(config.maxLifetimeDays, 'day'), 'day'))}
+                    format={pickerFormat().date}
                     allowClear={false}
                     className={preset === 'custom' ? 'is-on' : ''}
                   />

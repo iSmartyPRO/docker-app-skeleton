@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { App, Button, DatePicker, Input, Modal, Popconfirm, Segmented, Spin, Switch, Tag, Tooltip } from 'antd';
+import { App, Button, Input, Modal, Popconfirm, Segmented, Spin, Switch, Tag, Tooltip } from 'antd';
 import dayjs from 'dayjs';
+import { getRegional, inZone, nowInZone, todayISO } from '../../../lib/datetime';
+import { DateField } from '../../../components/ui/DateTimeField';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
@@ -49,7 +51,8 @@ function ShareForm({ folder, config, share, onDone }) {
   const [usePassword, setUsePassword] = useState(Boolean(share?.hasPassword) || config.requireSharePassword);
   const [password, setPassword] = useState('');
   const [preset, setPreset] = useState(share?.expiresAt ? 'custom' : config.maxShareDays ? String(Math.min(30, config.maxShareDays)) : 'never');
-  const [expiresAt, setExpiresAt] = useState(share?.expiresAt ? dayjs(share.expiresAt) : null);
+  // A custom expiry is a calendar day of the person: the link works to the end of it (23:59:59 in their zone).
+  const [expiresAt, setExpiresAt] = useState(share?.expiresAt ? inZone(share.expiresAt).format('YYYY-MM-DD') : null);
   const [allowDownload, setAllowDownload] = useState(share?.allowDownload !== false);
   const [saving, setSaving] = useState(false);
   const check = useSlugCheck(slug, share?.id);
@@ -63,9 +66,15 @@ function ShareForm({ folder, config, share, onDone }) {
   }, [folder.name, share, slug]);
 
   const expiry = () => {
-    if (preset === 'custom') return expiresAt ? expiresAt.endOf('day').toISOString() : null;
+    // The server allows at most maxShareDays from now: the last allowed day ends at that moment.
+    const cap = (iso) => {
+      if (!config.maxShareDays) return iso;
+      const limit = dayjs().add(config.maxShareDays * 86400 - 60, 'second');
+      return dayjs(iso).isAfter(limit) ? limit.toISOString() : iso;
+    };
+    if (preset === 'custom') return expiresAt ? cap(dayjs.tz(expiresAt, getRegional().timeZone).endOf('day').toISOString()) : null;
     const found = PRESETS.find((item) => item.value === preset);
-    return found?.days ? dayjs().add(found.days, 'day').toISOString() : null;
+    return found?.days ? cap(nowInZone().add(found.days, 'day').toISOString()) : null;
   };
 
   const submit = async () => {
@@ -150,10 +159,10 @@ function ShareForm({ folder, config, share, onDone }) {
         }))}
       />
       {preset === 'custom' && (
-        <DatePicker
+        <DateField
           value={expiresAt}
           onChange={setExpiresAt}
-          disabledDate={(date) => date < dayjs().startOf('day') || (config.maxShareDays && date > dayjs().add(config.maxShareDays, 'day'))}
+          disabledDate={(date) => date.format('YYYY-MM-DD') < todayISO() || Boolean(config.maxShareDays && date.format('YYYY-MM-DD') > nowInZone().add(config.maxShareDays, 'day').format('YYYY-MM-DD'))}
           style={{ width: '100%', marginTop: 8 }}
         />
       )}

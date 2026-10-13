@@ -2,6 +2,7 @@ import { Clock, CLOCK_ZONES, NOTE_COLORS, Note, Notifications, QuickActions, Wel
 import { MyTasks, TaskStats, TaskTrend } from './widgets/Tasks';
 import { Agenda, MiniCalendar } from './widgets/Calendar';
 import { Companies, Drive, DriveActivity, KbRecent, Links, People, RecentFiles } from './widgets/Content';
+import { getRegional } from '../../lib/datetime';
 
 /*
  * Frontend widget catalog. Each entry: the component, where it sits in the
@@ -226,7 +227,15 @@ export const WIDGET_CATALOG = {
     preview: 'clock',
     fields: [
       { key: 'zones', type: 'zones', options: CLOCK_ZONES, default: ['Europe/Moscow', 'Europe/London'] },
-      { key: 'format', type: 'segmented', default: '24', options: ['24', '12'].map((value) => ({ value, labelKey: `dashboard.fields.format.${value}` })) },
+      // A new clock starts with the person's time format (regional settings).
+      {
+        key: 'format',
+        type: 'segmented',
+        get default() {
+          return getRegional().timeFormat === '12' ? '12' : '24';
+        },
+        options: ['24', '12'].map((value) => ({ value, labelKey: `dashboard.fields.format.${value}` })),
+      },
       { key: 'analog', type: 'switch', default: false },
     ],
   },

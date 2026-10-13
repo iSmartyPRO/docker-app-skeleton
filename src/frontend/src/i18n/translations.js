@@ -13,6 +13,7 @@ import { kbEditorEn, kbEditorRu } from './kbEditor.js';
 import { assistantEn, assistantRu } from './assistant.js';
 import { outageEn, outageRu } from './outage.js';
 import { userLinksEn, userLinksRu } from './userLinks.js';
+import { regionalEn, regionalRu } from './regional.js';
 import { sessionsEn, sessionsRu } from './sessions.js';
 import { crmEn, crmRu } from './crm.js';
 
@@ -919,7 +920,7 @@ const en = {
     newPassword: 'New password',
     avatarHint: 'JPG, PNG or WebP, up to 1 MB',
     profileLead: 'Your name, email and avatar.',
-    appearanceLead: 'Language and theme for your account on every device.',
+    appearanceLead: 'Language, theme, date and time for your account on every device.',
     securityLead: 'Password and active sessions.',
     confirmPassword: 'Repeat new password',
     passwordMismatch: 'Passwords do not match',
@@ -1866,7 +1867,7 @@ const ru = {
     newPassword: 'Новый пароль',
     avatarHint: 'JPG, PNG или WebP, до 1 МБ',
     profileLead: 'Ваше имя, почта и аватар.',
-    appearanceLead: 'Язык и тема вашей учётной записи на всех устройствах.',
+    appearanceLead: 'Язык, тема, дата и время вашей учётной записи на всех устройствах.',
     securityLead: 'Пароль и активные сессии.',
     confirmPassword: 'Повторите новый пароль',
     passwordMismatch: 'Пароли не совпадают',
@@ -1946,6 +1947,8 @@ mergeDeep(en, outageEn);
 mergeDeep(ru, outageRu);
 mergeDeep(en, userLinksEn);
 mergeDeep(ru, userLinksRu);
+mergeDeep(en, regionalEn);
+mergeDeep(ru, regionalRu);
 mergeDeep(en, sessionsEn);
 mergeDeep(ru, sessionsRu);
 mergeDeep(en, tasks2En);

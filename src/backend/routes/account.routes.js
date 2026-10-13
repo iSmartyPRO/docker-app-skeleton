@@ -88,6 +88,8 @@ router.put('/profile', wrap(async (req, res) => {
     mattermost: req.body?.mattermost,
     locale: req.body?.locale,
     theme: req.body?.theme,
+    regional: req.body?.regional,
+    deviceTz: req.body?.deviceTz,
   });
   res.json({ success: true, user: await freshUser(req.user.id) });
 }));

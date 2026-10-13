@@ -1,7 +1,7 @@
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { notify } from '../../services/notifications.js';
-import { taskMessage } from './messages.js';
+import { reminderText, taskMessage } from './messages.js';
 import { taskEvent } from './chat.js';
 import { requestAs } from '../../api/events.js';
 import { contextFromRequest, LEVEL } from '../shared/acl.js';
@@ -63,7 +63,7 @@ export async function runReminders() {
       kind: 'tasks.due_soon',
       module: 'tasks',
       link: `/app/tasks/${ref}`,
-      render: taskMessage('dueSoon', { ref, title: row.title }),
+      render: taskMessage('dueSoon', { ref, title: row.title, dueAt: row.due_at }),
     });
     await taskEvent(row.id, null, { event: 'task.due_soon', dueAt: row.due_at, ref });
     await taskWebhook('task.due_soon', row.id);
@@ -131,10 +131,8 @@ export async function runCustomReminders() {
       link: `/app/tasks/${ref}`,
       // The in-app inbox always; outside it only the chosen channels.
       channels: [...(channels.includes('app') ? ['push'] : []), ...(channels.includes('email') ? ['email'] : []), ...(channels.includes('messenger') ? ['telegram', 'whatsapp', 'mattermost'] : [])],
-      render: (locale) =>
-        locale === 'ru'
-          ? { title: `Напоминание: ${ref}`, body: `${reminder.title}${reminder.due_at ? `\nКрайний срок: ${new Date(reminder.due_at).toLocaleString('ru-RU')}` : ''}` }
-          : { title: `Reminder: ${ref}`, body: `${reminder.title}${reminder.due_at ? `\nDeadline: ${new Date(reminder.due_at).toLocaleString('en-GB')}` : ''}` },
+      // The deadline in each recipient's own zone and formats.
+      render: (locale, regional) => reminderText(locale, regional, { ref, title: reminder.title, dueAt: reminder.due_at }),
     });
     await taskEvent(reminder.task_id, null, { event: 'task.reminder', ref, dueAt: reminder.due_at });
   }

@@ -1,3 +1,5 @@
+import { formatDate, formatDateTime, isValidTimeZone, zoneLabel, zoneOffsetMinutes } from '../../services/datetime.js';
+
 /** Notification texts for the calendar module, per recipient language. */
 
 const DATE_FORMAT = {
@@ -5,10 +7,26 @@ const DATE_FORMAT = {
   timeStyle: 'short',
 };
 
-/** Human date in the event's time zone (all-day events: date only). */
-export function whenText(locale, { start, allDay, timezone }) {
-  const options = allDay ? { dateStyle: 'medium', timeZone: 'UTC' } : { ...DATE_FORMAT, timeZone: timezone || 'UTC' };
+/** The stored day of an all-day event ('YYYY-MM-DD': kept as UTC midnight). */
+const storedDay = (start) => (typeof start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : new Date(start).toISOString().slice(0, 10));
+
+/**
+ * Human date of an event.
+ *  - With the recipient's region settings (`regional`): their zone and
+ *    formats; a timed event planned in another zone (different offset at that
+ *    moment) gets the recipient's zone label, e.g. "14.10.2026, 09:00 (UTC+6)".
+ *  - Without: the event's own zone, Intl medium style (older callers).
+ * All-day events are their calendar day everywhere.
+ */
+export function whenText(locale, { start, allDay, timezone }, regional = null) {
   try {
+    if (regional) {
+      if (allDay) return formatDate(storedDay(start), regional, locale);
+      const text = formatDateTime(start, regional, locale);
+      const foreign = isValidTimeZone(timezone) && zoneOffsetMinutes(start, timezone) !== zoneOffsetMinutes(start, regional.timeZone);
+      return foreign ? `${text} (${zoneLabel(regional.timeZone, new Date(start))})` : text;
+    }
+    const options = allDay ? { dateStyle: 'medium', timeZone: 'UTC' } : { ...DATE_FORMAT, timeZone: timezone || 'UTC' };
     return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-GB', options).format(new Date(start));
   } catch {
     return new Date(start).toISOString();
@@ -62,8 +80,11 @@ export function leadText(minutes) {
   return { en: `${minutes} min`, ru: `${minutes} мин` };
 }
 
+/** `render` for notify(): the recipient's language, and their region settings for the date. */
 export function eventMessage(kind, params) {
-  const when = { en: whenText('en', params), ru: whenText('ru', params) };
-  const texts = TEXTS[kind]({ ...params, when, lead: leadText(params.minutes || 0) });
-  return (locale) => texts[locale] || texts.en;
+  return (locale, regional) => {
+    const when = { en: whenText('en', params, regional), ru: whenText('ru', params, regional) };
+    const texts = TEXTS[kind]({ ...params, when, lead: leadText(params.minutes || 0) });
+    return texts[locale] || texts.en;
+  };
 }

@@ -1,8 +1,9 @@
 import { query } from '../../config/database.js';
+import { isoDay, zonedParts } from '../../services/datetime.js';
 import { clean, httpError, intId } from '../shared/acl.js';
 import { COLUMNS, FROM, hydrate } from './deals.js';
 import { buildFilter, cleanFilter, orderBy } from './filters.js';
-import { MAX_EXPORT, Params, bucketBounds, csvCell, money, parseDateOnly, toDateString } from './util.js';
+import { MAX_EXPORT, Params, boundsFor, csvCell, money, parseDateOnly, toDateString } from './util.js';
 
 /* Calendar, CSV export and personal saved filters (presets). */
 
@@ -17,7 +18,7 @@ export async function calendar(ctx, input = {}) {
   const fields = ctx.settings.fields || [];
   const field = String(input.field || 'closeDate');
   const p = new Params();
-  const where = buildFilter(ctx, input, { fields, bounds: bucketBounds(new Date(), input.tz) }, p);
+  const where = buildFilter(ctx, input, { fields, bounds: boundsFor(ctx, input) }, p);
   let dateSql;
   if (field === 'closeDate') {
     dateSql = 'd.close_date';
@@ -65,18 +66,24 @@ const EXPORT_COLUMNS = {
   owner: { title: 'Ответственный', value: (deal) => deal.owner?.name },
   source: { title: 'Источник', value: (deal) => deal.source },
   closeDate: { title: 'Дата закрытия', value: (deal) => deal.closeDate },
-  createdAt: { title: 'Создана', value: (deal) => stamp(deal.createdAt) },
-  updatedAt: { title: 'Изменена', value: (deal) => stamp(deal.updatedAt) },
-  closedAt: { title: 'Закрыта', value: (deal) => stamp(deal.closedAt) },
+  createdAt: { title: 'Создана', value: (deal, row, zone) => stamp(deal.createdAt, zone) },
+  updatedAt: { title: 'Изменена', value: (deal, row, zone) => stamp(deal.updatedAt, zone) },
+  closedAt: { title: 'Закрыта', value: (deal, row, zone) => stamp(deal.closedAt, zone) },
   createdBy: { title: 'Создал', value: (deal) => deal.createdBy?.name },
   comment: { title: 'Комментарий', value: (deal) => deal.comment },
   lostReason: { title: 'Причина провала', value: (deal) => deal.lostReason },
   watchers: { title: 'Наблюдатели', value: (deal) => deal.watchers.map((user) => user.name).join(', ') },
-  nextActivity: { title: 'Ближайшее дело', value: (deal) => (deal.activity.next ? `${stamp(deal.activity.next.dueAt) || ''} ${deal.activity.next.title}`.trim() : '') },
+  nextActivity: { title: 'Ближайшее дело', value: (deal, row, zone) => (deal.activity.next ? `${stamp(deal.activity.next.dueAt, zone) || ''} ${deal.activity.next.title}`.trim() : '') },
 };
 const DEFAULT_EXPORT = ['id', 'title', 'pipeline', 'stage', 'amount', 'currency', 'company', 'person', 'phone', 'owner', 'source', 'closeDate', 'createdAt', 'nextActivity'];
 
-const stamp = (value) => (value ? new Date(value).toISOString().slice(0, 16).replace('T', ' ') : '');
+/** "2026-10-13 14:30" in the exporting person's zone (sortable; Excel reads it as a date). */
+const stamp = (value, zone = 'UTC') => {
+  if (!value) return '';
+  const p = zonedParts(value, zone);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${p.year}-${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}:${pad(p.minute)}`;
+};
 
 function customCell(field, value) {
   if (value === undefined || value === null) return '';
@@ -104,9 +111,10 @@ export async function exportCsv(ctx, input, res) {
     .slice(0, 60);
   if (!columns.length) throw httpError(400, 'No known columns', 'INVALID_COLUMNS');
   const p = new Params();
-  const where = buildFilter(ctx, input, { fields, bounds: bucketBounds(new Date(), input.tz) }, p);
+  const bounds = boundsFor(ctx, input);
+  const where = buildFilter(ctx, input, { fields, bounds }, p);
   const order = orderBy(input.sort, input.order);
-  const date = new Date().toISOString().slice(0, 10);
+  const date = isoDay(new Date(), bounds.zone);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="crm-deals-${date}.csv"`);
   res.write(`﻿${columns.map((column) => csvCell(column.title)).join(';')}\r\n`);
@@ -120,7 +128,7 @@ export async function exportCsv(ctx, input, res) {
       );
       if (!rows.length) break;
       const deals = await hydrate(ctx, rows);
-      const lines = deals.map((deal, index) => columns.map((column) => csvCell(column.value(deal, rows[index]))).join(';'));
+      const lines = deals.map((deal, index) => columns.map((column) => csvCell(column.value(deal, rows[index], bounds.zone))).join(';'));
       res.write(`${lines.join('\r\n')}\r\n`);
       if (rows.length < batch) break;
     }

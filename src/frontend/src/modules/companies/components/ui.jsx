@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { App, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { colorFor, initials, relationLabel } from '../api';
+import { intlOptions } from '../../../lib/datetime';
 
 export function Flag({ meta, country, withName }) {
   const { locale } = useLocale();
@@ -157,6 +158,10 @@ export function Facts({ title, rows, extra }) {
 
 export function formatDate(value, locale) {
   if (!value) return null;
-  const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  // A calendar day ('YYYY-MM-DD') stays that day; an instant is shown in the person's zone.
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const date = new Date(day ? `${value}T00:00:00` : value);
+  if (Number.isNaN(date.getTime())) return value;
+  const options = { day: 'numeric', month: 'long', year: 'numeric' };
+  return date.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', day ? options : intlOptions(options));
 }

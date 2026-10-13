@@ -9,6 +9,8 @@ export const extraEn = {
     on: 'On',
     off: 'Off',
     close: 'Close',
+    sideCollapse: 'Collapse menu',
+    sideExpand: 'Expand menu',
   },
   apps: {
     tasks: { name: 'Tasks', desc: 'Projects, boards, deadlines and assignments' },
@@ -528,6 +530,8 @@ export const extraRu = {
     on: 'Вкл.',
     off: 'Выкл.',
     close: 'Закрыть',
+    sideCollapse: 'Свернуть меню',
+    sideExpand: 'Развернуть меню',
   },
   apps: {
     tasks: { name: 'Задачи', desc: 'Проекты, доски, сроки и поручения' },

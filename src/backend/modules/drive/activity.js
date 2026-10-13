@@ -1,4 +1,5 @@
 import { query } from '../../config/database.js';
+import { isValidTimeZone, isoDay } from '../../services/datetime.js';
 import { avatarOf } from '../shared/acl.js';
 import { driveSettings } from './credentials.js';
 
@@ -295,16 +296,13 @@ export const csvCell = (value) => {
 };
 
 /** The filtered log as CSV (Excel-friendly: BOM and ';'), newest first, up to 100 000 rows. */
-export async function exportActivity(res, input = {}) {
+export async function exportActivity(res, input = {}, fallbackZone = 'UTC') {
   const { sql, params } = activityFilter(input);
   const { rows } = await query(`${SELECT} ${sql} ORDER BY a.at DESC, a.id DESC LIMIT 100000`, params);
-  // Times in the viewer's zone (sent by the browser), else UTC; "2026-10-11 09:05:00" reads well in Excel.
-  let zone = 'UTC';
-  try {
-    if (input.tz) zone = new Intl.DateTimeFormat('en', { timeZone: String(input.tz) }).resolvedOptions().timeZone;
-  } catch {
-    zone = 'UTC';
-  }
+  // Times in the viewer's zone (`tz` sent by the browser, else their region
+  // zone, else UTC), sortable ISO-like text: "2026-10-11 09:05:00" reads well
+  // in Excel whatever the date format; the header names the zone.
+  const zone = isValidTimeZone(input.tz) ? input.tz : isValidTimeZone(fallbackZone) ? fallbackZone : 'UTC';
   const stampOf = new Intl.DateTimeFormat('sv-SE', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   const head = [`time (${zone})`, 'user', 'login', 'action', 'result', 'error', 'via', 'folder', 'path', 'to_folder', 'to_path', 'size', 'items', 'ip', 'user_agent', 'details'];
   const lines = rows.map((raw) => {
@@ -330,7 +328,7 @@ export async function exportActivity(res, input = {}) {
       .map(csvCell)
       .join(';');
   });
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = isoDay(new Date(), zone);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="file-server-activity-${stamp}.csv"`);
   res.send(`﻿${[head.join(';'), ...lines].join('\r\n')}\r\n`);

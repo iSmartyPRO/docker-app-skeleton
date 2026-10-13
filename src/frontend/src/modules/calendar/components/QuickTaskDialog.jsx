@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import dayjs from 'dayjs';
 import { App, DatePicker, Input, Modal, Select, Switch, TimePicker } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { useAuth } from '../../../context/AuthContext';
 import { errorMessage } from '../../../lib/errors';
+import { fromPicker, inZone, pickerFormat, toPicker, useRegional } from '../../../lib/datetime';
 import api from '../../../services/api';
 import { Hint } from '../../../help/Hint';
 
@@ -13,6 +13,7 @@ import { Hint } from '../../../help/Hint';
  */
 export default function QuickTaskDialog({ open, start, allDay, onClose, onCreated }) {
   const { t } = useLocale();
+  const regional = useRegional();
   const { message } = App.useApp();
   const { user } = useAuth();
   const [title, setTitle] = useState('');
@@ -29,7 +30,8 @@ export default function QuickTaskDialog({ open, start, allDay, onClose, onCreate
     setTitle('');
     setImportant(false);
     setWithTime(!allDay);
-    setDue(start ? dayjs(start) : dayjs().add(1, 'day').hour(19).minute(0));
+    // `due` is a picker value: the person's wall-clock time (see lib/datetime toPicker).
+    setDue(start ? toPicker(start) : toPicker(new Date()).add(1, 'day').hour(19).minute(0).second(0));
     api
       .get('/app/tasks/projects')
       .then((res) => setProjects(res.data.projects.filter((project) => ['edit', 'manage'].includes(project.level) && !project.archived)))
@@ -43,8 +45,9 @@ export default function QuickTaskDialog({ open, start, allDay, onClose, onCreate
     }
     setSaving(true);
     try {
-      const dueAt = withTime ? due.second(0) : due.endOf('day');
-      const res = await api.post('/app/tasks/tasks', { title: title.trim(), dueAt: dueAt.toISOString(), dueTime: withTime, important, projectId: projectId || undefined, assigneeIds: [user.id] });
+      // A deadline without time is the end of that day in the person's zone.
+      const dueAt = withTime ? fromPicker(due.second(0)) : inZone(due.format('YYYY-MM-DD')).endOf('day').toISOString();
+      const res = await api.post('/app/tasks/tasks', { title: title.trim(), dueAt, dueTime: withTime, important, projectId: projectId || undefined, assigneeIds: [user.id] });
       onCreated(res.data.task);
     } catch (err) {
       message.error(errorMessage(err));
@@ -75,7 +78,7 @@ export default function QuickTaskDialog({ open, start, allDay, onClose, onCreate
         <div className="cal-qt__row">
           <span>{t('calendarTasks.deadline')}</span>
           <DatePicker value={due} onChange={(date) => date && setDue(due.year(date.year()).month(date.month()).date(date.date()))} allowClear={false} format="dd, D MMM YYYY" />
-          {withTime && <TimePicker value={due} onChange={(time) => time && setDue(due.hour(time.hour()).minute(time.minute()))} allowClear={false} format="HH:mm" minuteStep={15} needConfirm={false} />}
+          {withTime && <TimePicker value={due} onChange={(time) => time && setDue(due.hour(time.hour()).minute(time.minute()))} allowClear={false} format={pickerFormat(regional).time} use12Hours={regional.timeFormat === '12'} minuteStep={15} needConfirm={false} />}
           <label className="cal-qt__switch">
             <Switch size="small" checked={withTime} onChange={setWithTime} /> {t('calendarTasks.withTime')}
           </label>

@@ -1,3 +1,5 @@
+import { formatDateTime } from '../../services/datetime.js';
+
 /** Notification texts for the tasks module, per recipient language. */
 
 const PRIORITY = {
@@ -26,9 +28,9 @@ export const TASK_MESSAGES = {
     en: { title: `${ref}: priority is now ${PRIORITY.en[priority]}`, body: title },
     ru: { title: `${ref}: приоритет «${PRIORITY.ru[priority]}»`, body: title },
   }),
-  dueSoon: ({ ref, title }) => ({
-    en: { title: `${ref} is due within 24 hours`, body: title },
-    ru: { title: `Срок задачи ${ref} истекает в течение суток`, body: title },
+  dueSoon: ({ ref, title, due }) => ({
+    en: { title: `${ref} is due within 24 hours`, body: due ? `${title}\nDeadline: ${due}` : title },
+    ru: { title: `Срок задачи ${ref} истекает в течение суток`, body: due ? `${title}\nКрайний срок: ${due}` : title },
   }),
   projectNew: ({ ref, title, actor, project }) => ({
     en: { title: `New task in ${project}: ${ref}`, body: `${title}${actor ? `\n${actor}` : ''}` },
@@ -44,8 +46,22 @@ export const TASK_MESSAGES = {
   }),
 };
 
-/** `render` for notify(): picks the recipient's language. */
+/**
+ * `render` for notify(): picks the recipient's language. A `dueAt` param is
+ * shown as `due` in the recipient's region settings (zone and formats).
+ */
 export function taskMessage(kind, params) {
-  const texts = TASK_MESSAGES[kind](params);
-  return (locale) => texts[locale] || texts.en;
+  return (locale, regional) => {
+    const due = params.dueAt ? formatDateTime(params.dueAt, regional || undefined, locale) : '';
+    const texts = TASK_MESSAGES[kind]({ ...params, due });
+    return texts[locale] || texts.en;
+  };
+}
+
+/** Text of a custom reminder ("remind me" on a task) for one recipient. */
+export function reminderText(locale, regional, { ref, title, dueAt }) {
+  const due = dueAt ? formatDateTime(dueAt, regional || undefined, locale) : '';
+  return locale === 'ru'
+    ? { title: `Напоминание: ${ref}`, body: `${title}${due ? `\nКрайний срок: ${due}` : ''}` }
+    : { title: `Reminder: ${ref}`, body: `${title}${due ? `\nDeadline: ${due}` : ''}` };
 }

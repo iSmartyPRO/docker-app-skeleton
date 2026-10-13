@@ -1,3 +1,5 @@
+import { REGIONAL_DEFAULTS, isValidTimeZone, startOfDay, startOfWeek, wallToInstant } from '../../services/datetime.js';
+
 /*
  * Pure helpers of the CRM module (no database): money, ranks, dates, time
  * buckets of activities, CSV cells, the parameter binder used by every query.
@@ -82,83 +84,54 @@ export const toDateString = (value) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-/** A valid IANA zone, or the server's own. */
+/** A valid IANA zone, else CRM_TZ, else the portal default zone. */
 export function cleanZone(tz) {
-  try {
-    if (tz) return new Intl.DateTimeFormat('en', { timeZone: String(tz).slice(0, 64) }).resolvedOptions().timeZone;
-  } catch {
-    /* fall through */
-  }
-  return process.env.CRM_TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  if (isValidTimeZone(String(tz || '').slice(0, 64))) return String(tz).slice(0, 64);
+  return isValidTimeZone(process.env.CRM_TZ) ? process.env.CRM_TZ : REGIONAL_DEFAULTS.timeZone;
 }
 
-/** The zone a person chose in their notification preferences (quiet hours), else the server's. */
-export async function userZone(query, userId) {
-  try {
-    const { rows } = await query(`SELECT notify_prefs->>'tz' AS tz FROM users WHERE id = $1`, [userId]);
-    return cleanZone(rows[0]?.tz);
-  } catch {
-    return cleanZone();
-  }
-}
-
-function zoneParts(date, tz) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    weekday: 'short',
-  }).formatToParts(date);
-  const get = (type) => parts.find((part) => part.type === type)?.value;
-  return {
-    y: Number(get('year')),
-    m: Number(get('month')),
-    d: Number(get('day')),
-    h: Number(get('hour')),
-    min: Number(get('minute')),
-    s: Number(get('second')),
-    weekday: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(get('weekday')),
-  };
-}
-
-/** The instant of local midnight of y-m-d in a zone. */
+/** The instant of local midnight of y-m-d in a zone (DST safe). */
 export function zonedMidnight(y, m, d, tz) {
-  const guess = Date.UTC(y, m - 1, d);
-  let at = guess;
-  // Two passes settle the offset, also around DST changes.
-  for (let i = 0; i < 2; i += 1) {
-    const p = zoneParts(new Date(at), tz);
-    const asUtc = Date.UTC(p.y, p.m - 1, p.d, p.h, p.min, p.s);
-    at = guess - (asUtc - at);
-  }
-  return new Date(at);
+  return wallToInstant({ year: y, month: m, day: d }, tz);
+}
+
+/** The instant a 'YYYY-MM-DD' day starts in the zone (plus `addDays`); null for anything else. */
+export function dayStartAt(text, tz, addDays = 0) {
+  if (!DATE_RE.test(String(text || ''))) return null;
+  const [y, m, d] = String(text).split('-').map(Number);
+  const day = new Date(Date.UTC(y, m - 1, d + addDays));
+  return zonedMidnight(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), cleanZone(tz));
 }
 
 /**
- * Time boundaries for activity buckets in the viewer's zone (weeks start on Monday):
- * now, end of today, end of this week, end of next week.
+ * Time boundaries for activity buckets in the viewer's zone: now, start and
+ * end of today, end of this week, end of next week. Weeks start on
+ * `weekStart` (1 Monday, 0 Sunday, 6 Saturday).
  */
-export function bucketBounds(now = new Date(), tz = 'UTC') {
+export function bucketBounds(now = new Date(), tz = 'UTC', weekStart = 1) {
   const zone = cleanZone(tz);
-  const p = zoneParts(now, zone);
-  const day = (offset) => {
-    const base = new Date(Date.UTC(p.y, p.m - 1, p.d + offset));
-    return zonedMidnight(base.getUTCFullYear(), base.getUTCMonth() + 1, base.getUTCDate(), zone);
-  };
-  const toSunday = (7 - p.weekday) % 7; // days left in this week after today
+  const first = [0, 1, 6].includes(Number(weekStart)) ? Number(weekStart) : 1;
   return {
     now,
-    startToday: day(0),
-    endToday: day(1),
-    endWeek: day(toSunday + 1),
-    endNextWeek: day(toSunday + 8),
+    startToday: startOfDay(now, zone),
+    endToday: startOfDay(now, zone, 1),
+    endWeek: startOfWeek(now, zone, first, 1),
+    endNextWeek: startOfWeek(now, zone, first, 2),
     zone,
+    weekStart: first,
   };
+}
+
+/**
+ * Bounds for a request: explicit valid `tz` / `weekStart` parameters win
+ * (the app sends the person's resolved values), else the person's region
+ * settings (ctx.regional, set by the routes).
+ */
+export function boundsFor(ctx, input = {}, now = new Date()) {
+  const zone = isValidTimeZone(input?.tz) ? input.tz : ctx?.regional?.timeZone;
+  const sent = input?.weekStart;
+  const weekStart = sent !== undefined && sent !== null && sent !== '' && [0, 1, 6].includes(Number(sent)) ? Number(sent) : ctx?.regional?.weekStart ?? 1;
+  return bucketBounds(now, zone, weekStart);
 }
 
 export const BUCKETS = ['overdue', 'today', 'week', 'nextWeek', 'later', 'none'];

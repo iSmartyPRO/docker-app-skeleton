@@ -78,7 +78,7 @@ export const SETTINGS_GROUPS = [
       {
         id: 'general',
         defaultIcon: 'project',
-        keywords: 'name brand logo description название логотип бренд описание',
+        keywords: 'name brand logo description language region time zone date format week название логотип бренд описание язык регион часовой пояс время дата формат неделя',
       },
     ],
   },

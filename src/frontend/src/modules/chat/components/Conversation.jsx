@@ -12,18 +12,24 @@ import { chatApi, formatSize } from '../api';
 import { useChat, useChatEvents } from '../ChatContext';
 import Composer from './Composer';
 import MessageItem from './MessageItem';
+import { fmtDate, inZone, intlOptions, nowInZone, useRegional } from '../../../lib/datetime';
 import '../chat.css';
 
 const GROUP_GAP = 5 * 60 * 1000;
 
 function dayLabel(value, t, locale) {
-  const date = new Date(value);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - today) / 86400000);
+  // Days in the person's zone.
+  const date = inZone(value);
+  const today = nowInZone().startOf('day');
+  const diff = date.startOf('day').diff(today, 'day');
   if (diff === 0) return t('chat.today');
   if (diff === -1) return t('chat.yesterday');
-  return date.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', ...(date.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}) });
+  return new Date(value).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', intlOptions({ day: 'numeric', month: 'long', ...(date.year() !== today.year() ? { year: 'numeric' } : {}) }));
+}
+
+/** The person's calendar day of a moment ('YYYY-MM-DD'), for grouping messages. */
+function dayKey(value) {
+  return inZone(value)?.format('YYYY-MM-DD') || '';
 }
 
 function Glyph({ d, size = 18 }) {
@@ -181,7 +187,7 @@ function SidePanel({ room, tab, setTab, members, reloadMembers, onJump, onClose 
                   <a href={`${file.url}?download=1`} target="_blank" rel="noopener noreferrer">
                     <b>{file.name}</b>
                     <em>
-                      {formatSize(file.size)} · {file.author} · {new Date(file.createdAt).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB')}
+                      {formatSize(file.size)} · {file.author} · {fmtDate(file.createdAt)}
                     </em>
                   </a>
                   <button type="button" onClick={() => onJump(file.messageId)} title={t('chat.showInChat')}>
@@ -202,7 +208,7 @@ function SidePanel({ room, tab, setTab, members, reloadMembers, onJump, onClose 
                   <button type="button" onClick={() => onJump(item.id)}>
                     <b>{item.author?.name}</b>
                     <span>{item.body}</span>
-                    <em>{new Date(item.createdAt).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</em>
+                    <em>{new Date(item.createdAt).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', intlOptions({ day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</em>
                   </button>
                 </li>
               ))}
@@ -495,22 +501,24 @@ export default function Conversation({ roomId, entity, header = true, placeholde
   const mentionNames = useMemo(() => new Set(members.map((person) => String(person.username).toLowerCase())), [members]);
   const typingNames = Object.values(typing).map((entry) => entry.name);
 
+  const { timeZone } = useRegional();
   const rows = useMemo(() => {
     if (!messages) return [];
     const out = [];
     let prev = null;
     messages.forEach((item, index) => {
-      const day = new Date(item.createdAt).toDateString();
-      if (!prev || new Date(prev.createdAt).toDateString() !== day) out.push({ type: 'day', key: `d${item.id}`, label: dayLabel(item.createdAt, t, locale) });
+      const day = dayKey(item.createdAt);
+      if (!prev || dayKey(prev.createdAt) !== day) out.push({ type: 'day', key: `d${item.id}`, label: dayLabel(item.createdAt, t, locale) });
       if (unreadFrom != null && item.id > unreadFrom && (!prev || prev.id <= unreadFrom) && item.author?.id !== user.id) out.push({ type: 'unread', key: 'unread' });
       const next = messages[index + 1];
-      const joinsPrev = prev && prev.kind !== 'system' && item.kind !== 'system' && prev.author?.id === item.author?.id && new Date(item.createdAt) - new Date(prev.createdAt) < GROUP_GAP && new Date(prev.createdAt).toDateString() === day;
-      const joinsNext = next && next.kind !== 'system' && item.kind !== 'system' && next.author?.id === item.author?.id && new Date(next.createdAt) - new Date(item.createdAt) < GROUP_GAP && new Date(next.createdAt).toDateString() === day;
+      const joinsPrev = prev && prev.kind !== 'system' && item.kind !== 'system' && prev.author?.id === item.author?.id && new Date(item.createdAt) - new Date(prev.createdAt) < GROUP_GAP && dayKey(prev.createdAt) === day;
+      const joinsNext = next && next.kind !== 'system' && item.kind !== 'system' && next.author?.id === item.author?.id && new Date(next.createdAt) - new Date(item.createdAt) < GROUP_GAP && dayKey(next.createdAt) === day;
       out.push({ type: 'message', key: item.id, item, first: !joinsPrev, last: !joinsNext });
       prev = item;
     });
     return out;
-  }, [messages, unreadFrom, t, locale, user.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, unreadFrom, t, locale, user.id, timeZone]);
 
   if (error) return <div className="cc-empty">{errorMessage(error)}</div>;
   if (!room) return <div className="cc-loading"><Skeleton active avatar paragraph={{ rows: 6 }} /></div>;

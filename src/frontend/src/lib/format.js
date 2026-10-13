@@ -1,12 +1,26 @@
+import { fmtDate, fmtDateTime, fmtTime, getRegional, intlOptions } from './datetime';
+
 const LOCALE_TAGS = { ru: 'ru-RU', en: 'en-GB' };
 
 export function localeTag(locale) {
   return LOCALE_TAGS[locale] || 'en-GB';
 }
 
+/**
+ * A moment as text in the person's time zone and formats (lib/datetime.js).
+ * The usual date/time styles map to the chosen formats; any other Intl options
+ * (e.g. { day: 'numeric', month: 'short' }) still get the person's zone and hour cycle.
+ */
 export function formatDateTime(value, locale, options = { dateStyle: 'medium', timeStyle: 'short' }) {
   if (!value) return '—';
-  return new Date(value).toLocaleString(localeTag(locale), options);
+  const keys = Object.keys(options || {});
+  const regional = { ...getRegional(), locale: locale === 'en' ? 'en' : 'ru' };
+  if (keys.every((key) => key === 'dateStyle' || key === 'timeStyle')) {
+    if (options.dateStyle && options.timeStyle) return fmtDateTime(value, regional);
+    if (options.dateStyle) return fmtDate(value, regional);
+    if (options.timeStyle) return fmtTime(value, regional);
+  }
+  return new Date(value).toLocaleString(localeTag(locale), intlOptions(options, regional));
 }
 
 /** "5 minutes ago" in the UI language. */

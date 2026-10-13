@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Form, Radio, Select, Switch, TimePicker } from 'antd';
-import dayjs from 'dayjs';
+import { Form, Radio, Select, Switch } from 'antd';
+import { TimeField as WallTimeField } from '../../components/ui/DateTimeField';
 import SaveBar from '../../components/ui/SaveBar';
 import LoadState from '../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
@@ -11,17 +11,9 @@ import { useLocale } from '../../context/LocaleContext';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
 import { REMINDER_PRESETS, reminderLabel } from './components/EventDialog';
 
+/** A work-day boundary ('HH:mm' wall-clock), shown in the portal's time format. */
 function TimeField({ value, onChange }) {
-  return (
-    <TimePicker
-      format="HH:mm"
-      minuteStep={30}
-      needConfirm={false}
-      allowClear={false}
-      value={value ? dayjs(`2024-01-01T${value}`) : null}
-      onChange={(time) => onChange?.(time ? time.format('HH:mm') : value)}
-    />
-  );
+  return <WallTimeField minuteStep={30} needConfirm={false} allowClear={false} value={value} onChange={(time) => onChange?.(time || value)} />;
 }
 
 function CalendarForm({ settings, save }) {
@@ -68,10 +60,9 @@ function CalendarForm({ settings, save }) {
             <Select style={{ width: 200 }} options={['month', 'week', 'day', 'agenda'].map((value) => ({ value, label: t(`calendar.view.${value}`) }))} />
           </Form.Item>
         </SettingRow>
+        {/* The week start is the portal's regional setting (Settings → General → Region and time). */}
         <SettingRow label={t('calendarSettings.weekStart')}>
-          <Form.Item name="weekStart" noStyle>
-            <Radio.Group optionType="button" options={[1, 0, 6].map((value) => ({ value, label: t(`calendarSettings.weekday_${value}`) }))} />
-          </Form.Item>
+          <Link to="/admin/settings/general">{t('regional.portalTitle')} →</Link>
         </SettingRow>
         <SettingRow label={t('calendarSettings.workday')} description={t('calendarSettings.workdayDesc')}>
           <span className="time-range">

@@ -3,6 +3,8 @@ import dayjs from 'dayjs';
 import { Button, Calendar, Drawer, Popover, Select, TimePicker } from 'antd';
 import { useLocale } from '../../../../context/LocaleContext';
 import { useAuth } from '../../../../context/AuthContext';
+import { fmtTime, fromPicker, pickerFormat, toPicker, useRegional } from '../../../../lib/datetime';
+import { formatDateTime } from '../../../../lib/format';
 import { Person, UserAvatar } from '../../../shared/People';
 import { tasksApi } from '../../api';
 import { useTasks } from '../../TasksContext';
@@ -81,8 +83,16 @@ export function PersonPill({ user, placeholder, onClick, disabled }) {
 
 // ── Deadline ────────────────────────────────────────────────────────────────
 
+/*
+ * Deadlines are instants (dueAt, ISO). Presets and the picker work with picker
+ * values — the person's wall-clock time (lib/datetime toPicker) — so "today
+ * 19:00" is 19:00 in the person's zone whatever the device's zone is.
+ */
+const wallNow = () => toPicker(new Date());
+
+/** Presets: { key, date } where `date` is a picker value (wall-clock) and `iso` the instant. */
 export function presetDates() {
-  const now = dayjs();
+  const now = wallNow();
   const at = (day) => day.hour(19).minute(0).second(0).millisecond(0);
   const friday = now.day() <= 5 ? now.day(5) : now.add(1, 'week').day(5);
   // Late in the day "today" means the end of it; in the last half hour it is gone.
@@ -93,35 +103,36 @@ export function presetDates() {
     { key: 'weekEnd', date: at(friday) },
     { key: 'inWeek', date: at(now.add(7, 'day')) },
     { key: 'monthEnd', date: at(now.endOf('month')) },
-  ];
+  ].map((preset) => ({ ...preset, iso: fromPicker(preset.date) }));
 }
 
 /** The default deadline of a new task: a week ahead at 19:00. */
-export const defaultDeadline = () => presetDates().find((preset) => preset.key === 'inWeek').date.toISOString();
+export const defaultDeadline = () => presetDates().find((preset) => preset.key === 'inWeek').iso;
 
 export function formatDeadline(value, locale, t) {
   if (!value) return null;
-  const date = dayjs(value);
-  const days = date.startOf('day').diff(dayjs().startOf('day'), 'day');
-  const tag = locale === 'ru' ? 'ru-RU' : 'en-GB';
-  const day = days === 0 ? t('tasks.due.today') : days === 1 ? t('tasks.due.tomorrow') : date.toDate().toLocaleDateString(tag, { day: 'numeric', month: 'long', ...(Math.abs(days) > 300 ? { year: 'numeric' } : {}) });
-  return `${day}, ${date.format('HH:mm')}`;
+  const date = toPicker(value);
+  const days = date.startOf('day').diff(wallNow().startOf('day'), 'day');
+  const day = days === 0 ? t('tasks.due.today') : days === 1 ? t('tasks.due.tomorrow') : formatDateTime(value, locale, { day: 'numeric', month: 'long', ...(Math.abs(days) > 300 ? { year: 'numeric' } : {}) });
+  return `${day}, ${fmtTime(value)}`;
 }
 
 /** Deadline: presets (today … end of the month), a calendar and the time. */
 export function DeadlinePicker({ value, onChange, disabled, allowClear = true, open: forced, onOpenChange }) {
   const { t, locale } = useLocale();
+  const regional = useRegional();
   const [own, setOwn] = useState(false);
   const open = forced ?? own;
   const setOpen = (next) => {
     setOwn(next);
     onOpenChange?.(next);
   };
-  const current = value ? dayjs(value) : null;
+  // `current` and everything passed to pick() are picker values (wall-clock).
+  const current = value ? toPicker(value, regional) : null;
   const pick = (date) => {
-    onChange(date ? date.second(0).millisecond(0).toISOString() : null);
+    onChange(date ? fromPicker(date.second(0).millisecond(0), regional) : null);
   };
-  const overdue = current && current.isBefore(dayjs());
+  const overdue = value && dayjs(value).isBefore(dayjs());
   const panel = (
     <div className="te-deadline">
       <div className="te-deadline__presets">
@@ -135,7 +146,7 @@ export function DeadlinePicker({ value, onChange, disabled, allowClear = true, o
             }}
           >
             <span>{t(`tasks.v2.presets.${preset.key}`)}</span>
-            <em>{preset.date.toDate().toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</em>
+            <em>{formatDateTime(preset.iso, locale, { weekday: 'short', day: 'numeric', month: 'short' })}</em>
           </button>
         ))}
         {allowClear && value && (
@@ -154,20 +165,21 @@ export function DeadlinePicker({ value, onChange, disabled, allowClear = true, o
       <div className="te-deadline__calendar">
         <Calendar
           fullscreen={false}
-          value={current || dayjs()}
+          value={current || wallNow()}
           onSelect={(date, info) => {
-            if (info?.source === 'date') pick((current || dayjs().hour(19).minute(0)).year(date.year()).month(date.month()).date(date.date()));
+            if (info?.source === 'date') pick((current || wallNow().hour(19).minute(0)).year(date.year()).month(date.month()).date(date.date()));
           }}
         />
         <div className="te-deadline__time">
           <span>{t('tasks.v2.timeLabel')}</span>
           <TimePicker
-            format="HH:mm"
+            format={pickerFormat(regional).time}
+            use12Hours={regional.timeFormat === '12'}
             minuteStep={5}
             value={current}
             allowClear={false}
             needConfirm={false}
-            onChange={(time) => time && pick((current || dayjs()).hour(time.hour()).minute(time.minute()))}
+            onChange={(time) => time && pick((current || wallNow()).hour(time.hour()).minute(time.minute()))}
           />
           <Button type="primary" size="small" onClick={() => setOpen(false)}>
             {t('tasks.v2.done')}

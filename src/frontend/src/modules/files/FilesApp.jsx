@@ -13,6 +13,7 @@ import FilePage from './pages/FilePage';
 import SpaceDialog from './components/SpaceDialog';
 import '../shared/module.css';
 import './files.css';
+import SideRail from '../shared/SideRail';
 
 function Sidebar({ onNavigate }) {
   const { t } = useLocale();
@@ -156,9 +157,9 @@ function Shell() {
   }
   return (
     <div className="mod-shell">
-      <aside className="mod-shell__side">
+      <SideRail moduleKey="files">
         <Sidebar />
-      </aside>
+      </SideRail>
       <Drawer open={drawer} onClose={() => setDrawer(false)} placement="left" width={300} styles={{ body: { padding: 0 } }}>
         <Sidebar onNavigate={() => setDrawer(false)} />
       </Drawer>

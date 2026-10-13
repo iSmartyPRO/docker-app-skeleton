@@ -6,6 +6,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { HelpButton } from '../../../help/Hint';
 import { crmApi } from '../api';
 import { useCrm } from '../CrmContext';
+import { useRegional } from '../../../lib/datetime';
 import { VIEWS, filterParams, formatNumber, lastView, readStore, userKey, writeStore } from '../lib';
 import FilterBar, { useStoredFilter } from '../components/FilterBar';
 import CreateDealDialog from '../components/CreateDealDialog';
@@ -65,7 +66,9 @@ export default function DealsPage() {
   }, [search]);
 
   const { filter } = filterState;
-  const params = useMemo(() => ({ pipeline: pipeline?.id, ...filterParams(filter, pipeline) }), [pipeline, filter]);
+  const regional = useRegional();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const params = useMemo(() => ({ pipeline: pipeline?.id, ...filterParams(filter, pipeline) }), [pipeline, filter, regional.timeZone, regional.weekStart]);
   const countersKey = JSON.stringify({ ...params, activity: undefined });
 
   useEffect(() => {

@@ -3,7 +3,7 @@
 .mod-shell {
   flex: 1;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: var(--mod-side-w, 280px) minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -331,5 +331,256 @@
 @media (max-width: 900px) {
   .form-grid-2 {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Collapsible sidebar rail (SideRail.jsx), desktop only ──────────────── */
+
+.mod-shell {
+  --mod-side-w: 280px;
+  /* 20px icons keep their exact x position: 24px inset on both sides. */
+  --mod-rail-w: 68px;
+}
+
+.mod-shell__side {
+  position: relative;
+  min-width: 0;
+}
+
+.mod-rail-anchor {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .mod-shell.is-side-collapsed {
+    grid-template-columns: var(--mod-rail-w) minmax(0, 1fr);
+  }
+
+  /* Sticky zero-height anchor: the edge toggle follows the page scroll. */
+  .mod-rail-anchor {
+    display: block;
+    position: sticky;
+    top: var(--da-header-h);
+    z-index: 6;
+    height: 0;
+  }
+
+  .mod-rail-toggle {
+    position: absolute;
+    top: 22px;
+    right: -13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--da-hairline);
+    border-radius: 50%;
+    background: var(--da-surface);
+    color: var(--da-muted);
+    box-shadow: var(--da-shadow);
+    cursor: pointer;
+    transition:
+      color 0.15s var(--da-ease),
+      border-color 0.15s var(--da-ease),
+      background 0.15s var(--da-ease),
+      transform 0.15s var(--da-ease);
+  }
+
+  .mod-rail-toggle svg {
+    transition: transform 0.28s var(--da-ease);
+  }
+
+  .mod-rail-toggle:hover,
+  .mod-shell__side:hover .mod-rail-toggle {
+    color: var(--da-primary);
+    border-color: color-mix(in srgb, var(--da-primary) 40%, var(--da-hairline));
+  }
+
+  .mod-rail-toggle:hover {
+    background: color-mix(in srgb, var(--da-primary) 8%, var(--da-surface));
+    transform: scale(1.08);
+  }
+
+  .mod-rail-toggle:focus-visible {
+    outline: 2px solid var(--da-primary);
+    outline-offset: 2px;
+  }
+
+  .is-collapsed .mod-rail-toggle svg {
+    transform: rotate(180deg);
+  }
+
+  .mod-shell__side .mod-side {
+    overflow-x: hidden;
+  }
+
+  .mod-shell__side .mod-nav__link,
+  .mod-shell__side .mod-side__brand {
+    white-space: nowrap;
+  }
+
+  /* Collapsed rail */
+  .mod-shell__side.is-collapsed .mod-side {
+    padding-inline: 14px;
+  }
+
+  .mod-shell__side.is-collapsed .mod-nav__text,
+  .mod-shell__side.is-collapsed .mod-side__brand > span:not(.da-icon) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .mod-shell__side.is-collapsed .mod-side__brand {
+    padding-inline: 5px;
+  }
+
+  .mod-shell__side.is-collapsed .mod-nav__link {
+    position: relative;
+    padding-inline: 10px;
+    min-height: 36px;
+  }
+
+  .mod-shell__side.is-collapsed .mod-dot {
+    width: 12px;
+    height: 12px;
+    margin-inline: 4px;
+    border-radius: 5px;
+  }
+
+  /* Count → small badge on the icon's corner. */
+  .mod-shell__side.is-collapsed .mod-nav__count {
+    position: absolute;
+    top: 1px;
+    right: -2px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    font-size: 10px;
+    line-height: 17px;
+    letter-spacing: -0.01em;
+    background: color-mix(in srgb, var(--da-primary) 16%, var(--da-bg));
+    color: var(--da-primary);
+    box-shadow: 0 0 0 2px var(--da-bg);
+  }
+
+  .mod-shell__side.is-collapsed .mod-nav__count.is-alert {
+    background: var(--da-error);
+    color: #fff;
+  }
+
+  /* Section titles collapse into a hairline divider. */
+  .mod-shell__side.is-collapsed .mod-side__label {
+    height: 1px;
+    margin: 6px 8px;
+    overflow: hidden;
+    background: var(--da-hairline);
+    font-size: 0;
+    color: transparent;
+  }
+
+  .mod-shell__side.is-collapsed .mod-side__label > * {
+    display: none;
+  }
+
+  /* Anything else (filters, lists, buttons) is hidden unless it opts in. */
+  .mod-shell__side.is-collapsed .mod-side > :not(.mod-side__brand, .mod-nav, .mod-side__label, .mod-rail-keep) {
+    display: none;
+  }
+
+  .mod-rail-create.ant-btn {
+    align-self: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    font-size: 17px;
+  }
+
+  /* Hover label of a rail item (rendered into document.body). */
+  .mod-rail-tip {
+    position: fixed;
+    z-index: 1100;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 280px;
+    padding: 6px 11px;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--da-text) 92%, var(--da-bg));
+    color: var(--da-bg);
+    box-shadow: var(--da-shadow-lg);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+
+  .mod-rail-tip > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mod-rail-tip::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -4px;
+    width: 8px;
+    height: 8px;
+    background: inherit;
+    border-radius: 2px;
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .mod-rail-tip__count {
+    padding: 0 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--da-bg) 22%, transparent);
+    font-size: 11px;
+    line-height: 17px;
+  }
+}
+
+.mod-rail-hint kbd {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+@media (min-width: 901px) and (prefers-reduced-motion: no-preference) {
+  .mod-shell.is-rail-ready {
+    transition: grid-template-columns 0.28s var(--da-ease);
+  }
+
+  .mod-rail-tip {
+    animation: mod-rail-tip-in 0.14s var(--da-ease);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mod-rail-toggle,
+  .mod-rail-toggle svg {
+    transition: none !important;
+  }
+}
+
+@keyframes mod-rail-tip-in {
+  from {
+    opacity: 0;
+    transform: translate(-4px, -50%);
   }
 }

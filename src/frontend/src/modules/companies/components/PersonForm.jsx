@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
-import { App, AutoComplete, Button, DatePicker, Drawer, Form, Input, Select, Switch } from 'antd';
-import dayjs from 'dayjs';
+import { App, AutoComplete, Button, Drawer, Form, Input, Select, Switch } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
+import { DateField } from '../../../components/ui/DateTimeField';
 import { errorMessage } from '../../../lib/errors';
 import { cmpApi } from '../api';
 import { useCompanies } from '../CompaniesContext';
 import { CompanyPicker } from './pickers';
 import { HintLabel } from '../../../help/Hint';
 
+// Dates here are calendar days ('YYYY-MM-DD'): DateField edits them without any zone shift.
 const dateProps = {
-  getValueProps: (value) => ({ value: value ? dayjs(value) : null }),
-  normalize: (value) => (value ? value.format('YYYY-MM-DD') : null),
+  getValueProps: (value) => ({ value: value ? String(value).slice(0, 10) : null }),
 };
 
 export const TITLES = ['Директор', 'Генеральный директор', 'Заместитель директора', 'Главный бухгалтер', 'Бухгалтер', 'Менеджер', 'Менеджер по закупкам', 'Менеджер по продажам', 'Руководитель отдела', 'Юрист', 'Инженер', 'Специалист', 'Ассистент'];
@@ -120,7 +120,7 @@ export default function PersonForm({ open, person, companyId, onClose }) {
                 <Input />
               </Form.Item>
               <Form.Item name={['position', 'startedOn']} label={t('companies.p.startedOn')} {...dateProps}>
-                <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+                <DateField style={{ width: '100%' }} />
               </Form.Item>
               <Form.Item name={['position', 'isDecisionMaker']} valuePropName="checked" label={<HintLabel id="companies.decisionMaker">{t('companies.p.decisionMaker')}</HintLabel>}>
                 <Switch />
@@ -146,7 +146,7 @@ export default function PersonForm({ open, person, companyId, onClose }) {
             <Input />
           </Form.Item>
           <Form.Item name="birthday" label={t('companies.p.birthday')} {...dateProps}>
-            <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+            <DateField style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="gender" label={t('companies.p.gender')}>
             <Select allowClear options={[{ value: 'm', label: t('companies.p.male') }, { value: 'f', label: t('companies.p.female') }]} />
@@ -168,7 +168,7 @@ export default function PersonForm({ open, person, companyId, onClose }) {
           </Form.Item>
           {customFields.map((field) => (
             <Form.Item key={field.key} name={['custom', field.key]} label={field.label} {...(field.type === 'date' ? dateProps : {})}>
-              {field.type === 'date' ? <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} /> : field.type === 'select' ? <Select allowClear options={field.options.map((value) => ({ value, label: value }))} /> : <Input />}
+              {field.type === 'date' ? <DateField style={{ width: '100%' }} /> : field.type === 'select' ? <Select allowClear options={field.options.map((value) => ({ value, label: value }))} /> : <Input />}
             </Form.Item>
           ))}
           <Form.Item name="notes" label={t('companies.section.notes')} className="is-wide">

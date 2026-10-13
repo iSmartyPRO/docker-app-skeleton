@@ -3,6 +3,7 @@ import { basename, join } from 'path';
 import { query } from '../config/database.js';
 import { logoDir } from '../config/paths.js';
 import { APP_VERSION } from '../config/version.js';
+import { REGIONAL_DEFAULTS, resolveRegional, sanitizeRegional } from './datetime.js';
 import { MODULE_CATALOG, MODULE_IDS, resolveModules, sanitizeModules } from '../modules/catalog.js';
 
 export const DEFAULTS = {
@@ -284,6 +285,8 @@ export function parseSettings(raw) {
     homePage: MODULE_IDS.includes(raw.home_page) ? raw.home_page : 'landing',
     // Interface language for people who have not chosen one: 'auto' = the browser's language.
     defaultLocale: ['ru', 'en'].includes(raw.default_locale) ? raw.default_locale : 'auto',
+    // Time zone and date/time formats of the whole portal (services/datetime.js).
+    regional: sanitizeRegional(parseJson(raw.regional, {})),
     rateLimit: {
       windowMs: Number(raw.rate_limit_window_ms) || Number(DEFAULTS.rate_limit_window_ms),
       max: Number(raw.rate_limit_max) || Number(DEFAULTS.rate_limit_max),
@@ -401,6 +404,7 @@ export function toPublicSettings(parsed) {
     accessMode: parsed.accessMode || 'closed',
     homePage: parsed.homePage,
     defaultLocale: parsed.defaultLocale,
+    regional: parsed.regional,
     appearance: parsed.appearance,
     // Only on/off — module system settings stay admin-only.
     modules: Object.fromEntries(
@@ -612,6 +616,9 @@ export async function updateAdminSettings(patch) {
   if (patch.accessMode === 'open' || patch.accessMode === 'closed') {
     await setSetting('access_mode', patch.accessMode);
   }
+  if (patch.regional && typeof patch.regional === 'object') {
+    await setSetting('regional', JSON.stringify(sanitizeRegional(patch.regional, parsed.regional)));
+  }
   if (['auto', 'ru', 'en'].includes(patch.defaultLocale)) {
     await setSetting('default_locale', patch.defaultLocale);
   }
@@ -721,4 +728,9 @@ export async function setGoogleSender({ email = '', sealedToken = '' } = {}) {
   integrations.google.gmailToken = sealedToken;
   if (!sealedToken) integrations.google.gmailSend = false;
   await setSetting('integrations', JSON.stringify(integrations));
+}
+
+/** The region settings that apply to a person (users row or null), over the portal's. */
+export async function regionalFor(user) {
+  return resolveRegional(parseSettings(await getSettings()).regional || REGIONAL_DEFAULTS, user);
 }

@@ -216,6 +216,11 @@
   width: 96px;
 }
 
+/* 12-hour times ("11:00 PM", "11:00 вечера") need more room. */
+.np-quiet__range.is-h12 .ant-picker {
+  width: 140px;
+}
+
 .np-quiet > p {
   margin: 0;
 }

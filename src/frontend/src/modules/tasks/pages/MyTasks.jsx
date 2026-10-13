@@ -5,15 +5,16 @@ import { App, Empty, Segmented, Skeleton } from 'antd';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
+import { inZone, nowInZone } from '../../../lib/datetime';
 import { tasksApi } from '../api';
 import { useTasks } from '../TasksContext';
 import TaskList from '../components/TaskList';
 import { useTaskEditor } from '../components/editor/EditorContext';
 import { CreateButton } from '../components/editor/QuickTask';
 
-/** Buckets by due date in the user's local time. */
+/** Buckets by due date in the person's time zone. */
 function bucketsOf(tasks, t) {
-  const now = dayjs();
+  const now = nowInZone();
   const today = now.startOf('day');
   const groups = {
     overdue: { key: 'overdue', label: t('tasks.bucket.overdue'), tone: 'alert', tasks: [] },
@@ -38,7 +39,7 @@ function bucketsOf(tasks, t) {
       groups.none.tasks.push(task);
       continue;
     }
-    const due = dayjs(task.dueAt);
+    const due = inZone(task.dueAt);
     const days = due.startOf('day').diff(today, 'day');
     if (task.dueTime ? due.isBefore(now) : days < 0) groups.overdue.tasks.push(task);
     else if (days === 0) groups.today.tasks.push(task);

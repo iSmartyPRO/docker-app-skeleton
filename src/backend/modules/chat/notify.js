@@ -1,5 +1,6 @@
 import { query } from '../../config/database.js';
-import { eventAllows, notify, quietState, resolvePrefs } from '../../services/notifications.js';
+import { eventAllows, notify, prefsWithZone, quietState } from '../../services/notifications.js';
+import { portalRegional } from '../../services/regional.js';
 import { pushToUser } from '../../services/push.js';
 import { isWatching } from './realtime.js';
 
@@ -27,7 +28,7 @@ export async function deliverMessage(room, message, recipients, { authorId, ment
   const others = recipients.filter((id) => id !== authorId);
   if (!others.length) return;
   const { rows: people } = await query(
-    `SELECT u.id, u.username, u.locale, u.notify_prefs, m.muted,
+    `SELECT u.id, u.username, u.locale, u.notify_prefs, u.regional, u.device_tz, m.muted,
             (SELECT COUNT(*)::int FROM notifications n WHERE n.user_id = u.id AND n.read_at IS NULL) AS unread
      FROM users u LEFT JOIN chat_members m ON m.user_id = u.id AND m.room_id = $2
      WHERE u.id = ANY($1) AND u.is_active IS NOT FALSE AND u.is_blocked IS NOT TRUE`,
@@ -52,10 +53,12 @@ export async function deliverMessage(room, message, recipients, { authorId, ment
     });
   }
 
+  const portal = await portalRegional();
   for (const person of people) {
     if (tagged.includes(person) && !system) continue;
     if (person.muted || isWatching(person.id, room.id)) continue;
-    const prefs = resolvePrefs(person.notify_prefs);
+    // Quiet hours in the person's own zone.
+    const prefs = prefsWithZone(person, portal);
     if (!eventAllows(prefs, 'chat.message', 'push') || quietState(prefs)) continue;
     const lang = person.locale === 'ru' ? 'ru' : 'en';
     const text = preview(message, lang);

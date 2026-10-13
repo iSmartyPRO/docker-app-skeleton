@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
 import { Robot } from '../modules/assistant/robots';
+import { fmtTime } from '../lib/datetime';
 import { BUILD, checkNow, clientSessionId, outageDetails, useOutage } from '../lib/outage';
 
 /*
@@ -72,7 +73,7 @@ export default function Maintenance() {
           </div>
           <div>
             <dt>{t('outage.since')}</dt>
-            <dd>{new Date(outage.since || Date.now()).toLocaleTimeString()}</dd>
+            <dd>{fmtTime(outage.since || new Date())}</dd>
           </div>
         </dl>
 

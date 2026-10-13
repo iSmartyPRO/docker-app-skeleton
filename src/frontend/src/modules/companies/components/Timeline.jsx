@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Button, DatePicker, Input, Popconfirm, Segmented, Skeleton } from 'antd';
+import { App, Button, Input, Popconfirm, Segmented, Skeleton } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatRelative } from '../../../lib/format';
+import { fmtDate, fmtDateTime } from '../../../lib/datetime';
+import { DateTimeField } from '../../../components/ui/DateTimeField';
 import { cmpApi, fieldLabel } from '../api';
 import { useCompanies } from '../CompaniesContext';
 import { Avatar, Stars } from './ui';
@@ -22,6 +24,9 @@ function show(value, t) {
   }
   if (typeof value === 'boolean') return value ? t('companies.yes') : t('companies.no');
   if (typeof value === 'object') return Object.entries(value).map(([k, v]) => `${k}: ${v}`).join(', ');
+  // Calendar days stay that day; instants are shown in the person's zone.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return fmtDate(value);
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(value))) return fmtDateTime(value);
   return String(value);
 }
 
@@ -92,7 +97,7 @@ function Composer({ type, id, onAdded }) {
     if (!body.trim()) return;
     setBusy(true);
     try {
-      const { data } = await cmpApi.addNote(type, id, { kind, body, at: at ? at.toISOString() : null });
+      const { data } = await cmpApi.addNote(type, id, { kind, body, at: at || null });
       setBody('');
       setAt(null);
       onAdded(data);
@@ -113,7 +118,7 @@ function Composer({ type, id, onAdded }) {
         onPressEnter={(event) => (event.ctrlKey || event.metaKey) && submit()}
       />
       <div className="cmp-composer__foot">
-        <DatePicker showTime={{ format: 'HH:mm' }} format="DD.MM.YYYY HH:mm" value={at} onChange={setAt} placeholder={t('companies.now')} size="small" />
+        <DateTimeField value={at} onChange={setAt} placeholder={t('companies.now')} size="small" />
         <span className="cmp-composer__hint">Ctrl+Enter</span>
         <Button type="primary" loading={busy} disabled={!body.trim()} onClick={submit}>{t('companies.addToHistory')}</Button>
       </div>
@@ -199,7 +204,7 @@ export default function Timeline({ type, id, country, onChange }) {
                     ) : (
                       <span>{t('companies.system')}</span>
                     )}
-                    <span title={new Date(event.at).toLocaleString(locale)}>· {formatRelative(event.at, locale)}</span>
+                    <span title={fmtDateTime(event.at)}>· {formatRelative(event.at, locale)}</span>
                     {note && !d.dealId && (
                       <Popconfirm title={t('companies.deleteNote')} onConfirm={() => cmpApi.deleteEvent(event.id).then(load).catch((err) => message.error(errorMessage(err)))}>
                         <button type="button" className="cmp-event__del">{t('common.delete')}</button>

@@ -4,7 +4,8 @@ import { duplicateContacts, isValidPhone, normalizePhone } from './users.js';
 import { publicBase } from './google.js';
 import { pushToUser } from './push.js';
 import { registerJob } from './scheduler.js';
-import { authAvailability, getSettings, invalidateSettings, localeFor, parseSettings } from './settings.js';
+import { authAvailability, getSettings, invalidateSettings, localeFor, parseSettings, regionalFor } from './settings.js';
+import { isValidTimeZone, resolveRegional, zonedParts } from './datetime.js';
 import { eventInfo, NOTIFICATION_EVENTS, NOTIFICATION_GROUPS } from './notificationCatalog.js';
 
 const KNOWN_KINDS = new Set(NOTIFICATION_EVENTS.map((event) => event.kind));
@@ -14,7 +15,9 @@ const KNOWN_KINDS = new Set(NOTIFICATION_EVENTS.map((event) => event.kind));
  *
  *   notify({ userIds, kind, module, link, actorId, render })
  *
- * `render(locale)` returns `{ title, body }` in the recipient's language.
+ * `render(locale, regional)` returns `{ title, body }` in the recipient's
+ * language; `regional` is the recipient's resolved region settings
+ * (datetime.js resolveRegional) for formatting dates and times.
  * Every notification lands in the in-app inbox (the bell); external channels
  * (email via SMTP or Gmail, Telegram, Mattermost) follow each user's
  * preferences and what is configured. The actor never notifies themselves.
@@ -93,7 +96,7 @@ export async function ensureNotificationTables() {
  *   events       per kind: { inbox?, push?, email?, … }      (missing = the catalog default)
  *   quiet        { enabled, from: '22:00', to: '08:00', weekends }  pushes and messages wait until it ends
  *   pausedUntil  ISO time: everything external waits until then (see releaseAt)
- *   tz           the person's time zone, for quiet hours
+ *   tz           legacy: the zone the browser reported for quiet hours (see quietZone)
  * The first version stored only the four channel flags at the top level; they
  * are read as `channels`.
  */
@@ -131,15 +134,34 @@ export function inboxAllows(prefs, kind) {
   return eventInfo(kind).urgent || prefs.events[kind]?.inbox !== false;
 }
 
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 function localParts(date, tz) {
-  try {
-    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tz || process.env.TZ || 'UTC', hour: '2-digit', minute: '2-digit', weekday: 'short', hourCycle: 'h23' }).formatToParts(date);
-    const get = (type) => parts.find((part) => part.type === type)?.value;
-    return { minutes: Number(get('hour')) * 60 + Number(get('minute')), weekday: get('weekday') };
-  } catch {
-    return { minutes: date.getUTCHours() * 60 + date.getUTCMinutes(), weekday: 'Mon' };
-  }
+  // zonedParts falls back to the default zone for a missing or invalid one.
+  const p = zonedParts(date, tz);
+  return { minutes: p.hour * 60 + p.minute, weekday: WEEKDAYS[p.weekday] || 'Mon' };
 }
+
+/**
+ * The zone quiet hours count in: the person's own region zone when they chose
+ * one (or 'device'), else the zone stored with the notification preferences
+ * by older clients (notify_prefs.tz), else the browser's zone, else the
+ * portal's. `user` is a users row (regional, device_tz, notify_prefs);
+ * `portal` the portal's region settings (regionalFor(null)).
+ */
+export function quietZone(user, portal) {
+  const own = user?.regional?.timeZone;
+  if (own === 'device' || isValidTimeZone(own)) return resolveRegional(portal, user).timeZone;
+  return [user?.notify_prefs?.tz, user?.device_tz].find(isValidTimeZone) || resolveRegional(portal, null).timeZone;
+}
+
+/** resolvePrefs() with `tz` set to the zone quiet hours use (see quietZone). */
+export function prefsWithZone(user, portal) {
+  return { ...resolvePrefs(user?.notify_prefs), tz: quietZone(user, portal) };
+}
+
+/** Delivery columns of users, region settings included. */
+const DELIVERY_COLUMNS = `id, email, phone, locale, telegram_id, mattermost, notify_prefs, regional, device_tz`;
 
 /** 'paused' | 'quiet' | null — whether external delivery should hold back now. */
 export function quietState(prefs, now = new Date()) {
@@ -303,8 +325,8 @@ ${url ? `<tr><td style="padding:8px 28px 28px"><a href="${escapeHtml(url)}" styl
  * connected) · deferred (quiet hours or pause: sent later by the
  * notifications:deferred job) · skipped (not asked for).
  */
-async function deliver(user, message, ready, appName, { force = false } = {}) {
-  const prefs = resolvePrefs(user.notify_prefs);
+async function deliver(user, message, ready, appName, { force = false, portal = null } = {}) {
+  const prefs = prefsWithZone(user, portal);
   const event = eventInfo(message.kind);
   const reach = channelReach(user, ready);
   const hold = force || event.urgent ? null : quietState(prefs);
@@ -371,7 +393,7 @@ async function deliver(user, message, ready, appName, { force = false } = {}) {
  * @param {string} [input.module] e.g. "tasks"
  * @param {string} [input.link] app path, e.g. "/app/tasks/HR-12"
  * @param {number} [input.actorId] excluded from recipients
- * @param {(locale: string) => {title: string, body?: string}} input.render
+ * @param {(locale: string, regional: object) => {title: string, body?: string}} input.render
  * @param {boolean} [input.external=true] false = in-app only
  * @param {string[]} [input.channels] only these external channels (still within each person's preferences)
  */
@@ -379,7 +401,7 @@ export async function notify({ userIds, kind, module = null, link = null, actorI
   const ids = [...new Set((userIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0 && id !== Number(actorId)))];
   if (!ids.length) return 0;
   const { rows: users } = await query(
-    `SELECT id, email, phone, locale, telegram_id, mattermost, notify_prefs,
+    `SELECT ${DELIVERY_COLUMNS},
             (SELECT COUNT(*) FROM push_subscriptions p WHERE p.user_id = users.id)::int AS push_devices
      FROM users
      WHERE id = ANY($1) AND is_active IS NOT FALSE AND is_blocked IS NOT TRUE`,
@@ -388,11 +410,14 @@ export async function notify({ userIds, kind, module = null, link = null, actorI
   // People who never chose a language get the portal's default one.
   const fallback = await localeFor(null);
   for (const user of users) user.locale = user.locale === 'ru' || user.locale === 'en' ? user.locale : fallback;
+  // Dates in texts follow each recipient's region settings (one settings read for all).
+  const portal = await regionalFor(null);
   // A person may switch an event off entirely (not even the bell).
   const messages = users
     .filter((user) => inboxAllows(resolvePrefs(user.notify_prefs), kind))
     .map((user) => {
-      const { title, body = '' } = render(user.locale);
+      const regional = { ...resolveRegional(portal, user), locale: user.locale };
+      const { title, body = '' } = render(user.locale, regional);
       return { user, kind, title: String(title).slice(0, 300), body: String(body || '').slice(0, 2000), link, channels };
     });
   if (!messages.length) return 0;
@@ -423,7 +448,7 @@ export async function notify({ userIds, kind, module = null, link = null, actorI
         // take every database connection or open hundreds of SMTP sessions.
         for (let i = 0; i < messages.length; i += 10) {
           const batch = messages.slice(i, i + 10);
-          const reports = await Promise.all(batch.map((message) => deliver(message.user, message, ready, parsed.appName).catch((err) => ({ error: err.message }))));
+          const reports = await Promise.all(batch.map((message) => deliver(message.user, message, ready, parsed.appName, { portal }).catch((err) => ({ error: err.message }))));
           const ids = batch.map((message) => message.id).filter(Boolean);
           if (ids.length) {
             await query(`UPDATE notifications n SET delivery = d.report FROM unnest($1::bigint[], $2::jsonb[]) AS d(id, report) WHERE n.id = d.id`, [
@@ -431,7 +456,7 @@ export async function notify({ userIds, kind, module = null, link = null, actorI
               batch.map((message, index) => (message.id ? JSON.stringify(reports[index]) : null)).filter((value) => value !== null),
             ]);
           }
-          await queueDeferred(batch.map((message, index) => ({ message, report: reports[index] })));
+          await queueDeferred(batch.map((message, index) => ({ message, report: reports[index] })), 0, portal);
         }
       } catch (err) {
         console.warn('Notification delivery failed:', err.message);
@@ -452,11 +477,11 @@ function deferredChannels(report) {
 }
 
 /** Stores the held channels of freshly delivered messages. */
-async function queueDeferred(items, attempts = 0) {
+async function queueDeferred(items, attempts = 0, portal = null) {
   for (const { message, report } of items) {
     const channels = deferredChannels(report);
     if (!message.id || !channels.length) continue;
-    const at = releaseAt(resolvePrefs(message.user.notify_prefs));
+    const at = releaseAt(prefsWithZone(message.user, portal));
     await query(
       `INSERT INTO notification_deferred (notification_id, user_id, channels, release_at, attempts)
        VALUES ($1, $2, $3, $4, $5)
@@ -491,13 +516,14 @@ export async function releaseDeferred(limit = DEFERRED_BATCH) {
     rows.map((row) => row.notification_id),
   ]);
   const { rows: users } = await query(
-    `SELECT id, email, phone, locale, telegram_id, mattermost, notify_prefs,
+    `SELECT ${DELIVERY_COLUMNS},
             (SELECT COUNT(*) FROM push_subscriptions p WHERE p.user_id = users.id)::int AS push_devices,
             (SELECT COUNT(*) FROM notifications n WHERE n.user_id = users.id AND n.read_at IS NULL)::int AS unread
      FROM users WHERE id = ANY($1) AND is_active IS NOT FALSE AND is_blocked IS NOT TRUE`,
     [[...new Set(rows.map((row) => row.user_id))]]
   );
   const { parsed, ready } = await readiness();
+  const portal = await regionalFor(null);
   const fallback = await localeFor(null);
   for (const user of users) user.locale = user.locale === 'ru' || user.locale === 'en' ? user.locale : fallback;
 
@@ -511,10 +537,10 @@ export async function releaseDeferred(limit = DEFERRED_BATCH) {
       return mergeDelivery(note.id, only('expired'));
     }
     const message = { id: note.id, user, kind: note.kind, title: note.title, body: note.body || '', link: note.link, channels: row.channels };
-    const full = await deliver(user, message, ready, parsed.appName);
+    const full = await deliver(user, message, ready, parsed.appName, { portal });
     const report = Object.fromEntries(row.channels.map((channel) => [channel, full[channel] || 'skipped']));
     await mergeDelivery(note.id, report);
-    await queueDeferred([{ message, report }], row.attempts + 1);
+    await queueDeferred([{ message, report }], row.attempts + 1, portal);
   };
   // Small batches, as in notify(): a morning release must not flood the pool.
   for (let i = 0; i < rows.length; i += 10) {
@@ -580,7 +606,7 @@ export async function markRead(userId, { ids, all }) {
 
 async function userForDelivery(userId) {
   const { rows } = await query(
-    `SELECT id, email, phone, locale, telegram_id, mattermost, notify_prefs,
+    `SELECT ${DELIVERY_COLUMNS},
             (SELECT COUNT(*) FROM push_subscriptions p WHERE p.user_id = users.id)::int AS push_devices
      FROM users WHERE id = $1`,
     [userId]
@@ -601,6 +627,8 @@ export async function getPrefs(userId) {
   return {
     // `prefs` keeps the first version's flat flags for older clients.
     prefs: { ...prefs.channels, ...prefs },
+    // The zone quiet hours actually count in (see quietZone).
+    quietZone: quietZone(user, await regionalFor(null)),
     reach: channelReach(user || {}, ready),
     configured: channelsAvailable(ready),
     contacts: { email: user?.email || '', phone: user?.phone || '', mattermost: user?.mattermost || '', telegram: Boolean(user?.telegram_id) },
@@ -669,7 +697,7 @@ export async function sendTest(userId, { channel = null } = {}) {
   );
   const prefs = resolvePrefs(user.notify_prefs);
   const only = CHANNELS.includes(channel) ? [channel] : null;
-  const report = await deliver(user, { kind: 'system.test', title: text.title, body: text.body, link: '/account/notifications', channels: only }, ready, parsed.appName, { force: true });
+  const report = await deliver(user, { kind: 'system.test', title: text.title, body: text.body, link: '/account/notifications', channels: only }, ready, parsed.appName, { force: true, portal: await regionalFor(null) });
   await query(`UPDATE notifications SET delivery = $2 WHERE id = $1`, [rows[0].id, JSON.stringify(report)]);
   return { report, channels: prefs.channels, reach: channelReach(user, ready) };
 }

@@ -3,7 +3,9 @@ import { getSettings, parseSettings } from '../../services/settings.js';
 import { getUserAccess } from '../../services/rbac.js';
 import { hasPermission } from '../../services/permissions.js';
 import { clean, httpError, HEX } from '../shared/acl.js';
-import { fromWall, toWall, validTimeZone } from '../calendar/recurrence.js';
+import { fromWall, toWall } from '../calendar/recurrence.js';
+import { isValidTimeZone, isoDay } from '../../services/datetime.js';
+import { regionalOfUser } from '../../services/regional.js';
 import { createTask, loadTaskRow } from './service.js';
 import { taskEvent } from './chat.js';
 
@@ -23,11 +25,16 @@ const intIn = (value, min, max, fallback) => {
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
 };
 
-export function cleanRecurrence(input) {
+/**
+ * `fallbackZone`: the zone when the input names none (the author's region
+ * zone); the schedule's wall-clock times ("09:00") are in that zone.
+ */
+export function cleanRecurrence(input, fallbackZone = 'UTC') {
   if (!input || typeof input !== 'object') return null;
-  const tz = validTimeZone(input.tz) ? input.tz : 'UTC';
+  const tz = isValidTimeZone(input.tz) ? input.tz : isValidTimeZone(fallbackZone) ? fallbackZone : 'UTC';
   const time = /^\d{2}:\d{2}$/.test(input.time || '') ? input.time : '09:00';
-  const start = /^\d{4}-\d{2}-\d{2}$/.test(input.start || '') ? input.start : new Date().toISOString().slice(0, 10);
+  // No start: today in the schedule's zone.
+  const start = /^\d{4}-\d{2}-\d{2}$/.test(input.start || '') ? input.start : isoDay(new Date(), tz);
   const endMode = ['never', 'count', 'date'].includes(input.end?.mode) ? input.end.mode : 'never';
   return {
     every: intIn(input.every, 1, 365, 1),
@@ -143,10 +150,16 @@ function cleanPayload(input) {
   return payload;
 }
 
+/** The author's region zone, read only when the schedule names no zone of its own. */
+async function authorZone(ctx, recurrence) {
+  if (!recurrence || typeof recurrence !== 'object' || isValidTimeZone(recurrence.tz)) return null;
+  return (await regionalOfUser(ctx.userId)).timeZone;
+}
+
 export async function saveTemplate(ctx, input = {}, id = null) {
   const title = clean(input.title || input.payload?.title, 300);
   if (!title) throw httpError(400, 'Name the template', 'TITLE_REQUIRED');
-  const recurrence = input.recurring ? cleanRecurrence(input.recurrence) : null;
+  const recurrence = input.recurring ? cleanRecurrence(input.recurrence, await authorZone(ctx, input.recurrence)) : null;
   const next = recurrence ? nextOccurrence(recurrence, new Date(), 0) : null;
   if (id) {
     const current = await ownTemplate(ctx, id);
@@ -176,7 +189,7 @@ export async function deleteTemplate(ctx, id) {
  * task made now is its first copy (and points at it).
  */
 export async function createRecurring(ctx, input, recurrenceInput) {
-  const recurrence = cleanRecurrence(recurrenceInput);
+  const recurrence = cleanRecurrence(recurrenceInput, await authorZone(ctx, recurrenceInput));
   const template = await saveTemplate(ctx, { title: input.title, payload: input, recurring: true, recurrence });
   let task;
   try {

@@ -11,6 +11,7 @@ import { useChat, useChatEvents } from './ChatContext';
 import Conversation, { RoomAvatar } from './components/Conversation';
 import { systemView } from './system';
 import { Hint } from '../../help/Hint';
+import { fmtTime, inZone, intlOptions, nowInZone } from '../../lib/datetime';
 
 function lastText(room, t, locale) {
   const last = room.lastMessage;
@@ -23,11 +24,14 @@ function lastText(room, t, locale) {
 }
 
 function when(value, locale) {
+  // Days, the time and the hour cycle are the person's (their zone and formats).
   const date = new Date(value);
-  const now = new Date();
-  if (date.toDateString() === now.toDateString()) return date.toLocaleTimeString(locale === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
-  if (now - date < 6 * 86400000) return date.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { weekday: 'short' });
-  return date.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'short' });
+  const zoned = inZone(value);
+  if (!zoned) return '';
+  const tag = locale === 'ru' ? 'ru-RU' : 'en-GB';
+  if (zoned.isSame(nowInZone(), 'day')) return fmtTime(value);
+  if (Date.now() - date < 6 * 86400000) return date.toLocaleDateString(tag, intlOptions({ weekday: 'short' }));
+  return date.toLocaleDateString(tag, intlOptions({ day: 'numeric', month: 'short' }));
 }
 
 function NewChat({ open, onClose, allowGroups }) {

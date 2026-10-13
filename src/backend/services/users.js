@@ -6,6 +6,7 @@ import { query, withTransaction } from '../config/database.js';
 import { avatarDir } from '../config/paths.js';
 import { LOCKED_ROLE } from './permissions.js';
 import { runBeforeUserDelete } from './hooks.js';
+import { isValidTimeZone, sanitizeUserRegional } from './datetime.js';
 import {
   NO_PASSWORD,
   assertSuperadminRemains,
@@ -61,6 +62,10 @@ export async function ensureUsersTable() {
   // Set by an administrator, a directory or Google, or proven by an email code.
   // Only trusted addresses may link a Google account automatically.
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_trusted BOOLEAN NOT NULL DEFAULT FALSE`);
+  // Personal time zone / date and time formats over the portal's (null = follow the portal), and
+  // the zone the person's device reports (used when they choose "as on my device").
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS regional JSONB NOT NULL DEFAULT '{}'::jsonb`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS device_tz VARCHAR(64)`);
   await query(`CREATE UNIQUE INDEX IF NOT EXISTS users_telegram_id_key ON users (telegram_id) WHERE telegram_id IS NOT NULL`);
   await query(`CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users (LOWER(email))`);
   await query(`CREATE INDEX IF NOT EXISTS users_phone_idx ON users (phone)`);
@@ -70,6 +75,7 @@ const USER_COLUMNS = `
   id, username, email, display_name, avatar_path, locale, theme,
   role, is_active, is_blocked, last_login_at, token_version, created_at, updated_at,
   phone, telegram_id, telegram_username, instagram, mattermost, auth_source, external_id, last_login_method, email_trusted,
+  regional, device_tz,
   (password_hash LIKE '$2%') AS has_password
 `;
 
@@ -175,6 +181,9 @@ export function toPublicUser(user, access = EMPTY_ACCESS) {
     // null = follow the portal's default language
     locale: user.locale || null,
     theme: user.theme || 'system',
+    // Overrides of the portal's region settings (null = as the portal; timeZone may be 'device').
+    regional: sanitizeUserRegional(user.regional || {}),
+    deviceTz: user.device_tz || null,
     authSource: user.auth_source || 'local',
     hasPassword: Boolean(user.has_password),
     telegram: user.telegram_id
@@ -599,6 +608,8 @@ export async function updateUser(id, patch, { actor = null } = {}) {
     if (patch.locale === 'en' || patch.locale === 'ru') add('locale', patch.locale);
     else if (patch.locale === null || patch.locale === '' || patch.locale === 'auto') add('locale', null);
     if (['light', 'dark', 'system'].includes(patch.theme)) add('theme', patch.theme);
+    if (patch.regional && typeof patch.regional === 'object') add('regional', JSON.stringify(sanitizeUserRegional(patch.regional, user.regional || {})));
+    if (patch.deviceTz !== undefined && isValidTimeZone(patch.deviceTz)) add('device_tz', patch.deviceTz);
 
     let revoke = false;
     if (actor && !isSelf) {

@@ -19,11 +19,12 @@ import { useSettings } from '../../../context/SettingsContext';
 import { errorMessage } from '../../../lib/errors';
 import { arrange, categoryName, itemText, readLocalLayout, resourcesApi, writeLocalLayout } from '../api';
 import { MODULE_REGISTRY } from '../../registry';
+import { nowInZone } from '../../../lib/datetime';
 import ResourceIcon from './ResourceIcon';
 import '../resources.css';
 
 function greeting(t, name) {
-  const hour = new Date().getHours();
+  const hour = nowInZone().hour();
   const part = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'day' : 'evening';
   return t(`resources.greeting.${part}`, { name });
 }

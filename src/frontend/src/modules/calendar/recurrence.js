@@ -1,4 +1,14 @@
 import dayjs from 'dayjs';
+import { fmtDate, inZone } from '../../lib/datetime';
+
+/*
+ * Weekdays and month days of a series are those of its start in the person's
+ * zone (the backend expands a series by wall-clock time in the event's
+ * `timezone`, which the dialog sets to the person's zone; all-day series by date).
+ * `start` may be a picker dayjs (already the person's wall-clock time, see
+ * EventDialog), an ISO instant, a Date or a 'YYYY-MM-DD' day.
+ */
+const dayOf = (start) => (dayjs.isDayjs(start) ? start : inZone(start) || dayjs());
 
 /** "20261231T235959Z" → dayjs (no customParseFormat plugin needed). */
 const ruleDate = (value) => dayjs(`${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`);
@@ -7,7 +17,7 @@ export const WEEKDAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 const JS_TO_RRULE = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 
 export function weekdayOf(date) {
-  return JS_TO_RRULE[dayjs(date).day()];
+  return JS_TO_RRULE[dayOf(date).day()];
 }
 
 export function parseRule(rule) {
@@ -27,7 +37,7 @@ export function presetOf(rule, start) {
   if (plain && p.FREQ === 'DAILY' && !p.BYDAY) return 'daily';
   if (plain && p.FREQ === 'WEEKLY' && p.BYDAY === 'MO,TU,WE,TH,FR') return 'weekdays';
   if (plain && p.FREQ === 'WEEKLY' && (!p.BYDAY || p.BYDAY === weekdayOf(start))) return 'weekly';
-  if (plain && p.FREQ === 'MONTHLY' && (!p.BYMONTHDAY || Number(p.BYMONTHDAY) === dayjs(start).date())) return 'monthly';
+  if (plain && p.FREQ === 'MONTHLY' && (!p.BYMONTHDAY || Number(p.BYMONTHDAY) === dayOf(start).date())) return 'monthly';
   if (plain && p.FREQ === 'YEARLY') return 'yearly';
   return 'custom';
 }
@@ -41,7 +51,7 @@ export function ruleFromPreset(preset, start) {
     case 'weekly':
       return `FREQ=WEEKLY;BYDAY=${weekdayOf(start)}`;
     case 'monthly':
-      return `FREQ=MONTHLY;BYMONTHDAY=${dayjs(start).date()}`;
+      return `FREQ=MONTHLY;BYMONTHDAY=${dayOf(start).date()}`;
     case 'yearly':
       return 'FREQ=YEARLY';
     default:
@@ -54,7 +64,7 @@ export function ruleFromCustom({ freq = 'WEEKLY', interval = 1, days = [], end =
   const parts = [`FREQ=${freq}`];
   if (interval > 1) parts.push(`INTERVAL=${interval}`);
   if (freq === 'WEEKLY') parts.push(`BYDAY=${(days.length ? days : [weekdayOf(start)]).join(',')}`);
-  if (freq === 'MONTHLY') parts.push(`BYMONTHDAY=${dayjs(start).date()}`);
+  if (freq === 'MONTHLY') parts.push(`BYMONTHDAY=${dayOf(start).date()}`);
   if (end === 'count' && count > 0) parts.push(`COUNT=${count}`);
   if (end === 'until' && until) parts.push(`UNTIL=${dayjs(until).format('YYYYMMDD')}T235959Z`);
   return parts.join(';');
@@ -90,7 +100,8 @@ export function describeRule(rule, t, locale) {
   if (p.COUNT) text += `, ${t('calendar.repeat.times', { n: p.COUNT })}`;
   if (p.UNTIL) {
     const until = ruleDate(p.UNTIL);
-    text += `, ${t('calendar.repeat.until', { date: new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(until.toDate()) })}`;
+    // A calendar day: shown in the person's date format, never shifted by a zone.
+    text += `, ${t('calendar.repeat.until', { date: fmtDate(until.format('YYYY-MM-DD')) })}`;
   }
   return text;
 }

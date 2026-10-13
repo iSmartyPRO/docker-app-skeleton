@@ -1,5 +1,5 @@
 import { visibleSql } from './access.js';
-import { DATE_RE, idList, likePattern, parseAmount, parseDateOnly, posInt } from './util.js';
+import { DATE_RE, dayStartAt, idList, likePattern, parseAmount, parseDateOnly, posInt } from './util.js';
 
 /*
  * One filter for every view: board, stage pages, list, counters, export,
@@ -39,7 +39,7 @@ const openActivity = (extra = '') => `EXISTS (SELECT 1 FROM crm_activities fa WH
  *   ctx      crmContext — visibility, limits, the person's id for `me`
  *   input    the filter (query string or a preset)
  *   options  fields      custom fields of the settings (cf_<key> are checked against them)
- *            bounds      bucketBounds() — needed by `activity`
+ *            bounds      bucketBounds() — needed by `activity`; its zone also sets the days of createdFrom/To
  *            ignore      filter keys to leave out (the board ignores `group`)
  *            trash       deleted deals instead of live ones
  *   p        Params (shared with the rest of the query)
@@ -89,8 +89,9 @@ export function buildFilter(ctx, input = {}, options = {}, p) {
   // Dates are whole days: "to" includes its day.
   const createdFrom = parseDateOnly(f('createdFrom'));
   const createdTo = parseDateOnly(f('createdTo'));
-  if (createdFrom) where.push(`d.created_at >= ${p.add(createdFrom)}::date`);
-  if (createdTo) where.push(`d.created_at < ${p.add(createdTo)}::date + 1`);
+  // Creation is a moment: its days are the viewer's (bounds.zone) when known.
+  if (createdFrom) where.push(bounds?.zone ? `d.created_at >= ${p.add(dayStartAt(createdFrom, bounds.zone))}::timestamptz` : `d.created_at >= ${p.add(createdFrom)}::date`);
+  if (createdTo) where.push(bounds?.zone ? `d.created_at < ${p.add(dayStartAt(createdTo, bounds.zone, 1))}::timestamptz` : `d.created_at < ${p.add(createdTo)}::date + 1`);
   const closeFrom = parseDateOnly(f('closeFrom'));
   const closeTo = parseDateOnly(f('closeTo'));
   if (closeFrom) where.push(`d.close_date >= ${p.add(closeFrom)}::date`);

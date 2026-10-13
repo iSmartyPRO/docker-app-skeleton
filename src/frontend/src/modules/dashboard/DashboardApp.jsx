@@ -8,6 +8,7 @@ import { MenuIcon } from '../../components/icons/menuIcons';
 import { useLocale } from '../../context/LocaleContext';
 import { useSettings } from '../../context/SettingsContext';
 import { errorMessage } from '../../lib/errors';
+import { intlOptions } from '../../lib/datetime';
 import { dashboardApi, uid } from './api';
 import { WIDGET_CATALOG, withDefaults } from './catalog';
 import { OptionsProvider } from './options';
@@ -297,7 +298,7 @@ function Dashboard() {
       <header className="dash-head">
         <div>
           <h1>{title}</h1>
-          <p>{cap(new Date().toLocaleDateString(localeTag(locale), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</p>
+          <p>{cap(new Date().toLocaleDateString(localeTag(locale), intlOptions({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })))}</p>
         </div>
         {canEdit && (
           <div className="dash-head__actions">

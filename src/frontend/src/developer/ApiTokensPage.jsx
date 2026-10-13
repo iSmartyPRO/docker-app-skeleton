@@ -4,6 +4,7 @@ import { App, Button } from 'antd';
 import PageHeader from '../components/ui/PageHeader';
 import { useLocale } from '../context/LocaleContext';
 import { errorMessage } from '../lib/errors';
+import { formatDateTime } from '../lib/format';
 import { TimeChart } from '../modules/dashboard/charts';
 import { personalApi } from './client';
 import { CopyField, EmptyState, SecretModal, TokenEditor } from './components';
@@ -49,7 +50,8 @@ export default function ApiTokensPage() {
 
   const active = data?.tokens.filter((token) => token.state === 'active') || [];
   const inactive = data?.tokens.filter((token) => token.state !== 'active') || [];
-  const day = (value) => new Date(value).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'short' });
+  // Day buckets come from the API log as UTC midnights (api/log.js), so they are labelled as UTC days.
+  const day = (value) => formatDateTime(value, locale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
   return (
     <div className="ax-personal dc-scope">

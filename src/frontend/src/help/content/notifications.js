@@ -79,10 +79,14 @@ The **“Bell”** column is the portal bell. Untick it if you do not need an ev
       body: {
         ru: `**Тихие часы** — например, с 22:00 до 08:00 и все выходные — в это время push, почта и мессенджеры молчат. **Пауза** — то же самое на время: на час, 3 часа, до завтрашнего утра или до понедельника.
 
-Колокольчик продолжает собирать всё, так что утром вы увидите, что произошло. Напоминания, которые вы поставили сами, приходят вовремя всегда.`,
+Колокольчик продолжает собирать всё, так что утром вы увидите, что произошло. Напоминания, которые вы поставили сами, приходят вовремя всегда.
+
+Время тихих часов и паузы считается в вашем часовом поясе — его можно сменить в [Оформление → Дата и время](/account/appearance).`,
         en: `**Quiet hours** — e.g. 22:00 to 08:00 and all weekend — keep push, e-mail and messengers silent. **Pause** does the same for a while: an hour, 3 hours, until tomorrow morning or until Monday.
 
-The bell keeps collecting everything, so in the morning you see what happened. Reminders you set yourself always arrive on time.`,
+The bell keeps collecting everything, so in the morning you see what happened. Reminders you set yourself always arrive on time.
+
+Quiet hours and the pause follow your time zone — change it in [Appearance → Date and time](/account/appearance).`,
       },
       note: { ru: 'Тихие часы считаются по часовому поясу вашего браузера — он запоминается при сохранении настроек.', en: 'Quiet hours use your browser’s time zone — it is saved when you change the settings.' },
     },

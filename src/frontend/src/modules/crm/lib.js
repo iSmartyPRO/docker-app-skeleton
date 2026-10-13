@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { localeTag } from '../../lib/format';
+import { getRegional, inZone, intlOptions, nowInZone } from '../../lib/datetime';
 
 // ── Local storage (per browser, per user) ─────────────────────────────────
 
@@ -73,29 +74,47 @@ export function formatNumber(value, locale) {
 
 // ── Dates ─────────────────────────────────────────────────────────────────
 
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * "13 окт." / "13 Oct 2025": a compact day. Date-only values ('YYYY-MM-DD',
+ * e.g. a close date) are calendar days; instants are shown in the person's zone.
+ */
 export function formatDay(value, locale, withYear) {
   if (!value) return '';
-  const date = dayjs(value);
-  const year = withYear || !date.isSame(dayjs(), 'year');
-  return date.toDate().toLocaleDateString(localeTag(locale), { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}) });
+  const day = DATE_ONLY.test(String(value));
+  const date = day ? dayjs(value, 'YYYY-MM-DD') : inZone(value);
+  if (!date || !date.isValid()) return '';
+  const year = withYear || !date.isSame(nowInZone(), 'year');
+  const options = { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}) };
+  if (day) return new Date(date.year(), date.month(), date.date()).toLocaleDateString(localeTag(locale), options);
+  return new Date(value).toLocaleDateString(localeTag(locale), intlOptions(options));
 }
 
-/** "Today 15:00", "Tomorrow", "12 Oct 10:30" for an activity's due moment. */
+/** "Today 15:00", "Tomorrow", "12 Oct 10:30" for an activity's due moment (in the person's zone). */
 export function formatDue(value, locale, t) {
   if (!value) return t('crm.act.noDue');
-  const date = dayjs(value);
-  const days = date.startOf('day').diff(dayjs().startOf('day'), 'day');
+  const date = inZone(value);
+  if (!date) return t('crm.act.noDue');
+  const days = date.startOf('day').diff(nowInZone().startOf('day'), 'day');
+  // An activity "for the day" is due at 23:59 of that day (see ActivityForm).
   const timed = !(date.hour() === 23 && date.minute() === 59);
   let day;
   if (days === 0) day = t('crm.due.today');
   else if (days === 1) day = t('crm.due.tomorrow');
   else if (days === -1) day = t('crm.due.yesterday');
   else day = formatDay(value, locale);
-  return timed ? `${day}, ${date.format('HH:mm')}` : day;
+  return timed ? `${day}, ${date.format(getRegional().timeFormat === '12' ? 'h:mm A' : 'HH:mm')}` : day;
 }
 
+/** A moment already passed (an instant: no zone involved). */
 export function isOverdue(value) {
   return Boolean(value) && dayjs(value).isBefore(dayjs());
+}
+
+/** A date-only day ('YYYY-MM-DD') before today in the person's zone. */
+export function isPastDay(value) {
+  return Boolean(value) && String(value).slice(0, 10) < nowInZone().format('YYYY-MM-DD');
 }
 
 // ── Filters ───────────────────────────────────────────────────────────────
@@ -111,13 +130,8 @@ export const BUILTIN_PRESETS = [
 
 const LIST_KEYS = ['stages', 'owners', 'createdBy'];
 
-export const TZ = (() => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  } catch {
-    return 'UTC';
-  }
-})();
+/** The person's time zone (Settings → Region and time, or their own override) for "today"/"this week" on the server. */
+export const crmZone = () => getRegional().timeZone;
 
 /**
  * The filter as query params of the API (lists comma-joined, empties dropped).
@@ -140,7 +154,9 @@ export function filterParams(filter = {}, pipeline = null) {
     if (closed.length) params.stages = (chosen.length ? chosen : closed).join(',');
   }
   if (params.source) params.source = String(params.source);
-  params.tz = TZ;
+  // The person's zone and week start define "today" / "this week" on the server.
+  params.tz = crmZone();
+  params.weekStart = getRegional().weekStart;
   return params;
 }
 

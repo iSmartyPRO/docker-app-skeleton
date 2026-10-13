@@ -6,15 +6,12 @@ import { UserAvatar } from '../../shared/People';
 import { formatSize } from '../api';
 import MessageText, { isEmojiOnly } from '../text';
 import { systemView } from '../system';
+import { fmtDateTime, fmtTime } from '../../../lib/datetime';
 
 const QUICK = ['👍', '❤️', '😂', '😮', '🙏', '🔥'];
 
 /** Quote text without formatting marks. */
 const plain = (text) => String(text || '').replace(/```/g, '').replace(/(\*\*|~~|`)/g, '').replace(/\n+/g, ' ');
-
-function time(value, locale) {
-  return new Date(value).toLocaleTimeString(locale === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
-}
 
 function FileCard({ file }) {
   const ext = (file.name.split('.').pop() || '').slice(0, 4).toUpperCase();
@@ -40,7 +37,7 @@ function SystemLine({ message }) {
       <span className="cm-system__pill">
         {view?.icon && <span className="cm-system__icon">{view.icon}</span>}
         <span>{view?.text || t('chat.sys.unknown')}</span>
-        <time>{time(message.createdAt, locale)}</time>
+        <time>{fmtTime(message.createdAt)}</time>
       </span>
       {view?.actions?.length > 0 && (
         <span className="cm-system__actions">
@@ -132,8 +129,8 @@ function MessageItem({ message, me, first, last, showAuthor, read, mentions, onR
           )}
           <span className="cm__meta">
             {message.editedAt && !message.deleted && <em>{t('chat.edited')}</em>}
-            <time dateTime={message.createdAt} title={new Date(message.createdAt).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB')}>
-              {time(message.createdAt, locale)}
+            <time dateTime={message.createdAt} title={fmtDateTime(message.createdAt)}>
+              {fmtTime(message.createdAt)}
             </time>
             {mine && !message.deleted && <span className={`cm__ticks${read ? ' is-read' : ''}`}>{read ? '✓✓' : '✓'}</span>}
           </span>

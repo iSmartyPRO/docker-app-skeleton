@@ -10,6 +10,7 @@ import {
   deleteEvent,
   deleteGoogleItem,
   eventWebhook,
+  calendarDefaults,
   getPrefs as getCalendarPrefs,
   resetPrefs as resetCalendarPrefs,
   savePrefs as saveCalendarPrefs,
@@ -27,6 +28,12 @@ import {
   updateGoogleItem,
 } from './service.js';
 
+/** Module settings with the person's week start (see calendarDefaults). */
+async function personalSettings(req) {
+  const parsed = parseSettings(await getSettings());
+  return calendarDefaults(parsed.modules.calendar.settings, parsed.regional?.weekStart, req.userRow?.regional?.weekStart);
+}
+
 /** /api/app/calendar — signed-in users; access is checked per calendar. */
 export function privateRoutes() {
   const router = Router();
@@ -37,7 +44,7 @@ export function privateRoutes() {
 
   router.get('/', wrap(async (req, res) => {
     const parsed = parseSettings(await getSettings());
-    const settings = parsed.modules.calendar.settings;
+    const settings = await personalSettings(req);
     const google = await googleStatus(req.user.id);
     const prefs = await getCalendarPrefs(req.cal, settings);
     res.json({
@@ -59,15 +66,15 @@ export function privateRoutes() {
 
   // Personal view settings
   router.get('/prefs', wrap(async (req, res) => {
-    const settings = parseSettings(await getSettings()).modules.calendar.settings;
+    const settings = await personalSettings(req);
     res.json({ success: true, prefs: await getCalendarPrefs(req.cal, settings) });
   }));
   router.put('/prefs', wrap(async (req, res) => {
-    const settings = parseSettings(await getSettings()).modules.calendar.settings;
+    const settings = await personalSettings(req);
     res.json({ success: true, prefs: await saveCalendarPrefs(req.cal, req.body || {}, settings) });
   }));
   router.delete('/prefs', wrap(async (req, res) => {
-    const settings = parseSettings(await getSettings()).modules.calendar.settings;
+    const settings = await personalSettings(req);
     res.json({ success: true, prefs: await resetCalendarPrefs(req.cal, settings) });
   }));
 

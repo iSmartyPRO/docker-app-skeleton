@@ -1,6 +1,7 @@
 import { Suspense, lazy, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Drawer, Result, Spin } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import Chrome from '../../components/Chrome';
 import PageTransition from '../../components/ui/PageTransition';
 import { MenuIcon } from '../../components/icons/menuIcons';
@@ -10,6 +11,7 @@ import { errorMessage } from '../../lib/errors';
 import { CrmProvider, useCrm } from './CrmContext';
 import { CreateButton } from './components/Toolbar';
 import CreateDealDialog from './components/CreateDealDialog';
+import SideRail, { useSideRail } from '../shared/SideRail';
 import { lastView } from './lib';
 import '../shared/module.css';
 import './crm.css';
@@ -29,6 +31,7 @@ function Sidebar({ onNavigate, onCreate }) {
   const totalOpen = pipelines.reduce((sum, pipeline) => sum + (pipeline.counts?.open || 0), 0);
   const due = (mine?.overdue || 0) + (mine?.today || 0);
   const currentPipeline = new URLSearchParams(location.search).get('pipeline');
+  const { collapsed } = useSideRail();
   const link = (to, icon, label, extra, end) => (
     <NavLink to={to} end={end} className="mod-nav__link" onClick={onNavigate}>
       <MenuIcon name={icon} variant="mono" />
@@ -42,7 +45,11 @@ function Sidebar({ onNavigate, onCreate }) {
         <MenuIcon name="target" />
         <span>{t('apps.crm.name')}</span>
       </NavLink>
-      <CreateButton block onFull={() => { onNavigate?.(); onCreate(false); }} onQuick={() => { onNavigate?.(); onCreate(true); }} />
+      {collapsed ? (
+        <Button type="primary" className="mod-rail-keep mod-rail-create" aria-label={t('crm.create.full')} data-tip={t('crm.create.full')} icon={<PlusOutlined />} onClick={() => onCreate(false)} />
+      ) : (
+        <CreateButton block onFull={() => { onNavigate?.(); onCreate(false); }} onQuick={() => { onNavigate?.(); onCreate(true); }} />
+      )}
       <nav className="mod-nav">
         <NavLink to={`/app/crm/deals/${view}`} className={() => `mod-nav__link${location.pathname.startsWith('/app/crm/deals') && !currentPipeline ? ' active' : ''}`} onClick={onNavigate}>
           <MenuIcon name="briefcase" variant="mono" />
@@ -117,9 +124,9 @@ function Shell() {
   const create = (quick) => setCreating({ quick });
   return (
     <div className="mod-shell crm-shell">
-      <aside className="mod-shell__side">
+      <SideRail moduleKey="crm">
         <Sidebar onCreate={create} />
-      </aside>
+      </SideRail>
       <Drawer open={drawer} onClose={() => setDrawer(false)} placement="left" width={300} styles={{ body: { padding: 0 } }}>
         <Sidebar onNavigate={() => setDrawer(false)} onCreate={create} />
       </Drawer>

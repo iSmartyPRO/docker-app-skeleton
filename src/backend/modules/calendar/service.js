@@ -25,8 +25,10 @@ import {
   withinLimits,
   writeAcl,
 } from '../shared/acl.js';
-import { normalizeRule, occurrences, validTimeZone } from './recurrence.js';
+import { normalizeRule, occurrences } from './recurrence.js';
 import { eventMessage } from './messages.js';
+import { regionalOfUser } from '../../services/regional.js';
+import { isValidTimeZone } from '../../services/datetime.js';
 
 const ACL = 'cal_acl';
 const RSVP = ['accepted', 'declined', 'tentative', 'needs'];
@@ -349,7 +351,7 @@ function eventFields(input, base = {}) {
   if (!title) throw httpError(400, 'Event title is required', 'TITLE_REQUIRED');
   const meetingUrl = input.meetingUrl !== undefined ? clean(input.meetingUrl, 500) : base.meeting_url || '';
   if (meetingUrl && !/^https?:\/\//i.test(meetingUrl)) throw httpError(400, 'The meeting link must start with http:// or https://', 'INVALID_URL');
-  const timezone = input.timezone !== undefined ? (validTimeZone(input.timezone) ? input.timezone : 'UTC') : base.timezone || 'UTC';
+  const timezone = isValidTimeZone(input.timezone) ? input.timezone : base.timezone || 'UTC';
   const reminders =
     input.reminders !== undefined
       ? [...new Set((Array.isArray(input.reminders) ? input.reminders : []).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 10080))].slice(0, 5)
@@ -422,7 +424,8 @@ const eventLink = (id) => `/app/calendar/e/${id}`;
 export async function createEvent(ctx, input) {
   const calendar = await loadCalendar(input.calendarId);
   requireLevel(await calendarLevel(ctx, calendar), LEVEL.edit);
-  const fields = eventFields(input, {});
+  // No zone sent: the event lives in its creator's zone (recurrence, all-day reminders).
+  const fields = eventFields(input, isValidTimeZone(input.timezone) ? {} : { timezone: (await regionalOfUser(ctx.userId)).timeZone });
   const attendeeIds = await cleanAttendees(input.attendees);
   const { id, added } = await withTransaction(async (client) => {
     const eventId = await insertEvent(client, calendar.id, fields, { createdBy: ctx.userId });
@@ -629,13 +632,13 @@ function fromGoogle(calendar, event) {
   };
 }
 
-function toGoogle(input) {
+function toGoogle(input, fallbackZone = 'UTC') {
   const body = {};
   if (input.title !== undefined) body.summary = clean(input.title, 300);
   if (input.description !== undefined) body.description = clean(input.description, 10000);
   if (input.location !== undefined) body.location = clean(input.location, 300);
   if (input.start !== undefined) {
-    const tz = validTimeZone(input.timezone) ? input.timezone : 'UTC';
+    const tz = isValidTimeZone(input.timezone) ? input.timezone : fallbackZone;
     if (input.allDay) {
       const start = String(input.start).slice(0, 10);
       let end = String(input.end || input.start).slice(0, 10);
@@ -691,12 +694,12 @@ async function writableGoogleCalendar(userId, calendarId) {
 export async function createGoogleItem(ctx, calendarId, input) {
   const calendar = await writableGoogleCalendar(ctx.userId, calendarId);
   if (!clean(input.title, 300)) throw httpError(400, 'Event title is required', 'TITLE_REQUIRED');
-  return fromGoogle(calendar, await createGoogleEvent(ctx.userId, calendar.id, toGoogle(input)));
+  return fromGoogle(calendar, await createGoogleEvent(ctx.userId, calendar.id, toGoogle(input, (await regionalOfUser(ctx.userId)).timeZone)));
 }
 
 export async function updateGoogleItem(ctx, calendarId, eventId, input) {
   const calendar = await writableGoogleCalendar(ctx.userId, calendarId);
-  return fromGoogle(calendar, await updateGoogleEvent(ctx.userId, calendar.id, eventId, toGoogle(input)));
+  return fromGoogle(calendar, await updateGoogleEvent(ctx.userId, calendar.id, eventId, toGoogle(input, (await regionalOfUser(ctx.userId)).timeZone)));
 }
 
 export async function deleteGoogleItem(ctx, calendarId, eventId) {
@@ -764,6 +767,20 @@ export async function notifyCalendarFollowers(kind, event, actorId) {
 
 const VIEWS = ['month', 'week', 'workweek', 'day', 'agenda'];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Calendar defaults for a person: the module settings, with the week start
+ * from the region settings: the person's own choice first; then the portal's
+ * region week start when it was changed from Monday; else the module's
+ * legacy setting (settings.weekStart).
+ */
+export function calendarDefaults(settings = {}, portalWeekStart = 1, ownWeekStart = null) {
+  const valid = (value) => value !== null && value !== undefined && value !== '' && [0, 1, 6].includes(Number(value));
+  let weekStart = valid(settings.weekStart) ? Number(settings.weekStart) : 1;
+  if (valid(portalWeekStart) && Number(portalWeekStart) !== 1) weekStart = Number(portalWeekStart);
+  if (valid(ownWeekStart)) weekStart = Number(ownWeekStart);
+  return { ...settings, weekStart };
+}
 
 /** A person's calendar settings over the portal defaults. */
 export function cleanPrefs(input = {}, defaults = {}) {

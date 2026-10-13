@@ -1,6 +1,7 @@
-import dayjs from 'dayjs';
 import { Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
+import { fmtDate, fmtDateTime, fmtTime, fromPicker, inZone, nowInZone } from '../../../lib/datetime';
+import { formatDateTime } from '../../../lib/format';
 
 export const PRIORITIES = [0, 1, 2, 3];
 const PRIORITY_COLOR = ['#94A3B8', '#3B82F6', '#F59E0B', '#EF4444'];
@@ -44,8 +45,9 @@ export function priorityOptions(t) {
 export function DueChip({ dueAt, dueTime, done, compact }) {
   const { t, locale } = useLocale();
   if (!dueAt) return null;
-  const due = dayjs(dueAt);
-  const now = dayjs();
+  // Days are counted in the person's zone (a date-only deadline is the end of that day there).
+  const due = inZone(dueAt);
+  const now = nowInZone();
   const days = due.startOf('day').diff(now.startOf('day'), 'day');
   let tone = '';
   if (!done) {
@@ -57,10 +59,10 @@ export function DueChip({ dueAt, dueTime, done, compact }) {
   if (days === 0) text = t('tasks.due.today');
   else if (days === 1) text = t('tasks.due.tomorrow');
   else if (days === -1) text = t('tasks.due.yesterday');
-  else text = new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'short', ...(Math.abs(days) > 300 ? { year: 'numeric' } : {}) }).format(due.toDate());
-  if (dueTime) text += ` ${due.format('HH:mm')}`;
+  else text = formatDateTime(dueAt, locale, { day: 'numeric', month: 'short', ...(Math.abs(days) > 300 ? { year: 'numeric' } : {}) });
+  if (dueTime) text += ` ${fmtTime(dueAt)}`;
   return (
-    <Tooltip title={due.format(dueTime ? 'DD.MM.YYYY HH:mm' : 'DD.MM.YYYY')}>
+    <Tooltip title={dueTime ? fmtDateTime(dueAt) : fmtDate(dueAt)}>
       <span className={`due-chip ${tone}${done ? ' is-done' : ''}${compact ? ' is-compact' : ''}`}>
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
           <rect x="2" y="3" width="12" height="11" rx="2.5" />
@@ -121,8 +123,8 @@ export function CommentBadge({ count }) {
   );
 }
 
-/** Date-only due dates are stored as the end of the local day. */
+/** Picker value (the person's wall-clock) → dueAt; date-only deadlines are the end of that day in the person's zone. */
 export function dueFromPicker(value, withTime) {
   if (!value) return null;
-  return (withTime ? value.second(0) : value.endOf('day')).toISOString();
+  return withTime ? fromPicker(value.second(0)) : inZone(value.format('YYYY-MM-DD')).endOf('day').toISOString();
 }

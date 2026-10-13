@@ -9,6 +9,8 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useSettings } from '../../../context/SettingsContext';
 import { errorMessage } from '../../../lib/errors';
 import { removeProjectLogo, uploadProjectLogo } from '../../../services/api';
+import RegionalFields from '../../../components/ui/RegionalFields';
+import { HintLabel } from '../../../help/Hint';
 import SettingsPageHeader from './SettingsPageHeader';
 
 const ACCEPT = '.svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp';
@@ -127,6 +129,9 @@ function AppIconSlot({ url, onChanged }) {
   );
 }
 
+/** Form.Item adapter: value/onChange of the whole region settings object. */
+const RegionalField = ({ value, onChange }) => <RegionalFields value={value || {}} onChange={onChange} />;
+
 function GeneralForm({ settings, appearance, save }) {
   const { t } = useLocale();
   const { refresh: refreshPublic } = useSettings();
@@ -137,8 +142,9 @@ function GeneralForm({ settings, appearance, save }) {
       logoHeight: Number(appearance.logoHeight) || 32,
       shortName: appearance.shortName || '',
       defaultLocale: settings.defaultLocale || 'auto',
+      regional: settings.regional || {},
     }),
-    [settings.appName, settings.appDescription, appearance.logoHeight, appearance.shortName, settings.defaultLocale]
+    [settings.appName, settings.appDescription, appearance.logoHeight, appearance.shortName, settings.defaultLocale, settings.regional]
   );
   const { form, dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async ({ logoHeight, shortName, ...rest }) => {
     await save({ ...rest, appearance: { logoHeight, shortName } });
@@ -171,6 +177,12 @@ function GeneralForm({ settings, appearance, save }) {
             />
           </Form.Item>
         </SettingRow>
+      </SettingsSection>
+
+      <SettingsSection title={<HintLabel id="admin.regional">{t('regional.portalTitle')}</HintLabel>} description={t('regional.portalDesc')}>
+        <Form.Item name="regional" noStyle>
+          <RegionalField />
+        </Form.Item>
       </SettingsSection>
 
       <SettingsSection title={t('settings.general.brand')} description={t('settings.general.brandDesc')}>

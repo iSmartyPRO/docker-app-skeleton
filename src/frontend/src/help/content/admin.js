@@ -223,6 +223,18 @@ The integrations themselves (gateway address, Wazzup key, Telegram bot) are set 
       },
     },
     {
+      id: 'regional',
+      title: { ru: 'Регион и время', en: 'Region and time' },
+      body: {
+        ru: 'В [Настройки → Основное](/admin/settings/general), блок **Регион и время**, задаются **часовой пояс** портала, **формат даты**, **формат времени** и **первый день недели**.\n\n- В часовом поясе портала считаются «сегодня», сроки «до конца дня», напоминания, тихие часы и даты в письмах — для всех, кто не выбрал свой пояс.\n- Формат даты и времени — как даты выглядят на экране и в уведомлениях; первый день недели — в календарях и выборе дат.\n- Каждый сотрудник может переопределить любую из настроек в [Личный кабинет → Оформление](/account/appearance).\n\nВнизу блока показан пример, как будут выглядеть даты.',
+        en: 'In [Settings → General](/admin/settings/general), the **Region and time** block sets the portal’s **time zone**, **date format**, **time format** and **first day of the week**.\n\n- The portal’s time zone decides “today”, “end of day” deadlines, reminders, quiet hours and dates in e-mails — for everyone who hasn’t chosen their own zone.\n- Date and time formats are how dates look on screen and in notifications; the first day of the week is used in calendars and date pickers.\n- Each person may override any of them in [Account → Appearance](/account/appearance).\n\nThe bottom of the block shows how dates will look.',
+      },
+      note: {
+        ru: 'Меняйте часовой пояс портала осторожно: у всех, кто не выбрал свой, сдвинется время напоминаний и тихих часов. Уже сохранённые встречи и сроки не меняются — меняется только то, как они показаны.',
+        en: 'Change the portal’s time zone with care: for everyone without their own zone, reminder times and quiet hours move. Saved meetings and deadlines stay the same moments — only how they are shown changes.',
+      },
+    },
+    {
       id: 'signin',
       title: { ru: 'Способы входа', en: 'Sign-in methods' },
       body: {
@@ -377,6 +389,14 @@ The integrations themselves (gateway address, Wazzup key, Telegram bot) are set 
   fields: {
     notifyChannels: { title: { ru: 'Каналы уведомлений', en: 'Notification channels' }, text: { ru: 'Канал доставляет уведомления, если его интеграция настроена и он включён здесь. Полоска показывает, сколько людей указали нужный контакт.', en: 'A channel delivers notifications when its integration is set up and it is on here. The bar shows how many people have the needed contact.' }, more: 'notifications' },
     notifyWhatsapp: { title: { ru: 'WhatsApp для уведомлений', en: 'WhatsApp for notifications' }, text: { ru: 'Выберите провайдера отдельно от кодов входа: например, коды через шлюз, а уведомления через Wazzup, с запасным вариантом.', en: 'Choose the provider separately from sign-in codes: e.g. codes through the gateway and notifications through Wazzup, with a fallback.' }, more: 'notifications' },
+    regional: {
+      title: { ru: 'Регион и время', en: 'Region and time' },
+      text: {
+        ru: 'Часовой пояс и форматы для всего портала. Каждый может выбрать свои в «Личный кабинет → Оформление».',
+        en: 'Time zone and formats for the whole portal. Each person may choose their own in Account → Appearance.',
+      },
+      more: 'regional',
+    },
     groups: {
       title: { ru: 'Группы', en: 'Groups' },
       text: {

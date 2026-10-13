@@ -15,9 +15,8 @@ const CATEGORY_COLOR = { todo: '#94A3B8', active: '#3B82F6', done: '#10B981' };
 
 function dueLabel(task, locale, t) {
   if (!task.dueAt) return null;
-  const date = new Date(task.dueAt);
   const time = task.dueTime ? ` ${timeOf(task.dueAt, locale)}` : '';
-  return `${dayTitle(date, locale, t)}${time}`;
+  return `${dayTitle(task.dueAt, locale, t)}${time}`;
 }
 
 // ── My tasks ────────────────────────────────────────────────────────────────

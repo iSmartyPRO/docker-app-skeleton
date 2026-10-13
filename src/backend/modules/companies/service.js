@@ -1,4 +1,6 @@
 import { query, withTransaction } from '../../config/database.js';
+import { formatDate, isoDay } from '../../services/datetime.js';
+import { regionalOfUser } from '../../services/regional.js';
 import { seal, unseal } from '../../services/crypto.js';
 import { getSetting, getSettings, parseSettings, setSetting } from '../../services/settings.js';
 import { avatarOf, contextFromRequest, httpError, intId } from '../shared/acl.js';
@@ -220,8 +222,15 @@ function personValues(input, current, settings) {
 
 // ── Diff and timeline ───────────────────────────────────────────────────────
 
+/**
+ * A DATE column as 'YYYY-MM-DD'. node-pg builds DATE values as local
+ * midnight, so the day is read from local parts: toISOString() would give the
+ * day before whenever the server runs east of UTC.
+ */
+const dayText = (value) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+
 const comparable = (value) => {
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (value instanceof Date) return dayText(value);
   if (value === undefined || value === '') return null;
   return value;
 };
@@ -256,7 +265,7 @@ export async function logEvent(client, { type, id, kind, body = null, data = {},
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
-const iso = (value) => (value instanceof Date ? value.toISOString().slice(0, 10) : value || null);
+const iso = (value) => (value instanceof Date ? dayText(value) : value || null);
 const userRef = (id, name) => (id ? { id, name } : null);
 
 function companyShape(row, extra = {}) {
@@ -471,7 +480,9 @@ async function attachDocument(client, companyId, documentId, registry, authorId)
   if (!documentId) return null;
   const stored = await claimDocument(documentId, 'pdf');
   if (!stored) return null;
-  const name = `${registry?.sourceName || 'Выписка'} ${new Date().toLocaleDateString('ru-RU')}.pdf`;
+  // Today's date in the author's region settings ('/' would not survive as a file name).
+  const day = formatDate(new Date(), await regionalOfUser(authorId)).replace(/\//g, '.');
+  const name = `${registry?.sourceName || 'Выписка'} ${day}.pdf`;
   const { rows } = await client.query(
     `INSERT INTO cmp_files (company_id, kind, name, storage_key, size, source, created_by) VALUES ($1, 'extract', $2, $3, $4, $5, $6) RETURNING id`,
     [companyId, name, stored.key, stored.size, registry?.source || null, authorId]
@@ -864,7 +875,8 @@ export async function endPosition(ctx, id, input = {}) {
   const position = await loadPosition(id);
   requireEdit(ctx, { owner_id: position.owner_id, created_by: position.person_created_by }, settings);
   if (position.ended_on) throw httpError(400, 'This job has already ended', 'ALREADY_ENDED');
-  const endedOn = date(input.endedOn) || new Date().toISOString().slice(0, 10);
+  // No date given: today in the person's own zone.
+  const endedOn = date(input.endedOn) || isoDay(new Date(), (await regionalOfUser(ctx.userId)).timeZone);
   const reason = str(input.reason, 500);
   await withTransaction(async (client) => {
     await client.query(`UPDATE cmp_positions SET ended_on = $1, end_reason = $2, updated_at = NOW() WHERE id = $3`, [endedOn, reason, position.id]);

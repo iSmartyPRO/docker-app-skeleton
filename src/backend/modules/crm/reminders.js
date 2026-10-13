@@ -4,7 +4,6 @@ import { notify } from '../../services/notifications.js';
 import { requestAs } from '../../api/events.js';
 import { canView, crmContext } from './access.js';
 import { crmMessage } from './messages.js';
-import { userZone } from './util.js';
 
 /*
  * crm:reminders (every minute): an open activity with remind_minutes reminds
@@ -39,7 +38,7 @@ export async function runReminders() {
         kind: 'crm.activity_due',
         module: 'crm',
         link: `/app/crm/deals/${row.deal_id}`,
-        render: crmMessage('activityDue', { title: row.title, deal: row.deal_title, dueAt: row.due_at, zone: await userZone(query, row.owner_id) }),
+        render: crmMessage('activityDue', { title: row.title, deal: row.deal_title, dueAt: row.due_at }),
       });
     } catch (err) {
       console.warn(`[crm] reminder for activity ${row.id} failed:`, err.message);

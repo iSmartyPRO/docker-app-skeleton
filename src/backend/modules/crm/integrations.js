@@ -7,7 +7,7 @@ import { postSystem } from '../chat/service.js';
 import { canView, crmContext, crmSettings, modulesEnabled } from './access.js';
 import { dealLink, hydrate, loadDealRow } from './deals.js';
 import { crmMessage } from './messages.js';
-import { money, userZone } from './util.js';
+import { money } from './util.js';
 
 /*
  * What follows a change of a deal, after its transaction: notifications,
@@ -134,7 +134,7 @@ export async function notifyActivity(ctx, activity, dealRow) {
       module: 'crm',
       link: dealLink(dealRow.id),
       actorId: ctx.userId,
-      render: crmMessage('activity', { title: activity.title, deal: dealRow.title, actor: await actorName(ctx.userId), dueAt: activity.due_at, zone: await userZone(query, activity.owner_id) }),
+      render: crmMessage('activity', { title: activity.title, deal: dealRow.title, actor: await actorName(ctx.userId), dueAt: activity.due_at }),
     });
   } catch (err) {
     console.warn('[crm] activity notification:', err.message);

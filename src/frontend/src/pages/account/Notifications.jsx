@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { App, Button, Checkbox, Dropdown, Skeleton, Switch, TimePicker, Tooltip } from 'antd';
+import { App, Button, Checkbox, Dropdown, Skeleton, Switch, Tooltip } from 'antd';
 import PageHeader from '../../components/ui/PageHeader';
 import { IconBell, IconMail, IconMattermost, IconTelegram, IconWhatsapp } from '../../components/icons/AdminIcons';
 import { MenuIcon } from '../../components/icons/menuIcons';
@@ -9,7 +9,9 @@ import { moduleById } from '../../modules/registry';
 import { useLocale } from '../../context/LocaleContext';
 import { useSettings } from '../../context/SettingsContext';
 import { errorMessage } from '../../lib/errors';
-import { formatRelative } from '../../lib/format';
+import { formatDateTime, formatRelative } from '../../lib/format';
+import { getRegional, nowInZone, useRegional, zoneLabel } from '../../lib/datetime';
+import { TimeField } from '../../components/ui/DateTimeField';
 import api, { getNotificationPrefs, saveNotificationPrefs } from '../../services/api';
 import { currentSubscription, disablePush, enablePush, pushSupport } from '../../pwa/push';
 import { forgetReach } from '../../components/ui/WhenPicker';
@@ -157,6 +159,7 @@ function DeliveryIcons({ delivery }) {
 export default function AccountNotifications() {
   const { t, locale } = useLocale();
   const { settings } = useSettings();
+  const regional = useRegional();
   const { message } = App.useApp();
   const [data, setData] = useState(null);
   const [test, setTest] = useState(null);
@@ -168,6 +171,14 @@ export default function AccountNotifications() {
     try {
       const [prefs, subscriptions, log] = await Promise.all([getNotificationPrefs(), api.get('/account/notifications/subscriptions'), api.get('/account/notifications/history')]);
       setData(prefs.data);
+      // Quiet hours follow the person's time zone (Account → Appearance → Date and time);
+      // the server still reads notify_prefs.tz, so keep it in step.
+      const zone = getRegional().timeZone;
+      if (prefs.data?.prefs && prefs.data.prefs.tz !== zone) {
+        saveNotificationPrefs({ tz: zone })
+          .then((res) => setData(res.data))
+          .catch(() => {});
+      }
       setSubs(subscriptions.data.subscriptions);
       setHistory(log.data.items);
     } catch (err) {
@@ -181,8 +192,8 @@ export default function AccountNotifications() {
 
   const save = async (patch) => {
     try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await saveNotificationPrefs({ ...patch, tz });
+      // Sent for older servers that read the zone from notify_prefs.tz.
+      const res = await saveNotificationPrefs({ ...patch, tz: getRegional().timeZone });
       setData(res.data);
       forgetReach();
     } catch (err) {
@@ -226,11 +237,14 @@ export default function AccountNotifications() {
   };
   const setCell = (event, channel, value) => save({ events: { [event.kind]: { [channel]: value } } });
   const paused = prefs.pausedUntil && new Date(prefs.pausedUntil) > new Date();
+  // "Until tomorrow / Monday morning" means 9:00 in the person's time zone.
+  const now = nowInZone(regional);
+  const nineAt = (day) => dayjs.tz(`${day.format('YYYY-MM-DD')}T09:00:00`, regional.timeZone);
   const pauseItems = [
     ['h1', dayjs().add(1, 'hour')],
     ['h3', dayjs().add(3, 'hour')],
-    ['tomorrow', dayjs().add(1, 'day').hour(9).minute(0).second(0)],
-    ['monday', (dayjs().day() === 1 ? dayjs().add(7, 'day') : dayjs().day(8)).hour(9).minute(0).second(0)],
+    ['tomorrow', nineAt(now.add(1, 'day'))],
+    ['monday', nineAt(now.add((8 - now.day()) % 7 || 7, 'day'))],
   ];
 
   return (
@@ -239,7 +253,7 @@ export default function AccountNotifications() {
 
       {paused && (
         <div className="np-banner">
-          <span>⏸ {t('notifyPrefs.pausedUntil', { time: new Date(prefs.pausedUntil).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) })}</span>
+          <span>⏸ {t('notifyPrefs.pausedUntil', { time: formatDateTime(prefs.pausedUntil, locale, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) })}</span>
           <Button size="small" onClick={() => save({ pausedUntil: null })}>
             {t('notifyPrefs.resume')}
           </Button>
@@ -316,16 +330,20 @@ export default function AccountNotifications() {
             <Switch checked={prefs.quiet?.enabled} onChange={(enabled) => save({ quiet: { enabled } })} />
             <span>{t('notifyPrefs.quiet')}</span>
           </label>
-          <div className={`np-quiet__range${prefs.quiet?.enabled ? '' : ' is-off'}`}>
+          <div className={`np-quiet__range${prefs.quiet?.enabled ? '' : ' is-off'}${regional.timeFormat === '12' ? ' is-h12' : ''}`}>
             <span>{t('notifyPrefs.from')}</span>
-            <TimePicker value={dayjs(prefs.quiet?.from || '22:00', 'HH:mm')} format="HH:mm" minuteStep={15} allowClear={false} needConfirm={false} disabled={!prefs.quiet?.enabled} onChange={(value) => value && save({ quiet: { from: value.format('HH:mm') } })} />
+            <TimeField value={prefs.quiet?.from || '22:00'} minuteStep={15} allowClear={false} needConfirm={false} disabled={!prefs.quiet?.enabled} onChange={(from) => from && save({ quiet: { from } })} />
             <span>{t('notifyPrefs.to')}</span>
-            <TimePicker value={dayjs(prefs.quiet?.to || '08:00', 'HH:mm')} format="HH:mm" minuteStep={15} allowClear={false} needConfirm={false} disabled={!prefs.quiet?.enabled} onChange={(value) => value && save({ quiet: { to: value.format('HH:mm') } })} />
+            <TimeField value={prefs.quiet?.to || '08:00'} minuteStep={15} allowClear={false} needConfirm={false} disabled={!prefs.quiet?.enabled} onChange={(to) => to && save({ quiet: { to } })} />
             <Checkbox checked={prefs.quiet?.weekends} disabled={!prefs.quiet?.enabled} onChange={(event) => save({ quiet: { weekends: event.target.checked } })}>
               {t('notifyPrefs.weekends')}
             </Checkbox>
           </div>
           <p className="np-muted">{t('notifyPrefs.quietNote')}</p>
+          <p className="np-muted">
+            {t('notifyPrefs.zoneNote', { zone: `${regional.timeZone.replace(/_/g, ' ')} (${zoneLabel(regional.timeZone)})` })}{' '}
+            <Link to="/account/appearance">{t('notifyPrefs.zoneChange')}</Link>
+          </p>
         </div>
       </section>
 

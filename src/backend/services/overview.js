@@ -34,7 +34,9 @@ export async function getSystemInfo() {
     environment: config.server.nodeEnv,
     uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
     startedAt: new Date(startedAt).toISOString(),
+    // The server process's zone (logs, the database session); what people see follows `regional`.
     timezone: process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone,
+    regional: { timeZone: parsed.regional?.timeZone || null, dateFormat: parsed.regional?.dateFormat || null, timeFormat: parsed.regional?.timeFormat || null, weekStart: parsed.regional?.weekStart ?? null },
     database: await databaseInfo(),
     rateLimit: parsed.rateLimit,
     setupTokenConfigured: Boolean(String(process.env.SETUP_TOKEN || '').trim()),

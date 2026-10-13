@@ -4,6 +4,7 @@ import { Avatar, Button, DatePicker, Empty, Input, Segmented, Select, Table, Tag
 import dayjs from 'dayjs';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatDateTime, formatRelative } from '../../../lib/format';
+import { fromPicker, getRegional, nowInZone, pickerFormat, toPicker, useRegional } from '../../../lib/datetime';
 import { driveApi, driveError, fileUrl, folderUrl, formatBytes } from '../api';
 import { useDrive } from '../DriveContext';
 
@@ -80,7 +81,8 @@ function apiQuery(filters) {
     from = filters.from || undefined;
     to = filters.to || undefined;
   } else if (filters.period === 'today') {
-    from = dayjs().startOf('day').toISOString();
+    // "Today" starts at midnight in the person's zone.
+    from = nowInZone().startOf('day').toISOString();
   } else {
     from = dayjs().subtract(Number(filters.period), 'day').toISOString();
   }
@@ -214,6 +216,7 @@ function Details({ row }) {
 /** /app/drive/activity — who did what on the file server (drive.audit). */
 export default function Activity() {
   const { t, locale } = useLocale();
+  const regional = useRegional();
   const { shares } = useDrive();
   const [filters, update] = useFilters();
   const [data, setData] = useState(null);
@@ -359,7 +362,7 @@ export default function Activity() {
         <div className="dva-head__actions">
           <Button onClick={load} loading={loading}>↻ {t('driveActivity.refresh')}</Button>
           <Tooltip title={t('driveActivity.exportHint')}>
-            <Button type="primary" href={driveApi.activityExportUrl({ ...query, tz: Intl.DateTimeFormat().resolvedOptions().timeZone })}>⤓ {t('driveActivity.export')}</Button>
+            <Button type="primary" href={driveApi.activityExportUrl({ ...query, tz: getRegional().timeZone })}>⤓ {t('driveActivity.export')}</Button>
           </Tooltip>
         </div>
       </header>
@@ -369,16 +372,16 @@ export default function Activity() {
           <Input.Search className="dva-search" allowClear placeholder={t('driveActivity.searchPlaceholder')} value={q} onChange={(event) => onSearch(event.target.value)} onSearch={(value) => update({ q: value.trim() })} />
           <Segmented
             value={filters.period}
-            onChange={(period) => update(period === 'custom' ? { period, from: dayjs().subtract(7, 'day').startOf('day').toISOString(), to: '' } : { period, from: '', to: '' })}
+            onChange={(period) => update(period === 'custom' ? { period, from: nowInZone().subtract(7, 'day').startOf('day').toISOString(), to: '' } : { period, from: '', to: '' })}
             options={PERIODS.map((value) => ({ value, label: t(`driveActivity.period.${value}`) }))}
           />
           {filters.period === 'custom' && (
             <DatePicker.RangePicker
-              showTime={{ format: 'HH:mm' }}
-              format="DD.MM.YYYY HH:mm"
+              showTime={{ format: pickerFormat(regional).time, use12Hours: regional.timeFormat === '12' }}
+              format={pickerFormat(regional).dateTime}
               allowEmpty={[false, true]}
-              value={[filters.from ? dayjs(filters.from) : null, filters.to ? dayjs(filters.to) : null]}
-              onChange={(range) => update({ from: range?.[0]?.toISOString() || '', to: range?.[1]?.toISOString() || '' })}
+              value={[toPicker(filters.from || null, regional), toPicker(filters.to || null, regional)]}
+              onChange={(range) => update({ from: fromPicker(range?.[0], regional) || '', to: fromPicker(range?.[1], regional) || '' })}
             />
           )}
         </div>

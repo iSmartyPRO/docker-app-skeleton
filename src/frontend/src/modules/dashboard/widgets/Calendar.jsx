@@ -2,27 +2,37 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLocale } from '../../../context/LocaleContext';
 import { useWidgetData } from '../api';
-import { WidgetState, cap, dayTitle, localeTag, timeOf } from './common';
+import dayjs from 'dayjs';
+import { getRegional, todayISO, useRegional } from '../../../lib/datetime';
+import { WidgetState, cap, dayKeyOf, dayTitle, localeTag, timeOf } from './common';
 
+/*
+ * Days here are days in the person's time zone (lib/datetime.js). Grid cells
+ * are plain calendar days: local Date objects used only for day arithmetic and
+ * keyed 'YYYY-MM-DD'; events and tasks are put on the day they fall on in the
+ * person's zone.
+ */
 const pad = (n) => String(n).padStart(2, '0');
 const keyOf = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+const dateOf = (key) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
 
-/** Local day keys an event covers (all-day ends are exclusive). */
+/** Day keys an event covers in the person's zone (all-day ends are exclusive). */
 function daysOf(event) {
-  const start = event.allDay ? new Date(`${event.start}T00:00:00`) : new Date(event.start);
-  const end = event.allDay ? new Date(new Date(`${event.end}T00:00:00`).getTime() - 1) : new Date(new Date(event.end).getTime() - 1);
+  const first = dayKeyOf(event.start);
+  const last = event.allDay
+    ? dayjs(dayKeyOf(event.end || event.start)).subtract(1, 'day').format('YYYY-MM-DD')
+    : dayKeyOf(new Date(new Date(event.end || event.start).getTime() - 1).toISOString());
   const keys = [];
-  const day = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  for (let i = 0; i < 62 && day <= end; i += 1) {
-    keys.push(keyOf(day));
-    day.setDate(day.getDate() + 1);
-  }
-  return keys.length ? keys : [keyOf(start)];
+  for (let day = dayjs(first), i = 0; i < 62 && day.format('YYYY-MM-DD') <= last; i += 1, day = day.add(1, 'day')) keys.push(day.format('YYYY-MM-DD'));
+  return keys.length ? keys : [first];
 }
 
 function EventRow({ event }) {
   const { t, locale } = useLocale();
-  const live = !event.allDay && new Date(event.start) <= new Date() && new Date(event.end) > new Date();
+  const live = !event.allDay && new Date(event.start) <= Date.now() && new Date(event.end) > Date.now();
   const soon = !event.allDay && new Date(event.start) - new Date() < 15 * 60000 && new Date(event.start) > new Date();
   return (
     <li>
@@ -71,28 +81,27 @@ export function Agenda({ widget }) {
     const data = state.data;
     if (!data) return [];
     const map = new Map();
-    const today = keyOf(new Date());
+    const today = todayISO();
     const push = (key, entry) => {
       if (key < today) key = today;
       if (!map.has(key)) map.set(key, { events: [], tasks: [] });
       map.get(key)[entry.kind].push(entry.item);
     };
     data.events.forEach((event) => push(daysOf(event)[0], { kind: 'events', item: event }));
-    data.tasks.forEach((task) => push(keyOf(new Date(task.dueAt)), { kind: 'tasks', item: task }));
+    data.tasks.forEach((task) => push(dayKeyOf(task.dueAt), { kind: 'tasks', item: task }));
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [state.data]);
   return (
     <WidgetState state={state} empty={state.data && !groups.length ? t('dashboard.agenda.free', { n: widget.settings.days || 7 }) : null} emptyIcon="☕">
       <div className="dw-agenda">
         {groups.map(([key, group]) => {
-          const [y, m, d] = key.split('-').map(Number);
-          const date = new Date(y, m - 1, d);
+          const date = dateOf(key);
           return (
             <section key={key}>
               <h4>
                 <span className="dw-agenda__day">{date.getDate()}</span>
                 <span>
-                  <b>{dayTitle(date, locale, t)}</b>
+                  <b>{dayTitle(key, locale, t)}</b>
                   <em>{date.toLocaleDateString(localeTag(locale), { weekday: 'long', day: 'numeric', month: 'long' })}</em>
                 </span>
               </h4>
@@ -127,17 +136,21 @@ export function Agenda({ widget }) {
 
 export function MiniCalendar({ widget, size }) {
   const { t, locale } = useLocale();
-  const [month, setMonth] = useState(() => {
-    const now = new Date();
+  const { weekStart } = useRegional();
+  const thisMonth = () => {
+    const now = dateOf(todayISO());
     return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
-  const [picked, setPicked] = useState(() => keyOf(new Date()));
-  // Weeks start on Monday in Russian, Sunday in English.
-  const weekStart = locale === 'ru' ? 1 : 0;
+  };
+  const [month, setMonth] = useState(thisMonth);
+  const [picked, setPicked] = useState(() => todayISO());
   const first = new Date(month);
   first.setDate(1 - ((month.getDay() - weekStart + 7) % 7));
   const cells = Array.from({ length: 42 }, (_, i) => new Date(first.getFullYear(), first.getMonth(), first.getDate() + i));
-  const extra = useMemo(() => ({ from: cells[0].toISOString(), to: new Date(cells[41].getTime() + 86400000).toISOString() }), [month]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The range: from the first cell's midnight to the end of the last cell, in the person's zone.
+  const extra = useMemo(() => {
+    const zone = getRegional().timeZone;
+    return { from: dayjs.tz(keyOf(cells[0]), zone).toISOString(), to: dayjs.tz(dayjs(keyOf(cells[41])).add(1, 'day').format('YYYY-MM-DD'), zone).toISOString() };
+  }, [month, weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
   const state = useWidgetData('miniCalendar', widget.settings, { extra });
   const byDay = useMemo(() => {
     const map = new Map();
@@ -149,7 +162,7 @@ export function MiniCalendar({ widget, size }) {
     );
     return map;
   }, [state.data]);
-  const today = keyOf(new Date());
+  const today = todayISO();
   const names = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 7 + weekStart + i).toLocaleDateString(localeTag(locale), { weekday: 'narrow' }));
   const list = byDay.get(picked) || [];
   const showList = size.h >= 5;
@@ -164,8 +177,7 @@ export function MiniCalendar({ widget, size }) {
           <button
             type="button"
             onClick={() => {
-              const now = new Date();
-              setMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+              setMonth(thisMonth());
               setPicked(today);
             }}
           >
@@ -202,7 +214,7 @@ export function MiniCalendar({ widget, size }) {
       </div>
       {showList && (
         <div className="dw-month__list">
-          <h5>{dayTitle(new Date(`${picked}T12:00:00`), locale, t)}</h5>
+          <h5>{dayTitle(picked, locale, t)}</h5>
           {list.length ? (
             <ul className="dw-list">
               {list.slice(0, 6).map((event) => (

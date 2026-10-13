@@ -1,10 +1,10 @@
-import dayjs from 'dayjs';
-import { DatePicker, Input, InputNumber, Select, Switch } from 'antd';
+import { Input, InputNumber, Select, Switch } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { Person } from '../../shared/People';
 import { useCrm } from '../CrmContext';
 import { formatDay, formatMoney, formatNumber } from '../lib';
 import UserSelect from './UserSelect';
+import { DateField } from '../../../components/ui/DateTimeField';
 
 /** Is a custom value empty (shows «не заполнено»)? */
 export function isEmptyValue(value) {
@@ -23,7 +23,7 @@ export function FieldInput({ field, value, onChange, currency, autoFocus, onComm
     case 'money':
       return <InputNumber {...common} value={value ?? null} onChange={(next) => onChange(next ?? null)} min={0} addonAfter={currency} style={{ width: '100%' }} onPressEnter={onCommit} />;
     case 'date':
-      return <DatePicker {...common} value={value ? dayjs(value) : null} onChange={(date) => onChange(date ? date.format('YYYY-MM-DD') : null)} format="DD.MM.YYYY" style={{ width: '100%' }} />;
+      return <DateField {...common} value={value || null} onChange={(day) => onChange(day)} style={{ width: '100%' }} />;
     case 'select':
       return <Select {...common} allowClear value={value ?? undefined} onChange={(next) => onChange(next ?? null)} options={(field.options || []).map((option) => ({ value: option, label: option }))} style={{ width: '100%' }} placeholder={t('crm.fields.choose')} />;
     case 'multiselect':

@@ -134,6 +134,7 @@ export const SETTINGS_PATCH_PERMISSIONS = {
   appDescription: 'settings.general',
   appearance: 'settings.general',
   defaultLocale: 'settings.general',
+  regional: 'settings.general',
   accessMode: 'settings.security',
   // Edited on the Access page next to the access mode (Security group).
   homePage: 'settings.security',

@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import api from '../../services/api';
+import { getRegional } from '../../lib/datetime';
 
 const base = '/app/dashboard';
 
-export const TZ = (() => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  } catch {
-    return 'UTC';
-  }
-})();
+/** The person's time zone: widgets count "today" and day series in it (backend `tz`). */
+export const currentTZ = () => getRegional().timeZone;
 
 export const dashboardApi = {
   load: () => api.get(base),
@@ -18,7 +14,7 @@ export const dashboardApi = {
   saveDefault: (widgets) => api.put(`${base}/default`, { widgets }),
   resetDefault: () => api.delete(`${base}/default`),
   options: () => api.get(`${base}/options`),
-  data: (type, settings, extra = {}) => api.get(`${base}/data/${type}`, { params: { settings: JSON.stringify(settings || {}), tz: TZ, ...extra } }),
+  data: (type, settings, extra = {}) => api.get(`${base}/data/${type}`, { params: { settings: JSON.stringify(settings || {}), tz: currentTZ(), ...extra } }),
 };
 
 /**

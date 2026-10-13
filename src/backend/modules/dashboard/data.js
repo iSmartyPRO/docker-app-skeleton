@@ -14,22 +14,18 @@ import { contextFromRequest as kbContext } from '../kb/access.js';
 import { board, resourcesContext } from '../resources/service.js';
 import { companiesContext, companiesSettings, listCompanies } from '../companies/service.js';
 import { WIDGETS } from './widgets.js';
+import { isoDay, startOfDay, zonedParts } from '../../services/datetime.js';
+import { requestZone } from '../../services/regional.js';
 
 /*
  * Data behind each widget. Every provider reads through the owning module's
  * own service with the person's context, so a widget never shows more than
- * the module itself would. Day boundaries follow the browser's time zone.
+ * the module itself would. Day boundaries follow the person's zone (an
+ * explicit `tz` from the browser, else their region settings).
  */
 
 const DAY = 24 * 3600 * 1000;
 
-function zoneOf(value) {
-  try {
-    return new Intl.DateTimeFormat('en', { timeZone: String(value || 'UTC') }).resolvedOptions().timeZone;
-  } catch {
-    return 'UTC';
-  }
-}
 
 const int = (value, min, max, fallback) => {
   const n = Math.round(Number(value));
@@ -37,15 +33,9 @@ const int = (value, min, max, fallback) => {
 };
 const pick = (value, allowed, fallback) => (allowed.includes(value) ? value : fallback);
 
-/** Start of today (and of the day `days` ago) in the person's zone, as instants. */
-async function bounds(tz, days = 1) {
-  const { rows } = await query(
-    `SELECT date_trunc('day', NOW() AT TIME ZONE $1) AT TIME ZONE $1 AS today,
-            (date_trunc('day', NOW() AT TIME ZONE $1) + INTERVAL '1 day') AT TIME ZONE $1 AS tomorrow,
-            (date_trunc('day', NOW() AT TIME ZONE $1) - make_interval(days => $2::int - 1)) AT TIME ZONE $1 AS since`,
-    [tz, days]
-  );
-  return rows[0];
+/** Start of today, tomorrow and of the day `days - 1` ago in the person's zone, as instants (DST safe). */
+export function bounds(tz, days = 1, now = new Date()) {
+  return { today: startOfDay(now, tz), tomorrow: startOfDay(now, tz, 1), since: startOfDay(now, tz, -(days - 1)) };
 }
 
 /** "YYYY-MM-DD" for each of the last `days` days in the zone, oldest first. */
@@ -108,7 +98,7 @@ async function myTasks(req, settings, tz) {
   const limit = int(settings.limit, 3, 30, 8);
   const { today, tomorrow } = await bounds(tz);
   const due = pick(settings.due, ['any', 'overdue', 'today', 'week'], 'any');
-  const dueTo = { overdue: new Date(), today: tomorrow, week: new Date(new Date(tomorrow).getTime() + 6 * DAY) }[due];
+  const dueTo = { overdue: new Date(), today: tomorrow, week: startOfDay(new Date(), tz, 7) }[due];
   const filters = {
     open: '1',
     sort: pick(settings.sort, ['due', 'priority', 'updated', 'created'], 'due'),
@@ -225,7 +215,7 @@ const eventShape = (event) => ({
 async function agenda(req, settings, tz) {
   const days = int(settings.days, 1, 31, 7);
   const { today } = await bounds(tz);
-  const to = new Date(new Date(today).getTime() + days * DAY);
+  const to = startOfDay(new Date(), tz, days);
   const calendars = Array.isArray(settings.calendars) && settings.calendars.length ? settings.calendars.join(',') : undefined;
   const events = await listEvents(calCtx(req), { from: new Date(today).toISOString(), to: to.toISOString(), calendars });
   let tasks = [];
@@ -361,10 +351,11 @@ async function companies(req, settings, tz) {
     listCompanies(ctx, { sort: 'created', limit: int(settings.limit, 3, 10, 5) }),
   ]);
   const labels = new Map((config.relations || []).map((item) => [item.key, item]));
-  const now = new Date();
+  // This month and the five before it, in the person's zone.
+  const local = zonedParts(new Date(), tz);
   const monthKeys = [];
   for (let i = 5; i >= 0; i -= 1) {
-    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const date = new Date(Date.UTC(local.year, local.month - 1 - i, 1));
     monthKeys.push(date.toISOString().slice(0, 7));
   }
   const byMonth = new Map(months.rows.map((row) => [row.month, row.count]));
@@ -432,9 +423,11 @@ async function welcome(req, settings, tz) {
     out.tasks = rows[0];
   }
   if (modules.calendar?.enabled) {
-    const events = await listEvents(calCtx(req), { from: new Date(today).toISOString(), to: new Date(new Date(tomorrow).getTime() + 6 * DAY).toISOString() });
     const now = new Date();
-    const todays = events.filter((event) => (event.allDay ? event.start <= new Date(today).toISOString().slice(0, 10) || new Date(event.start) < new Date(tomorrow) : new Date(event.start) < new Date(tomorrow)));
+    const events = await listEvents(calCtx(req), { from: new Date(today).toISOString(), to: startOfDay(now, tz, 7).toISOString() });
+    // All-day events are calendar days: today's is the person's today.
+    const todayKey = isoDay(now, tz);
+    const todays = events.filter((event) => (event.allDay ? event.start <= todayKey : new Date(event.start) < new Date(tomorrow)));
     const next = events.find((event) => !event.allDay && new Date(event.start) > now);
     out.events = { today: todays.length, next: next ? eventShape(next) : null };
   }
@@ -472,7 +465,8 @@ export async function widgetData(req, type, input = {}) {
   } catch {
     settings = {};
   }
-  return provider(req, settings && typeof settings === 'object' ? settings : {}, zoneOf(input.tz), input);
+  // Day boundaries: the zone the browser sent when valid, else the person's region zone.
+  return provider(req, settings && typeof settings === 'object' ? settings : {}, await requestZone(req, input.tz), input);
 }
 
 /** Choices for widget settings (projects, calendars, link categories). */

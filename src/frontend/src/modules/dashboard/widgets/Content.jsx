@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Avatar } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { useSettings } from '../../../context/SettingsContext';
-import { formatBytes } from '../../../lib/format';
+import { formatBytes, formatDateTime } from '../../../lib/format';
 import { FileIcon } from '../../kb/components/Icons';
 import { EntryIcon } from '../../drive/components/EntryList';
 import { fileUrl, folderUrl } from '../../drive/api';
@@ -12,7 +12,7 @@ import { MODULE_REGISTRY } from '../../registry';
 import { relationLabel } from '../../companies/api';
 import { useWidgetData } from '../api';
 import { Bars, Meter, Sparkline, TimeChart } from '../charts';
-import { Kpi, WidgetState, When, flagOf, initials, localeTag, longDay, shortDay } from './common';
+import { Kpi, WidgetState, When, flagOf, initials, longDay, shortDay } from './common';
 
 // ── Files ───────────────────────────────────────────────────────────────────
 
@@ -217,7 +217,7 @@ export function Companies({ widget, size }) {
                         <span className="dw-row__flag">{flagOf(company.country)}</span>
                         <span className="dw-row__text">
                           <strong>{company.name}</strong>
-                          <em>{new Date(company.createdAt).toLocaleDateString(localeTag(locale), { day: 'numeric', month: 'short' })}</em>
+                          <em>{formatDateTime(company.createdAt, locale, { day: 'numeric', month: 'short' })}</em>
                         </span>
                         {company.rating != null && <span className="dw-row__meta">★ {company.rating}</span>}
                       </Link>

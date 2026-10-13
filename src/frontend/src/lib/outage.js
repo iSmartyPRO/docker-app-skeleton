@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import axios from 'axios';
+import { fmtDateTime, getRegional } from './datetime';
 
 /*
  * Outages: the server restarting (deploys), the database gone, the network
@@ -136,12 +137,17 @@ function stopPolling() {
 }
 
 /** Text a person can paste to support. */
+/** "13.10.2026, 14:30 (Asia/Bishkek) · 2026-10-13T08:30:00.000Z" — the person's time plus UTC for support. */
+export function supportTime(at = new Date()) {
+  return `${fmtDateTime(at)} (${getRegional().timeZone}) · ${at.toISOString()}`;
+}
+
 export function outageDetails({ code, requestId } = state) {
   return [
     `Код: ${code || '—'}`,
     `Запрос: ${requestId || '—'}`,
     `Сессия: ${clientSessionId()}`,
-    `Время: ${new Date().toLocaleString()}`,
+    `Время: ${supportTime()}`,
     `Страница: ${window.location.pathname}`,
     `Сборка: ${BUILD}`,
   ].join('\n');

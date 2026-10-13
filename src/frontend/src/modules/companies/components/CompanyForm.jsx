@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Alert, App, AutoComplete, Button, Collapse, DatePicker, Drawer, Form, Input, InputNumber, Select, Tag } from 'antd';
-import dayjs from 'dayjs';
+import { Alert, App, AutoComplete, Button, Collapse, Drawer, Form, Input, InputNumber, Select, Tag } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
+import { DateField } from '../../../components/ui/DateTimeField';
 import { errorMessage } from '../../../lib/errors';
 import { cmpApi, relationLabel } from '../api';
 import { useCompanies } from '../CompaniesContext';
 import { formatDate } from './ui';
 import { HintLabel } from '../../../help/Hint';
 
+// Dates here are calendar days ('YYYY-MM-DD'): DateField edits them without any zone shift.
 const dateProps = {
-  getValueProps: (value) => ({ value: value ? dayjs(value) : null }),
-  normalize: (value) => (value ? value.format('YYYY-MM-DD') : null),
+  getValueProps: (value) => ({ value: value ? String(value).slice(0, 10) : null }),
 };
 
 const EMPTY = {
@@ -279,10 +279,10 @@ export default function CompanyForm({ open, company, onClose }) {
                     <Select options={['active', 'liquidating', 'reorganizing', 'liquidated', 'unknown'].map((value) => ({ value, label: t(`companies.status.${value}`) }))} />
                   </Form.Item>
                   <Form.Item name="registered_on" label={t('companies.f.registered_on')} {...dateProps}>
-                    <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+                    <DateField style={{ width: '100%' }} />
                   </Form.Item>
                   <Form.Item name="closed_on" label={t('companies.f.closed_on')} {...dateProps}>
-                    <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+                    <DateField style={{ width: '100%' }} />
                   </Form.Item>
                   <Form.Item name="founders_count" label={t('companies.f.founders_count')}>
                     <InputNumber min={0} style={{ width: '100%' }} />
@@ -416,7 +416,7 @@ export default function CompanyForm({ open, company, onClose }) {
                             {field.type === 'number' ? (
                               <InputNumber style={{ width: '100%' }} />
                             ) : field.type === 'date' ? (
-                              <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+                              <DateField style={{ width: '100%' }} />
                             ) : field.type === 'select' ? (
                               <Select allowClear options={field.options.map((value) => ({ value, label: value }))} />
                             ) : field.type === 'textarea' ? (

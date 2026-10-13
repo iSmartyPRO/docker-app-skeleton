@@ -9,16 +9,22 @@ import { useThemeMode } from '../../context/ThemeContext';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { updateAccountProfile } from '../../services/api';
 import { HintLabel } from '../../help/Hint';
+import RegionalFields from '../../components/ui/RegionalFields';
+import { useSettings } from '../../context/SettingsContext';
 import AccountAssistant from '../../modules/assistant/AccountAssistant';
+
+/** Form.Item adapter for the person's region overrides. */
+const MyRegional = ({ value, onChange, portal }) => <RegionalFields personal portal={portal || {}} value={value || {}} onChange={onChange} />;
 
 export default function AccountAppearance() {
   const { user, setUser } = useAuth();
   const { t, setLocale, portalDefault } = useLocale();
   const { setMode } = useThemeMode();
 
+  const { settings } = useSettings();
   const initial = useMemo(
-    () => ({ locale: user?.locale || 'auto', theme: user?.theme || 'system' }),
-    [user?.locale, user?.theme]
+    () => ({ locale: user?.locale || 'auto', theme: user?.theme || 'system', regional: { timeZone: null, dateFormat: null, timeFormat: null, weekStart: null, ...(user?.regional || {}) } }),
+    [user?.locale, user?.theme, user?.regional]
   );
   const { dirty, saving, submit, reset, formProps } = useSettingsForm(initial, async (values) => {
     const res = await updateAccountProfile(values);
@@ -54,6 +60,11 @@ export default function AccountAppearance() {
               />
             </Form.Item>
           </SettingRow>
+        </SettingsSection>
+        <SettingsSection title={<HintLabel id="account.regional">{t('regional.meTitle')}</HintLabel>} description={t('regional.meDesc')}>
+          <Form.Item name="regional" noStyle>
+            <MyRegional portal={settings?.regional} />
+          </Form.Item>
         </SettingsSection>
       </Form>
       <AccountAssistant />

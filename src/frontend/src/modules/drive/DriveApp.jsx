@@ -19,6 +19,7 @@ import '../shared/module.css';
 import '../kb/kb.css';
 import '../files/files.css';
 import './drive.css';
+import SideRail from '../shared/SideRail';
 
 /** The drive's name: chosen by the administrator ("iSmarty Drive") or the default. */
 export function useDriveTitle() {
@@ -135,9 +136,9 @@ function Shell() {
   }
   return (
     <div className="mod-shell">
-      <aside className="mod-shell__side">
+      <SideRail moduleKey="drive">
         <Sidebar />
-      </aside>
+      </SideRail>
       <Drawer open={drawer} onClose={() => setDrawer(false)} placement="left" width={300} styles={{ body: { padding: 0 } }}>
         <Sidebar onNavigate={() => setDrawer(false)} />
       </Drawer>

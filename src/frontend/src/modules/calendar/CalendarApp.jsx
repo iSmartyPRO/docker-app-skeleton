@@ -6,6 +6,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
+import luxonPlugin from '@fullcalendar/luxon3';
 import ruLocale from '@fullcalendar/core/locales/ru';
 import { App, Button, Calendar as MiniCalendar, Drawer, Dropdown, Modal, Result, Segmented, Spin } from 'antd';
 import Chrome from '../../components/Chrome';
@@ -13,6 +14,7 @@ import { MenuIcon } from '../../components/icons/menuIcons';
 import { IconGoogle } from '../../components/icons/AdminIcons';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
+import { getRegional, inZone, nowInZone, todayISO, useRegional } from '../../lib/datetime';
 import api, { startGoogle } from '../../services/api';
 import AccessDialog from '../shared/AccessDialog';
 import { calendarApi, calendarLabel } from './api';
@@ -26,6 +28,7 @@ import { HelpButton } from '../../help/Hint';
 import { askScope } from './components/scope';
 import '../shared/module.css';
 import './calendar.css';
+import SideRail from '../shared/SideRail';
 
 const VIEWS = { month: 'dayGridMonth', week: 'timeGridWeek', workweek: 'timeGridWorkWeek', day: 'timeGridDay', agenda: 'listWeek' };
 // A work week is the week view without Saturday and Sunday.
@@ -69,8 +72,19 @@ function CalendarToggle({ id, color, name, hidden, onToggle, menu }) {
   );
 }
 
-/** Keeps the time-grid tidy: "09:00" style labels everywhere. */
-const TIME_FORMAT = { hour: '2-digit', minute: '2-digit', hour12: false };
+/*
+ * Time zones: FullCalendar runs in the person's zone (`timeZone`, through the
+ * luxon3 plugin), so the Date objects it hands to callbacks (select, drop,
+ * drag, resize) are real instants and day cells are days in that zone. All-day
+ * values are taken from the `…Str` fields ('YYYY-MM-DD'); day arithmetic on
+ * Dates goes through inZone().
+ */
+
+/** Time labels by the person's time format: "09:00" or "9:00 AM". */
+const timeFormatOf = (timeFormat) => (timeFormat === '12' ? { hour: 'numeric', minute: '2-digit', hour12: true } : { hour: '2-digit', minute: '2-digit', hour12: false });
+
+/** End of a calendar day in the person's zone, for date-only task deadlines. */
+const endOfDayISO = (day) => inZone(day).endOf('day').toISOString();
 
 function toFcEvent(item, kind) {
   const classNames = [`is-${kind}`];
@@ -89,7 +103,7 @@ function toFcEvent(item, kind) {
 }
 
 function taskToFc(task, minutes = 30) {
-  const due = dayjs(task.dueAt);
+  const due = inZone(task.dueAt);
   const done = task.statusCategory === 'done' || Boolean(task.completedAt);
   const timed = Boolean(task.dueTime);
   return {
@@ -105,6 +119,10 @@ function taskToFc(task, minutes = 30) {
     extendedProps: { kind: 'task', data: task, color: task.project?.personal ? '#0CA678' : task.project?.color || '#0CA678' },
   };
 }
+
+/** That day at hh:00 in the person's zone (a wall-clock time, safe across DST). */
+const atWall = (day, hour) => dayjs.tz(`${day.format('YYYY-MM-DD')} ${String(hour).padStart(2, '0')}:00`, getRegional().timeZone).toDate();
+const tomorrowAt19 = () => atWall(nowInZone().add(1, 'day'), 19);
 
 function EventContent({ arg }) {
   const { event, timeText, view } = arg;
@@ -125,6 +143,7 @@ function EventContent({ arg }) {
 
 function Shell() {
   const { t, locale } = useLocale();
+  const regional = useRegional();
   const { message, modal } = App.useApp();
   const navigate = useNavigate();
   const { id: routeEventId } = useParams();
@@ -135,7 +154,7 @@ function Shell() {
   const [googleCalendars, setGoogleCalendars] = useState([]);
   const [googleError, setGoogleError] = useState('');
   const [title, setTitle] = useState('');
-  const [current, setCurrent] = useState(() => dayjs().format('YYYY-MM-DD'));
+  const [current, setCurrent] = useState(() => todayISO());
   const [view, setView] = useState(null);
   const [drawer, setDrawer] = useState(false);
   const [editor, setEditor] = useState(null);
@@ -250,7 +269,7 @@ function Shell() {
   // FullCalendar re-applies options whose identity changes: keep them stable.
   const onDatesSet = useCallback((info) => {
     setTitle(info.view.title);
-    setCurrent(dayjs(info.view.currentStart).format('YYYY-MM-DD'));
+    setCurrent(inZone(info.view.currentStart).format('YYYY-MM-DD'));
   }, []);
   const renderEvent = useCallback((arg) => <EventContent arg={arg} />, []);
   const onEventMount = useCallback(({ el, event }) => el.style.setProperty('--ev', event.extendedProps.color || '#3B82F6'), []);
@@ -265,7 +284,8 @@ function Shell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home]
   );
-  const plugins = useMemo(() => [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin], []);
+  const plugins = useMemo(() => [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, luxonPlugin], []);
+  const timeFormat = useMemo(() => timeFormatOf(regional.timeFormat), [regional.timeFormat]);
   const locales = useMemo(() => [ruLocale], []);
 
   const eventSources = useMemo(() => [{ events: portalSource }, { events: googleSource }, { events: taskSource }], [portalSource, googleSource, taskSource]);
@@ -287,7 +307,7 @@ function Shell() {
     const { data } = event.extendedProps;
     const minutes = home?.prefs?.taskDuration || 30;
     const body = event.allDay
-      ? { dueAt: dayjs(event.start).endOf('day').toISOString(), dueTime: false }
+      ? { dueAt: endOfDayISO(event.startStr.slice(0, 10)), dueTime: false }
       : { dueAt: dayjs(event.start).add(minutes, 'minute').toISOString(), dueTime: true };
     try {
       await api.put(`/app/tasks/tasks/${data.ref}`, body);
@@ -304,7 +324,7 @@ function Shell() {
     const ref = info.draggedEl.dataset.ref;
     if (!ref) return;
     const minutes = home?.prefs?.taskDuration || 30;
-    const body = info.allDay ? { dueAt: dayjs(info.date).endOf('day').toISOString(), dueTime: false } : { dueAt: dayjs(info.date).add(minutes, 'minute').toISOString(), dueTime: true };
+    const body = info.allDay ? { dueAt: endOfDayISO(info.dateStr.slice(0, 10)), dueTime: false } : { dueAt: dayjs(info.date).add(minutes, 'minute').toISOString(), dueTime: true };
     try {
       await api.put(`/app/tasks/tasks/${ref}`, body);
       message.success(t('calendarTasks.scheduled', { ref }));
@@ -334,6 +354,7 @@ function Shell() {
   const [chooser, setChooser] = useState(null);
   /** An empty slot: choose between an event and a task. */
   const onSelect = ({ start, end, allDay }) => {
+    // start/end are real instants (midnight in the person's zone for all-day).
     calendarRef.current?.getApi().unselect();
     const canEvent = writable.length > 0 || googleCalendars.some((calendar) => calendar.writable);
     const canTask = Boolean(home?.config?.showTasks);
@@ -358,12 +379,12 @@ function Shell() {
       return;
     }
     const allDay = event.allDay;
-    const start = allDay ? dayjs(event.start).format('YYYY-MM-DD') : event.start.toISOString();
-    const endValue = event.end || dayjs(event.start).add(1, allDay ? 'day' : 'hour').toDate();
-    const end = allDay ? dayjs(endValue).format('YYYY-MM-DD') : endValue.toISOString();
+    const start = allDay ? inZone(event.start).format('YYYY-MM-DD') : event.start.toISOString();
+    const endValue = event.end || (allDay ? inZone(event.start).add(1, 'day') : dayjs(event.start).add(1, 'hour')).toDate();
+    const end = allDay ? inZone(endValue).format('YYYY-MM-DD') : endValue.toISOString();
     try {
       if (kind === 'google') {
-        await calendarApi.updateGoogle({ googleCalendarId: data.googleCalendarId, eventId: data.id, start, end, allDay, title: data.title });
+        await calendarApi.updateGoogle({ googleCalendarId: data.googleCalendarId, eventId: data.id, start, end, allDay, title: data.title, timezone: regional.timeZone });
       } else {
         let scope = 'all';
         if (data.recurring) {
@@ -379,8 +400,18 @@ function Shell() {
           const delta = dayjs(event.start).diff(dayjs(oldEvent.start));
           const duration = dayjs(endValue).diff(dayjs(event.start));
           const series = await calendarApi.event(data.id);
-          const shifted = dayjs(series.data.event.start).add(delta, 'millisecond');
-          const shiftedEnd = shifted.add(duration, 'millisecond');
+          let shifted;
+          let shiftedEnd;
+          if (allDay) {
+            // Whole days: shift the series' first day by the same number of days.
+            const days = inZone(event.start).startOf('day').diff(inZone(oldEvent.start).startOf('day'), 'day');
+            const span = Math.max(1, inZone(endValue).startOf('day').diff(inZone(event.start).startOf('day'), 'day'));
+            shifted = inZone(series.data.event.start).add(days, 'day');
+            shiftedEnd = shifted.add(span, 'day');
+          } else {
+            shifted = dayjs(series.data.event.start).add(delta, 'millisecond');
+            shiftedEnd = shifted.add(duration, 'millisecond');
+          }
           payload = {
             allDay,
             start: allDay ? shifted.format('YYYY-MM-DD') : shifted.toISOString(),
@@ -474,7 +505,7 @@ function Shell() {
           size="large"
           onClick={() => {
             onNavigate?.();
-            const start = dayjs().add(1, 'hour').startOf('hour');
+            const start = nowInZone().add(1, 'hour').startOf('hour');
             newEvent({ start: start.toDate(), end: start.add(30, 'minute').toDate(), allDay: false });
           }}
         >
@@ -485,7 +516,7 @@ function Shell() {
             size="large"
             onClick={() => {
               onNavigate?.();
-              setQuickTask({ start: dayjs().add(1, 'day').hour(19).minute(0).toDate(), allDay: false });
+              setQuickTask({ start: tomorrowAt19(), allDay: false });
             }}
           >
             ☐ {t('calendarTasks.newTask')}
@@ -508,7 +539,7 @@ function Shell() {
           onSelect={(date, info) => {
             if (info?.source && info.source !== 'date') return;
             setCurrent(date.format('YYYY-MM-DD'));
-            api_()?.gotoDate(date.toDate());
+            api_()?.gotoDate(date.format('YYYY-MM-DD'));
             onNavigate?.();
           }}
         />
@@ -566,7 +597,7 @@ function Shell() {
 
   return (
     <div className="mod-shell">
-      <aside className="mod-shell__side">{sidebar()}</aside>
+      <SideRail moduleKey="calendar">{sidebar()}</SideRail>
       <Drawer open={drawer} onClose={() => setDrawer(false)} placement="left" width={300} styles={{ body: { padding: 0 } }}>
         {sidebar(() => setDrawer(false))}
       </Drawer>
@@ -596,7 +627,8 @@ function Shell() {
             headerToolbar={false}
             locales={locales}
             locale={locale === 'ru' ? 'ru' : 'en-gb'}
-            firstDay={prefs.weekStart ?? config.weekStart}
+            timeZone={regional.timeZone}
+            firstDay={regional.weekStart}
             views={VIEW_OPTIONS}
             weekends={prefs.showWeekends !== false}
             weekNumbers={Boolean(prefs.showWeekNumbers)}
@@ -613,8 +645,8 @@ function Shell() {
             scrollTime={`${prefs.dayStart || config.dayStart}:00`}
             businessHours={businessHours}
             slotDuration={prefs.slotMinutes === 60 ? '01:00:00' : `00:${String(prefs.slotMinutes || 30).padStart(2, '0')}:00`}
-            eventTimeFormat={TIME_FORMAT}
-            slotLabelFormat={TIME_FORMAT}
+            eventTimeFormat={timeFormat}
+            slotLabelFormat={timeFormat}
             eventSources={eventSources}
             eventContent={renderEvent}
             eventDidMount={onEventMount}
@@ -629,7 +661,7 @@ function Shell() {
         </div>
       </main>
 
-      <Modal open={Boolean(chooser)} onCancel={() => setChooser(null)} footer={null} width={420} title={chooser ? dayjs(chooser.start).format(chooser.allDay ? 'dddd, D MMMM' : 'dddd, D MMMM · HH:mm') : ''} destroyOnHidden>
+      <Modal open={Boolean(chooser)} onCancel={() => setChooser(null)} footer={null} width={420} title={chooser ? inZone(chooser.start).format(chooser.allDay ? 'dddd, D MMMM' : `dddd, D MMMM · ${regional.timeFormat === '12' ? 'h:mm A' : 'HH:mm'}`) : ''} destroyOnHidden>
         <div className="cal-choose">
           <button
             type="button"
@@ -645,7 +677,7 @@ function Shell() {
           <button
             type="button"
             onClick={() => {
-              setQuickTask({ start: chooser.allDay ? dayjs(chooser.start).hour(19).toDate() : chooser.start, allDay: chooser.allDay });
+              setQuickTask({ start: chooser.allDay ? atWall(inZone(chooser.start), 19) : chooser.start, allDay: chooser.allDay });
               setChooser(null);
             }}
           >

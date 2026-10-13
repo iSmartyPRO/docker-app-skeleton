@@ -1,4 +1,5 @@
 import api from '../../services/api';
+import { getRegional } from '../../lib/datetime';
 
 const base = '/app/calendar';
 
@@ -26,13 +27,8 @@ export const calendarApi = {
   deleteGoogle: (calendar, event) => api.delete(`${base}/google/events`, { params: { calendar, event } }),
 };
 
-export const localTimeZone = () => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  } catch {
-    return 'UTC';
-  }
-};
+/** The person's time zone (regional settings), e.g. for an event's `timezone`. */
+export const localTimeZone = () => getRegional().timeZone;
 
 /** Personal calendars keep their default name in the UI language. */
 const DEFAULT_PERSONAL = ['My calendar', 'Мой календарь'];

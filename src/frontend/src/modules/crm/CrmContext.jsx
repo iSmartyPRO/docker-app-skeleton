@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { crmApi, listOf } from './api';
-import { TZ } from './lib';
+import { getRegional } from '../../lib/datetime';
+import { crmZone } from './lib';
 
 const CrmContext = createContext(null);
 
@@ -23,7 +24,7 @@ export function CrmProvider({ children }) {
 
   const refreshMine = useCallback(() => {
     crmApi
-      .counters({ owners: 'me', group: 'open', tz: TZ })
+      .counters({ owners: 'me', group: 'open', tz: crmZone(), weekStart: getRegional().weekStart })
       .then((res) => setMine(res.data))
       .catch(() => {});
   }, []);

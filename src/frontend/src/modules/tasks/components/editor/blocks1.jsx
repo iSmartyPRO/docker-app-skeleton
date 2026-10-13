@@ -5,6 +5,7 @@ import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities';
 import { useLocale } from '../../../../context/LocaleContext';
 import { errorMessage } from '../../../../lib/errors';
+import { formatDateTime } from '../../../../lib/format';
 import { UserAvatar } from '../../../shared/People';
 import FolderBrowser from '../../../files/components/FolderBrowser';
 import { driveApi } from '../../../drive/api';
@@ -620,7 +621,7 @@ export function ResultsBlock({ task, required, onRequired, disabled, mode, onAdd
           <UserAvatar user={result.author} size={26} tip={false} />
           <div>
             <b>{result.author?.name}</b>
-            <em>{new Date(result.createdAt).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</em>
+            <em>{formatDateTime(result.createdAt, locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</em>
             <p>{result.body}</p>
             {result.chatFileIds?.length > 0 && <span className="te-muted">📎 {result.chatFileIds.length}</span>}
           </div>

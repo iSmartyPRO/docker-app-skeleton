@@ -1,10 +1,10 @@
-import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
-import { DatePicker, Input, Select, Tooltip } from 'antd';
+import { Input, Select, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { Person, UserAvatar } from '../../shared/People';
 import { useCrm } from '../CrmContext';
-import { formatDay } from '../lib';
+import { formatDay, isPastDay } from '../lib';
+import { DateField } from '../../../components/ui/DateTimeField';
 import ClientPicker from '../components/ClientPicker';
 import UserSelect from '../components/UserSelect';
 import { FieldInput, FieldValue } from '../components/fields';
@@ -184,8 +184,8 @@ export default function DealFields({ deal, editable, onPatch }) {
         value={deal.closeDate || null}
         disabled={!editable}
         instant
-        display={deal.closeDate ? <span className={dayjs(deal.closeDate).isBefore(dayjs(), 'day') && !deal.closedAt ? 'crm-late' : ''}>{formatDay(deal.closeDate, locale, true)}</span> : <Unset />}
-        renderEditor={({ value, commit }) => <DatePicker autoFocus open value={value ? dayjs(value) : null} format="DD.MM.YYYY" onChange={(date) => commit(date ? date.format('YYYY-MM-DD') : null)} style={{ width: '100%' }} />}
+        display={deal.closeDate ? <span className={isPastDay(deal.closeDate) && !deal.closedAt ? 'crm-late' : ''}>{formatDay(deal.closeDate, locale, true)}</span> : <Unset />}
+        renderEditor={({ value, commit }) => <DateField autoFocus open value={value || null} onChange={(day) => commit(day)} style={{ width: '100%' }} />}
         onSave={(closeDate) => onPatch({ closeDate })}
       />
     ),

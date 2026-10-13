@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import dayjs from 'dayjs';
 import { App, Button, DatePicker, Input, InputNumber, Modal, Popover, Select, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
+import { dayFromPicker, dayToPicker, pickerFormat, useRegional } from '../../../lib/datetime';
 import { crmApi, listOf } from '../api';
 import { useCrm } from '../CrmContext';
 import { BUILTIN_PRESETS, EMPTY_FILTER, filterCount, normalizeFilter, sameFilter } from '../lib';
@@ -12,13 +12,16 @@ import UserSelect from './UserSelect';
 
 const { RangePicker } = DatePicker;
 
-const toRange = (from, to) => (from || to ? [from ? dayjs(from) : null, to ? dayjs(to) : null] : null);
-const fromRange = (range) => [range?.[0] ? range[0].format('YYYY-MM-DD') : undefined, range?.[1] ? range[1].format('YYYY-MM-DD') : undefined];
+// Both ranges are calendar days ('YYYY-MM-DD'): no zone shift. The server reads
+// "created on these days" in the person's zone (the tz param of filterParams).
+const toRange = (from, to) => (from || to ? [dayToPicker(from), dayToPicker(to)] : null);
+const fromRange = (range) => [dayFromPicker(range?.[0]) || undefined, dayFromPicker(range?.[1]) || undefined];
 
 /** The right side of the popover: every field of the filter. */
 function FilterFields({ draft, setDraft, pipeline }) {
   const { t } = useLocale();
   const { settings } = useCrm();
+  const dateFormat = pickerFormat(useRegional()).date;
   const set = (patch) => setDraft((prev) => ({ ...prev, ...patch }));
   const selectFields = (settings.fields || []).filter((field) => field.type === 'select' || field.type === 'multiselect');
   const stageOptions = (pipeline?.stages || []).map((stage) => ({ value: stage.id, label: <span className="status-option"><span className="status-pip" style={{ '--c': stage.color }} />{stage.name}</span>, search: stage.name.toLowerCase() }));
@@ -49,11 +52,11 @@ function FilterFields({ draft, setDraft, pipeline }) {
       </label>
       <label className="crm-filter__field">
         <span>{t('crm.fields.closeDate')}</span>
-        <RangePicker placeholder={[t('crm.filter.from'), t('crm.filter.to')]} allowEmpty={[true, true]} value={toRange(draft.closeFrom, draft.closeTo)} onChange={(range) => { const [closeFrom, closeTo] = fromRange(range); set({ closeFrom, closeTo }); }} format="DD.MM.YYYY" style={{ width: '100%' }} />
+        <RangePicker placeholder={[t('crm.filter.from'), t('crm.filter.to')]} allowEmpty={[true, true]} value={toRange(draft.closeFrom, draft.closeTo)} onChange={(range) => { const [closeFrom, closeTo] = fromRange(range); set({ closeFrom, closeTo }); }} format={dateFormat} style={{ width: '100%' }} />
       </label>
       <label className="crm-filter__field">
         <span>{t('crm.filter.created')}</span>
-        <RangePicker placeholder={[t('crm.filter.from'), t('crm.filter.to')]} allowEmpty={[true, true]} value={toRange(draft.createdFrom, draft.createdTo)} onChange={(range) => { const [createdFrom, createdTo] = fromRange(range); set({ createdFrom, createdTo }); }} format="DD.MM.YYYY" style={{ width: '100%' }} />
+        <RangePicker placeholder={[t('crm.filter.from'), t('crm.filter.to')]} allowEmpty={[true, true]} value={toRange(draft.createdFrom, draft.createdTo)} onChange={(range) => { const [createdFrom, createdTo] = fromRange(range); set({ createdFrom, createdTo }); }} format={dateFormat} style={{ width: '100%' }} />
       </label>
       <label className="crm-filter__field">
         <span>{t('crm.fields.source')}</span>

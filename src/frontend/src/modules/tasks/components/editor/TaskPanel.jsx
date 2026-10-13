@@ -7,6 +7,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { useLocale } from '../../../../context/LocaleContext';
 import { useSettings } from '../../../../context/SettingsContext';
 import { errorMessage } from '../../../../lib/errors';
+import { formatDateTime } from '../../../../lib/format';
 import Conversation from '../../../chat/components/Conversation';
 import { chatApi } from '../../../chat/api';
 import { tasksApi } from '../../api';
@@ -654,7 +655,7 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
                       </BaseRow>
                       <BaseRow label={t('tasks.v2.created')}>
                         <span className="te-plain">
-                          {new Date(task.createdAt).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {formatDateTime(task.createdAt, locale, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           <em> · ID {task.ref}</em>
                         </span>
                       </BaseRow>

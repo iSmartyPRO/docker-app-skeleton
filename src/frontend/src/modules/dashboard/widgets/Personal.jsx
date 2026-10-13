@@ -6,6 +6,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useSettings } from '../../../context/SettingsContext';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { markNotificationsRead } from '../../../services/api';
+import { inZone, intlOptions, useRegional } from '../../../lib/datetime';
 import { enabledModules, moduleLabel } from '../../registry';
 import { MODULE_COLORS } from '../../resources/api';
 import { useWidgetData } from '../api';
@@ -59,9 +60,9 @@ export function Welcome({ widget }) {
     <div className="dw-welcome">
       <div className="dw-welcome__glow" aria-hidden />
       <div className="dw-welcome__main">
-        <span className="dw-welcome__date">{cap(now.toLocaleDateString(localeTag(locale), { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
+        <span className="dw-welcome__date">{cap(now.toLocaleDateString(localeTag(locale), intlOptions({ weekday: 'long', day: 'numeric', month: 'long' })))}</span>
         <h2>
-          {t(`dashboard.welcome.${greeting(now.getHours())}`)}
+          {t(`dashboard.welcome.${greeting(inZone(now).hour())}`)}
           {first ? `, ${first}` : ''}
         </h2>
         <p>{summary}</p>
@@ -183,8 +184,11 @@ export function Clock({ widget, size }) {
   const { t, locale } = useLocale();
   const analog = Boolean(widget.settings.analog);
   const now = useNow(analog ? 1000 : 10000);
-  const hour12 = widget.settings.format === '12';
-  const local = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const regional = useRegional();
+  // The widget's own 12/24 choice wins; without one it follows the person's time format.
+  const hour12 = (widget.settings.format || regional.timeFormat) === '12';
+  // "Here" is the person's time zone (regional settings), not necessarily the device's.
+  const local = regional.timeZone;
   const zones = (widget.settings.zones || []).filter((zone) => zone !== local).slice(0, 6);
   const fmt = (zone) => now.toLocaleTimeString(localeTag(locale), { timeZone: zone, hour: '2-digit', minute: '2-digit', hour12 });
   const mine = offsetMinutes(local, now);
@@ -194,7 +198,7 @@ export function Clock({ widget, size }) {
         {analog && <Analog date={now} zone={local} />}
         <div>
           <strong>{fmt(local)}</strong>
-          <span>{cap(now.toLocaleDateString(localeTag(locale), { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
+          <span>{cap(now.toLocaleDateString(localeTag(locale), { timeZone: local, weekday: 'long', day: 'numeric', month: 'long' }))}</span>
         </div>
       </div>
       {zones.length > 0 && (

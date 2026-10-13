@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
+import { inZone, nowInZone } from '../../../lib/datetime';
 import { App, Button, Checkbox, Skeleton } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -13,10 +14,12 @@ const GROUPS = ['overdue', 'today', 'tomorrow', 'later', 'noDue'];
 
 function groupOf(activity) {
   if (!activity.dueAt) return 'noDue';
-  const due = dayjs(activity.dueAt);
+  // Days are the person's days (their zone), not the device's.
+  const due = inZone(activity.dueAt);
+  const now = nowInZone();
   if (due.isBefore(dayjs())) return 'overdue';
-  if (due.isSame(dayjs(), 'day')) return 'today';
-  if (due.isSame(dayjs().add(1, 'day'), 'day')) return 'tomorrow';
+  if (due.isSame(now, 'day')) return 'today';
+  if (due.isSame(now.add(1, 'day'), 'day')) return 'tomorrow';
   return 'later';
 }
 

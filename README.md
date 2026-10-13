@@ -333,6 +333,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Public API](docs/public-api.md) | Tokens, access templates, rules and limits, webhooks, request log, developer portal, OpenAPI |
 | [Calendar](docs/calendar.md) | Calendars, recurrence, attendees, reminders, Google Calendar, API |
 | [Notifications](docs/notifications.md) | Notification center, channels, Web Push, scheduler, sealed secrets |
+| [Time zones and formats](docs/datetime.md) | Portal and personal time zone, date/time formats, week start; rules for code |
 | [Installable app (PWA)](docs/pwa.md) | Manifest, service worker, icons, install guide, deployment notes |
 | [Counterparties](docs/companies.md) | Companies, contacts, registers (Minjust KG, DaData, EGRUL), careers, history, ratings, API |
 | [Dashboard](docs/dashboard.md) | Personal widgets over the modules: catalog, customization, starting layout, API |

@@ -4,7 +4,7 @@ import { canView } from './access.js';
 import { COLUMNS, FROM, dealsByIds, logEvent, requireDeal } from './deals.js';
 import { buildFilter } from './filters.js';
 import { notifyActivity } from './integrations.js';
-import { BUCKETS, Params, bucketBounds, bucketSql, parseStamp, posInt } from './util.js';
+import { BUCKETS, Params, boundsFor, bucketSql, parseStamp, posInt } from './util.js';
 
 /*
  * Activities ("дела"): calls, meetings, tasks, e-mails on a deal, with a due
@@ -221,7 +221,7 @@ export const ACTIVITY_JOIN = `LEFT JOIN LATERAL (
  * touched yet (no history entry of mine).
  */
 export async function counters(ctx, input = {}) {
-  const bounds = bucketBounds(new Date(), input.tz);
+  const bounds = boundsFor(ctx, input);
   const p = new Params();
   const where = buildFilter(ctx, input, { fields: ctx.settings.fields || [], bounds, ignore: ['activity'] }, p);
   const bucket = bucketSql(p, bounds);
@@ -249,7 +249,7 @@ export async function counters(ctx, input = {}) {
  * nextWeek · later · none. `column` + `offset` page one column.
  */
 export async function activityBoard(ctx, input = {}) {
-  const bounds = bucketBounds(new Date(), input.tz);
+  const bounds = boundsFor(ctx, input);
   const limit = Math.min(100, Math.max(1, Number.parseInt(input.limit, 10) || 30));
   const only = BUCKETS.includes(input.column) ? input.column : null;
   const offset = only ? Math.max(0, Number.parseInt(input.offset, 10) || 0) : 0;

@@ -8,6 +8,7 @@ import { App, Button, Segmented, Select } from 'antd';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
+import { fmtDate, nowInZone, useRegional } from '../../../lib/datetime';
 import { crmApi } from '../api';
 import { useCrm } from '../CrmContext';
 import { formatMoney, readStore, userKey, writeStore } from '../lib';
@@ -33,6 +34,7 @@ export default function CalendarView({ params, version, onOpen, onChanged }) {
   const { user } = useAuth();
   const { message } = App.useApp();
   const { settings } = useCrm();
+  const regional = useRegional();
   const prefsKey = userKey(user, 'calendar');
   const [prefs, setPrefs] = useState(() => readStore(prefsKey, { view: 'dayGridMonth', field: 'closeDate' }));
   const [title, setTitle] = useState('');
@@ -74,6 +76,12 @@ export default function CalendarView({ params, version, onOpen, onChanged }) {
   const sources = useMemo(() => [{ events: source }], [source]);
   const plugins = useMemo(() => [dayGridPlugin, interactionPlugin], []);
   const locales = useMemo(() => [ruLocale], []);
+  // Deals sit on calendar days (date-only values), so the grid stays in the
+  // device's local mode — a day never shifts. Only "today" follows the person's
+  // zone: `now` is their wall-clock time read as local.
+  const now = useCallback(() => nowInZone(regional).format('YYYY-MM-DDTHH:mm:ss'), [regional]);
+  const hour12 = regional.timeFormat === '12';
+  const timeFormat = useMemo(() => ({ hour: 'numeric', minute: '2-digit', hour12 }), [hour12]);
   const views = useMemo(() => ({ dayGridWeek: { dayHeaderFormat: { weekday: 'short', day: 'numeric', month: 'short' } } }), []);
 
   useEffect(() => {
@@ -90,7 +98,7 @@ export default function CalendarView({ params, version, onOpen, onChanged }) {
         const custom = { ...(res.data.deal.custom || {}), [field.slice(3)]: date };
         await crmApi.updateDeal(dealId, { custom, version: res.data.deal.version });
       }
-      message.success(t('crm.cal.moved', { title: event.title, date: dayjs(date).format('DD.MM.YYYY') }));
+      message.success(t('crm.cal.moved', { title: event.title, date: fmtDate(date, regional) }));
       onChanged?.();
     } catch (err) {
       revert();
@@ -133,7 +141,10 @@ export default function CalendarView({ params, version, onOpen, onChanged }) {
           headerToolbar={false}
           locales={locales}
           locale={locale === 'ru' ? 'ru' : 'en-gb'}
-          firstDay={1}
+          firstDay={regional.weekStart}
+          now={now}
+          eventTimeFormat={timeFormat}
+          slotLabelFormat={timeFormat}
           views={views}
           height="100%"
           editable

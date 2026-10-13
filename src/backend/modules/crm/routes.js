@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query } from '../../config/database.js';
 import { updateAdminSettings, getSettings, parseSettings } from '../../services/settings.js';
 import { httpError, userShape } from '../shared/acl.js';
+import { requestRegional } from '../../services/regional.js';
 import { crmContext, crmSettings, modulesEnabled } from './access.js';
 import { createClient, searchClients } from './clients.js';
 import {
@@ -45,6 +46,8 @@ export function privateRoutes() {
   router.use(async (req, res, next) => {
     try {
       req.crm = crmContext(req, await crmSettings());
+      // The person's zone and week start: "today", "this week", date filters, exports.
+      req.crm.regional = await requestRegional(req);
       next();
     } catch (err) {
       next(err);
