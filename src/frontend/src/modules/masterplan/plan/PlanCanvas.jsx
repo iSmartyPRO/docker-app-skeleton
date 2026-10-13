@@ -25,6 +25,20 @@ import '../mp-markers.css';
 const MIN_K = 0.05;
 const MAX_K = 40;
 
+/**
+ * The previous list while every item is `same` as before: hover, selection
+ * or colour changes give new objects, the geometry stays and nothing is laid
+ * out again.
+ */
+function useStableList(list, same) {
+  const kept = useRef(list);
+  const prev = kept.current;
+  if (prev !== list && (prev.length !== list.length || list.some((item, index) => !same(item, prev[index])))) kept.current = list;
+  return kept.current;
+}
+const sameMarkerGeometry = (a, b) => a.id === b.id && a.x === b.x && a.y === b.y && a.r === b.r && a.label === b.label;
+const sameShapeGeometry = (a, b) => a.id === b.id && a.points === b.points && a.label === b.label;
+
 export function bboxOf(points) {
   let minX = Infinity;
   let minY = Infinity;
@@ -149,6 +163,11 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const vertex = event.target.dataset?.vertex;
     if (pointers.current.size === 2) {
+      // A second finger: a pinch takes over. A marker drag or resize in progress ends where it is (saved), never stuck.
+      const g = gesture.current;
+      if (g?.moved && g.type === 'marker' && g.last) markerEdit?.onMove?.(g.id, g.last, true);
+      if (g?.moved && g.type === 'mkresize' && g.last) markerEdit?.onResize?.(g.id, g.last, true);
+      setDragging(false);
       const [a, b] = [...pointers.current.values()];
       gesture.current = { type: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), view };
       return;
@@ -245,7 +264,10 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
   const k = view?.k || 1;
   // Rounded zoom: markers and labels are laid out again only when the scale really changes.
   const kStep = Math.round(k * 400) / 400;
-  const markerLayout = useMemo(() => (view ? layoutMarkers(markers.map((m) => ({ id: m.id, x: m.x, y: m.y, r: m.r, text: m.label })), kStep, labelMode) : []), [markers, kStep, labelMode, view]);
+  // Laid out by geometry and zoom step only: panning, hovering or selecting does not lay everything out again.
+  const hasView = Boolean(view);
+  const markerGeometry = useStableList(markers, sameMarkerGeometry);
+  const markerLayout = useMemo(() => (hasView ? layoutMarkers(markerGeometry.map((m) => ({ id: m.id, x: m.x, y: m.y, r: m.r, text: m.label })), kStep, labelMode) : []), [markerGeometry, kStep, labelMode, hasView]);
   const markerObstacles = useMemo(() => markerBoxes(markerLayout, kStep), [markerLayout, kStep]);
 
   /** The marker meant by a pointer event: the nearest centre among the tap circles under it. */
@@ -262,7 +284,8 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
   const levelLabels = useMemo(() => shapes.filter((shape) => shape.label && shape.level).map((shape) => ({ id: shape.id, box: bboxOf(shape.points), label: shape.label })), [shapes]);
   const objects = useMemo(() => shapes.filter((shape) => !shape.level), [shapes]);
   const byId = useMemo(() => new Map(objects.map((shape) => [shape.id, shape])), [objects]);
-  const numbers = useMemo(() => (view ? layoutLabels(objects.map((shape) => ({ id: shape.id, points: shape.points, text: shape.label })), kStep, labelMode, markerObstacles) : []), [objects, kStep, labelMode, view, markerObstacles]);
+  const objectGeometry = useStableList(objects, sameShapeGeometry);
+  const numbers = useMemo(() => (hasView ? layoutLabels(objectGeometry.map((shape) => ({ id: shape.id, points: shape.points, text: shape.label })), kStep, labelMode, markerObstacles) : []), [objectGeometry, kStep, labelMode, hasView, markerObstacles]);
 
   return (
     <div

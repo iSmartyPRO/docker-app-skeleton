@@ -199,9 +199,12 @@ export default function ReportFeed({ reports, compact, onChanged, onOpenNode, cu
     setNext(cursor || null);
   }, [reports, cursor]);
 
+  // In the server's order (date of the state, newest first): a report whose date was corrected moves to its
+  // day, so every day has one group (and one key).
   const groups = useMemo(() => {
+    const sorted = [...items].sort((a, b) => (a.factDate === b.factDate ? b.id - a.id : a.factDate < b.factDate ? 1 : -1));
     const out = [];
-    for (const report of items) {
+    for (const report of sorted) {
       const last = out[out.length - 1];
       if (last && last.day === report.factDate) last.reports.push(report);
       else out.push({ day: report.factDate, reports: [report] });

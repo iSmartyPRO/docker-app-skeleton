@@ -19,21 +19,24 @@ function InboxIcon() {
 export default function InboxButton() {
   const { t } = useLocale();
   const [counts, setCounts] = useState({ total: 0, overdue: 0 });
-  const refresh = useCallback(() => {
+  // `fresh`: after a decision here the server skips its short cache of the counter.
+  const refresh = useCallback((fresh = false) => {
     approvalsApi
-      .count()
+      .count(fresh === true)
       .then((res) => setCounts({ total: res.data.total || 0, overdue: res.data.overdue || 0 }))
       .catch(() => {});
   }, []);
   useEffect(() => {
     refresh();
     const timer = setInterval(() => document.visibilityState === 'visible' && refresh(), POLL_MS);
-    window.addEventListener('focus', refresh);
-    window.addEventListener('approvals:changed', refresh);
+    const onFocus = () => refresh();
+    const onChanged = () => refresh(true);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('approvals:changed', onChanged);
     return () => {
       clearInterval(timer);
-      window.removeEventListener('focus', refresh);
-      window.removeEventListener('approvals:changed', refresh);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('approvals:changed', onChanged);
     };
   }, [refresh]);
   const label = counts.total

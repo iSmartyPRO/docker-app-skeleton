@@ -7,7 +7,7 @@ const enc = encodeURIComponent;
 export const approvalsApi = {
   meta: () => api.get(`${base}/meta`),
   inbox: (params) => api.get(`${base}/inbox`, { params }),
-  count: () => api.get(`${base}/inbox/count`),
+  count: (fresh = false) => api.get(`${base}/inbox/count`, fresh ? { params: { fresh: 1 } } : undefined),
   act: (payload) => api.post(`${base}/inbox/act`, payload),
   bulk: (items) => api.post(`${base}/inbox/bulk`, { items }),
   mine: (params) => api.get(`${base}/mine`, { params }),

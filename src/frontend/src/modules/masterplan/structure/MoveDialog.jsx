@@ -10,6 +10,9 @@ import { iconOf, nodeLabel } from '../lib';
  * into another sector) — the server checks every node as a single move and
  * moves all of them or none. `open` = { ids } | null; `tree` = indexTree().
  */
+/** The most nodes one bulk move takes (the server refuses more: nodes.js BULK_MOVE_MAX). */
+export const BULK_MOVE_MAX = 500;
+
 export default function MoveDialog({ open, tree, onClose }) {
   const { t } = useLocale();
   const { message } = App.useApp();

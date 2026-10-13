@@ -160,33 +160,48 @@ export default function RequestForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId]);
 
-  const persist = useCallback(async (current) => {
-    setSave({ state: 'saving', at: null });
-    try {
-      let res;
-      if (!requestId) {
-        // The first save creates the draft (once, even if typing goes on).
-        const first = !creating.current;
-        creating.current = creating.current || procApi.create(toPayload(current));
-        res = await creating.current;
-        const newId = res.data.request.id;
-        setRequestId(newId);
-        // The address follows without remounting the form (typing goes on).
-        window.history.replaceState(window.history.state, '', `/app/procurement/requests/${newId}/edit`);
-        if (!first) res = await procApi.update(newId, toPayload(current));
-      } else {
-        res = await procApi.update(requestId, toPayload(current));
+  // Saves run one after another (an older PUT never lands after a newer one);
+  // only the newest answer updates the card.
+  const queue = useRef(Promise.resolve());
+  const saveSeq = useRef(0);
+  const idRef = useRef(requestId);
+  idRef.current = requestId;
+  const persist = useCallback((current) => {
+    const mine = ++saveSeq.current;
+    const latest = () => mine === saveSeq.current;
+    const run = queue.current.then(async () => {
+      if (latest()) setSave({ state: 'saving', at: null });
+      try {
+        let res;
+        if (!idRef.current) {
+          // The first save creates the draft (once, even if typing goes on).
+          const first = !creating.current;
+          creating.current = creating.current || procApi.create(toPayload(current));
+          res = await creating.current;
+          const newId = res.data.request.id;
+          idRef.current = newId;
+          setRequestId(newId);
+          // The address follows without remounting the form (typing goes on).
+          window.history.replaceState(window.history.state, '', `/app/procurement/requests/${newId}/edit`);
+          if (!first) res = await procApi.update(newId, toPayload(current));
+        } else {
+          res = await procApi.update(idRef.current, toPayload(current));
+        }
+        if (latest()) {
+          setCard(res.data);
+          setSave({ state: 'saved', at: new Date() });
+          touch();
+        }
+        return res.data;
+      } catch (err) {
+        if (latest()) setSave({ state: 'error', at: null });
+        message.error(procError(err, t));
+        return null;
       }
-      setCard(res.data);
-      setSave({ state: 'saved', at: new Date() });
-      touch();
-      return res.data;
-    } catch (err) {
-      setSave({ state: 'error', at: null });
-      message.error(procError(err, t));
-      return null;
-    }
-  }, [requestId, touch, message, t]);
+    });
+    queue.current = run.catch(() => null);
+    return run;
+  }, [touch, message, t]);
 
   // Autosave after a pause.
   useEffect(() => {

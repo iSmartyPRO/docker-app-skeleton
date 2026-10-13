@@ -6,7 +6,7 @@ import { userShape } from '../shared/acl.js';
 import { httpError } from './logic.js';
 import { modulesEnabled } from './access.js';
 import { calendar, changeStatus, counters, createContract, deleteContract, exportCsv, getContract, listContracts, listEvents, requestContext, updateContract } from './service.js';
-import { addVersion, sendVersion, sendVersionPreview, updateVersion, uploadErrors, versionUploader } from './versions.js';
+import { addVersion, assertCanAddVersion, sendVersion, sendVersionPreview, updateVersion, uploadErrors, versionUploader } from './versions.js';
 import { addRisk, deleteRisk, updateRisk } from './risks.js';
 import { dealOptions, masterplanOptions } from './links.js';
 import { runDaily } from './jobs.js';
@@ -76,6 +76,11 @@ export function privateRoutes() {
   // ── Versions ──
   router.post(
     '/contracts/:id/versions',
+    // Cheap check before multer writes the file to disk.
+    wrap(async (req, _res, next) => {
+      await assertCanAddVersion(req.ctr, req.params.id);
+      next();
+    }),
     (req, res, next) => versionUploader(req.ctr.settings.maxUploadMb || 50)(req, res, (err) => next(uploadErrors(err))),
     wrap(async (req, res) => ok(res, { version: await addVersion(req.ctr, req.params.id, req.file, req.body || {}) }, 201))
   );

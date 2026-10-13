@@ -95,7 +95,7 @@ export function CreateNodeDialog({ open, project, tree, onClose }) {
                   <InputNumber min={0} style={{ width: '100%' }} addonAfter={project.currency} />
                 </Form.Item>
                 <Form.Item name={kind === 'plot' ? 'areaPlot' : 'areaTotal'} label={kind === 'plot' ? t('mp.f.areaPlot') : t('mp.f.areaTotal')}>
-                  <InputNumber min={0} style={{ width: '100%' }} addonAfter="м²" />
+                  <InputNumber min={0} style={{ width: '100%' }} addonAfter={t('mp.measure.sqm')} />
                 </Form.Item>
               </div>
             )
@@ -195,7 +195,7 @@ export function BulkDialog({ open, project, tree, onClose }) {
           </div>
         )}
         <Form.Item name="nameTemplate" label={t('mp.st.nameTemplate')} extra={t('mp.st.nameTemplateHint')}>
-          <Input maxLength={120} placeholder={mode === 'grid' ? 'Квартира {n}' : 'Участок {code}'} />
+          <Input maxLength={120} placeholder={mode === 'grid' ? t('mp.measure.nameGridPh') : t('mp.measure.nameLinePh')} />
         </Form.Item>
         {mode === 'line' && preview && <p className="dialog-note">{t('mp.st.preview', { codes: preview })}</p>}
         <Form.Item noStyle shouldUpdate={(a, b) => a.typeId !== b.typeId}>

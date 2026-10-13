@@ -1,6 +1,6 @@
 import { query } from '../../config/database.js';
 import { regionalFor } from '../../services/settings.js';
-import { isoDay } from '../../services/datetime.js';
+import { isoDay, startOfDay, wallToInstant, zonedParts } from '../../services/datetime.js';
 import { httpError } from '../shared/acl.js';
 import { forbidden, notFound, requireConfigure, requireProject } from './access.js';
 import { has, readCaps } from './rules.js';
@@ -265,6 +265,22 @@ export function pricesAt(units, history, at) {
 }
 
 /**
+ * The last second of each of the `months` months before the current one, in
+ * the portal's time zone (not the server's), oldest first: the moments of the
+ * price trend.
+ */
+export function monthEnds(now, months, timeZone) {
+  const p = zonedParts(now, timeZone);
+  const out = [];
+  for (let i = months; i >= 1; i -= 1) {
+    // Midnight that starts the 1st of the month after the one i months back, minus a second.
+    const first = startOfDay(wallToInstant({ year: p.year, month: p.month - i + 1, day: 1, hour: 12 }, timeZone), timeZone);
+    out.push(new Date(first.getTime() - 1000));
+  }
+  return out;
+}
+
+/**
  * Average list price per m² (area-weighted, base currency) at the end of each
  * of the last `months` months and today, the grid versions of the project
  * (plans priced per m²) and the planned price at completion.
@@ -281,9 +297,8 @@ export async function priceTrend(ctx, project, toBase, months = 12) {
     [project.id]
   );
   const now = new Date();
-  const moments = [];
-  for (let i = months; i >= 1; i -= 1) moments.push(new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59));
-  moments.push(now);
+  const { timeZone } = await regionalFor(null);
+  const moments = [...monthEnds(now, months, timeZone), now];
   const points = [];
   for (const at of moments) {
     const prices = pricesAt(units, history, at);
@@ -295,7 +310,7 @@ export async function priceTrend(ctx, project, toBase, months = 12) {
       sum += toBase(price, (unit.currency || '').trim(), settings);
       area += Number(unit.area);
     }
-    if (area) points.push({ date: isoDay(at, 'UTC'), ppm: round2(sum / area) });
+    if (area) points.push({ date: isoDay(at, timeZone), ppm: round2(sum / area) });
   }
   const grids = (await loadGrids(project.id)).filter((g) => !g.typeId).sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1));
   const base = (amount, currency) => toBase(amount, currency || settings.currency, settings);

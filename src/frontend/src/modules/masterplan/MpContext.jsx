@@ -64,16 +64,33 @@ export function ProjectProvider({ projectId, presentation = false, children }) {
   const [live, setLive] = useState(false);
   const reloadTimer = useRef(null);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await mpApi.map(projectId, presentation);
+  const loads = useRef(0);
+  const newest = useRef(null);
+  /**
+   * Fetches the map. Only the newest request's answer is applied: an older
+   * one landing later would bring back stale placements. A caller of an older
+   * request waits for the newest. A reload due from a stream event received
+   * before this request started is covered by it (one fetch, not two).
+   */
+  const load = useCallback(() => {
+    const n = ++loads.current;
+    clearTimeout(reloadTimer.current);
+    const run = (async () => {
+      let res;
+      try {
+        res = await mpApi.map(projectId, presentation);
+      } catch (err) {
+        if (n !== loads.current) return newest.current;
+        setError(err);
+        return null;
+      }
+      if (n !== loads.current) return newest.current;
       setData(res.data);
       setError(null);
       return res.data;
-    } catch (err) {
-      setError(err);
-      return null;
-    }
+    })();
+    newest.current = run;
+    return run;
   }, [projectId, presentation]);
 
   useEffect(() => {

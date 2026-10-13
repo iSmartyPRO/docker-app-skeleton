@@ -194,6 +194,29 @@ export function planStages(route, values = {}) {
   return { stages, skipped };
 }
 
+/**
+ * The stages of a running process after its document changed: the stages up
+ * to the current one stay (they were reached), the rest follow the new plan
+ * (route order, without the stages already reached). `changed` is false when
+ * the stages still to come are the same ones, so their snapshot is kept.
+ */
+export function replanStages(stages = [], current = 0, plan = { stages: [], skipped: [] }) {
+  const reached = stages.slice(0, current + 1);
+  const reachedIds = new Set(reached.map((stage) => stage.id));
+  const tail = (plan.stages || []).filter((stage) => !reachedIds.has(stage.id));
+  const oldTail = stages.slice(current + 1);
+  const oldIds = oldTail.map((stage) => stage.id);
+  const newIds = tail.map((stage) => stage.id);
+  const changed = oldIds.join('\u0000') !== newIds.join('\u0000');
+  return {
+    changed,
+    stages: changed ? [...reached, ...tail] : stages,
+    skipped: (plan.skipped || []).filter((stage) => !reachedIds.has(stage.id)),
+    added: newIds.filter((id) => !oldIds.includes(id)),
+    removed: oldIds.filter((id) => !newIds.includes(id)),
+  };
+}
+
 /** Field values for conditions: the module's `fields` plus amount and currency of the summary. */
 export function conditionValues(summary = {}) {
   const values = { ...(summary.fields || {}) };

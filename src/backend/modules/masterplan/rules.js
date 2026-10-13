@@ -245,6 +245,37 @@ export function scheduleState(stages, today) {
   return { state: 'on_track', delayDays: 0 };
 }
 
+/**
+ * Report visibility (`caps` = read capabilities in the project): published
+ * ones to everyone who sees construction, internal ones only to the
+ * construction team (build.edit / build.drafts); drafts, reports under review
+ * and returned ones to their author and moderators.
+ */
+export function reportVisible(caps, userId, report) {
+  if (!has(caps, 'build.view')) return false;
+  if (report.status === 'published') return report.visibility !== 'internal' || has(caps, 'build.edit') || has(caps, 'build.drafts');
+  return (Boolean(userId) && Number(report.author_id) === Number(userId)) || has(caps, 'build.drafts') || has(caps, 'build.moderate');
+}
+
+export const REPORT_EVENTS = new Set(['report', 'report_edited', 'report_deleted']);
+
+/**
+ * A history entry about a report (stage, percent, status) follows the
+ * report's visibility: `current` — the report as it is now (null once
+ * deleted), else what the entry recorded (reportStatus, visibility,
+ * reportAuthorId). Entries written before that was recorded count as
+ * internal: only the construction team sees them.
+ */
+export function reportEventVisible(caps, userId, event, current = null) {
+  const data = event.data || {};
+  if (current) return reportVisible(caps, userId, current);
+  return reportVisible(caps, userId, {
+    status: data.reportStatus || (typeof data.status === 'string' ? data.status : 'published'),
+    visibility: data.visibility || 'internal',
+    author_id: data.reportAuthorId ?? (event.kind === 'report' ? event.author_id : data.authorId),
+  });
+}
+
 /** Hours after publishing during which the author may still correct or delete their own report. */
 export const REPORT_AUTHOR_HOURS = 24;
 
@@ -276,6 +307,17 @@ export function reportRights({ report, nodeCaps, userId, now = Date.now() }) {
     submit: manage && ['draft', 'rejected'].includes(report.status) && (author || moderate),
     editUntil: !moderate && authorOpen && published ? until : null,
   };
+}
+
+/**
+ * A published report corrected by its author in a moderated project (the
+ * author is not a moderator): what the head of construction checks — a new
+ * percent, fact date or added photos — goes back to review (its progress is
+ * taken back until it is published again); fixing the text or removing a
+ * photo stays published.
+ */
+export function editNeedsReview({ moderation, moderator, status, percent = false, factDate = false, photosAdded = false }) {
+  return Boolean(moderation) && !moderator && status === 'published' && Boolean(percent || factDate || photosAdded);
 }
 
 // ── Codes ───────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { query } from '../../config/database.js';
 import { registerInboxProvider } from '../../services/inbox.js';
+import { decide } from '../../api/scopes.js';
 import { portalRegional } from '../../services/regional.js';
 import { wallToInstant } from '../../services/datetime.js';
 import { ensureContractsSchema } from './schema.js';
@@ -34,13 +35,20 @@ registerInboxProvider(
   async (ctx) => {
     const userId = ctx.user?.id;
     if (!userId) return [];
+    // An API token sees these only with the contracts area in its scope.
+    const policy = ctx.apiToken?.policy || ctx.req?.apiToken?.policy;
+    if (policy && !decide(policy, 'GET', '/app/contracts/contracts').ok) return [];
     const today = await portalToday();
     const { rows } = await query(
       `SELECT id, number, title, counterparty, amount, currency, framework, status, auto_renew, notice_days,
               starts_on::text AS starts_on, ends_on::text AS ends_on, owner_id, lawyer_id, created_by
        FROM ctr_contracts
        WHERE status = ANY($1::text[]) AND (owner_id = $2 OR lawyer_id = $2) AND ends_on IS NOT NULL
-         AND ends_on BETWEEN $3::date AND $3::date + 60`,
+         AND (
+           -- the refusal deadline (end − notice period), however long the notice period is
+           (COALESCE(auto_renew, FALSE) AND COALESCE(notice_days, 0) > 0 AND ends_on - notice_days BETWEEN $3::date AND $3::date + 14)
+           OR (NOT COALESCE(auto_renew, FALSE) AND ends_on BETWEEN $3::date AND $3::date + 7)
+         )`,
       [RUNNING, userId, today]
     );
     const items = [];

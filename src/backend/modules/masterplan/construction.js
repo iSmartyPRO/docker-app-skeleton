@@ -5,7 +5,7 @@ import { notify } from '../../services/notifications.js';
 import { avatarOf, httpError } from '../shared/acl.js';
 import { STAGE_SETS, STAGE_STATES } from './constants.js';
 import { forbidden, notFound, requireAdmin, requireNode, requireProject, usersWithRole, visibleProjectIds } from './access.js';
-import { actCaps, has, readCaps, reportRights, scheduleState, weightedReadiness } from './rules.js';
+import { actCaps, editNeedsReview, has, readCaps, reportRights, reportVisible, scheduleState, weightedReadiness } from './rules.js';
 import { projectSettings } from './projects.js';
 import { mediaShape, removeMediaFiles } from './media.js';
 import { treeChanged, unitsChanged } from './realtime.js';
@@ -280,6 +280,23 @@ async function linkedTargets(client, reportId) {
 }
 
 /**
+ * "Last report" of objects after a published report stops counting (deleted,
+ * or sent back to review): the newest other published report on each, or
+ * none; stale reminders are re-armed where it changed.
+ */
+async function recomputeLastReport(client, reportId, nodeIds) {
+  if (!nodeIds.length) return;
+  await client.query(
+    `UPDATE mp_nodes n SET last_report_at = x.last, stale_notified_at = NULL
+     FROM (SELECT m.id, (SELECT MAX(r.published_at) FROM mp_reports r JOIN mp_report_nodes rn ON rn.report_id = r.id
+                         WHERE rn.node_id = m.id AND r.status = 'published' AND r.id <> $1) AS last
+           FROM mp_nodes m WHERE m.id = ANY($2::int[])) x
+     WHERE n.id = x.id AND n.last_report_at IS DISTINCT FROM x.last`,
+    [reportId, nodeIds]
+  );
+}
+
+/**
  * Takes back what a published report did to stage progress (before it is
  * deleted, or before it is re-applied with a corrected percent / date).
  *
@@ -399,7 +416,7 @@ export async function createReport(ctx, input = {}) {
       if (rowCount !== mediaIds.length) throw httpError(400, 'Some photos are not yours or already used', 'INVALID_MEDIA');
     }
     const touched = status === 'published' ? await applyReport(client, ctx, report, targets) : [];
-    for (const node of selected) await logEvent(client, { projectId: project.id, nodeId: node.id, kind: 'report', data: { reportId: report.id, status, stage: stage ? { id: stage.id, name: stage.name } : null, percent }, authorId: ctx.userId });
+    for (const node of selected) await logEvent(client, { projectId: project.id, nodeId: node.id, kind: 'report', data: { reportId: report.id, status, ...reportEventScope(report), stage: stage ? { id: stage.id, name: stage.name } : null, percent }, authorId: ctx.userId });
     return { report, selected, targets, touched };
   });
   if (out.touched.length) treeChanged(project.id);
@@ -466,11 +483,11 @@ async function reportNodes(reportIds, client = { query }) {
 
 /** Report visibility: published ones to everyone who sees construction; others to the author and moderators. */
 function canSeeReport(ctx, row) {
-  const caps = readCaps(ctx, row.project_id);
-  if (!has(caps, 'build.view')) return false;
-  if (row.status === 'published') return row.visibility !== 'internal' || has(caps, 'build.edit') || has(caps, 'build.drafts');
-  return row.author_id === ctx.userId || has(caps, 'build.drafts') || has(caps, 'build.moderate');
+  return reportVisible(readCaps(ctx, row.project_id), ctx.userId, row);
 }
+
+/** What history entries about a report record so nodeEvents can hide them like the report itself (reportEventVisible). */
+const reportEventScope = (row) => ({ reportStatus: row.status, visibility: row.visibility, reportAuthorId: row.author_id });
 
 const rightsOf = (ctx, row, nodes) => reportRights({ report: row, nodeCaps: nodes.map((node) => actCaps(ctx, node)), userId: ctx.userId });
 
@@ -671,6 +688,7 @@ export async function deleteReport(ctx, id) {
     const moved = await unapplyReport(client, ctx, row);
     const { rows: media } = await client.query(`DELETE FROM mp_media WHERE report_id = $1 RETURNING storage_key, thumb_key`, [row.id]);
     await client.query(`DELETE FROM mp_reports WHERE id = $1`, [row.id]);
+    if (row.status === 'published') await recomputeLastReport(client, row.id, nodes.map((node) => node.id));
     for (const node of nodes) {
       const back = moved.find((item) => item.nodeId === node.id);
       await logEvent(client, {
@@ -680,6 +698,7 @@ export async function deleteReport(ctx, id) {
         data: {
           reportId: row.id,
           status: row.status,
+          ...reportEventScope(row),
           stage: row.stage_id ? { id: row.stage_id, name: stage[0]?.name || null } : null,
           percent: row.percent === null ? null : Number(row.percent),
           factDate: dayString(row.fact_date),
@@ -734,9 +753,23 @@ export async function updateReport(ctx, id, input = {}) {
       status = projectSettings(project.settings).moderation && !moderator ? 'review' : 'published';
       if (status !== row.status) changes.status = { from: row.status, to: status };
     }
-    // Progress: a published report whose percent or date changes is taken back and applied again.
-    const reapply = row.status === 'published' && (changes.percent || changes.factDate);
+    // A moderated project: the author's later correction of what is moderated goes back to review (editNeedsReview).
+    const backToReview = editNeedsReview({
+      moderation: projectSettings(project.settings).moderation,
+      moderator: rights.moderate,
+      status: row.status,
+      percent: changes.percent,
+      factDate: changes.factDate,
+      photosAdded: addIds.length > 0,
+    });
+    if (backToReview) {
+      status = 'review';
+      changes.status = { from: row.status, to: status };
+    }
+    // Progress: a published report whose percent or date changes is taken back and applied again; one going back to review is taken back.
+    const reapply = row.status === 'published' && (changes.percent || changes.factDate || backToReview);
     const moved = reapply ? await unapplyReport(client, ctx, row) : [];
+    if (backToReview) await recomputeLastReport(client, row.id, nodes.map((node) => node.id));
     const { rows: removed } = removeIds.length
       ? await client.query(`DELETE FROM mp_media WHERE report_id = $1 AND id = ANY($2::int[]) RETURNING id, storage_key, thumb_key`, [row.id, removeIds])
       : { rows: [] };
@@ -764,7 +797,7 @@ export async function updateReport(ctx, id, input = {}) {
       touched = await applyReport(client, ctx, next, await linkedTargets(client, next.id), { touchLast: row.status !== 'published' });
     }
     for (const node of nodes) {
-      await logEvent(client, { projectId: row.project_id, nodeId: node.id, kind: 'report_edited', data: { reportId: row.id, stage: row.stage_id ? { id: row.stage_id, name: stageName } : null, ...changes }, authorId: ctx.userId });
+      await logEvent(client, { projectId: row.project_id, nodeId: node.id, kind: 'report_edited', data: { reportId: row.id, ...reportEventScope(next), stage: row.stage_id ? { id: row.stage_id, name: stageName } : null, ...changes }, authorId: ctx.userId });
     }
     return { row: next, nodes, removed, moved, status, project, changed: true, touched, submitted: Boolean(changes.status), stage: stageName ? { name: stageName } : null };
   });
@@ -783,7 +816,7 @@ export async function deleteReportMedia(ctx, reportId, mediaId) {
     const { rows } = await client.query(`DELETE FROM mp_media WHERE id = $1 AND report_id = $2 RETURNING id, name, storage_key, thumb_key`, [intOr(mediaId, 0), row.id]);
     if (!rows[0]) throw notFound('File not found');
     await client.query(`UPDATE mp_reports SET edited_at = NOW(), edited_by = $2, updated_at = NOW() WHERE id = $1`, [row.id, ctx.userId]);
-    for (const node of nodes) await logEvent(client, { projectId: row.project_id, nodeId: node.id, kind: 'report_edited', data: { reportId: row.id, photosRemoved: 1, name: rows[0].name }, authorId: ctx.userId });
+    for (const node of nodes) await logEvent(client, { projectId: row.project_id, nodeId: node.id, kind: 'report_edited', data: { reportId: row.id, ...reportEventScope(row), photosRemoved: 1, name: rows[0].name }, authorId: ctx.userId });
     return rows;
   });
   await removeMediaFiles(removed);

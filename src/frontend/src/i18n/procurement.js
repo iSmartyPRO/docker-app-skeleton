@@ -197,6 +197,11 @@ export const procurementEn = {
       FILE_TOO_LARGE: 'The file is too large',
       TOO_MANY_FILES: 'Too many files at once',
       NO_FILES: 'Choose a file',
+      BAD_PROJECT: 'This project is not available to you',
+      BAD_OBJECT: 'This object is not available to you',
+      BAD_DEAL: 'This deal is not available to you',
+      BAD_CONTRACT: 'This contract is not available to you',
+      BAD_SUPPLIER: 'This counterparty was not found',
     },
     drop: {
       title: 'Drop the invoice here',
@@ -547,6 +552,11 @@ export const procurementRu = {
       FILE_TOO_LARGE: 'Файл слишком большой',
       TOO_MANY_FILES: 'Слишком много файлов за раз',
       NO_FILES: 'Выберите файл',
+      BAD_PROJECT: 'Этот проект вам недоступен',
+      BAD_OBJECT: 'Этот объект вам недоступен',
+      BAD_DEAL: 'Эта сделка вам недоступна',
+      BAD_CONTRACT: 'Этот договор вам недоступен',
+      BAD_SUPPLIER: 'Контрагент не найден',
     },
     drop: {
       title: 'Перетащите счёт сюда',

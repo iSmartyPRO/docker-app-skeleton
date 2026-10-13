@@ -15,6 +15,7 @@ import {
   markerFont,
   markerFromContour,
   nextUnplaced,
+  nudgeStep,
   pickMarker,
   presetRadius as clientPreset,
   readableText,
@@ -189,4 +190,22 @@ test('place next: the next unplaced object in list order, wrapping around', () =
   assert.equal(nextUnplaced(list, new Set([1, 2, 3, 4, 5]), 5), null);
   assert.equal(nextUnplaced(list, new Set(), null).id, 1);
   assert.equal(nextUnplaced([], new Set(), null), null);
+});
+
+test('presets stay within the bounds of a small drawing; a nudge always moves', () => {
+  const small = { width: 120, height: 80 };
+  // 0.55 % of 120 is 0.7 — below the 2-unit minimum the server enforces.
+  for (const size of ['S', 'M', 'L']) {
+    assert.equal(presetRadius(small, size), 2);
+    assert.equal(clientPreset(small, size), 2);
+    assert.ok(cleanMarker({ x: 10, y: 10, r: clientPreset(small, size) }, small), 'the server takes what the editor sends');
+  }
+  assert.equal(cleanMarker({ x: 10, y: 10, r: 'S' }, small).r, 2);
+  // Unchanged on a normal plan.
+  assert.equal(presetRadius(WH, 'S'), 18.4);
+  // Arrow keys: 1 screen px at a high zoom is still one step of the stored precision.
+  assert.equal(nudgeStep(1, 40), 0.1);
+  assert.equal(nudgeStep(1, 1), 1);
+  assert.equal(nudgeStep(10, 4), 2.5);
+  assert.equal(nudgeStep(1, 0), 1, 'no scale yet');
 });

@@ -13,7 +13,8 @@ import { AFTER_APPROVAL } from './logic.js';
  *   procurement.pay       sees approved requests (to pay onward), marks payments
  *   everyone else         their own (author, responsible, creator), those of
  *                         colleagues from their groups (setting groupVisibility;
- *                         drafts stay private), and those where they take part
+ *                         drafts stay private; the default group everyone is
+ *                         in does not count), and those where they take part
  *                         in the approval (isParticipant: approver, substitute,
  *                         delegate, question target)
  *   procurement.create    files requests (unless anyoneCanCreate is on)
@@ -78,7 +79,9 @@ export async function visibleSql(ctx, p) {
   const me = p.add(ctx.userId);
   const parts = [`r.author_id = ${me}`, `r.responsible_id = ${me}`, `r.created_by = ${me}`];
   if (ctx.settings?.groupVisibility && ctx.groupIds.length) {
-    parts.push(`(r.status <> 'draft' AND EXISTS (SELECT 1 FROM user_group_members gm WHERE gm.user_id = r.author_id AND gm.group_id = ANY(${p.add(ctx.groupIds)}::int[])))`);
+    // The default group (everyone is in it) is not "a group in common".
+    parts.push(`(r.status <> 'draft' AND EXISTS (SELECT 1 FROM user_group_members gm JOIN app_groups gg ON gg.id = gm.group_id AND gg.is_default = FALSE
+      WHERE gm.user_id = r.author_id AND gm.group_id = ANY(${p.add(ctx.groupIds)}::int[])))`);
   }
   if (ctx.canPay) parts.push(`r.status = ANY(${p.add(AFTER_APPROVAL)}::text[])`);
   const sets = await principalParams(ctx);
@@ -116,7 +119,11 @@ export async function canSee(ctx, row) {
   if (roles.author || roles.responsible) return true;
   if (ctx.canPay && AFTER_APPROVAL.includes(row.status)) return true;
   if (ctx.settings?.groupVisibility && row.status !== 'draft' && ctx.groupIds.length && row.author_id) {
-    const { rows } = await query(`SELECT 1 FROM user_group_members WHERE user_id = $1 AND group_id = ANY($2::int[]) LIMIT 1`, [row.author_id, ctx.groupIds]);
+    const { rows } = await query(
+      `SELECT 1 FROM user_group_members m JOIN app_groups g ON g.id = m.group_id AND g.is_default = FALSE
+       WHERE m.user_id = $1 AND m.group_id = ANY($2::int[]) LIMIT 1`,
+      [row.author_id, ctx.groupIds]
+    );
     if (rows.length) return true;
   }
   return isParticipant(ctx.req, APPROVAL_TYPE, String(row.id));

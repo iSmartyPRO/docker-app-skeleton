@@ -73,6 +73,26 @@ export async function acceptDueAt(project, important, from = new Date()) {
   return new Date(new Date(from).getTime() + hours * 3600 * 1000).toISOString();
 }
 
+/**
+ * A task that was completed before anyone accepted it is reopened: reopened
+ * by its assignee (or the assignee is its originator) it counts as accepted
+ * ('accept'); otherwise the time to accept starts over from now ('restart'),
+ * instead of the task showing up as «не принята» at once.
+ */
+export function reopenAcceptance({ actorId, assigneeId, originatorId }) {
+  if (!assigneeId) return null;
+  return actorId === assigneeId || assigneeId === originatorId ? 'accept' : 'restart';
+}
+
+/**
+ * A new acceptance deadline re-arms the "not accepted in time" notice only
+ * while it is still ahead: a deadline already passed (and announced) stays
+ * announced, so nobody is told twice.
+ */
+export function rearmsAcceptNotice(dueAt, now = Date.now()) {
+  return Boolean(dueAt) && new Date(dueAt).getTime() > now;
+}
+
 /** The project's acceptance hours from a request body: a number, or null for "as in the settings". */
 export function parseProjectHours(value) {
   if (value === null || value === '' || value === undefined) return null;

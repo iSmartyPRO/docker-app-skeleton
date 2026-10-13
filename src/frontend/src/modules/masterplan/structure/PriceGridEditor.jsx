@@ -11,10 +11,11 @@ import PaymentOptions from '../components/PaymentOptions';
 import '../mp-pricing.css';
 
 const MODES = ['base', 'ppm', 'markup'];
-const DEFAULT_PLANS = [
+/** A first version's plans, named in the person's language (the names are saved as typed and can be changed). */
+const defaultPlans = (t) => [
   { name: '100%', mode: 'base', firstPct: 100, months: 0 },
-  { name: 'Рассрочка 50%', mode: 'ppm', ppm: null, firstPct: 50, months: 12 },
-  { name: 'Рассрочка 30%', mode: 'ppm', ppm: null, firstPct: 30, months: 24 },
+  { name: t('mp.grid.defaultPlan', { pct: 50 }), mode: 'ppm', ppm: null, firstPct: 50, months: 12 },
+  { name: t('mp.grid.defaultPlan', { pct: 30 }), mode: 'ppm', ppm: null, firstPct: 30, months: 24 },
 ];
 
 /** Which version of each grid (project-wide or a type's) is in force today. */
@@ -69,7 +70,7 @@ export default function PriceGridEditor() {
       effectiveFrom: todayISO(),
       plannedPpm: current?.plannedPpm ?? null,
       note: '',
-      plans: (current?.plans || DEFAULT_PLANS).map((plan) => ({ ...plan })),
+      plans: (current?.plans || defaultPlans(t)).map((plan) => ({ ...plan })),
     });
   };
   const setPlan = (index, patch) => setDraft((prev) => ({ ...prev, plans: prev.plans.map((plan, i) => (i === index ? { ...plan, ...patch } : plan)) }));
@@ -106,7 +107,7 @@ export default function PriceGridEditor() {
   const previewProject = draft && sample ? { pricing: { grids: [{ ...draft, typeId: null, currency: project.currency, plans: draft.plans.map((plan, i) => ({ ...plan, key: `p${i}`, months: plan.firstPct >= 100 ? 0 : plan.months })) }] } } : null;
 
   if (!data) return <Skeleton active paragraph={{ rows: 6 }} />;
-  const priceOf = (plan, currency) => (plan.mode === 'base' ? t('mp.grid.basePrice') : plan.mode === 'ppm' ? `${formatMoney(plan.ppm, currency, locale)} / м²` : `${plan.markupPct > 0 ? '+' : ''}${formatPercent(plan.markupPct, locale)}`);
+  const priceOf = (plan, currency) => (plan.mode === 'base' ? t('mp.grid.basePrice') : plan.mode === 'ppm' ? t('mp.measure.perSqm', { price: formatMoney(plan.ppm, currency, locale) }) : `${plan.markupPct > 0 ? '+' : ''}${formatPercent(plan.markupPct, locale)}`);
   const today = data.today;
   return (
     <div className="mp-grids">
@@ -145,7 +146,7 @@ export default function PriceGridEditor() {
                 <Input value={plan.name} onChange={(event) => setPlan(index, { name: event.target.value })} maxLength={60} aria-label={t('mp.grid.planName')} />
                 <Select value={plan.mode} onChange={(mode) => setPlan(index, { mode })} options={MODES.map((mode) => ({ value: mode, label: t(`mp.grid.modes.${mode}`) }))} aria-label={t('mp.grid.mode')} />
                 {plan.mode === 'ppm' ? (
-                  <InputNumber value={plan.ppm} onChange={(ppm) => setPlan(index, { ppm })} min={0} style={{ width: '100%' }} addonAfter={`${project.currency}/м²`} aria-label={t('mp.grid.price')} />
+                  <InputNumber value={plan.ppm} onChange={(ppm) => setPlan(index, { ppm })} min={0} style={{ width: '100%' }} addonAfter={t('mp.measure.perSqmShort', { price: project.currency })} aria-label={t('mp.grid.price')} />
                 ) : plan.mode === 'markup' ? (
                   <InputNumber value={plan.markupPct} onChange={(markupPct) => setPlan(index, { markupPct })} style={{ width: '100%' }} addonAfter="%" aria-label={t('mp.grid.price')} />
                 ) : (
@@ -165,7 +166,7 @@ export default function PriceGridEditor() {
           <div className="form-grid-2">
             <label className="mp-ffield">
               <span>{t('mp.grid.planned')}</span>
-              <InputNumber value={draft.plannedPpm} onChange={(plannedPpm) => setDraft({ ...draft, plannedPpm })} min={0} style={{ width: '100%' }} addonAfter={`${project.currency}/м²`} />
+              <InputNumber value={draft.plannedPpm} onChange={(plannedPpm) => setDraft({ ...draft, plannedPpm })} min={0} style={{ width: '100%' }} addonAfter={t('mp.measure.perSqmShort', { price: project.currency })} />
             </label>
             <label className="mp-ffield">
               <span>{t('mp.grid.note')}</span>

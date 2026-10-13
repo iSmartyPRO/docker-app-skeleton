@@ -74,13 +74,18 @@ export default function UnitCard({ nodeId: openId, version, onClose, onChanged, 
   const [migrate, setMigrate] = useState(null);
   const [tab, setTab] = useState('overview');
 
+  // Only the newest request's answer shows: walking to another node (or a reload) while one is under way never brings back the old card.
+  const loads = useRef(0);
   const load = useCallback(async () => {
+    const n = ++loads.current;
     try {
       const res = await mpApi.node(nodeId, presentation);
+      if (n !== loads.current) return null;
       setCard(res.data);
       setError(null);
       return res.data;
     } catch (err) {
+      if (n !== loads.current) return null;
       setError(err);
       return null;
     }
@@ -111,7 +116,8 @@ export default function UnitCard({ nodeId: openId, version, onClose, onChanged, 
   }, [unitsSignature]);
 
   useEffect(() => {
-    const onKey = (event) => event.key === 'Escape' && !document.querySelector('.ant-modal-wrap') && onClose?.();
+    // Esc in a dialog or in the photo viewer (.mpr-lb) closes that, not the card.
+    const onKey = (event) => event.key === 'Escape' && !document.querySelector('.ant-modal-wrap, .mpr-lb') && onClose?.();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
@@ -238,7 +244,7 @@ export default function UnitCard({ nodeId: openId, version, onClose, onChanged, 
             {unit.price !== undefined && (
               <div className="mp-card__price">
                 <Money amount={unit.price} currency={unit.currency} />
-                {unit.pricePerM2 && <span>{formatMoney(Math.round(unit.pricePerM2), unit.currency, locale)} / м²</span>}
+                {unit.pricePerM2 && <span>{t('mp.measure.perSqm', { price: formatMoney(Math.round(unit.pricePerM2), unit.currency, locale) })}</span>}
                 {actions.editPrice && (
                   <Tooltip title={t('mp.card.editPrice')}>
                     <button type="button" className="mp-iconbtn" onClick={() => setPrice({ value: unit.price, reason: '' })} aria-label={t('mp.card.editPrice')}>✎</button>

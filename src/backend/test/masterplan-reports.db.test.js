@@ -194,3 +194,92 @@ test('database: report rights, photo files, progress and readiness after delete 
   await C.deleteReport(admin, b.id);
   await readinessOk(ids[2]);
 });
+
+test('database: moderated corrections, "last report" after delete, report history visibility, crossing moves', { skip }, async () => {
+  db = db || (await import('../config/database.js'));
+  const { ensureMasterplanSchema } = await import('../modules/masterplan/schema.js');
+  await ensureMasterplanSchema();
+  const { updateAdminSettings } = await import('../services/settings.js');
+  await updateAdminSettings({ modules: { masterplan: { enabled: true } } });
+  const { rows: users } = await db.query(`SELECT id FROM users WHERE is_active IS NOT FALSE ORDER BY id LIMIT 4`);
+  assert.ok(users.length >= 4, 'the test database needs four users');
+  const [adminId, aId, bId, cId] = users.map((row) => row.id);
+  const { mpSettings } = await import('../modules/masterplan/access.js');
+  const { createProject } = await import('../modules/masterplan/projects.js');
+  const { createNode, bulkCreate, bulkMove, moveNode, nodeEvents } = await import('../modules/masterplan/nodes.js');
+  const C = await import('../modules/masterplan/construction.js');
+  const settings = await mpSettings();
+  const ctxOf = (userId, roles, assignments = []) => ({ userId, globalRoles: new Set(roles), isAdmin: roles.includes('admin'), assignments, settings, request: null });
+  const admin = ctxOf(adminId, ['admin']);
+  const project = await createProject(admin, { name: `DBTEST-MOD ${Date.now()}`, currency: 'USD', settings: { moderation: true } });
+  projects.push(project.id);
+  const pid = project.id;
+  const { rows: types } = await db.query(`SELECT id FROM mp_types WHERE key = 'cottage'`);
+  const sector = await createNode(admin, { projectId: pid, kind: 'level', levelKey: 'sector', code: 'MA' });
+  const { ids } = await bulkCreate(admin, { projectId: pid, parentId: sector.id, kind: 'object', typeId: types[0].id, prefix: 'MA-', from: 1, count: 2 });
+  const { rows: stages } = await db.query(`SELECT id FROM mp_stages WHERE set_key = 'lowrise' AND archived_at IS NULL ORDER BY sort, id`);
+  const stageId = stages[0].id;
+  const foreman = ctxOf(aId, [], [{ projectId: pid, nodeId: sector.id, role: 'foreman' }]);
+  const head = ctxOf(bId, [], [{ projectId: pid, nodeId: sector.id, role: 'construction_head' }]);
+  const seller = ctxOf(cId, [], [{ projectId: pid, nodeId: null, role: 'sales' }]);
+  const percent = async (nodeId) => Number((await db.query(`SELECT percent FROM mp_node_stages WHERE node_id = $1 AND stage_id = $2`, [nodeId, stageId])).rows[0]?.percent ?? 0);
+  const nodeRow = async (nodeId) => (await db.query(`SELECT last_report_at, stale_notified_at FROM mp_nodes WHERE id = $1`, [nodeId])).rows[0];
+
+  // ── Moderated: the foreman's report waits, the head publishes it.
+  const r = await C.createReport(foreman, { projectId: pid, nodeIds: [ids[0]], stageId, percent: 40 });
+  assert.equal(r.status, 'review');
+  assert.equal(await percent(ids[0]), 0);
+  await C.reviewReport(head, r.id, { action: 'publish' });
+  assert.equal(await percent(ids[0]), 40);
+  // The author fixes the text within the window: stays published.
+  assert.equal((await C.updateReport(foreman, r.id, { body: 'Фундамент' })).status, 'published');
+  // A new percent goes back to review, its progress taken back until published again.
+  const back = await C.updateReport(foreman, r.id, { percent: 70 });
+  assert.equal(back.status, 'review');
+  assert.equal(await percent(ids[0]), 0, 'not counted while under review');
+  assert.equal((await nodeRow(ids[0])).last_report_at, null, 'no published report left on the object');
+  const again = await C.reviewReport(head, r.id, { action: 'publish' });
+  assert.equal(again.status, 'published');
+  assert.equal(await percent(ids[0]), 70);
+  // A moderator's own correction stays published.
+  assert.equal((await C.updateReport(head, r.id, { percent: 75 })).status, 'published');
+  assert.equal(await percent(ids[0]), 75);
+
+  // ── "Last report" after a delete: the newest remaining published report, stale reminders re-armed.
+  const older = await C.createReport(admin, { projectId: pid, nodeIds: [ids[1]], stageId, percent: 10 });
+  await db.query(`UPDATE mp_reports SET published_at = NOW() - INTERVAL '20 days' WHERE id = $1`, [older.id]);
+  const newer = await C.createReport(admin, { projectId: pid, nodeIds: [ids[1]], stageId, percent: 20 });
+  await db.query(`UPDATE mp_nodes SET stale_notified_at = NOW() WHERE id = $1`, [ids[1]]);
+  await C.deleteReport(admin, newer.id);
+  const row = await nodeRow(ids[1]);
+  assert.ok(Date.now() - new Date(row.last_report_at).getTime() > 19 * 86400000, 'back to the older report');
+  assert.equal(row.stale_notified_at, null);
+  await C.deleteReport(admin, older.id);
+  assert.equal((await nodeRow(ids[1])).last_report_at, null);
+
+  // ── History: an internal report's stage and percent stay with the construction team.
+  const internal = await C.createReport(admin, { projectId: pid, nodeIds: [ids[1]], stageId, percent: 30, visibility: 'internal' });
+  const kindsFor = async (ctx) => (await nodeEvents(ctx, ids[1])).events.filter((event) => event.data.reportId === internal.id).map((event) => event.kind);
+  assert.deepEqual(await kindsFor(seller), []);
+  assert.ok((await kindsFor(foreman)).includes('report'));
+  const visible = (await nodeEvents(foreman, ids[1])).events.find((event) => event.data.reportId === internal.id);
+  assert.equal(visible.data.visibility, undefined, 'the bookkeeping fields stay on the server');
+  // A public report is seen by sales; an entry about a deleted report written before visibility was recorded counts as internal.
+  const open = await C.createReport(admin, { projectId: pid, nodeIds: [ids[1]], stageId, percent: 35 });
+  assert.ok((await nodeEvents(seller, ids[1])).events.some((event) => event.data.reportId === open.id));
+  await C.deleteReport(admin, open.id);
+  await db.query(`UPDATE mp_events SET data = data - 'visibility' - 'reportStatus' - 'reportAuthorId' WHERE node_id = $1 AND (data->>'reportId')::int = $2`, [ids[1], open.id]);
+  assert.ok(!(await nodeEvents(seller, ids[1])).events.some((event) => event.data.reportId === open.id));
+
+  // ── Crossing moves at once (X under Y, Y under X): one wins, no cycle.
+  const x = await createNode(admin, { projectId: pid, kind: 'level', levelKey: 'sector', code: 'MX' });
+  const y = await createNode(admin, { projectId: pid, kind: 'level', levelKey: 'sector', code: 'MY' });
+  const results = await Promise.allSettled([moveNode(admin, x.id, { parentId: y.id }), bulkMove(admin, { ids: [y.id], parentId: x.id })]);
+  assert.equal(results.filter((item) => item.status === 'fulfilled').length, 1, 'exactly one move passes');
+  assert.equal(results.find((item) => item.status === 'rejected').reason.code, 'INVALID_PARENT');
+  const { rows: tree } = await db.query(`SELECT id, parent_id, path FROM mp_nodes WHERE id = ANY($1::int[])`, [[x.id, y.id]]);
+  assert.equal(tree.filter((item) => item.parent_id === null).length, 1, 'one of them stays at the root');
+  for (const item of tree) assert.equal(new Set(item.path).size, item.path.length, 'no repeated ancestors');
+  // More than one bulk move takes: refused with a clear error, not truncated.
+  await assert.rejects(bulkMove(admin, { ids: Array.from({ length: 501 }, (_, i) => i + 1), parentId: null }), (err) => err.code === 'BULK_LIMIT');
+});

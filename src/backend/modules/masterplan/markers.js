@@ -28,10 +28,10 @@ export function markerBounds(plan) {
   return { min: Math.max(2, Math.round(side * 0.002 * 10) / 10), max: Math.round(side * 0.08 * 10) / 10, side };
 }
 
-/** A preset's radius for a plan ('S' | 'M' | 'L'), rounded to 0.1. */
+/** A preset's radius for a plan ('S' | 'M' | 'L'), within the plan's bounds, rounded to 0.1. */
 export function presetRadius(plan, size = 'M') {
-  const { side } = markerBounds(plan);
-  return Math.round(side * (MARKER_SIZE_SHARE[size] || MARKER_SIZE_SHARE.M) * 10) / 10;
+  const { min, max, side } = markerBounds(plan);
+  return Math.round(Math.max(min, Math.min(max, side * (MARKER_SIZE_SHARE[size] || MARKER_SIZE_SHARE.M))) * 10) / 10;
 }
 
 /**

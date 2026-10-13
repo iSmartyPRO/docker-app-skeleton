@@ -98,7 +98,7 @@ export default function PriceChart({ data }) {
           <g pointerEvents="none">
             <line className="grid" x1={model.sx(hover.p.x)} x2={model.sx(hover.p.x)} y1={PAD.t} y2={H - PAD.b} />
             <text x={Math.min(model.sx(hover.p.x) + 8, W - 190)} y={PAD.t + 12} style={{ fill: 'var(--da-text)', fontWeight: 600 }}>
-              {`${hover.s.name}: ${money(hover.p.y)} / м² · ${fmtDate(hover.p.date)}`}
+              {`${hover.s.name}: ${t('mp.measure.perSqm', { price: money(hover.p.y) })} · ${fmtDate(hover.p.date)}`}
             </text>
           </g>
         )}
@@ -117,7 +117,7 @@ export default function PriceChart({ data }) {
         <table className="mp-dtable">
           <tbody>
             {model.series.flatMap((s) => s.points.filter((p) => !p.step).map((p) => (
-              <tr key={`${s.key}-${p.x}`}><td>{s.name}</td><td>{fmtDate(p.date)}</td><td className="is-num">{money(p.y)} / м²</td></tr>
+              <tr key={`${s.key}-${p.x}`}><td>{s.name}</td><td>{fmtDate(p.date)}</td><td className="is-num">{t('mp.measure.perSqm', { price: money(p.y) })}</td></tr>
             )))}
           </tbody>
         </table>

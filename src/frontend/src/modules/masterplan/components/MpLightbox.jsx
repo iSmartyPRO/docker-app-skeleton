@@ -38,7 +38,8 @@ export default function MpLightbox({ items, index, onIndex, onClose, report, onD
   const item = items[index];
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [loaded, setLoaded] = useState(false);
+  // Which item's image has loaded (by id, not a flag reset after the switch: a cached image may load before that reset).
+  const [loadedId, setLoadedId] = useState(null);
   const [info, setInfo] = useState(() => typeof window !== 'undefined' && window.innerWidth > 1100);
   const drag = useRef(null);
   const pinch = useRef(null);
@@ -52,7 +53,6 @@ export default function MpLightbox({ items, index, onIndex, onClose, report, onD
 
   useEffect(() => {
     reset();
-    setLoaded(false);
   }, [index, reset]);
 
   const go = useCallback((delta) => {
@@ -79,7 +79,11 @@ export default function MpLightbox({ items, index, onIndex, onClose, report, onD
   useEffect(() => {
     const onKey = (event) => {
       if (confirming.current) return;
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        // Esc closes the viewer only, not the card or dialog under it (listening in the capture phase, first).
+        event.stopImmediatePropagation();
+        onClose();
+      }
       else if (event.key === 'ArrowRight') go(1);
       else if (event.key === 'ArrowLeft') go(-1);
       else if (event.key === '+' || event.key === '=') setZoom((value) => Math.min(MAX, value * 1.25));
@@ -90,10 +94,10 @@ export default function MpLightbox({ items, index, onIndex, onClose, report, onD
     };
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
     return () => {
       document.body.style.overflow = overflow;
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
     };
   }, [go, onClose, reset, remove, onDelete]);
 
@@ -111,6 +115,12 @@ export default function MpLightbox({ items, index, onIndex, onClose, report, onD
 
   if (!item) return null;
   const video = isVideo(item);
+  const loaded = loadedId === item.id;
+  const shown = item.id;
+  // An image already complete when it mounts (from the cache) counts as loaded at once.
+  const imageRef = (img) => {
+    if (img?.complete && img.naturalWidth > 0 && loadedId !== shown) setLoadedId(shown);
+  };
 
   const onWheel = (event) => {
     if (video) return;
@@ -223,7 +233,8 @@ export default function MpLightbox({ items, index, onIndex, onClose, report, onD
               src={item.url}
               alt={item.name}
               draggable={false}
-              onLoad={() => setLoaded(true)}
+              ref={imageRef}
+              onLoad={() => setLoadedId(shown)}
               style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`, opacity: loaded ? 1 : 0 }}
             />
           )}

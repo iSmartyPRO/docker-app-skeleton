@@ -32,6 +32,7 @@ import {
   readyErrors,
 } from './logic.js';
 import { procurementMessage } from './messages.js';
+import { validateLinks } from './lookups.js';
 
 /*
  * Purchase requests: CRUD, lists with chips and counters, the card, the
@@ -556,9 +557,10 @@ async function writeItems(client, requestId, items) {
 }
 
 /** POST /requests: a new draft (the form autosaves into it). */
-export async function createRequest(req, input = {}) {
+export async function createRequest(req, input = {}, { dropLinks = false } = {}) {
   const ctx = await contextOf(req);
   if (!ctx.canCreate) throw httpError(403, 'You cannot file purchase requests', 'FORBIDDEN');
+  input = await validateLinks(req, { ...input }, {}, { drop: dropLinks });
   const settings = ctx.settings;
   const patch = await cleanPatch({ currency: settings.currency, ...input }, settings);
   const moneyValues = moneyPatch(input) || { hasItems: false, items: [], amount: 0 };
@@ -597,6 +599,10 @@ export async function updateRequest(req, id, input = {}) {
   if (!(roles.author || roles.responsible || roles.admin)) throw httpError(403, 'Only the author, the responsible person or an administrator can edit', 'FORBIDDEN');
   const full = EDITABLE.includes(row.status);
   if (!full && ['closed', 'cancelled', 'rejected'].includes(row.status)) throw httpError(409, 'The request is finished', 'LOCKED');
+  input = { ...input };
+  // After approval the supplier is locked (cleanPatch ignores it): nothing to check.
+  if (!full) delete input.supplierCompanyId;
+  input = await validateLinks(req, input, row);
   const patch = await cleanPatch(input, ctx.settings, { secondaryOnly: !full });
   const moneyValues = full ? moneyPatch(input) : null;
   if (!full && (input.amount !== undefined || input.items !== undefined) && moneyValues === null) {
@@ -627,7 +633,11 @@ export async function updateRequest(req, id, input = {}) {
     if (fields.length && row.status !== 'draft') await logEvent(client, row.id, ctx.userId, 'updated', { fields });
   });
   if (patch.responsible_id && patch.responsible_id !== row.responsible_id && patch.responsible_id !== ctx.userId) notifyAssigned({ ...row, responsible_id: patch.responsible_id }, ctx.userId);
-  if (IN_APPROVAL.includes(row.status) || row.status === 'returned') await refreshApproval(APPROVAL_TYPE, row.id).catch(() => {});
+  // The process follows the request: its summary, and the stages not reached yet re-planned
+  // when the amount, category, project or legal entity changed (docs/approvals.md#replanning).
+  if (IN_APPROVAL.includes(row.status) || row.status === 'returned') {
+    await refreshApproval(APPROVAL_TYPE, row.id, { actorId: ctx.userId }).catch((err) => console.warn('[procurement] approval refresh failed:', err.message));
+  }
   if (changes.length && row.status !== 'draft') webhook('procurement.updated', await loadRow(row.id), ctx.userId);
   return getRequest(req, row.id);
 }
@@ -642,6 +652,15 @@ export async function deleteRequest(req, id) {
   await query(`DELETE FROM proc_requests WHERE id = $1`, [row.id]);
   webhook('procurement.deleted', row, ctx.userId);
 }
+
+/**
+ * The approvals engine lets only the process author (or a manager) send a
+ * returned document again or withdraw it; this module also lets the
+ * responsible person do so (ACTIONS in logic.js). Once the module has
+ * checked the role, the engine is called on the module's behalf, still in
+ * the person's name (history, notifications).
+ */
+const moduleActor = (req) => ({ system: true, user: req.user });
 
 function assertAction(action, ctx, row, extra = {}) {
   const error = actionError(action, row.status, rolesOn(ctx, row), extra);
@@ -662,16 +681,17 @@ export async function submitRequest(req, id, input = {}) {
     const keys = await urgencyKeys();
     if (keys.includes(input.urgency)) await query(`UPDATE proc_requests SET urgency = $2 WHERE id = $1`, [row.id, input.urgency]);
   }
-  const process = row.approval_status === 'returned' ? await restart(req, APPROVAL_TYPE, String(row.id), options) : await startApproval(req, APPROVAL_TYPE, String(row.id), options);
+  if (row.approval_status === 'returned') await restart(moduleActor(req), APPROVAL_TYPE, String(row.id), options);
+  else await startApproval(req, APPROVAL_TYPE, String(row.id), options);
   webhook('procurement.submitted', await loadRow(row.id), ctx.userId);
-  return { ...(await getRequest(req, row.id)), process };
+  return { ...(await getRequest(req, row.id)), process: await getProcess(APPROVAL_TYPE, String(row.id), req) };
 }
 
 /** POST /requests/:id/withdraw: back to draft (through the approvals service). */
 export async function withdrawRequest(req, id, input = {}) {
   const { ctx, row } = await visibleRow(req, id);
   assertAction('withdraw', ctx, row);
-  await withdraw(req, APPROVAL_TYPE, String(row.id), { comment: input.comment });
+  await withdraw(moduleActor(req), APPROVAL_TYPE, String(row.id), { comment: input.comment });
   return getRequest(req, row.id);
 }
 
@@ -682,7 +702,7 @@ async function moveStatus(req, id, action, input = {}) {
   const comment = text(input.comment, 2000);
   if (action === 'cancel' && ['pending', 'question', 'returned'].includes(row.status)) {
     // Take it back from the approvers first; their inbox empties.
-    await withdraw(req, APPROVAL_TYPE, String(row.id), { comment });
+    await withdraw(moduleActor(req), APPROVAL_TYPE, String(row.id), { comment });
   }
   const next = await withTransaction(async (client) => {
     const { rows } = await client.query(`SELECT * FROM proc_requests WHERE id = $1 FOR UPDATE`, [row.id]);
@@ -727,7 +747,8 @@ export async function duplicateRequest(req, id) {
   const settings = (await contextOf(req)).settings;
   if (!settings.currencies.includes(input.currency)) input.currency = settings.currency;
   if (input.category && !settings.categories.some((item) => item.key === input.category)) input.category = null;
-  return createRequest(req, input);
+  // Links the person cannot open in their modules are left out of the copy.
+  return createRequest(req, input, { dropLinks: true });
 }
 
 // ── History ─────────────────────────────────────────────────────────────────

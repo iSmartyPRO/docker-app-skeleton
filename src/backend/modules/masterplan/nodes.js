@@ -2,7 +2,7 @@ import { query, withTransaction } from '../../config/database.js';
 import { httpError } from '../shared/acl.js';
 import { FINISHINGS, HELD, MAX_DEPTH, NODE_KINDS, PAYMENT_FORMS } from './constants.js';
 import { canConfigure, forbidden, notFound, requireConfigure, requireNode, requireProject } from './access.js';
-import { actCaps, apartmentGrid, bulkCodes, checkExtend, has, nextStatuses, priceCutAllowed, readCaps, rolesAt } from './rules.js';
+import { actCaps, apartmentGrid, bulkCodes, checkExtend, has, nextStatuses, priceCutAllowed, readCaps, REPORT_EVENTS, reportEventVisible, rolesAt } from './rules.js';
 import { inheritReadiness, loadNodeRow, loadNodes, NODE_SELECT, visibleNode } from './shapes.js';
 import { projectSettings } from './projects.js';
 import { treeChanged, unitsChanged } from './realtime.js';
@@ -171,6 +171,8 @@ async function insertNode(client, ctx, project, parent, { kind, levelKey, type, 
 
 async function parentOf(client, project, parentId) {
   if (!parentId) return null;
+  // A parent being moved right now: wait, so the new node gets its final path.
+  await lockTree(client, project.id);
   const { rows } = await client.query(`SELECT * FROM mp_nodes WHERE id = $1 AND project_id = $2`, [parentId, project.id]);
   if (!rows[0]) throw httpError(400, 'Unknown parent', 'INVALID_PARENT');
   return rows[0];
@@ -349,6 +351,21 @@ export function versionConflict(nodeId) {
  * same project, not into itself or its subtree, the tree stays ≤ MAX_DEPTH.
  * `node` = a fresh row (path, depth, parent_id). Writes a `moved` event.
  */
+const TREE_LOCK = 0x4d54; // 'MT'
+
+/**
+ * Serialises tree moves within one project (transaction-scoped advisory
+ * lock): two crossing moves (A under B while B goes under A) could otherwise
+ * both pass the "not into its own subtree" check and close a cycle.
+ */
+export async function lockTree(client, projectId) {
+  await client.query(`SELECT pg_advisory_xact_lock($1, $2)`, [TREE_LOCK, projectId]);
+}
+
+/** Most nodes moved in one bulk action. */
+export const BULK_MOVE_MAX = 500;
+
+/** Call under lockTree. */
 async function moveWithin(client, ctx, node, parentId, sort, extra = {}) {
   let parentPath = [];
   if (parentId) {
@@ -377,7 +394,13 @@ export async function moveNode(ctx, id, input) {
   const node = await requireNode(ctx, id);
   requireConfigure(ctx, node.project_id);
   const parentId = intOr(input.parentId) || null;
-  await withTransaction(async (client) => moveWithin(client, ctx, node, parentId, input.sort));
+  await withTransaction(async (client) => {
+    await lockTree(client, node.project_id);
+    // Fresh path / depth after the lock: a concurrent move may have changed them.
+    const { rows } = await client.query(`SELECT * FROM mp_nodes WHERE id = $1 FOR UPDATE`, [node.id]);
+    if (!rows[0]) throw notFound('Object not found');
+    await moveWithin(client, ctx, rows[0], parentId, input.sort);
+  });
   treeChanged(node.project_id);
   return getNode(ctx, node.id);
 }
@@ -389,7 +412,8 @@ export async function moveNode(ctx, id, input) {
  * { ids, parentId } → { moved, ids }.
  */
 export async function bulkMove(ctx, input = {}) {
-  const ids = idList(input.ids, 500);
+  const ids = idList(input.ids, BULK_MOVE_MAX + 1);
+  if (ids.length > BULK_MOVE_MAX) throw httpError(400, `At most ${BULK_MOVE_MAX} objects at once`, 'BULK_LIMIT');
   if (!ids.length) throw httpError(400, 'Choose objects', 'EMPTY');
   const parentId = intOr(input.parentId) || null;
   const { rows } = await query(`SELECT * FROM mp_nodes WHERE id = ANY($1::int[])`, [ids]);
@@ -403,9 +427,11 @@ export async function bulkMove(ctx, input = {}) {
   const top = ids.map((id) => rows.find((row) => row.id === id)).filter((row) => !row.path.slice(0, -1).some((up) => chosen.has(up)));
   const moved = [];
   await withTransaction(async (client) => {
+    await lockTree(client, projectId);
     for (const row of top) {
-      // Fresh path / depth: an earlier move of this batch never changes it (they are disjoint subtrees), but read under the transaction anyway.
+      // Fresh path / depth under the lock (an earlier move of this batch never changes it: they are disjoint subtrees).
       const { rows: fresh } = await client.query(`SELECT * FROM mp_nodes WHERE id = $1 FOR UPDATE`, [row.id]);
+      if (!fresh[0]) throw notFound('Object not found');
       if (parentId === fresh[0].parent_id) continue;
       await moveWithin(client, ctx, fresh[0], parentId, null, { bulk: top.length });
       moved.push(row.id);
@@ -562,8 +588,22 @@ export async function nodeEvents(ctx, id, { before } = {}) {
     `SELECT e.*, COALESCE(u.display_name, u.username) AS author_name FROM mp_events e LEFT JOIN users u ON u.id = e.author_id WHERE ${where} ORDER BY e.id DESC LIMIT 51`,
     params
   );
-  const items = rows.slice(0, 50).map((row) => {
+  const page = rows.slice(0, 50);
+  // Entries about reports follow the reports' own visibility (an internal or unpublished report's stage and percent).
+  const reportIds = [...new Set(page.filter((row) => REPORT_EVENTS.has(row.kind) && Number.isInteger(Number(row.data?.reportId))).map((row) => Number(row.data.reportId)))];
+  const reports = new Map();
+  if (reportIds.length) {
+    const { rows: found } = await query(`SELECT id, status, visibility, author_id FROM mp_reports WHERE id = ANY($1::int[])`, [reportIds]);
+    for (const report of found) reports.set(report.id, report);
+  }
+  const items = page.map((row) => {
+    if (REPORT_EVENTS.has(row.kind) && !reportEventVisible(caps, ctx.userId, row, reports.get(Number(row.data?.reportId)) || null)) return null;
     const data = { ...(row.data || {}) };
+    if (REPORT_EVENTS.has(row.kind)) {
+      delete data.reportStatus;
+      delete data.visibility;
+      delete data.reportAuthorId;
+    }
     if (!has(caps, 'price.view') && row.kind === 'price') return null;
     if (!has(caps, 'status.view') && ['status', 'migration', 'booking', 'extend', 'expired', 'manager', 'crm_stage'].includes(row.kind)) return null;
     // Who holds a unit and until when: booking.view (as on the unit itself).

@@ -1,7 +1,7 @@
 import { query, withTransaction } from '../../config/database.js';
 import { notify } from '../../services/notifications.js';
 import { emitEvent } from '../../api/events.js';
-import { isoDay } from '../../services/datetime.js';
+import { formatDate, isoDay } from '../../services/datetime.js';
 import { portalRegional, requestRegional } from '../../services/regional.js';
 import { getDefaultLegalEntity, getLegalEntity } from '../../services/legalEntities.js';
 import { getProcess, refreshApproval, waitingDocIds, withdraw } from '../approvals/api.js';
@@ -55,6 +55,7 @@ export async function requestContext(req) {
   const ctx = contractsContext(req, settings);
   const regional = await requestRegional(req);
   ctx.today = isoDay(new Date(), regional.timeZone);
+  ctx.regional = regional;
   return ctx;
 }
 
@@ -543,7 +544,9 @@ export async function updateContract(ctx, id, input = {}) {
   if (RUNNING.includes(row.status) && (changes.endsOn || changes.startsOn || changes.autoRenew)) {
     await applyDates(row, ctx.today, ctx.settings, ctx.userId);
   }
-  await refreshApproval(TYPE_KEY, row.id).catch(() => null);
+  // The process follows the contract: its summary, and the stages not reached yet re-planned
+  // when the amount, type, direction or legal entity changed (docs/approvals.md#replanning).
+  await refreshApproval(TYPE_KEY, row.id, { actorId: ctx.userId }).catch((err) => console.warn('[contracts] approval refresh failed:', err.message));
   const actor = await actorNameOf(ctx.userId);
   if (changes.lawyerId && row.lawyer_id) await notifyPeople([row.lawyer_id], 'contracts.assigned', 'assigned', { role: 'lawyer', actor }, row, ctx.userId);
   if (changes.ownerId && row.owner_id) await notifyPeople([row.owner_id], 'contracts.assigned', 'assigned', { role: 'owner', actor }, row, ctx.userId);
@@ -684,9 +687,12 @@ export async function exportCsv(ctx, input, res) {
     if (rows.length >= chunk.total) break;
   }
   const lines = [CSV_HEAD[locale].join(';')];
+  // Dates as the person reads them elsewhere (their regional settings), like the procurement export.
+  const regional = ctx.regional || (await requestRegional(ctx.req));
+  const date = (value) => (value ? formatDate(value, regional, locale) : '');
   for (const c of rows) {
     lines.push(
-      [c.number, c.extNumber, c.title, c.counterparty, typeName(ctx.settings, c.typeKey, locale), c.direction ? DIRECTION[locale][c.direction] : '', c.framework ? (locale === 'ru' ? 'рамочный' : 'framework') : c.amount ?? '', c.currency, c.concludedOn, c.startsOn, c.endsOn, c.autoRenew ? (locale === 'ru' ? 'да' : 'yes') : '', statusName(c.status, locale), c.owner?.name, c.lawyer?.name]
+      [c.number, c.extNumber, c.title, c.counterparty, typeName(ctx.settings, c.typeKey, locale), c.direction ? DIRECTION[locale][c.direction] : '', c.framework ? (locale === 'ru' ? 'рамочный' : 'framework') : c.amount ?? '', c.currency, date(c.concludedOn), date(c.startsOn), date(c.endsOn), c.autoRenew ? (locale === 'ru' ? 'да' : 'yes') : '', statusName(c.status, locale), c.owner?.name, c.lawyer?.name]
         .map(csvCell)
         .join(';')
     );

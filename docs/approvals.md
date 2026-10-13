@@ -120,14 +120,16 @@ Field types: `money` (number, conditions may name a currency — then a document
 
 | Signature | Returns / notes |
 |-----------|-----------------|
-| `startApproval(ctx, type, docId, { urgency?, comment? })` | The process view. Plans the route against `load()`; no applicable stage → approved at once. `409 ALREADY_RUNNING` while pending / question. A finished process starts a new round. Needs `canView` (or a manager). |
+| `startApproval(ctx, type, docId, { urgency?, comment? })` | The process view. Plans the route against `load()`; no applicable stage → approved at once. `409 ALREADY_RUNNING` while pending / question; `409 NOT_RESTART` over a returned process (send it again with `restart`, which checks the author). An approved, rejected or withdrawn process starts a new round. Needs `canView` (or a manager); the module's `onStatus` may refuse more (e.g. only the document's people send it, readiness — also for a route where no stage applies and the start approves at once). |
 | `withdraw(ctx, type, docId, { comment? })` | Author or manager; from pending / question / returned. |
 | `restart(ctx, type, docId, { urgency?, comment? })` | After `returned`; re-plans (the document may have changed). |
 | `decide(ctx, processId \| { type, docId }, { action, comment?, to?, round?, stage? })` | `action`: `approve` / `reject` / `question` / `return` / `delegate`. |
 | `answer(ctx, processId \| { type, docId }, { comment })` | Answer to the open question. |
 | `getProcess(type, docId, ctx?)` | `null` if never sent; else the view below. No access check — check before exposing it. |
-| `refreshApproval(type, docId)` | Re-reads title, number, amount, link after the document was edited (the inbox shows a cached copy). |
+| `refreshApproval(type, docId, { actorId? })` | Re-reads title, number, amount, link after the document was edited (the inbox shows a cached copy). While the process runs it also **re-plans** the stages not reached yet (see below). |
 | `isParticipant(ctx, type, docId)` | Author, approver (now or before, incl. substitutes), question target, delegate — use it in the module's own visibility rule ("those where they are approvers"). |
+
+<a id="replanning"></a>**Re-planning.** A document edited during approval (a lawyer correcting a contract, an author changing the amount while answering a question) must not slip past a conditional stage. `refreshApproval` plans the route (the current one) against the new field values: the stages up to the current one stay as they were reached; the rest become the planned stages not reached yet, in route order — a stage whose condition now holds is added after the current stage, a stage nobody reached whose condition no longer holds is dropped. A change is logged as the history event `replanned` (`data: { added, removed }`). Modules call it after every edit of a document in approval (Procurement, Contracts), so normal work needs no extra step.
 
 Process view (`getProcess`, `GET /process/:type/:docId`):
 
@@ -226,7 +228,7 @@ Settings (`app_settings.modules.approvals.settings`, sanitized by `sanitizeAppro
 | `approvals.admin` | Every route, urgency levels and SLA settings, everyone's substitutes; sees and manages every process |
 | `<module>.admin` (the type's `adminPermission`) | The routes of that module's types, manage its processes; default escalation target |
 
-A process is visible to its participants, to managers and to whoever the module's `canView` allows; otherwise `404`. API tokens need the `approvals` area.
+A process is visible to its participants (a substitute of the person a question is addressed to included), to managers and to whoever the module's `canView` allows; otherwise `404`. API tokens need the `approvals` area **and** the area of the document's module: `read` to see its processes (inbox, `/mine`, `/decided`, process views), `write` to decide, answer, start, withdraw or send again (`403 SCOPE_DENIED`); session users are not affected. Decisions, answers, starts and restarts of a type whose module is switched off are refused (`404 MODULE_DISABLED`), as its items are hidden from the inbox.
 
 ## SLA: deadlines, reminders, escalation
 
@@ -248,7 +250,7 @@ Webhook events (area `approvals`, `approval.*`): `approval.started`, `approval.d
 |--------|------|---------|
 | GET | `/meta` | Urgency levels and SLA settings, registered types (fields, `manageable`), `canAdmin`, `canManageRoutes` |
 | GET | `/inbox[?module=]` | `{ items, failed, counts: { total, overdue, today, byModule } }` |
-| GET | `/inbox/count` | `{ total, overdue, today }` for the header badge |
+| GET | `/inbox/count[?fresh=1]` | `{ total, overdue, today }` for the header badge; cached per person for 20 s (the badge polls every minute and on focus), `fresh=1` after the person's own decision skips the cache |
 | POST | `/inbox/act` | `{ provider, id, action, comment?, to?, round?, stage? }` |
 | POST | `/inbox/bulk` | `{ items: [{ id, round, stage }] }` → per-item results |
 | GET | `/mine`, `/decided?before=` | «Мои на согласовании», «Решённые мной» |
@@ -265,4 +267,6 @@ Webhook events (area `approvals`, `approval.*`): `approval.started`, `approval.d
 ## Tests
 
 - `test/approvals.test.js` (always): route cleaning, conditions (amount with currency, category, project, legal entity), planning, all / any, restart index, SLA arithmetic, required comments, settings sanitizing and the always-on rule, inbox sorting, notification texts.
+- `test/workflows-review.test.js` (always): re-planning rules, API token scope per document module.
+- `test/approvals-review.db.test.js` (`APPROVALS_DB_TEST=1`): re-planning on `refreshApproval`, no fresh start over a returned process, token scopes in the inbox / visibility / decisions, decisions refused while the module is off, a substitute of the question's addressee.
 - `test/approvals.db.test.js` (`APPROVALS_DB_TEST=1 ENV_FILE_PATH=… node --test test/approvals.db.test.js`, a test database only): a test-only document type `test.doc` drives routing with conditions, all / any, question → answer to the same stage, reject, return → restart (first / current), delegate, substitutes, concurrent decisions, the SLA job (one reminder, one escalation), inbox aggregation with a failing provider, inline actions and permissions.

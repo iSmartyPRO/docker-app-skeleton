@@ -62,7 +62,7 @@ Header: number, status, type, direction, subject, counterparty ⇄ legal entity,
 | Подписан / Действует / Истекает → Расторгнут | `contracts.legal`, reason required |
 | Согласован / Отклонён → Проект | The contract's people or a lawyer (rework) |
 
-Fields can be changed in Проект, Нужен ответ and Отклонён by the contract's people; `contracts.legal` / `contracts.admin` also later (e.g. a new end date). In approval they are locked (`403 LOCKED`); versions, risks and links are not. The archive (Завершён, Расторгнут) is read-only except for `contracts.admin`. Only a draft (or rejected) contract can be deleted, by its creator or a lawyer.
+Fields can be changed in Проект, Нужен ответ and Отклонён by the contract's people; `contracts.legal` / `contracts.admin` also later (e.g. a new end date). In approval they are locked for the contract's people (`403 LOCKED`); versions, risks and links are not. `contracts.legal` / `contracts.admin` may still correct fields in approval — the approval then re-plans the stages not reached yet against the new amount, type, direction or legal entity ([approvals.md#replanning](approvals.md#replanning)), so a correction cannot slip past a conditional stage. The archive (Завершён, Расторгнут) is read-only except for `contracts.admin`. Only a draft (or rejected) contract can be deleted, by its creator or a lawyer.
 
 ## Approval
 
@@ -70,7 +70,7 @@ Type `contracts.contract` (`modules/contracts/approval.js`), adminPermission `co
 
 ## Versions and files
 
-`POST /contracts/:id/versions` (multipart `file`, `comment`, `signed` for lawyers). Blobs are stored under `UPLOAD_DIR/contracts/<year>/<month>/` with random names, PDF and image contents are checked against their extension (`FILE_CONTENT`), and they are served only by `GET /versions/:id/file` after the contract's access check, with `nosniff` and the sandbox CSP of Files (`shared/storage.js sendBlob`); only safe types open inline. Office files preview through the document conversion service (`/versions/:id/preview.pdf`). Limit: `maxUploadMb`.
+`POST /contracts/:id/versions` (multipart `file`, `comment`, `signed` for lawyers). Blobs are stored under `UPLOAD_DIR/contracts/<year>/<month>/` with random names, PDF and image contents are checked against their extension (`FILE_CONTENT`), and they are served only by `GET /versions/:id/file` after the contract's access check, with `nosniff` and the sandbox CSP of Files (`shared/storage.js sendBlob`); only safe types open inline. Office files preview through the document conversion service (`/versions/:id/preview.pdf`). Limit: `maxUploadMb`. The access check runs before the file is received; a blob whose version row could not be written is removed.
 
 ## Risks and discussion
 
@@ -90,7 +90,7 @@ Risks have a per-contract number (#1, #2…), text, clause, importance (high / m
 1. **Dates** (`dateTransition`): start reached → Действует; within `expiringDays` of the end → Истекает; past the end → Завершён, or — with auto-prolongation — the **next term** of the same length (whole months stay whole months, no start date = a year), recorded as «пролонгирован до …».
 2. **Reminders** (`dueReminders`), to the owner and the lawyer (the creator when neither is set): at each of `reminderDays` (30 and 7) before the **end** (contracts without auto-prolongation) and before the **refusal deadline** (`end − noticeDays`, auto-prolonged contracts). Only the smallest threshold reached is sent — a contract created 5 days before its end gets the 7-day reminder, never a late 30-day one. `(contract, kind, days, target day)` is inserted into `ctr_reminders` by the statement that decides to send, so each goes out once; a new term makes new targets.
 
-The «Ждёт меня» inbox gets a provider `contracts.deadlines` for the owner and the lawyer: a refusal deadline within 14 days, or the end of a non-prolonging contract within 7 days.
+The «Ждёт меня» inbox gets a provider `contracts.deadlines` for the owner and the lawyer: a refusal deadline (`end − noticeDays`, however long the notice period) within 14 days, or the end of a non-prolonging contract within 7 days. The SQL filters on these deadlines themselves, not on the end date.
 
 ## Access
 
@@ -148,7 +148,7 @@ Numbers are taken under `pg_advisory_xact_lock`, so two contracts created at onc
 | PUT | `/settings` | Module settings (`contracts.admin`) |
 | GET | `/contracts` | Registry: `search`, `view`, `status`, `type`, `direction`, `owner`, `lawyer`, `company`, `deal`, `legalEntity`, `sort`, `order`, `page`, `pageSize` (≤ 200) |
 | GET | `/counters` | Chip counters under the same filters |
-| GET | `/export.csv` | The list as CSV (`;`, UTF-8 BOM), same filters and rights, ≤ 5 000 rows |
+| GET | `/export.csv` | The list as CSV (`;`, UTF-8 BOM), same filters and rights, ≤ 5 000 rows; dates in the person's regional format |
 | GET | `/calendar` | `from=YYYY-MM`, `months` (≤ 24): contracts ending or with a refusal deadline |
 | POST | `/contracts` | Create (`contracts.create`) |
 | GET / PUT / DELETE | `/contracts/:id` | Card (fields, versions, risks, links, `can`) / change fields / delete a draft |
@@ -188,4 +188,5 @@ src/frontend/src/i18n/contracts.js, src/frontend/src/help/content/contracts.js
 ```
 
 - `test/contracts.test.js` (always): transitions and rights, approval → status, numbering, day arithmetic, expiring / completion / prolongation, reminders (thresholds, never late), input cleaning, settings sanitizing and «off by default», webhook and notification catalogs, notification texts with the recipient's date format.
+- `test/contracts-review.db.test.js` (`CONTRACTS_DB_TEST=1`): a refusal deadline with a long notice period in «Ждёт меня», a lawyer's correction in approval re-planning the stages (the contract's people locked out), CSV dates in the regional format.
 - `test/contracts.db.test.js` (`CONTRACTS_DB_TEST=1 ENV_FILE_PATH=… node --test test/contracts.db.test.js`, a test database only): numbering (also concurrent), visibility per role (stranger, same group, view_all, lawyer, owner, approver), versions (content check, current), risks (lawyer only), approval start → question → answer → approve with the status following, locked fields, enforced transitions, signing → in force, the expiry job (expiring, reminders 30 and 7 days each once, completion), auto-prolongation, termination reason, deleting a draft, history.

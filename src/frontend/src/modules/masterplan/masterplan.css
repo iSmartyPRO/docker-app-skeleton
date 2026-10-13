@@ -2961,3 +2961,9 @@ button.mp-chip:hover {
     height: 30px;
   }
 }
+
+/* Bulk move: more chosen than one move takes. */
+.mp-warn-text {
+  color: var(--da-error);
+  font-size: 13px;
+}

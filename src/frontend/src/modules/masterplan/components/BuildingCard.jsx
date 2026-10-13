@@ -21,7 +21,7 @@ export function roomsLabel(t, rooms, typeName) {
   return rooms === 0 ? t('mp.bld.studio') : t('mp.bld.rooms', { n: rooms });
 }
 
-/** "Свободно 18 из 23" with the bar by status, "от $X до $Y", "$a–$b / м²". */
+/** "Свободно 18 из 23" with the bar by status, "от $X до $Y", "$a–$b / m²". */
 export function BuildingHead({ building, presentation }) {
   const { t, locale } = useLocale();
   const { settings } = useMp();
@@ -45,7 +45,7 @@ export function BuildingHead({ building, presentation }) {
       {building.price && (
         <div className="mp-card__price">
           <span className="mp-money">{building.price.min === building.price.max ? money(building.price.min) : t('mp.bld.range', { from: money(building.price.min), to: money(building.price.max) })}</span>
-          {building.ppm && <span>{building.ppm.min === building.ppm.max ? money(building.ppm.min) : `${money(building.ppm.min)}–${money(building.ppm.max)}`} / м²</span>}
+          {building.ppm && <span>{t('mp.measure.perSqm', { price: building.ppm.min === building.ppm.max ? money(building.ppm.min) : `${money(building.ppm.min)}–${money(building.ppm.max)}` })}</span>}
         </div>
       )}
       {building.prices && building.free > 0 && !building.price && !presentation && <span className="mp-muted mp-small">{t('mp.bld.noPrices')}</span>}

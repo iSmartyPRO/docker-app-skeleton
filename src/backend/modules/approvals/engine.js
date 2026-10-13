@@ -3,6 +3,7 @@ import { getSettings, parseSettings } from '../../services/settings.js';
 import { hasPermission } from '../../services/permissions.js';
 import { notify } from '../../services/notifications.js';
 import { emitEvent } from '../../api/events.js';
+import { decide as scopeDecision } from '../../api/scopes.js';
 import { getApprovalType, listApprovalTypes, requireApprovalType } from './registry.js';
 import {
   ACTIVE_STATUSES,
@@ -13,6 +14,7 @@ import {
   localized,
   normalizeUrgency,
   planStages,
+  replanStages,
   restartIndex,
   slaState,
   stageClosed,
@@ -63,6 +65,29 @@ export function canManageType(ctx, type) {
 }
 
 export const isApprovalsAdmin = (ctx) => isSystem(ctx) || hasPermission(permissionsOf(ctx), ADMIN_PERMISSION);
+
+const tokenPolicyOf = (ctx) => ctx?.apiToken?.policy || ctx?.req?.apiToken?.policy || null;
+
+/**
+ * API tokens: a document of another module is reachable through the
+ * approvals API only when the token's scope reaches that module, as if its
+ * own endpoints were called (read for seeing, write for deciding). Session
+ * users and system contexts carry no token and are not affected.
+ */
+export function tokenAllowsType(ctx, type, level = 'read') {
+  const policy = tokenPolicyOf(ctx);
+  if (!policy || !type) return true;
+  return scopeDecision(policy, level === 'write' ? 'POST' : 'GET', `/app/${type.module}`).ok;
+}
+
+function assertTokenScope(ctx, type, level) {
+  if (!tokenAllowsType(ctx, type, level)) throw httpError(403, `The token lacks the ${type.module}:${level} scope`, 'SCOPE_DENIED');
+}
+
+/** Decisions on a type whose module is switched off are refused (its documents are out of reach too). */
+async function assertTypeEnabled(type) {
+  if (type && !typeEnabled(await enabledModules(), type)) throw httpError(404, 'The module of this document is turned off', 'MODULE_DISABLED');
+}
 
 // ── Routes ──────────────────────────────────────────────────────────────────
 
@@ -336,6 +361,7 @@ export async function escalationPeople(process, type) {
 // ── Starting ────────────────────────────────────────────────────────────────
 
 async function assertCanSee(ctx, type, docId) {
+  assertTokenScope(ctx, type, 'write');
   if (isSystem(ctx) || canManageType(ctx, type)) return;
   if (!userIdOf(ctx)) throw httpError(401, 'Sign in', 'UNAUTHORIZED');
   if (!(await type.canView(ctx, String(docId)))) throw httpError(403, 'No access to this document', 'FORBIDDEN');
@@ -344,10 +370,12 @@ async function assertCanSee(ctx, type, docId) {
 /**
  * Sends a document to approval: plans the route against the document's
  * fields and opens the first stage. A finished process (approved, rejected,
- * returned, withdrawn) starts again as a new round.
+ * withdrawn) starts again as a new round; a returned one goes back through
+ * restart() (the author's «Отправить заново»), never through a fresh start.
  */
 export async function startApproval(ctx, typeKey, docId, options = {}) {
   const type = requireApprovalType(typeKey);
+  await assertTypeEnabled(type);
   await assertCanSee(ctx, type, docId);
   const summary = await loadSummary(type, docId);
   const settings = await approvalSettings();
@@ -384,6 +412,7 @@ export async function startApproval(ctx, typeKey, docId, options = {}) {
     let row;
     if (existing[0]) {
       if (ACTIVE_STATUSES.includes(existing[0].status)) throw httpError(409, 'The document is already in approval', 'ALREADY_RUNNING');
+      if (existing[0].status === 'returned') throw httpError(409, 'The document was returned for rework: send it again', 'NOT_RESTART', { status: 'returned' });
       row = await updateProcess(client, existing[0].id, { ...base, round: existing[0].round + 1 });
     } else {
       const inserted = await client.query(
@@ -463,11 +492,14 @@ export async function decide(ctx, ref, input = {}) {
   }
   const principals = await principalsOf(userId);
   const settings = await approvalSettings();
+  const modules = await enabledModules();
   const effects = [];
   let type = null;
   const row = await withTransaction(async (client) => {
     const process = await lockProcess(client, ref);
     type = getApprovalType(process.type);
+    if (!typeEnabled(modules, type)) throw httpError(404, 'The module of this document is turned off', 'MODULE_DISABLED');
+    assertTokenScope(ctx, type, 'write');
     if (process.status !== 'pending') throw httpError(409, 'This approval is no longer waiting for a decision', 'NOT_PENDING', { status: process.status });
     if ((input.round !== undefined && Number(input.round) !== process.round) || (input.stage !== undefined && Number(input.stage) !== process.current_stage)) {
       throw httpError(409, 'The approval has moved on; refresh', 'STALE', { round: process.round, stage: process.current_stage });
@@ -532,10 +564,13 @@ export async function answer(ctx, ref, input = {}) {
   if (!userId) throw httpError(401, 'Sign in', 'UNAUTHORIZED');
   const comment = String(input.comment ?? '').trim().slice(0, 4000);
   if (!comment) throw httpError(400, 'Write the answer', 'COMMENT_REQUIRED');
+  const modules = await enabledModules();
   const effects = [];
   const row = await withTransaction(async (client) => {
     const process = await lockProcess(client, ref);
     const type = getApprovalType(process.type);
+    if (!typeEnabled(modules, type)) throw httpError(404, 'The module of this document is turned off', 'MODULE_DISABLED');
+    assertTokenScope(ctx, type, 'write');
     if (process.status !== 'question') throw httpError(409, 'There is no open question', 'NOT_QUESTION', { status: process.status });
     const allowed = [process.question_to, process.author_id].includes(userId) || (await substitutesFor(userId)).includes(process.question_to) || canManageType(ctx, type);
     if (!allowed) throw httpError(403, 'The question is addressed to someone else', 'FORBIDDEN');
@@ -573,6 +608,7 @@ export async function withdraw(ctx, typeKey, docId, input = {}) {
   const row = await withTransaction(async (client) => {
     const process = await lockProcess(client, { type: typeKey, docId });
     const type = getApprovalType(process.type);
+    assertTokenScope(ctx, type, 'write');
     assertAuthorOrManager(ctx, process, type);
     if (![...ACTIVE_STATUSES, 'returned'].includes(process.status)) throw httpError(409, 'Nothing to withdraw', 'NOT_ACTIVE', { status: process.status });
     const wasWaiting = process.status === 'pending' ? await stageSeats(client, process) : [];
@@ -597,6 +633,8 @@ export async function withdraw(ctx, typeKey, docId, input = {}) {
  */
 export async function restart(ctx, typeKey, docId, options = {}) {
   const type = requireApprovalType(typeKey);
+  await assertTypeEnabled(type);
+  assertTokenScope(ctx, type, 'write');
   const summary = await loadSummary(type, docId);
   const settings = await approvalSettings();
   const route = await routeFor(type);
@@ -638,19 +676,35 @@ export async function restart(ctx, typeKey, docId, options = {}) {
   return getProcess(type.key, docId, ctx);
 }
 
-/** Re-reads the document's summary (title, number, amount, link) into the process; call after editing the document. */
-export async function refreshApproval(typeKey, docId) {
+/**
+ * Re-reads the document's summary (title, number, amount, link) into the
+ * process; call after editing the document. While the process runs
+ * (pending / question) the route is also planned again against the new
+ * field values for the stages not reached yet: raising the amount above a
+ * condition's threshold adds that stage after the current one, lowering it
+ * drops a stage nobody has reached. Stages already reached stay as they are.
+ */
+export async function refreshApproval(typeKey, docId, { actorId = null } = {}) {
   const type = getApprovalType(typeKey);
   if (!type) return null;
   const summary = await type.load(String(docId));
   if (!summary) return null;
   const cols = summaryColumns(summary);
-  const { rows } = await query(
-    `UPDATE approval_processes SET title = $3, number = $4, amount = $5, currency = $6, url = $7, doc_due_at = $8, updated_at = NOW()
-     WHERE type = $1 AND doc_id = $2 RETURNING id`,
-    [type.key, String(docId), cols.title, cols.number, cols.amount, cols.currency, cols.url, cols.doc_due_at]
-  );
-  return rows[0]?.id || null;
+  const route = await routeFor(type);
+  const plan = planStages(route, conditionValues(summary));
+  return withTransaction(async (client) => {
+    const { rows } = await client.query(`SELECT * FROM approval_processes WHERE type = $1 AND doc_id = $2 FOR UPDATE`, [type.key, String(docId)]);
+    if (!rows[0]) return null;
+    let process = await updateProcess(client, rows[0].id, cols);
+    if (ACTIVE_STATUSES.includes(process.status)) {
+      const next = replanStages(process.stages || [], process.current_stage, plan);
+      if (next.changed) {
+        process = await updateProcess(client, process.id, { stages: next.stages.map(snapshotStage), skipped: next.skipped });
+        await logEvent(client, process, 'replanned', { actorId, data: { added: next.added, removed: next.removed } });
+      }
+    }
+    return process.id;
+  });
 }
 
 // ── Reading ─────────────────────────────────────────────────────────────────
@@ -667,6 +721,8 @@ async function participantOf(userId, process) {
   if ([process.author_id, process.question_to, process.question_by].includes(userId)) return true;
   const principals = await principalsOf(userId);
   const sets = principalSets(principals);
+  // A question addressed to someone I stand in for is mine too (as in the inbox and module lists).
+  if (process.question_to && sets.userIds.includes(Number(process.question_to))) return true;
   const { rows } = await query(
     `SELECT 1 FROM approval_seats s WHERE s.process_id = $6 AND (s.decided_by = ANY($1) OR s.delegated_by = ANY($1) OR ${seatMatchSql('s')}) LIMIT 1`,
     [...seatMatchParams(sets), process.id]
@@ -677,6 +733,7 @@ async function participantOf(userId, process) {
 /** May this request-like context see the process (for webhooks and the HTTP API)? */
 export async function canSeeProcess(ctx, process) {
   const type = getApprovalType(process.type);
+  if (!tokenAllowsType(ctx, type, 'read')) return false;
   if (canManageType(ctx, type)) return true;
   const userId = userIdOf(ctx);
   if (!userId) return false;
@@ -896,30 +953,36 @@ export async function inboxItems(ctx) {
     [sets.userIds]
   );
   const { rows: returned } = await query(`SELECT * FROM approval_processes WHERE status = 'returned' AND author_id = $1 ORDER BY updated_at DESC LIMIT 200`, [userId]);
-  const all = [...waiting, ...questions, ...returned];
-  const people = await usersById(all.map((p) => p.author_id));
-  const items = [];
   const usable = (process) => {
     const type = getApprovalType(process.type);
-    return type && typeEnabled(modules, type) ? type : null;
+    return type && typeEnabled(modules, type) && tokenAllowsType(ctx, type, 'read') ? type : null;
   };
-  for (const process of waiting) {
-    const type = usable(process);
-    if (!type) continue;
-    items.push(listItem(process, type, 'approval', ['approve', 'question', 'reject', 'return', 'delegate'], people, settings));
+  const shown = (list) => list.filter((process) => usable(process));
+  const [mineWaiting, mineQuestions, mineReturned] = [shown(waiting), shown(questions), shown(returned)];
+  // The last question / return of each process in one query each (no query per row).
+  const lastEvents = async (list, action) => {
+    if (!list.length) return new Map();
+    const { rows } = await query(
+      `SELECT DISTINCT ON (process_id) process_id, comment, actor_id FROM approval_events
+       WHERE process_id = ANY($1::bigint[]) AND action = $2 ORDER BY process_id, id DESC`,
+      [list.map((process) => process.id), action]
+    );
+    return new Map(rows.map((row) => [Number(row.process_id), row]));
+  };
+  const [asked, returns] = await Promise.all([lastEvents(mineQuestions, 'question'), lastEvents(mineReturned, 'return')]);
+  const people = await usersById([...mineWaiting, ...mineQuestions, ...mineReturned].map((p) => p.author_id).concat([...asked.values()].map((event) => event.actor_id)));
+  const items = [];
+  for (const process of mineWaiting) {
+    items.push(listItem(process, usable(process), 'approval', ['approve', 'question', 'reject', 'return', 'delegate'], people, settings));
   }
-  for (const process of questions) {
-    const type = usable(process);
-    if (!type) continue;
-    const question = (await query(`SELECT comment, actor_id FROM approval_events WHERE process_id = $1 AND action = 'question' ORDER BY id DESC LIMIT 1`, [process.id])).rows[0];
-    const asker = question?.actor_id ? (await usersById([question.actor_id])).get(question.actor_id) : null;
-    items.push(listItem(process, type, 'question', ['answer'], people, settings, { question: question?.comment || '', askedBy: asker || null }));
+  for (const process of mineQuestions) {
+    const question = asked.get(Number(process.id));
+    const asker = question?.actor_id ? people.get(question.actor_id) || null : null;
+    items.push(listItem(process, usable(process), 'question', ['answer'], people, settings, { question: question?.comment || '', askedBy: asker }));
   }
-  for (const process of returned) {
-    const type = usable(process);
-    if (!type) continue;
-    const last = (await query(`SELECT comment FROM approval_events WHERE process_id = $1 AND action = 'return' ORDER BY id DESC LIMIT 1`, [process.id])).rows[0];
-    items.push(listItem(process, type, 'returned', ['restart'], people, settings, { comment: last?.comment || '' }));
+  for (const process of mineReturned) {
+    const last = returns.get(Number(process.id));
+    items.push(listItem(process, usable(process), 'returned', ['restart'], people, settings, { comment: last?.comment || '' }));
   }
   return items;
 }
@@ -936,17 +999,41 @@ export async function myProcesses(ctx, { includeFinished = false } = {}) {
      ORDER BY CASE status WHEN 'question' THEN 0 WHEN 'returned' THEN 1 WHEN 'pending' THEN 2 ELSE 3 END, due_at NULLS LAST, updated_at DESC LIMIT 300`,
     [userId, includeFinished]
   );
-  const people = await usersById(rows.map((p) => p.author_id));
-  const out = [];
-  for (const process of rows) {
+  const shown = rows.filter((process) => {
     const type = getApprovalType(process.type);
-    if (!type || !typeEnabled(modules, type)) continue;
-    const item = listItem(process, type, 'mine', [], people, settings);
+    return type && typeEnabled(modules, type) && tokenAllowsType(ctx, type, 'read');
+  });
+  const people = await usersById(shown.map((p) => p.author_id));
+  // Open seats of the current stage of every pending process, in one query; names in one batch.
+  const pending = shown.filter((process) => process.status === 'pending');
+  const waiting = new Map();
+  if (pending.length) {
+    const { rows: seats } = await query(
+      `SELECT s.* FROM approval_seats s JOIN approval_processes p ON p.id = s.process_id AND s.round = p.round AND s.stage_index = p.current_stage
+       WHERE s.process_id = ANY($1::bigint[]) AND s.decision IS NULL ORDER BY s.id`,
+      [pending.map((process) => process.id)]
+    );
+    for (const seat of seats) {
+      const list = waiting.get(Number(seat.process_id)) || [];
+      if (list.length < 5) list.push({ kind: seat.delegated_to ? 'user' : seat.kind, id: seat.delegated_to || seat.ref_id, key: seat.ref_key });
+      waiting.set(Number(seat.process_id), list);
+    }
+  }
+  const entries = [...waiting.values()].flat();
+  const labels = entries.length ? await describeApprovers(entries) : [];
+  const out = [];
+  let offset = 0;
+  const labelsOf = new Map();
+  for (const [id, list] of waiting) {
+    labelsOf.set(id, labels.slice(offset, offset + list.length));
+    offset += list.length;
+  }
+  for (const process of shown) {
+    const item = listItem(process, getApprovalType(process.type), 'mine', [], people, settings);
     if (process.status === 'pending') {
       item.dueAt = process.due_at;
       item.overdue = Boolean(process.due_at && new Date(process.due_at) <= new Date());
-      const seats = (await stageSeats({ query }, process)).filter((seat) => !seat.decision);
-      item.meta.waitingFor = (await describeApprovers(seats.map((seat) => ({ kind: seat.delegated_to ? 'user' : seat.kind, id: seat.delegated_to || seat.ref_id, key: seat.ref_key })))).slice(0, 5);
+      item.meta.waitingFor = labelsOf.get(Number(process.id)) || [];
     }
     out.push(item);
   }
@@ -974,7 +1061,7 @@ export async function decidedByMe(ctx, { before = null, limit = 30 } = {}) {
   const items = [];
   for (const row of page) {
     const type = getApprovalType(row.type);
-    if (!type || !typeEnabled(modules, type)) continue;
+    if (!type || !typeEnabled(modules, type) || !tokenAllowsType(ctx, type, 'read')) continue;
     items.push(listItem(row, type, 'decided', [], people, settings, { decision: row.action, decisionComment: row.event_comment, decidedAt: row.decided_at }));
   }
   return { items, next: rows.length > size ? Number(page[page.length - 1].event_id) : null };
@@ -1018,7 +1105,7 @@ export async function participantDocIds(ctx, typeKey) {
   const sets = principalSets(await principalsOf(userId));
   const { rows } = await query(
     `SELECT p.doc_id FROM approval_processes p
-     WHERE p.type = $6 AND (p.author_id = $7 OR p.question_to = $7 OR p.question_by = $7 OR EXISTS (
+     WHERE p.type = $6 AND (p.author_id = $7 OR p.question_to = ANY($1) OR p.question_by = $7 OR EXISTS (
        SELECT 1 FROM approval_seats s WHERE s.process_id = p.id AND (s.decided_by = ANY($1) OR s.delegated_by = ANY($1) OR ${seatMatchSql('s')})
      ))`,
     [...seatMatchParams(sets), String(typeKey), userId]

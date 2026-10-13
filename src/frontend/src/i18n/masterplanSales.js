@@ -68,7 +68,9 @@ export const masterplanSalesEn = {
       state: { active: 'in force', upcoming: 'scheduled', history: 'history' },
       deleteConfirm: 'Delete this version?',
       plannedShort: 'planned {price} / m²',
+      defaultPlan: 'Installments {pct}%',
     },
+    measure: { sqm: 'm²', m: 'm', perSqm: '{price} / m²', perSqmShort: '{price}/m²', nameGridPh: 'Apartment {n}', nameLinePh: 'Plot {code}' },
     st: { tabPricing: 'Prices' },
     move: {
       select: 'Select several',
@@ -81,6 +83,7 @@ export const masterplanSalesEn = {
       root: 'Project root',
       apply: 'Move',
       done: 'Moved: {n}',
+      tooMany: 'At most {max} objects at once',
     },
     dash: {
       priceChart: 'Price per m² over time',
@@ -175,7 +178,9 @@ export const masterplanSalesRu = {
       state: { active: 'действует', upcoming: 'запланирована', history: 'история' },
       deleteConfirm: 'Удалить эту версию?',
       plannedShort: 'плановая {price} / м²',
+      defaultPlan: 'Рассрочка {pct}%',
     },
+    measure: { sqm: 'м²', m: 'м', perSqm: '{price} / м²', perSqmShort: '{price}/м²', nameGridPh: 'Квартира {n}', nameLinePh: 'Участок {code}' },
     st: { tabPricing: 'Цены' },
     move: {
       select: 'Выбрать несколько',
@@ -188,6 +193,7 @@ export const masterplanSalesRu = {
       root: 'Корень проекта',
       apply: 'Перенести',
       done: 'Перенесено: {n}',
+      tooMany: 'Не больше {max} объектов за раз',
     },
     dash: {
       priceChart: 'Цена за м² во времени',

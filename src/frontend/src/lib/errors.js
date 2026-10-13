@@ -72,6 +72,14 @@ const CODE_MESSAGES = {
     ru: 'Хранилище заполнено: место по квоте закончилось.',
     en: 'Your storage is full: the quota is used up.',
   },
+  // Masterplan: the tree and point markers on the plan.
+  INVALID_MARKER: {
+    ru: 'Точку нельзя сохранить: центр должен быть на плане, размер — в допустимых пределах; секции и другие уровни рисуются контуром.',
+    en: 'The point cannot be saved: its centre must be on the plan and its size within bounds; sectors and other levels are drawn as contours.',
+  },
+  DUPLICATE: { ru: 'Такая запись уже есть.', en: 'This record already exists.' },
+  INVALID_PARENT: { ru: 'Сюда перенести нельзя: родителя нет в проекте, или он внутри переносимого объекта.', en: 'Cannot move here: the parent is not in the project, or it is inside the object being moved.' },
+  TOO_DEEP: { ru: 'Слишком глубокая вложенность: в дереве проекта не больше 8 уровней.', en: 'Too deep: a project tree has at most 8 levels.' },
 };
 
 const CONTACT_NAMES = {

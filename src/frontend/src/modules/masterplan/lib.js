@@ -1,4 +1,5 @@
 import { localeTag } from '../../lib/format';
+import { translate } from '../../i18n/translations';
 
 /*
  * Pure helpers of the Masterplan UI: money and areas, statuses and their
@@ -95,7 +96,10 @@ export function formatShortMoney(amount, currency, locale) {
 
 export const formatNumber = (value, locale, digits = 0) => (value === null || value === undefined ? '—' : numberFormat(locale, { maximumFractionDigits: digits }).format(Number(value)));
 
-export const formatArea = (value, locale) => (value === null || value === undefined ? '—' : `${numberFormat(locale, { maximumFractionDigits: 1 }).format(Number(value))} м²`);
+/** "m²" / "м²" in the person's language. */
+export const sqm = (locale) => translate(locale, 'mp.measure.sqm');
+
+export const formatArea = (value, locale) => (value === null || value === undefined ? '—' : `${numberFormat(locale, { maximumFractionDigits: 1 }).format(Number(value))} ${sqm(locale)}`);
 
 export const formatPercent = (value, locale) => (value === null || value === undefined ? '—' : `${numberFormat(locale, { maximumFractionDigits: 1 }).format(Number(value))}%`);
 
@@ -140,15 +144,26 @@ export function indexTree(nodes) {
   return { byId, children, roots: children.get(0) || [], kids: (id) => children.get(id || 0) || [] };
 }
 
-/** Every node below `id` (not itself). */
+const belowCache = new WeakMap();
+
+/**
+ * Every node below `id` (not itself), breadth first. Computed once per tree
+ * and node (the plan asks for the same building's units several times per
+ * marker); the list is shared — do not mutate it.
+ */
 export function descendants(tree, id) {
-  const out = [];
-  const stack = [...tree.kids(id)];
-  while (stack.length) {
-    const node = stack.shift();
-    out.push(node);
-    stack.push(...tree.kids(node.id));
+  let cache = belowCache.get(tree);
+  if (!cache) {
+    cache = new Map();
+    belowCache.set(tree, cache);
   }
+  const key = id || 0;
+  const known = cache.get(key);
+  if (known) return known;
+  const out = [...tree.kids(id)];
+  // A read pointer instead of shift(): linear in the size of the subtree.
+  for (let i = 0; i < out.length; i += 1) out.push(...tree.kids(out[i].id));
+  cache.set(key, out);
   return out;
 }
 

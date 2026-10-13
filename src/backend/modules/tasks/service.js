@@ -27,7 +27,7 @@ import { taskMessage } from './messages.js';
 import { taskEvent } from './chat.js';
 import { emitEvent } from '../../api/events.js';
 import { publicBase } from '../../services/google.js';
-import { acceptDueAt, cachedLeadership, isOrderRow, leadershipIds, parseProjectHours } from './orders.js';
+import { acceptDueAt, cachedLeadership, isOrderRow, leadershipIds, parseProjectHours, rearmsAcceptNotice, reopenAcceptance } from './orders.js';
 
 const ACL = 'task_acl';
 const KEY_RE = /^[A-Z][A-Z0-9]{1,9}$/;
@@ -1453,6 +1453,7 @@ export async function updateTask(ctx, refOrId, patch = {}) {
   const assigneeAfter = newAssignee !== undefined ? newAssignee : row.assignee_id;
   const originatorAfter = newOriginator || row.originator_id || row.created_by;
   const importantAfter = typeof patch.important === 'boolean' ? patch.important : Boolean(row.important);
+  const reopened = Boolean(newStatus && newStatus.category !== 'done' && row.completed_at);
   if (newAssignee !== undefined) {
     const self = Boolean(newAssignee && (newAssignee === originatorAfter || newAssignee === ctx.userId));
     set('assigned_at', newAssignee ? new Date() : null);
@@ -1460,15 +1461,24 @@ export async function updateTask(ctx, refOrId, patch = {}) {
     set('accepted_by', self ? newAssignee : null);
     set('accept_due_at', newAssignee && !self ? await acceptDueAt(projectHoursOf(row), importantAfter) : null);
     set('accept_notified_at', null);
-  } else if (assigneeAfter && !row.accepted_at && !row.completed_at) {
+  } else if (assigneeAfter && !row.accepted_at && (!row.completed_at || reopened)) {
     if (newStatus && newStatus.category !== 'todo' && ctx.userId === assigneeAfter) accepted = newStatus.category === 'done' ? 'complete' : 'start';
     else if (assigneeAfter === originatorAfter) accepted = 'self';
+    else if (reopened && reopenAcceptance({ actorId: ctx.userId, assigneeId: assigneeAfter, originatorId: originatorAfter }) === 'accept') accepted = 'start';
     if (accepted) {
       set('accepted_at', new Date());
       set('accepted_by', assigneeAfter);
+    } else if (reopened) {
+      // Completed before anyone accepted it, now reopened: the time to accept starts over.
+      const now = new Date();
+      set('assigned_at', now);
+      set('accept_due_at', await acceptDueAt(projectHoursOf(row), importantAfter, now));
+      set('accept_notified_at', null);
     } else if (importantAfter !== Boolean(row.important) && row.assigned_at) {
       // Important tasks have their own (shorter) time to accept.
-      set('accept_due_at', await acceptDueAt(projectHoursOf(row), importantAfter, row.assigned_at));
+      const due = await acceptDueAt(projectHoursOf(row), importantAfter, row.assigned_at);
+      set('accept_due_at', due);
+      if (rearmsAcceptNotice(due)) set('accept_notified_at', null);
     }
   }
 
@@ -1601,7 +1611,8 @@ export async function moveTaskToProject(ctx, refOrId, projectRef) {
   // A task still waiting for acceptance gets the new project's time to accept.
   const acceptBy = row.assignee_id && !row.accepted_at && !row.completed_at && row.assigned_at ? await acceptDueAt(target, Boolean(row.important), row.assigned_at) : null;
   await withTransaction(async (client) => {
-    if (acceptBy) await client.query(`UPDATE tasks SET accept_due_at = $2 WHERE id = $1`, [row.id, acceptBy]);
+    // A deadline still ahead re-arms the "not accepted in time" notice.
+    if (acceptBy) await client.query(`UPDATE tasks SET accept_due_at = $2, accept_notified_at = CASE WHEN $3 THEN NULL ELSE accept_notified_at END WHERE id = $1`, [row.id, acceptBy, rearmsAcceptNotice(acceptBy)]);
     const seq = await client.query(`UPDATE task_projects SET seq = seq + 1 WHERE id = $1 RETURNING seq`, [target.id]);
     await client.query(`UPDATE tasks SET project_id = $2, number = $3, status_id = $4, rank = $5, updated_at = NOW() WHERE id = $1`, [
       row.id,

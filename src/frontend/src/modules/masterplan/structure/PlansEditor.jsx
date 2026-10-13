@@ -10,7 +10,7 @@ import { imageSize, uploadMedia } from '../media/photos';
 import PlanCanvas from '../plan/PlanCanvas';
 import { markerLook, nodeFill } from '../plan/colors';
 import { contourAround } from '../plan/labels';
-import { MARKER_SIZES, clampRadius, contourFromMarker, markerFromContour, nextUnplaced, presetRadius, sizeOf, snapPoint } from '../plan/markers';
+import { MARKER_SIZES, clampRadius, contourFromMarker, markerFromContour, nextUnplaced, nudgeStep, presetRadius, sizeOf, snapPoint } from '../plan/markers';
 import MarkerPicker from './MarkerPicker';
 import usePlacements from './usePlacements';
 import '../mp-markers.css';
@@ -80,16 +80,27 @@ export default function PlansEditor() {
   const contourOf = nodeId ? existing.get(nodeId) : null;
   // A contour seeded from a point («В контур») waits for the node switch.
   const seed = useRef(null);
+  // The draft follows the saved contour of the chosen object, but a reload (someone placing points, the
+  // stream) never throws away unsaved edits: it is replaced only for another object or plan, or when clean.
+  const draftOf = useRef({ nodeId: null, planId: null, dirty: false });
+  const editDraft = (update) => {
+    draftOf.current.dirty = true;
+    setDraft(update);
+  };
   useEffect(() => {
+    const switched = draftOf.current.nodeId !== nodeId || draftOf.current.planId !== (plan?.id || null);
     if (seed.current?.nodeId === nodeId) {
       setDraft(seed.current.points);
       setClosed(true);
       seed.current = null;
+      draftOf.current = { nodeId, planId: plan?.id || null, dirty: true };
       return;
     }
+    if (!switched && draftOf.current.dirty) return;
     setDraft(contourOf ? contourOf.map((p) => [...p]) : []);
     setClosed(Boolean(contourOf));
-  }, [nodeId, contourOf]);
+    draftOf.current = { nodeId, planId: plan?.id || null, dirty: false };
+  }, [nodeId, contourOf, plan?.id]);
 
   // In tree order; apartments (units with a floor) live on the chessboard, not on the plan.
   const allCandidates = useMemo(() => {
@@ -130,6 +141,34 @@ export default function PlansEditor() {
 
   // ── Actions ──
   const nameOf = (id) => shortLabel(tree.byId.get(id));
+  const placementsRef = useRef(placements);
+  placementsRef.current = placements;
+
+  /**
+   * Arrow-key nudges of a point are shown at once and saved after a pause.
+   * A pending nudge is saved right away when another point is nudged or
+   * chosen, the tool changes or the point turns into a contour; dropped when
+   * the point is removed or the plan changes. It reads the placements at save
+   * time, so a point removed meanwhile is never saved back.
+   */
+  const commitNudge = () => {
+    const pending = nudge.current;
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    nudge.current = null;
+    setDrag((prev) => (prev?.id === pending.id ? null : prev));
+    const current = placementsRef.current.get(pending.id);
+    if (current?.kind !== 'marker' || pending.planId !== (plan?.id || null)) return;
+    apply([{ nodeId: pending.id, next: { ...current, x: pending.x, y: pending.y } }], t('mp.mk.undoMove', { name: nameOf(pending.id) }));
+  };
+  const commitNudgeRef = useRef(commitNudge);
+  commitNudgeRef.current = commitNudge;
+  const dropNudge = (id) => {
+    if (!nudge.current || (id && nudge.current.id !== id)) return;
+    clearTimeout(nudge.current.timer);
+    nudge.current = null;
+    setDrag(null);
+  };
   const placeAt = async ([x, y]) => {
     if (!armedId || !plan) return;
     if (x < 0 || y < 0 || x > plan.width || y > plan.height) return;
@@ -145,18 +184,23 @@ export default function PlansEditor() {
   const updateMarker = (id, patch, label) => {
     const current = placements.get(id);
     if (current?.kind !== 'marker') return;
-    apply([{ nodeId: id, next: { ...current, ...patch } }], label);
+    // A nudge still waiting to be saved goes with this change.
+    const pending = nudge.current?.id === id ? { x: nudge.current.x, y: nudge.current.y } : null;
+    if (pending) dropNudge(id);
+    apply([{ nodeId: id, next: { ...current, ...pending, ...patch } }], label);
   };
 
   const removeMarker = (id) => {
     if (placements.get(id)?.kind !== 'marker') return;
+    dropNudge(id);
     setSelectedId(null);
     apply([{ nodeId: id, next: null }], t('mp.mk.undoRemove', { name: nameOf(id) }));
   };
 
   const toPoint = (id) => {
     const current = placements.get(id);
-    if (current?.kind !== 'contour' || !plan) return;
+    // Sectors and other levels are areas: the server refuses them as points.
+    if (current?.kind !== 'contour' || !plan || tree.byId.get(id)?.kind === 'level') return;
     apply([{ nodeId: id, next: { kind: 'marker', ...markerFromContour(current.points, plan), label: null } }], t('mp.mk.undoToPoint', { name: nameOf(id) }));
     setTool('point');
     setSelectedId(id);
@@ -165,12 +209,14 @@ export default function PlansEditor() {
 
   /** Point → contour: a square around the point to adjust in the contour editor; saving the contour replaces the point. */
   const toContour = (id) => {
-    const current = placements.get(id);
+    const pending = nudge.current?.id === id ? { x: nudge.current.x, y: nudge.current.y } : null;
+    commitNudge();
+    const current = placements.get(id) && { ...placements.get(id), ...pending };
     if (current?.kind !== 'marker') return;
     setTool('contour');
     setSelectedId(null);
     if (nodeId === id) {
-      setDraft(contourFromMarker(current));
+      editDraft(contourFromMarker(current));
       setClosed(true);
     } else {
       seed.current = { nodeId: id, points: contourFromMarker(current) };
@@ -185,6 +231,7 @@ export default function PlansEditor() {
 
   const saveContour = async (points) => {
     const ok = await apply([{ nodeId, next: points ? { kind: 'contour', points } : null }], t(points ? 'mp.mk.undoContour' : 'mp.mk.undoContourRemove', { name: nameOf(nodeId) }));
+    if (ok && draftOf.current.nodeId === nodeId) draftOf.current.dirty = false;
     if (ok) message.success(points ? t('mp.plans.saved') : t('mp.plans.removed'));
   };
 
@@ -255,19 +302,16 @@ export default function PlansEditor() {
       const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
       if (arrows[event.key] && chosen?.kind === 'marker' && !event.target?.closest?.('.mp-mkx__list')) {
         event.preventDefault();
-        const stepPx = event.shiftKey ? 10 : 1;
-        const k = canvas.current?.scale?.() || 1;
+        // Another point's nudge still waiting: save it first, it is not lost.
+        if (nudge.current && nudge.current.id !== selectedId) commitNudge();
+        const step = nudgeStep(event.shiftKey ? 10 : 1, canvas.current?.scale?.() || 1);
         const base = nudge.current?.id === selectedId ? nudge.current : { id: selectedId, x: chosen.x, y: chosen.y };
         const [dx, dy] = arrows[event.key];
-        const x = Math.max(0, Math.min(plan.width, round1(base.x + (dx * stepPx) / k)));
-        const y = Math.max(0, Math.min(plan.height, round1(base.y + (dy * stepPx) / k)));
+        const x = Math.max(0, Math.min(plan.width, round1(base.x + dx * step)));
+        const y = Math.max(0, Math.min(plan.height, round1(base.y + dy * step)));
         clearTimeout(nudge.current?.timer);
         const id = selectedId;
-        nudge.current = { id, x, y, timer: setTimeout(() => {
-          nudge.current = null;
-          setDrag(null);
-          updateMarker(id, { x, y }, t('mp.mk.undoMove', { name: nameOf(id) }));
-        }, 450) };
+        nudge.current = { id, x, y, planId: plan?.id || null, timer: setTimeout(() => commitNudgeRef.current(), 450) };
         setDrag({ id, x, y, r: chosen.r, guideX: null, guideY: null });
       }
     };
@@ -276,7 +320,12 @@ export default function PlansEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, selectedId, placements, plan, doUndo]);
 
-  useEffect(() => () => clearTimeout(nudge.current?.timer), []);
+  // Choosing another point (or none) saves a pending nudge; leaving the editor too.
+  useEffect(() => {
+    if (nudge.current && nudge.current.id !== selectedId) commitNudgeRef.current();
+  }, [selectedId]);
+  // Leaving the editor saves a pending nudge; on another plan (the old one deleted) it is dropped (commitNudge checks the plan).
+  useEffect(() => () => commitNudgeRef.current(), [plan?.id]);
 
   const chosen = selectedId ? placements.get(selectedId) : null;
   useEffect(() => {
@@ -377,7 +426,7 @@ export default function PlansEditor() {
         </>
       );
     }
-    if (chosen?.kind === 'contour' && chosenNode) {
+    if (chosen?.kind === 'contour' && chosenNode && chosenNode.kind !== 'level') {
       return (
         <>
           <b>{nodeLabel(chosenNode)}</b>
@@ -409,13 +458,14 @@ export default function PlansEditor() {
     <div className="mp-plans">
       <div className="mod-toolbar">
         {plans.length > 0 && (
-          <Select value={plan?.id} onChange={setPlanId} options={plans.map((item) => ({ value: item.id, label: `${item.name || t('mp.plans.plan')}${item.nodeId ? ` · ${nodeLabel(tree.byId.get(item.nodeId))}` : ''}` }))} style={{ minWidth: 220 }} />
+          <Select value={plan?.id} onChange={(value) => { commitNudge(); setPlanId(value); }} options={plans.map((item) => ({ value: item.id, label: `${item.name || t('mp.plans.plan')}${item.nodeId ? ` · ${nodeLabel(tree.byId.get(item.nodeId))}` : ''}` }))} style={{ minWidth: 220 }} />
         )}
         {plan && (
           <Segmented
             className="mp-plans__mode"
             value={tool}
             onChange={(value) => {
+              commitNudge();
               setTool(value);
               setSelectedId(null);
               setArmedId(null);
@@ -503,7 +553,7 @@ export default function PlansEditor() {
                     )}
                     {childContours.length > 0 && (
                       <Tooltip title={t('mp.plans.aroundHint')}>
-                        <Button onClick={() => { setDraft(contourAround(childContours, Math.max(plan.width, plan.height) * 0.008)); setClosed(true); }}>{t('mp.plans.around')}</Button>
+                        <Button onClick={() => { editDraft(contourAround(childContours, Math.max(plan.width, plan.height) * 0.008)); setClosed(true); }}>{t('mp.plans.around')}</Button>
                       </Tooltip>
                     )}
                     {existing.has(nodeId) && tree.byId.get(nodeId)?.kind !== 'level' && (
@@ -511,7 +561,7 @@ export default function PlansEditor() {
                         <Button onClick={() => toPoint(nodeId)}>{t('mp.mk.toPoint')}</Button>
                       </Tooltip>
                     )}
-                    <Button onClick={() => { setDraft([]); setClosed(false); }}>{t('mp.plans.restart')}</Button>
+                    <Button onClick={() => { editDraft([]); setClosed(false); }}>{t('mp.plans.restart')}</Button>
                     {existing.has(nodeId) && <Button danger onClick={() => saveContour(null)}>{t('mp.plans.remove')}</Button>}
                     <Tooltip title={draft.length < 3 ? t('mp.plans.need3') : placements.get(nodeId)?.kind === 'marker' ? t('mp.mk.contourReplaces') : ''}>
                       <Button type="primary" disabled={draft.length < 3} onClick={() => saveContour(draft)}>{t('common.save')}</Button>
@@ -533,11 +583,12 @@ export default function PlansEditor() {
               labelMode={tool === 'point' ? 'always' : 'auto'}
               onShapeClick={(id) => {
                 if (tool === 'point') {
-                  setSelectedId(id);
+                  // Sectors stay areas: a click inside one is a click on the plan, not a choice of the sector.
+                  setSelectedId(tree.byId.get(id)?.kind === 'level' ? null : id);
                   setArmedId(null);
                 } else if (!nodeId) setNodeId(id);
               }}
-              edit={tool === 'contour' && nodeId ? { points: draft, closed, onAdd: (pt) => setDraft((prev) => [...prev, pt.map((v) => Math.round(v * 10) / 10)]), onMove: (index, pt) => setDraft((prev) => prev.map((p, i) => (i === index ? pt : p))), onRemove: (index) => setDraft((prev) => prev.filter((_, i) => i !== index)) } : null}
+              edit={tool === 'contour' && nodeId ? { points: draft, closed, onAdd: (pt) => editDraft((prev) => [...prev, pt.map((v) => Math.round(v * 10) / 10)]), onMove: (index, pt) => editDraft((prev) => prev.map((p, i) => (i === index ? pt : p))), onRemove: (index) => editDraft((prev) => prev.filter((_, i) => i !== index)) } : null}
               ariaLabel={t('mp.plans.editor')}
             >
               <div className="mp-zoom">

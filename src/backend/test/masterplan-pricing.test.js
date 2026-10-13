@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activeGrid, cleanPlans, paymentOptions, paymentSchedule, planTotal, pricesAt } from '../modules/masterplan/pricing.js';
+import { activeGrid, cleanPlans, monthEnds, paymentOptions, paymentSchedule, planTotal, pricesAt } from '../modules/masterplan/pricing.js';
+import { isoDay } from '../services/datetime.js';
 import { canMigrate, looseDay, migrationPlan } from '../modules/masterplan/migration.js';
 
 /*
@@ -164,4 +165,15 @@ test('migration: dates of the import', () => {
   assert.equal(looseDay(''), null);
   assert.equal(looseDay('31.02.2026'), false);
   assert.equal(looseDay('завтра'), false);
+});
+
+test('price trend: month ends in the portal time zone, not the server one', () => {
+  // 1 March, 02:00 in Bishkek (UTC+6) is still 28 February in UTC.
+  const now = new Date('2026-02-28T20:00:00Z');
+  const ends = monthEnds(now, 3, 'Asia/Bishkek');
+  assert.deepEqual(ends.map((at) => isoDay(at, 'Asia/Bishkek')), ['2025-12-31', '2026-01-31', '2026-02-28']);
+  assert.equal(ends[2].toISOString(), '2026-02-28T17:59:59.000Z', 'the last second of February in Bishkek');
+  // Across the year and with daylight saving time.
+  const berlin = monthEnds(new Date('2026-04-10T12:00:00Z'), 2, 'Europe/Berlin');
+  assert.deepEqual(berlin.map((at) => at.toISOString()), ['2026-02-28T22:59:59.000Z', '2026-03-31T21:59:59.000Z']);
 });

@@ -1,6 +1,9 @@
 import { query } from '../../config/database.js';
 import { registerApprovalType } from '../approvals/api.js';
 import { registerInboxProvider } from '../../services/inbox.js';
+import { decide } from '../../api/scopes.js';
+import { getUserAccess } from '../../services/rbac.js';
+import { hasPermission } from '../../services/permissions.js';
 import { listLegalEntities } from '../../services/legalEntities.js';
 import { isoDay, wallToInstant } from '../../services/datetime.js';
 import { requestRegional } from '../../services/regional.js';
@@ -13,7 +16,8 @@ import { isoDayOf, logEvent, notifyToPay, requestUrl, usersByIds, webhook, whenC
  * the route conditions see amount + currency, category, project and legal
  * entity; onStatus moves the request inside the decision's transaction
  * (approve → «К оплате» at once, spec §5.2) and refuses sending a request
- * that is not ready (no invoice while the setting requires one).
+ * that is not ready (no invoice while the setting requires one) or by
+ * someone other than its author, responsible person or an administrator.
  */
 
 const TITLE = { ru: 'Заявка на закупку', en: 'Purchase request' };
@@ -23,6 +27,13 @@ async function loadRequest(docId) {
   if (!Number.isInteger(id) || id < 1) return null;
   const { rows } = await query(`SELECT * FROM proc_requests WHERE id = $1`, [id]);
   return rows[0] || null;
+}
+
+/** The author (or creator), the responsible person or a procurement administrator. */
+async function maySend(userId, row) {
+  if ([row.author_id, row.created_by, row.responsible_id].includes(Number(userId))) return true;
+  const access = await getUserAccess(Number(userId));
+  return hasPermission(access?.permissions || [], 'procurement.admin');
 }
 
 /** 23:59 of a calendar day in a zone, as an ISO moment. */
@@ -92,8 +103,13 @@ export function registerProcurementApproval() {
       const row = rows[0];
       if (!row) throw httpError(404, 'Request not found', 'NOT_FOUND');
       const to = approvalTarget(row.status, status);
-      if (status === 'pending' && ['start', 'restart'].includes(info.action)) {
-        // However it is sent (the card, the approvals API), an unready request never goes out.
+      if (['start', 'restart'].includes(info.action)) {
+        // However it is sent (the card, the approvals API), only the request's
+        // people send it, and an unready request never goes out — also when no
+        // stage of the route applies and it would be approved at once.
+        if (info.actorId && !(await maySend(info.actorId, row))) {
+          throw httpError(403, 'Only the author, the responsible person or an administrator can send the request', 'FORBIDDEN');
+        }
         const settings = await procurementSettings();
         const { rows: docs } = await client.query(`SELECT COUNT(*)::int AS n FROM proc_documents WHERE request_id = $1 AND kind = 'invoice'`, [row.id]);
         const missing = readyErrors(row, { invoiceCount: docs[0].n, invoiceRequired: settings.invoiceRequired, currencies: settings.currencies });
@@ -129,6 +145,9 @@ export function registerProcurementApproval() {
     'procurement.pay',
     async (ctx) => {
       const req = ctx.req || ctx;
+      // An API token sees these only with the procurement area in its scope.
+      const policy = req?.apiToken?.policy || ctx.apiToken?.policy;
+      if (policy && !decide(policy, 'GET', '/app/procurement/requests').ok) return [];
       const pctx = procContext(req, await procurementSettings());
       if (!pctx.canPay || !pctx.userId) return [];
       const regional = await requestRegional(req);

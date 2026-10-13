@@ -31,7 +31,7 @@ export default function PaymentOptions({ unit, project, presentation = false, no
             <li key={plan.key} className="mp-payopt">
               <div className="mp-payopt__head">
                 <b>{plan.name}</b>
-                {plan.ppm ? <span>{money(Math.round(plan.ppm))} / м²</span> : null}
+                {plan.ppm ? <span>{t('mp.measure.perSqm', { price: money(Math.round(plan.ppm)) })}</span> : null}
               </div>
               <div className="mp-payopt__total">{money(plan.total)}</div>
               {plan.months > 0 ? (
@@ -61,7 +61,7 @@ export default function PaymentOptions({ unit, project, presentation = false, no
       {options.planned && (
         <div className="mp-payopts__planned">
           <span>{t('mp.pay.planned')}</span>
-          <b>{money(options.planned.ppm)} / м²</b>
+          <b>{t('mp.measure.perSqm', { price: money(options.planned.ppm) })}</b>
           <em>
             {money(options.planned.total)}
             {options.planned.growthPct ? ` · ${options.planned.growthPct > 0 ? '+' : ''}${formatPercent(options.planned.growthPct, locale)}` : ''}

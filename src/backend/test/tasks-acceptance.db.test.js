@@ -181,6 +181,30 @@ test('database: acceptance of tasks, orders and the inbox', { skip }, async () =
   await acceptTask(b, item.meta.ref, {});
   assert.ok(!(await inboxItems({ user: { id: bId } })).some((entry) => entry.id === fromLeader.id));
 
+  // ── Completed before anyone accepted it, then reopened: the time to accept starts over (not «не принята» at once);
+  // reopened by the assignee it counts as accepted.
+  const doneEarly = await create(a, { assigneeId: bId, title: 'Done early' });
+  await db.query(`UPDATE tasks SET assigned_at = NOW() - INTERVAL '30 hours', accept_due_at = NOW() - INTERVAL '6 hours', accept_notified_at = NOW() WHERE id = $1`, [doneEarly.id]);
+  await service.updateTask(a, doneEarly.id, { complete: true });
+  const reopened = await service.updateTask(a, doneEarly.id, { complete: false });
+  assert.equal(reopened.acceptance.state, 'pending');
+  assert.equal(reopened.acceptance.overdue, false);
+  assert.equal(hoursBetween(reopened.acceptance.assignedAt, reopened.acceptance.dueAt), 24);
+  assert.ok(Date.now() - new Date(reopened.acceptance.assignedAt).getTime() < 60000, 'counted from the reopening');
+  assert.equal((await db.query(`SELECT accept_notified_at FROM tasks WHERE id = $1`, [doneEarly.id])).rows[0].accept_notified_at, null, 'the notice is re-armed');
+  await service.updateTask(a, doneEarly.id, { complete: true });
+  assert.equal((await service.updateTask(b, doneEarly.id, { complete: false })).acceptance.state, 'accepted', 'reopened by the assignee');
+
+  // ── A new time to accept (important flag) re-arms the notice while the deadline is still ahead; a passed one stays announced.
+  const flagged2 = await create(a, { assigneeId: bId, title: 'Flag later', important: true });
+  const notifiedAt = async () => (await db.query(`SELECT accept_notified_at FROM tasks WHERE id = $1`, [flagged2.id])).rows[0].accept_notified_at;
+  await db.query(`UPDATE tasks SET assigned_at = NOW() - INTERVAL '10 hours', accept_due_at = NOW() - INTERVAL '6 hours', accept_notified_at = NOW() WHERE id = $1`, [flagged2.id]);
+  await service.updateTask(a, flagged2.id, { important: false });
+  assert.equal(await notifiedAt(), null, '24 h from the assignment: still ahead');
+  await db.query(`UPDATE tasks SET accept_notified_at = NOW() WHERE id = $1`, [flagged2.id]);
+  await service.updateTask(a, flagged2.id, { important: true });
+  assert.notEqual(await notifiedAt(), null, '4 h from the assignment: passed and already announced');
+
   // ── My counters.
   const { mine: counters } = await service.overview(a);
   assert.ok(counters.not_accepted >= 1);

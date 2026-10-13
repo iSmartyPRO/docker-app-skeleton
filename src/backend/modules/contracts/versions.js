@@ -41,12 +41,19 @@ export function uploadErrors(err) {
   return err;
 }
 
+/** May the person add a version (the contract is visible and its files are theirs to work on)? */
+export async function assertCanAddVersion(ctx, contractId) {
+  const row = await requireContract(ctx, contractId);
+  if (!canWorkFiles(ctx, row)) throw httpError(403, 'You cannot add versions to this contract', 'FORBIDDEN');
+  return row;
+}
+
 export async function addVersion(ctx, contractId, file, input = {}) {
   if (!file) throw httpError(400, 'Choose a file', 'NO_FILE');
   let row;
+  let committed = false;
   try {
-    row = await requireContract(ctx, contractId);
-    if (!canWorkFiles(ctx, row)) throw httpError(403, 'You cannot add versions to this contract', 'FORBIDDEN');
+    row = await assertCanAddVersion(ctx, contractId);
     const ext = extOf(originalName(file)).replace(/[^a-z0-9]/g, '');
     await verifyContent(file.path, ext);
     const signed = Boolean(input.signed === true || input.signed === 'true' || input.signed === '1') && ctx.isLegal;
@@ -66,6 +73,7 @@ export async function addVersion(ctx, contractId, file, input = {}) {
       await logEvent(client, row.id, 'version', { no: rows[0].no, name: rows[0].name, comment, signed }, ctx.userId);
       return rows[0];
     });
+    committed = true;
     const fresh = await loadRow(row.id);
     const actor = await actorNameOf(ctx.userId);
     await notifyPeople(contractPeople(fresh), 'contracts.version', 'version', { no: version.no, comment, actor }, fresh, ctx.userId);
@@ -73,8 +81,14 @@ export async function addVersion(ctx, contractId, file, input = {}) {
     emitContract('version_added', fresh, ctx.userId, { version: { id: version.id, no: version.no, name: version.name, size: Number(version.size), comment, signed } });
     return versionShape({ ...version, author_name: actor });
   } catch (err) {
-    await removeBlob(file.storageKey);
-    throw err;
+    // Only a blob no version row points at is removed (a failed notification keeps the version).
+    if (!committed) {
+      await removeBlob(file.storageKey);
+      throw err;
+    }
+    console.warn('[contracts] after adding a version:', err.message);
+    const { rows } = await query(`SELECT v.*, COALESCE(u.display_name, u.username) AS author_name FROM ctr_versions v LEFT JOIN users u ON u.id = v.created_by WHERE v.contract_id = $1 AND v.storage_key = $2`, [row.id, file.storageKey]);
+    return versionShape(rows[0]);
   }
 }
 

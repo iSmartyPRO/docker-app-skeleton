@@ -103,10 +103,14 @@ export async function acceptedFiles(files) {
 
 /** POST /requests/:id/documents (multipart files[], kind). */
 export async function uploadDocuments(req, res, id) {
+  // Cheap check first: nobody writes up to 10 × 50 MB to disk for a request they cannot touch.
+  const first = await visibleRow(req, id);
+  assertCanAttach(first.ctx, first.row);
   const files = await runUpload(req, res);
   let row;
   let ctx;
   try {
+    // Again after the upload: the request may have moved on meanwhile.
     ({ ctx, row } = await visibleRow(req, id));
     assertCanAttach(ctx, row);
     if (!files.length) throw httpError(400, 'Choose a file', 'NO_FILES');
@@ -116,10 +120,16 @@ export async function uploadDocuments(req, res, id) {
   }
   const accepted = await acceptedFiles(files);
   const kind = kindOf(req.body?.kind);
-  await withTransaction(async (client) => {
-    await insertDocuments(client, row, ctx.userId, accepted, { kind });
-    await logEvent(client, row.id, ctx.userId, 'document_added', { kind, names: accepted.map((file) => file.name) });
-  });
+  try {
+    await withTransaction(async (client) => {
+      await insertDocuments(client, row, ctx.userId, accepted, { kind });
+      await logEvent(client, row.id, ctx.userId, 'document_added', { kind, names: accepted.map((file) => file.name) });
+    });
+  } catch (err) {
+    // No row points at the stored blobs: remove them.
+    for (const file of accepted) await removeBlob(file.storageKey);
+    throw err;
+  }
   if (kind === 'invoice' || row.status !== 'draft') webhook('procurement.updated', row, ctx.userId, { documents: accepted.map((file) => file.name) });
   return documentsOf(row.id);
 }
@@ -145,10 +155,15 @@ export async function linkDocument(req, id, input = {}) {
     throw httpError(404, 'File is missing on the server', 'FILE_MISSING');
   });
   const kind = kindOf(input.kind);
-  await withTransaction(async (client) => {
-    await insertDocuments(client, row, ctx.userId, [{ name: node.name, size: Number(node.size), storageKey, source: 'files', nodeId }], { kind });
-    await logEvent(client, row.id, ctx.userId, 'document_added', { kind, names: [node.name], fromFiles: true });
-  });
+  try {
+    await withTransaction(async (client) => {
+      await insertDocuments(client, row, ctx.userId, [{ name: node.name, size: Number(node.size), storageKey, source: 'files', nodeId }], { kind });
+      await logEvent(client, row.id, ctx.userId, 'document_added', { kind, names: [node.name], fromFiles: true });
+    });
+  } catch (err) {
+    await removeBlob(storageKey);
+    throw err;
+  }
   return documentsOf(row.id);
 }
 
@@ -174,7 +189,12 @@ export async function updateDocument(req, docId, input = {}) {
   const doc = await documentRow(docId);
   const { ctx, row } = await visibleRow(req, doc.request_id);
   assertCanAttach(ctx, row);
-  await query(`UPDATE proc_documents SET kind = $2 WHERE id = $1`, [doc.id, kindOf(input.kind)]);
+  const kind = kindOf(input.kind);
+  // The invoice the approvers decide on stays an invoice while they decide (it could then be removed).
+  if (doc.kind === 'invoice' && kind !== 'invoice' && ['pending', 'question'].includes(row.status)) {
+    throw httpError(409, 'The invoice cannot be changed while the request is in approval', 'LOCKED');
+  }
+  await query(`UPDATE proc_documents SET kind = $2 WHERE id = $1`, [doc.id, kind]);
   return documentsOf(row.id);
 }
 

@@ -24,6 +24,7 @@ import {
   resetRoute,
   restart,
   routeFor,
+  tokenAllowsType,
   routeView,
   saveRoute,
   startApproval,
@@ -47,6 +48,16 @@ async function inboxCounts(req, items) {
     else if (item.dueAt && isoDay(item.dueAt, regional.timeZone) === today) dueToday += 1;
   }
   return { total: items.length, overdue, today: dueToday, byModule };
+}
+
+const COUNT_TTL_MS = 20_000;
+const countCache = new Map();
+
+function rememberCount(key, value) {
+  countCache.delete(key);
+  countCache.set(key, { at: Date.now(), value });
+  // Oldest first (insertion order): keep the map small.
+  while (countCache.size > 2000) countCache.delete(countCache.keys().next().value);
 }
 
 /** /api/app/approvals — signed-in people; access is checked per process and per type. */
@@ -84,12 +95,27 @@ export function privateRoutes() {
     })
   );
 
+  // The header badge polls this every minute and on window focus: answers
+  // from a short per-person cache (shared by parallel tabs); `?fresh=1`
+  // (after the person's own decision) skips it.
   router.get(
     '/inbox/count',
     wrap(async (req, res) => {
-      const { items } = await inboxFor(req);
-      const counts = await inboxCounts(req, items);
-      ok(res, { total: counts.total, overdue: counts.overdue, today: counts.today });
+      const key = `${req.user.id}:${req.apiToken?.id || 's'}`;
+      const cached = req.query.fresh === '1' ? null : countCache.get(key);
+      if (cached && Date.now() - cached.at < COUNT_TTL_MS) return ok(res, await cached.value);
+      const value = (async () => {
+        const { items } = await inboxFor(req);
+        const counts = await inboxCounts(req, items);
+        return { total: counts.total, overdue: counts.overdue, today: counts.today };
+      })();
+      rememberCount(key, value);
+      try {
+        ok(res, await value);
+      } catch (err) {
+        countCache.delete(key);
+        throw err;
+      }
     })
   );
 
@@ -143,7 +169,7 @@ export function privateRoutes() {
       if (process) {
         const { rows } = await query(`SELECT * FROM approval_processes WHERE id = $1`, [process.id]);
         if (!(await canSeeProcess(req, rows[0]))) throw httpError(404, 'Approval not found', 'NOT_FOUND');
-      } else if (!canManageType(req, type) && !(await type.canView(req, String(req.params.docId)))) {
+      } else if (!tokenAllowsType(req, type, 'read') || (!canManageType(req, type) && !(await type.canView(req, String(req.params.docId))))) {
         throw httpError(404, 'Approval not found', 'NOT_FOUND');
       }
       ok(res, { process });

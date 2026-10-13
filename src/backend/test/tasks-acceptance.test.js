@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACCEPT_DEFAULTS, acceptHoursFor, isOrderRow, parseProjectHours } from '../modules/tasks/orders.js';
+import { ACCEPT_DEFAULTS, acceptHoursFor, isOrderRow, parseProjectHours, rearmsAcceptNotice, reopenAcceptance } from '../modules/tasks/orders.js';
 import { taskMessage } from '../modules/tasks/messages.js';
 import { EVENT_TYPES } from '../api/events.js';
 import { NOTIFICATION_GROUPS } from '../services/notificationCatalog.js';
@@ -66,4 +66,18 @@ test('texts: the assignee is asked to accept by a time; the originator hears the
   assert.equal(taskMessage('notAccepted', { ref: 'HR-1', title: 'T', hours: 26, assignee: 'Aida' })('ru').title, 'Задача HR-1 не принята за 26 ч');
   assert.match(taskMessage('accepted', { ref: 'HR-1', title: 'T', actor: 'Aida', comment: 'On it' })('en').body, /Aida: “On it”/);
   assert.match(taskMessage('acceptOverdue', { ref: 'HR-1', title: 'T', hours: 25 })('en').title, /Accept HR-1/);
+});
+
+test('a task completed before acceptance and reopened: accepted by its assignee, else the time to accept starts over', () => {
+  assert.equal(reopenAcceptance({ actorId: 5, assigneeId: 5, originatorId: 1 }), 'accept');
+  assert.equal(reopenAcceptance({ actorId: 1, assigneeId: 5, originatorId: 1 }), 'restart');
+  assert.equal(reopenAcceptance({ actorId: 2, assigneeId: 1, originatorId: 1 }), 'accept', 'the originator’s own task');
+  assert.equal(reopenAcceptance({ actorId: 1, assigneeId: null, originatorId: 1 }), null);
+});
+
+test('a new acceptance deadline re-arms the "not accepted" notice only while it is ahead', () => {
+  const now = Date.parse('2026-10-13T10:00:00Z');
+  assert.equal(rearmsAcceptNotice('2026-10-13T12:00:00Z', now), true);
+  assert.equal(rearmsAcceptNotice('2026-10-13T09:00:00Z', now), false);
+  assert.equal(rearmsAcceptNotice(null, now), false);
 });

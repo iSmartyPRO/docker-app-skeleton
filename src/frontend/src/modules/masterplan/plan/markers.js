@@ -29,8 +29,15 @@ export function markerBounds(plan) {
   return { min: Math.max(2, round1(side * 0.002)), max: round1(side * 0.08), side };
 }
 
+/** A preset's radius, within the plan's bounds (a small drawing: never under 2 units, which the server would refuse). */
 export function presetRadius(plan, size = 'M') {
-  return round1(markerBounds(plan).side * (MARKER_SIZE_SHARE[size] || MARKER_SIZE_SHARE.M));
+  const { min, max, side } = markerBounds(plan);
+  return round1(clamp(side * (MARKER_SIZE_SHARE[size] || MARKER_SIZE_SHARE.M), min, max));
+}
+
+/** One arrow-key nudge in plan units: `px` screen pixels at `k` px per unit, never under 0.1 (the stored precision), so a nudge always moves. */
+export function nudgeStep(px, k) {
+  return Math.max(0.1, round1(px / (Number(k) > 0 ? k : 1)));
 }
 
 /** The preset nearest to a radius ('S' | 'M' | 'L'), or null when it is far from all (a custom size). */

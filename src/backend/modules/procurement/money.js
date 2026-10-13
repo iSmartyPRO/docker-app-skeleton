@@ -46,6 +46,9 @@ async function lockRequest(client, id) {
 
 /** POST /requests/:id/payments (multipart: paidOn, amount, method, reference, note, files[]). */
 export async function addPayment(req, res, id) {
+  // Cheap check before multer stores any file.
+  const first = await visibleRow(req, id);
+  if (actionError('pay', first.row.status, rolesOn(first.ctx, first.row)) === 'FORBIDDEN') throw httpError(403, 'Only accounting can mark payments', 'FORBIDDEN');
   const files = await runUpload(req, res);
   let ctx;
   let row;
@@ -127,6 +130,9 @@ export async function deletePayment(req, paymentId) {
 
 /** POST /requests/:id/deliveries (multipart: deliveredOn, partial, note, files[]). */
 export async function addDelivery(req, res, id) {
+  // Cheap check before multer stores any file.
+  const first = await visibleRow(req, id);
+  if (actionError('deliver', first.row.status, rolesOn(first.ctx, first.row)) === 'FORBIDDEN') throw httpError(403, 'Delivery is confirmed by the responsible person or the author', 'FORBIDDEN');
   const files = await runUpload(req, res);
   let ctx;
   let row;

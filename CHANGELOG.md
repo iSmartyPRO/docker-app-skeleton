@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Code review fixes — business modules and Masterplan 1.1
+
+Review: [docs/reviews/2026-10-13-business-modules.md](docs/reviews/2026-10-13-business-modules.md) — 38 findings, all fixed.
+
+- **Procurement:** requests are no longer visible through the default group; only the author, responsible or admin starts approval; the responsible person can resend and cancel; links and pickers respect other modules' access; autosave keeps the newest edits; invoice lock can't be bypassed.
+- **Approvals:** decision buttons always act on the open document; editing amounts or categories during approval re-plans the remaining stages; API tokens need the document module's scope; disabled modules accept no decisions; substitutes see questions consistently; faster inbox.
+- **Contracts:** refusal deadlines with long notice periods reach the inbox; CSV dates follow regional settings.
+- **Masterplan:** in moderated projects, substantive edits of a published report go back to review; report history respects report visibility; concurrent moves can't create cycles; Escape in the photo viewer keeps the card open; plan editor — deleted points stay deleted, undo removes the right step, sectors can't become points, smoother panning, contour drafts survive reloads, bulk move limited to 500 with a warning; «м²» translated.
+- **Tasks:** reopening a never-accepted task restarts the time to accept; re-armed «не принята» notices when the deadline changes.
+
 ### Business processes: approvals, procurement, contracts, orders
 
 Spec: [docs/specs/business-processes.ru.md](docs/specs/business-processes.ru.md).

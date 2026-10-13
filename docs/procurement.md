@@ -56,8 +56,9 @@ Rules live in `modules/procurement/logic.js` and are enforced on the server:
 - **Approval → request** (`APPROVAL_MAP`, used by `onStatus` inside the decision transaction): `pending`, `question`, `approved → to_pay`, `rejected`, `returned`, `withdrawn → draft`, each only from the listed statuses — anything else throws `409 BAD_TRANSITION` and the decision is rolled back. So a rejected or cancelled request cannot be restarted through the approvals API either.
 - **Manual actions** (`ACTIONS`): `submit` (draft, returned; author / responsible / admin), `withdraw`, `cancel` (draft, returned, in approval — withdrawn first —, `to_pay` without payments), `close`, `reopen` (admin; the status is derived again), `pay` (`procurement.pay`), `deliver` (author / responsible / admin), `delete` (a draft never sent).
 - **After payments / deliveries** the status is recomputed in one transaction holding the request row lock (`deriveStatus`): paid ≥ amount → `paid` (or `delivered` when fully delivered), > 0 → `partially_paid`, else `to_pay`. A payment above what is left is `400 OVERPAID`.
-- **Editing**: every field in `draft`, `returned`, `question`; afterwards only the description, deliver-by, supplier contacts, links and the responsible person. The amount after approval is `409 LOCKED`. Edits during approval refresh the inbox copy (`refreshApproval`).
-- **Sending** requires the title, an amount > 0, an allowed currency and — with *invoice required* — a document of kind `invoice` (`readyErrors`). Checked both by `POST …/submit` and inside `onStatus`, so `POST /app/approvals/process/procurement.request/:id/start` cannot bypass it.
+- **Editing**: every field in `draft`, `returned`, `question`; afterwards only the description, deliver-by, supplier contacts, links and the responsible person. The amount after approval is `409 LOCKED`. Edits during approval refresh the inbox copy and **re-plan** the stages not reached yet (`refreshApproval`, [approvals.md#replanning](approvals.md#replanning)): raising the amount (or changing the category, project, legal entity) while answering a question adds the stage the route now requires; nothing is locked for the author. An invoice cannot be removed or relabelled to another kind while the request is in approval (`409 LOCKED`).
+- **Who sends**: the author (or creator), the responsible person or `procurement.admin` — through the card and through the approvals API alike (`onStatus` checks the sender, `403 FORBIDDEN`). The responsible person may also send a returned request again and cancel one in approval: the module checks its own rule (`ACTIONS`) and then calls the engine's `restart` / `withdraw` on the module's behalf, in the person's name.
+- **Sending** requires the title, an amount > 0, an allowed currency and — with *invoice required* — a document of kind `invoice` (`readyErrors`). Checked both by `POST …/submit` and inside `onStatus` (also when no stage of the route applies and the start would approve at once), so `POST /app/approvals/process/procurement.request/:id/start` cannot bypass it. A returned request is sent again (`restart`), never started afresh (`409 NOT_RESTART`).
 
 ## Permissions and visibility
 
@@ -68,7 +69,7 @@ Rules live in `modules/procurement/logic.js` and are enforced on the server:
 | `procurement.pay` | Accounting: payments registry, marks payments, sees requests from `to_pay` on |
 | `procurement.admin` | Settings, categories, legal entities (module copy), the approval route; manages every request; default approver and escalation contact |
 
-A person sees a request when they are its author, responsible or creator; or a colleague from one of the author's groups (setting *groupVisibility*, never drafts); or a participant of its approval (approver now or before, substitute, delegate, question target — the same rule as `isParticipant()`, applied in SQL for lists); or hold `procurement.pay` and the request is approved; or `view_all` / `admin`. One SQL condition (`access.js → visibleSql`) serves lists, counters, kanban, exports, the summary and the contract filter, so they always agree. Hidden requests and their documents answer `404`.
+A person sees a request when they are its author, responsible or creator; or a colleague from one of the author's groups (setting *groupVisibility*, never drafts; the default group everyone is in does not count); or a participant of its approval (approver now or before, substitute, delegate, question target — the same rule as `isParticipant()`, applied in SQL for lists); or hold `procurement.pay` and the request is approved; or `view_all` / `admin`. One SQL condition (`access.js → visibleSql`) serves lists, counters, kanban, exports, the summary and the contract filter, so they always agree. Hidden requests and their documents answer `404`.
 
 ## Approval integration
 
@@ -84,7 +85,7 @@ Approval notifications (sent to me, question, approved, rejected…) come from t
 
 ## Links to other modules
 
-A link is not a dependency (spec §3): each field shows only while its module is on.
+A link is not a dependency (spec §3): each field shows only while its module is on. Pickers follow the target module's access (Masterplan: only projects the person sees there; an API token also needs that module's area). Saving a link that **changes** checks the same (`400 BAD_PROJECT` / `BAD_OBJECT` / `BAD_DEAL` / `BAD_CONTRACT` / `BAD_SUPPLIER`), and the stored label is taken from the target; a free-text label without an id stays as typed, and a link that does not change is not re-checked. *Duplicate* quietly leaves out links the person cannot open.
 
 | Link | Picker | Stored |
 |------|--------|--------|
@@ -206,4 +207,5 @@ src/frontend/src/i18n/procurement.js, help/content/procurement.js
 ## Tests
 
 - `test/procurement.test.js` (always): line items and money, status derivation, approval mapping and refused transitions, manual action rules, readiness, numbering, registry groups and totals, CSV formula guard, settings sanitizing (off by default), catalogued notifications and webhooks, message texts, legal entity validation.
+- `test/procurement-review.db.test.js` (`PROCUREMENT_DB_TEST=1`): the default group does not open requests, only the request's people send it (also via the approvals API, also with a route where no stage applies), the responsible person resends a returned request and cancels one in approval, the amount raised while answering a question adds a stage, link checks, the invoice's kind locked in approval.
 - `test/procurement.db.test.js` (`PROCUREMENT_DB_TEST=1 ENV_FILE_PATH=… node --test test/procurement.db.test.js`, a test database only): numbering under concurrency, the invoice guard through both entry points, submit → question → answer → approve → `to_pay` (accounting inbox item and notification), payments (forbidden for the author, partial, overpaid, full, removed), delivery and closing, reject (final), return → resubmit (round 2, refreshed amount), withdraw, cancel with withdrawal, draft deletion, visibility per role (stranger, colleague, approver, accountant, view_all), the contract filter, deadline reminders sent once and re-armed by a new date.

@@ -181,7 +181,7 @@ export default function NodeEditor({ node, project, onSaved, onDeleted, onAddChi
             <Form.Item name="typeId" label={t('mp.st.type')}>
               <Select showSearch optionFilterProp="label" options={types.filter((type) => type.nodeKind === node.kind).map((type) => ({ value: type.id, label: type.name }))} />
             </Form.Item>
-            {!node.unit && <Form.Item name="area" label={t('mp.f.area')}><NUM addonAfter="м²" /></Form.Item>}
+            {!node.unit && <Form.Item name="area" label={t('mp.f.area')}><NUM addonAfter={t('mp.measure.sqm')} /></Form.Item>}
           </div>
         )}
         {node.unit && (
@@ -204,7 +204,7 @@ export default function NodeEditor({ node, project, onSaved, onDeleted, onAddChi
               <Form.Item name={['unit', 'floor']} label={t('mp.f.floor')}><InputNumber precision={0} style={{ width: '100%' }} /></Form.Item>
               <Form.Item name={['unit', 'number']} label={t('mp.f.number')}><Input maxLength={20} /></Form.Item>
               <Form.Item name={['unit', 'riser']} label={t('mp.f.riser')}><NUM precision={0} /></Form.Item>
-              <Form.Item name={['unit', 'ceiling']} label={t('mp.f.ceiling')}><NUM step={0.1} addonAfter="м" /></Form.Item>
+              <Form.Item name={['unit', 'ceiling']} label={t('mp.f.ceiling')}><NUM step={0.1} addonAfter={t('mp.measure.m')} /></Form.Item>
             </div>
             <div className="form-grid-2">
               <Form.Item name={['unit', 'finishing']} label={t('mp.f.finishing')}>

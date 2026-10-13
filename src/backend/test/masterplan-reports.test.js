@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { REPORT_AUTHOR_HOURS, actCaps, reportRights } from '../modules/masterplan/rules.js';
+import { REPORT_AUTHOR_HOURS, actCaps, capsOf, editNeedsReview, reportEventVisible, reportRights, reportVisible } from '../modules/masterplan/rules.js';
 
 /*
  * Who may correct or delete a construction report (docs/masterplan.md →
@@ -57,4 +57,49 @@ test('reports: zones — out of the zone nobody but a wider moderator changes a 
   assert.equal(rights(ctxOf(6, [], [{ projectId: 1, nodeId: 10, role: 'foreman' }]), { author_id: 7, status: 'draft' }).edit, false);
   assert.equal(rights(sales, { author_id: 7, status: 'published', published_at: at(1) }).delete, false);
   assert.equal(rights(sales, { author_id: 7, status: 'published' }, []).edit, false, 'no objects → nothing');
+});
+
+// ── Moderated projects: the author's later corrections (docs/masterplan.md) ──
+
+test('a published report corrected by its author in a moderated project goes back to review only for what is moderated', () => {
+  const base = { moderation: true, moderator: false, status: 'published' };
+  assert.equal(editNeedsReview({ ...base, percent: { from: 40, to: 60 } }), true);
+  assert.equal(editNeedsReview({ ...base, factDate: { from: '2026-10-01', to: '2026-10-02' } }), true);
+  assert.equal(editNeedsReview({ ...base, photosAdded: true }), true);
+  assert.equal(editNeedsReview(base), false, 'the text or a removed photo stays published');
+  assert.equal(editNeedsReview({ ...base, moderator: true, percent: { from: 40, to: 60 } }), false, 'a moderator corrects the record');
+  assert.equal(editNeedsReview({ ...base, moderation: false, percent: { from: 40, to: 60 } }), false, 'no moderation in the project');
+  assert.equal(editNeedsReview({ ...base, status: 'draft', percent: { from: 40, to: 60 } }), false, 'not published yet');
+});
+
+// ── History entries about reports follow the report's visibility ───────────
+
+test('report visibility and the history entries about a report', () => {
+  const sales = capsOf(new Set(['sales']));
+  const foreman = capsOf(new Set(['foreman']));
+  const head = capsOf(new Set(['construction_head']));
+  const marketing = capsOf(new Set(['marketing']));
+  const published = { status: 'published', visibility: 'sales', author_id: 7 };
+  const internal = { status: 'published', visibility: 'internal', author_id: 7 };
+  const review = { status: 'review', visibility: 'sales', author_id: 7 };
+  assert.equal(reportVisible(sales, 1, published), true);
+  assert.equal(reportVisible(sales, 1, internal), false);
+  assert.equal(reportVisible(foreman, 1, internal), true);
+  assert.equal(reportVisible(sales, 1, review), false);
+  assert.equal(reportVisible(foreman, 7, review), true, 'the author');
+  assert.equal(reportVisible(head, 1, review), true, 'a moderator');
+  assert.equal(reportVisible(capsOf(new Set()), 1, published), false, 'no construction view');
+  // The report as it is now wins over what the entry recorded.
+  const entry = { kind: 'report', author_id: 7, data: { reportId: 1, status: 'review', reportStatus: 'review', visibility: 'sales', reportAuthorId: 7 } };
+  assert.equal(reportEventVisible(sales, 1, entry), false, 'under review when written, deleted since');
+  assert.equal(reportEventVisible(sales, 1, entry, published), true, 'published since');
+  assert.equal(reportEventVisible(sales, 1, { ...entry, data: { ...entry.data, reportStatus: 'published', status: 'published' } }), true);
+  // Entries written before visibility was recorded count as internal.
+  const old = { kind: 'report_edited', author_id: 7, data: { reportId: 1, percent: { from: 40, to: 60 } } };
+  assert.equal(reportEventVisible(sales, 1, old), false);
+  assert.equal(reportEventVisible(marketing, 1, old), false);
+  assert.equal(reportEventVisible(foreman, 1, old), true);
+  const oldDeleted = { kind: 'report_deleted', author_id: 3, data: { reportId: 1, status: 'draft', authorId: 7 } };
+  assert.equal(reportEventVisible(foreman, 7, oldDeleted), true, 'the author of a deleted draft');
+  assert.equal(reportEventVisible(foreman, 1, oldDeleted), false, 'someone else’s draft');
 });

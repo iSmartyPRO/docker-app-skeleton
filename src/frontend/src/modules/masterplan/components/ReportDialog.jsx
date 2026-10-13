@@ -142,7 +142,9 @@ export default function ReportDialog({ open, onClose }) {
         submit: send || undefined,
       });
       const next = res.data.report;
-      message.success(send ? (next.status === 'review' ? t('mp.report.sentReview') : t('mp.report.published')) : t('mp.rep.saved'));
+      // A moderated project: the author's correction of a published report went back to review (server: editNeedsReview).
+      if (!send && editing.status === 'published' && next.status === 'review') message.info(t('mp.rep.backToReview'));
+      else message.success(send ? (next.status === 'review' ? t('mp.report.sentReview') : t('mp.report.published')) : t('mp.rep.saved'));
       onClose(next);
     } catch (err) {
       setError(conflictText(err, t));

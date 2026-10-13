@@ -15,7 +15,7 @@ import PlansEditor from '../structure/PlansEditor';
 import TeamEditor from '../structure/TeamEditor';
 import ProjectForm from '../structure/ProjectForm';
 import PriceGridEditor from '../structure/PriceGridEditor';
-import MoveDialog from '../structure/MoveDialog';
+import MoveDialog, { BULK_MOVE_MAX } from '../structure/MoveDialog';
 import '../mp-pricing.css';
 
 /**
@@ -129,7 +129,8 @@ export default function StructurePage() {
             <div className="mp-structure__multi">
               <Button size="small" type={multi ? 'primary' : 'default'} onClick={() => { setMulti(!multi); setChecked([]); }}>{multi ? t('mp.move.done0') : t('mp.move.select')}</Button>
               {multi && <span className="mp-muted">{t('mp.move.checked', { n: checked.length })}</span>}
-              {multi && checked.length > 0 && <Button size="small" onClick={() => setMoving({ ids: checked })}>{t('mp.move.action')}…</Button>}
+              {multi && checked.length > BULK_MOVE_MAX && <span className="mp-warn-text" role="alert">{t('mp.move.tooMany', { max: BULK_MOVE_MAX })}</span>}
+              {multi && checked.length > 0 && <Button size="small" disabled={checked.length > BULK_MOVE_MAX} onClick={() => setMoving({ ids: checked })}>{t('mp.move.action')}…</Button>}
             </div>
             {treeData.length ? (
               <Tree

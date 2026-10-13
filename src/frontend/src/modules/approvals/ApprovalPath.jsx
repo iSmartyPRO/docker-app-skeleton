@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Avatar, Skeleton, Tooltip } from 'antd';
 import { useLocale } from '../../context/LocaleContext';
 import { fmtDateTime } from '../../lib/datetime';
@@ -14,20 +14,38 @@ import './approvals.css';
  * `process` is null while the document never went to approval.
  */
 export function useApprovalProcess(type, docId, { refreshKey } = {}) {
-  const [state, setState] = useState({ process: undefined, loading: true, error: null });
+  const key = type && docId !== undefined && docId !== null ? `${type}:${docId}` : null;
+  const [state, setState] = useState({ key, process: undefined, loading: true, error: null });
+  // Only the newest load may land: a late answer for the previous document is dropped.
+  const ticket = useRef(0);
   const reload = useCallback(() => {
-    if (!type || docId === undefined || docId === null) return Promise.resolve();
-    setState((prev) => ({ ...prev, loading: true }));
+    const mine = ++ticket.current;
+    if (!key) return Promise.resolve();
+    setState((prev) => (prev.key === key ? { ...prev, loading: true } : { key, process: undefined, loading: true, error: null }));
     return approvalsApi
       .process(type, docId)
-      .then((res) => setState({ process: res.data.process, loading: false, error: null }))
-      .catch((error) => setState((prev) => ({ ...prev, loading: false, error })));
-  }, [type, docId]);
+      .then((res) => {
+        if (mine === ticket.current) setState({ key, process: res.data.process, loading: false, error: null });
+      })
+      .catch((error) => {
+        if (mine === ticket.current) setState((prev) => ({ ...prev, key, loading: false, error }));
+      });
+  }, [key, type, docId]);
   useEffect(() => {
     reload();
   }, [reload, refreshKey]);
-  const setProcess = useCallback((process) => setState({ process, loading: false, error: null }), []);
-  return { ...state, reload, setProcess };
+  const setProcess = useCallback(
+    (process) => {
+      // An action finished on another document (the card moved on meanwhile) must not show up here.
+      if (process && (process.type !== type || String(process.docId) !== String(docId))) return;
+      ticket.current += 1;
+      setState({ key, process, loading: false, error: null });
+    },
+    [key, type, docId]
+  );
+  // Never hand out the previous document's process while the new one loads.
+  const current = state.key === key ? state : { process: undefined, loading: true, error: null };
+  return { process: current.process, loading: current.loading, error: current.error, reload, setProcess };
 }
 
 const STATE_GLYPH = { done: '✓', rejected: '✕', returned: '↩', withdrawn: '–', question: '?', current: '', upcoming: '' };

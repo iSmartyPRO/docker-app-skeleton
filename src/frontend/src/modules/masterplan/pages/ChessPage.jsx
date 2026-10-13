@@ -47,7 +47,7 @@ export default function ChessPage() {
   const value = (unit) => {
     const u = unit.unit;
     if (show === 'area') return formatArea(u.areaTotal, locale);
-    if (show === 'ppm') return u.pricePerM2 !== undefined && u.pricePerM2 !== null ? `${formatShortMoney(u.pricePerM2, u.currency, locale)}/м²` : '';
+    if (show === 'ppm') return u.pricePerM2 !== undefined && u.pricePerM2 !== null ? t('mp.measure.perSqmShort', { price: formatShortMoney(u.pricePerM2, u.currency, locale) }) : '';
     return u.price !== undefined && u.price !== null ? formatShortMoney(u.price, u.currency, locale) : '';
   };
   const toggle = (id) => setPicked((prev) => {
