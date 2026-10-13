@@ -1,12 +1,18 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { layoutLabels, polygonArea } from './labels';
 
 /*
  * The site plan surface: a background (image or SVG) with clickable polygons
  * on top, zoom (wheel, buttons, pinch), pan (drag), "fit" and "focus on a
  * box". Coordinates of polygons are the plan's own (its width × height).
  *
- * shapes: [{ id, points: [[x, y]…], fill, stroke, level, dim, selected, label }]
+ * shapes: [{ id, points: [[x, y]…], fill, stroke, level, dim, selected, label, badge? }]
  * edit:   { points, closed, onAdd(pt), onMove(index, pt), onRemove(index) } — the contour editor
+ * labelMode: 'auto' | 'always' | 'hide' — numbers of objects (plan/labels.js); levels keep their names
+ *
+ * Contours may overlap (sectors meeting on a narrow strip): levels are drawn
+ * under objects, and within each group bigger contours under smaller ones, so
+ * a click lands on the smallest, top-most object.
  */
 
 const MIN_K = 0.05;
@@ -46,7 +52,13 @@ export function centroid(points) {
   return [cx / (3 * a), cy / (3 * a)];
 }
 
-const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, shapes, onShapeClick, onShapeHover, onBackgroundClick, onReady, edit, className = '', ariaLabel, children }, ref) {
+const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, shapes: rawShapes, onShapeClick, onShapeHover, onBackgroundClick, onReady, edit, labelMode = 'auto', className = '', ariaLabel, children }, ref) {
+  // Drawing order: levels first, then objects; bigger under smaller (parents under children).
+  const shapes = useMemo(() => {
+    const withArea = rawShapes.map((shape) => ({ shape, area: polygonArea(shape.points) }));
+    withArea.sort((a, b) => Number(Boolean(b.shape.level)) - Number(Boolean(a.shape.level)) || b.area - a.area);
+    return withArea.map((item) => item.shape);
+  }, [rawShapes]);
   const box = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState(null); // { x, y, k }
@@ -62,13 +74,15 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
     return () => observer.disconnect();
   }, []);
 
+  // `insetRight`: screen px covered on the right (the side card), so the target is centred in what stays visible.
   const fitBox = useCallback(
-    (target, pad = 0.06) => {
+    (target, pad = 0.06, insetRight = 0) => {
       if (!size.w || !size.h) return;
       const w = Math.max(target.w, 1);
       const h = Math.max(target.h, 1);
-      const k = Math.min(MAX_K, Math.max(MIN_K, Math.min(size.w / (w * (1 + pad * 2)), size.h / (h * (1 + pad * 2)))));
-      setView({ k, x: size.w / 2 - (target.x + w / 2) * k, y: size.h / 2 - (target.y + h / 2) * k });
+      const free = Math.max(size.w * 0.4, size.w - insetRight);
+      const k = Math.min(MAX_K, Math.max(MIN_K, Math.min(free / (w * (1 + pad * 2)), size.h / (h * (1 + pad * 2)))));
+      setView({ k, x: free / 2 - (target.x + w / 2) * k, y: size.h / 2 - (target.y + h / 2) * k });
     },
     [size]
   );
@@ -120,6 +134,8 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
 
   const onPointerDown = (event) => {
     if (!view) return;
+    // Controls over the plan (zoom buttons, overlays) handle their own clicks: no capture, no pan.
+    if (event.target.closest?.('button, a, input, [data-overlay]')) return;
     box.current.setPointerCapture?.(event.pointerId);
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const vertex = event.target.dataset?.vertex;
@@ -138,7 +154,7 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
       if (onShapeHover) {
         const id = event.target.dataset?.shape;
         const rect = box.current.getBoundingClientRect();
-        onShapeHover(id ? Number(id) : null, { x: event.clientX - rect.left, y: event.clientY - rect.top });
+        onShapeHover(id ? Number(id) : null, { x: event.clientX - rect.left, y: event.clientY - rect.top, w: rect.width, h: rect.height });
       }
       return;
     }
@@ -184,7 +200,12 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
   };
 
   const k = view?.k || 1;
-  const labels = useMemo(() => shapes.filter((shape) => shape.label).map((shape) => ({ id: shape.id, at: centroid(shape.points), box: bboxOf(shape.points), label: shape.label, level: shape.level })), [shapes]);
+  const levelLabels = useMemo(() => shapes.filter((shape) => shape.label && shape.level).map((shape) => ({ id: shape.id, box: bboxOf(shape.points), label: shape.label })), [shapes]);
+  const objects = useMemo(() => shapes.filter((shape) => !shape.level), [shapes]);
+  const byId = useMemo(() => new Map(objects.map((shape) => [shape.id, shape])), [objects]);
+  // Rounded zoom: labels are laid out again only when the scale really changes.
+  const kStep = Math.round(k * 400) / 400;
+  const numbers = useMemo(() => (view ? layoutLabels(objects.map((shape) => ({ id: shape.id, points: shape.points, text: shape.label })), kStep, labelMode) : []), [objects, kStep, labelMode, view]);
 
   return (
     <div
@@ -213,17 +234,34 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
               .map((shape) => (
                 <polygon key={shape.id} data-shape={shape.id} points={shape.points.map((p) => p.join(',')).join(' ')} className={`mp-shape${shape.selected ? ' is-selected' : ''}${shape.dim ? ' is-dim' : ''}${shape.hover ? ' is-hover' : ''}`} style={{ '--fill': shape.fill, '--stroke': shape.stroke, strokeWidth: (shape.selected ? 3.5 : 1.2) / k }} />
               ))}
-            {labels.map((item) => {
-              const fontPx = item.level ? 13 : 11;
-              const fits = item.box.w * k > (item.level ? 60 : 34) && item.box.h * k > 16;
-              if (!fits) return null;
-              // Levels are labelled above their top-left corner, so unit labels inside stay readable.
-              const x = item.level ? item.box.x + 4 / k : item.at[0];
-              const y = item.level ? item.box.y - 7 / k : item.at[1];
+            {levelLabels.map((item) => {
+              // Levels are labelled above their top-left corner, so the numbers inside stay readable.
+              if (!(item.box.w * k > 60 && item.box.h * k > 16)) return null;
               return (
-                <text key={`t${item.id}`} x={x} y={y} className={`mp-shape__label${item.level ? ' is-level' : ''}`} fontSize={fontPx / k} dominantBaseline={item.level ? 'auto' : 'middle'} textAnchor={item.level ? 'start' : 'middle'}>
+                <text key={`t${item.id}`} x={item.box.x + 4 / k} y={item.box.y - 7 / k} className="mp-shape__label is-level" fontSize={13 / k} dominantBaseline="auto" textAnchor="start">
                   {item.label}
                 </text>
+              );
+            })}
+            {numbers.map((item) => {
+              const shape = byId.get(item.id);
+              if (!shape) return null;
+              const dim = shape.dim ? ' is-dim' : '';
+              if (item.kind === 'text') {
+                return (
+                  <text key={`n${item.id}`} x={item.x} y={item.y} className={`mp-shape__label${dim}`} fontSize={item.px / k} style={{ strokeWidth: 3 / k }} dominantBaseline="central" textAnchor="middle">
+                    {shape.label}
+                  </text>
+                );
+              }
+              // Does not fit: a round badge in the status colour at the contour's centre, as on the printed plan.
+              return (
+                <g key={`n${item.id}`} className={`mp-badge${dim}`}>
+                  <circle cx={item.x} cy={item.y} r={item.r / k} style={{ fill: shape.badge || shape.fill, strokeWidth: 1.5 / k }} />
+                  <text x={item.x} y={item.y} fontSize={item.px / k} style={{ strokeWidth: 2.4 / k }} dominantBaseline="central" textAnchor="middle">
+                    {shape.label}
+                  </text>
+                </g>
               );
             })}
             {edit?.points?.length > 0 && (

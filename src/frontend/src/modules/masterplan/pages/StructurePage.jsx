@@ -14,6 +14,9 @@ import { BulkDialog, CreateNodeDialog } from '../structure/NodeDialogs';
 import PlansEditor from '../structure/PlansEditor';
 import TeamEditor from '../structure/TeamEditor';
 import ProjectForm from '../structure/ProjectForm';
+import PriceGridEditor from '../structure/PriceGridEditor';
+import MoveDialog from '../structure/MoveDialog';
+import '../mp-pricing.css';
 
 /**
  * Структура проекта (administrators): the tree with drag & drop moves,
@@ -30,6 +33,10 @@ export default function StructurePage() {
   const [bulk, setBulk] = useState(null);
   const [importing, setImporting] = useState(false);
   const [query, setQuery] = useState('');
+  // Several nodes at once (bulk move): a checkbox per node.
+  const [multi, setMulti] = useState(false);
+  const [checked, setChecked] = useState([]);
+  const [moving, setMoving] = useState(null);
   const tab = search.get('tab') || 'tree';
   const selectedId = Number(search.get('node')) || null;
   const setParam = (key, value) => {
@@ -106,6 +113,7 @@ export default function StructurePage() {
           { key: 'tree', label: t('mp.st.tabTree') },
           { key: 'plans', label: t('mp.st.tabPlans') },
           { key: 'team', label: t('mp.st.tabTeam') },
+          { key: 'pricing', label: t('mp.st.tabPricing') },
           { key: 'project', label: t('mp.st.tabProject') },
         ]}
       />
@@ -118,13 +126,22 @@ export default function StructurePage() {
               <Button onClick={() => setImporting(true)}>{t('mp.reg.import')}</Button>
             </div>
             <Input.Search allowClear placeholder={t('mp.filter.search')} value={query} onChange={(event) => setQuery(event.target.value)} />
+            <div className="mp-structure__multi">
+              <Button size="small" type={multi ? 'primary' : 'default'} onClick={() => { setMulti(!multi); setChecked([]); }}>{multi ? t('mp.move.done0') : t('mp.move.select')}</Button>
+              {multi && <span className="mp-muted">{t('mp.move.checked', { n: checked.length })}</span>}
+              {multi && checked.length > 0 && <Button size="small" onClick={() => setMoving({ ids: checked })}>{t('mp.move.action')}…</Button>}
+            </div>
             {treeData.length ? (
               <Tree
                 className="mp-tree"
                 treeData={treeData}
                 selectedKeys={selectedId ? [selectedId] : []}
                 onSelect={(keys) => setParam('node', keys[0])}
-                draggable={{ icon: false }}
+                checkable={multi}
+                checkStrictly
+                checkedKeys={multi ? { checked, halfChecked: [] } : undefined}
+                onCheck={(keys) => setChecked((Array.isArray(keys) ? keys : keys.checked).map(Number))}
+                draggable={multi ? false : { icon: false }}
                 onDrop={onDrop}
                 blockNode
                 defaultExpandedKeys={selected ? selected.path : tree.roots.map((node) => node.id)}
@@ -154,7 +171,9 @@ export default function StructurePage() {
       )}
       {tab === 'plans' && <PlansEditor />}
       {tab === 'team' && <TeamEditor />}
+      {tab === 'pricing' && <PriceGridEditor />}
       {tab === 'project' && <ProjectForm />}
+      <MoveDialog open={moving} tree={tree} onClose={(done) => { setMoving(null); if (done) { setChecked([]); setMulti(false); reload(); } }} />
       <CreateNodeDialog open={create} project={project} tree={tree} onClose={(node) => { setCreate(null); if (node) { reload(); setParam('node', node.id); } }} />
       <BulkDialog open={bulk} project={project} tree={tree} onClose={(done) => { setBulk(null); if (done) reload(); }} />
       <ImportDialog open={importing} project={project} onClose={(done) => { setImporting(false); if (done) reload(); }} />

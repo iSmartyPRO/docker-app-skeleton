@@ -13,6 +13,7 @@ import { Readiness, StatusTag, TypeIcon } from '../components/bits';
 import UnitCard from '../components/UnitCard';
 import { BulkPriceDialog, BulkStatusDialog } from '../components/BulkDialogs';
 import ImportDialog from '../components/ImportDialog';
+import MigrateDialog from '../components/MigrateDialog';
 import { exportXlsx } from '../media/xlsx';
 
 const COLUMNS = ['type', 'status', 'price', 'ppm', 'area', 'plot', 'bedrooms', 'floor', 'finishing', 'readiness', 'manager', 'client'];
@@ -35,6 +36,7 @@ export default function RegistryPage() {
   const [selected, setSelected] = useState([]);
   const [bulkPrice, setBulkPrice] = useState(null);
   const [bulkStatus, setBulkStatus] = useState(null);
+  const [migrate, setMigrate] = useState(null);
   const [importing, setImporting] = useState(false);
   const selectedId = Number(search.get('node')) || null;
   const params = useMemo(() => ({ project: project.id, ...filterParams(filter), ...page, presentation: presentation ? 1 : undefined }), [project.id, filter, page, presentation]);
@@ -190,6 +192,7 @@ export default function RegistryPage() {
           {can(caps, 'price.edit') && <Button type="primary" onClick={() => setBulkPrice(selected)}>{t('mp.bulk.price')}</Button>}
           {can(caps, 'status.not_for_sale') && <Button onClick={() => setBulkStatus({ ids: selected, to: 'not_for_sale' })}>{t('mp.bulk.close')}</Button>}
           {can(caps, 'status.open') && <Button onClick={() => setBulkStatus({ ids: selected, to: 'free' })}>{t('mp.bulk.open')}</Button>}
+          {project.canConfigure && <Button onClick={() => setMigrate({ ids: selected })}>{t('mp.migrate.action')}…</Button>}
           <Button type="text" onClick={() => setSelected([])}>{t('mp.bulk.clear')}</Button>
         </div>
       )}
@@ -210,6 +213,17 @@ export default function RegistryPage() {
         onClose={(changed) => {
           setBulkStatus(null);
           if (changed) {
+            setSelected([]);
+            load();
+          }
+        }}
+      />
+      <MigrateDialog
+        open={migrate}
+        onClose={(changed) => {
+          setMigrate(null);
+          if (changed) {
+            refreshUnits(selected);
             setSelected([]);
             load();
           }

@@ -2521,3 +2521,443 @@ button.mp-chip:hover {
     width: 92px;
   }
 }
+
+/* ── Numbers on the plan, search hits (docs: "Numbers on the plan") ────── */
+
+.mp-shape__label.is-dim,
+.mp-badge.is-dim {
+  opacity: 0.25;
+}
+
+.mp-badge {
+  pointer-events: none;
+}
+
+.mp-badge circle {
+  stroke: #fff;
+  filter: drop-shadow(0 1px 1.5px rgba(15, 23, 42, 0.35));
+}
+
+.mp-badge text {
+  fill: #fff;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: rgba(15, 23, 42, 0.45);
+  stroke-linejoin: round;
+}
+
+.mp-labels-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--da-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.mp-hit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.mp-hit b {
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-hit__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--da-muted);
+}
+
+.mp-hit em {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--da-tint);
+  color: var(--da-muted);
+  font-size: 11.5px;
+  font-style: normal;
+}
+
+.mp-tip__was {
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+/* ── Unified card: header chips, building head, composition, mini-chessboard ── */
+
+.mp-card__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 8px;
+  padding: 3px 10px 3px 8px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 999px;
+  background: var(--da-surface);
+  color: var(--da-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.mp-card__back:hover {
+  border-color: var(--da-primary);
+  color: var(--da-primary);
+}
+
+.mp-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.mp-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 999px;
+  background: var(--da-tint);
+  color: var(--da-text);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+button.mp-chip {
+  cursor: pointer;
+}
+
+button.mp-chip:hover {
+  border-color: var(--da-primary);
+  color: var(--da-primary);
+}
+
+.mp-chip.is-was {
+  background: color-mix(in srgb, #f59e0b 12%, var(--da-surface));
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--da-hairline));
+}
+
+.mp-chip.is-edit {
+  background: none;
+  border-style: dashed;
+  color: var(--da-muted);
+}
+
+.mp-oldedit {
+  display: flex;
+  gap: 6px;
+  width: 240px;
+}
+
+.mp-bhead {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+
+.mp-bhead__free {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mp-bhead__free b {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mp-bblock {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 12px 0 8px;
+}
+
+.mp-bblock h4,
+.mp-media h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--da-muted);
+}
+
+.mp-comp__table {
+  margin-top: 8px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.mp-comp__row {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) minmax(70px, 1.1fr) 62px minmax(72px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 4px 10px;
+  border-top: 1px solid var(--da-hairline);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-comp__row:first-child {
+  border-top: 0;
+}
+
+.mp-comp__row.is-head {
+  min-height: 30px;
+  background: var(--da-tint);
+  color: var(--da-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.mp-comp__row.is-active {
+  background: color-mix(in srgb, var(--da-primary) 7%, transparent);
+}
+
+.mp-comp__pick {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--da-text);
+  font: inherit;
+  font-weight: 650;
+  text-decoration: underline dotted color-mix(in srgb, var(--da-text) 35%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.mp-comp__pick:hover,
+.mp-comp__row.is-active .mp-comp__pick {
+  color: var(--da-primary);
+}
+
+.mp-mini__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mp-mini__open {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.mp-mini__pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 6px;
+}
+
+.mp-mini__found {
+  margin: 0 0 6px;
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+.mp-mini__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--da-text) 4%, transparent);
+}
+
+.mp-mini__row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.mp-mini__floor {
+  flex: 0 0 16px;
+  align-self: center;
+  color: var(--da-faint, var(--da-muted));
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.mp-mini__sec {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+}
+
+.mp-mini__cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 28px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--c) 55%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--c) 22%, var(--da-surface));
+  color: var(--da-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: transform 0.12s var(--da-ease, ease), box-shadow 0.12s, opacity 0.2s;
+}
+
+.mp-mini__cell b {
+  font-weight: 700;
+}
+
+.mp-mini__cell i {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--da-muted);
+}
+
+/* Many units per floor: the rooms mark gives way to the number (the picker and the tooltip still tell the rooms). */
+.mp-mini__sec.is-dense .mp-mini__cell i {
+  display: none;
+}
+
+.mp-mini__cell:hover {
+  z-index: 1;
+  transform: scale(1.08);
+  box-shadow: 0 0 0 2px var(--c);
+}
+
+.mp-mini__cell.is-dim {
+  opacity: 0.28;
+}
+
+.mp-mini__cell.is-empty {
+  border: 1px dashed var(--da-hairline);
+  background: none;
+  cursor: default;
+}
+
+.mp-media {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0 4px;
+}
+
+.mp-media__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.mp-media__name {
+  display: block;
+  margin-top: 2px;
+  color: var(--da-text);
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mp-media__add {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.mp-media .mp-gallery {
+  margin: 2px 0;
+}
+
+.mp-gallery__item {
+  position: relative;
+  display: inline-block;
+}
+
+.mp-gallery__tag {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.62);
+  color: #fff;
+  font-size: 10.5px;
+  font-style: normal;
+  pointer-events: none;
+}
+
+.mp-gallery__del {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.6);
+  color: #fff;
+  font-size: 10px;
+  line-height: 20px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.mp-gallery__item:hover .mp-gallery__del,
+.mp-gallery__del:focus-visible,
+.mp-gallery__del.is-inline {
+  opacity: 1;
+}
+
+.mp-gallery__del.is-inline {
+  position: static;
+  margin-left: 4px;
+  background: var(--da-tint);
+  color: var(--da-muted);
+}
+
+@media (hover: none) {
+  .mp-gallery__del {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .mp-labels-switch > span {
+    display: none;
+  }
+
+  .mp-comp__row {
+    grid-template-columns: minmax(60px, 1fr) minmax(64px, 1fr) 52px minmax(64px, 1fr) auto;
+    gap: 6px;
+    padding: 4px 8px;
+    font-size: 12.5px;
+  }
+
+  .mp-mini__cell {
+    height: 30px;
+  }
+}

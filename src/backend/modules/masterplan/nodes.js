@@ -8,7 +8,8 @@ import { projectSettings } from './projects.js';
 import { treeChanged, unitsChanged } from './realtime.js';
 import { nodeStages, recentReports } from './construction.js';
 import { mediaShape } from './media.js';
-import { dayString, intOr, iso, logEvent, money, parseDay, parseNumber, text, usersById } from './util.js';
+import { buildingAggregate, seriesKeyOf } from './buildings.js';
+import { dayString, idList, intOr, iso, logEvent, money, parseDay, parseNumber, text, usersById } from './util.js';
 
 /*
  * The hierarchy tree (spec §4): levels, plots, construction objects and
@@ -343,35 +344,75 @@ export function versionConflict(nodeId) {
   return error;
 }
 
+/**
+ * Moves one node (and its subtree) under `parentId` inside a transaction:
+ * same project, not into itself or its subtree, the tree stays ≤ MAX_DEPTH.
+ * `node` = a fresh row (path, depth, parent_id). Writes a `moved` event.
+ */
+async function moveWithin(client, ctx, node, parentId, sort, extra = {}) {
+  let parentPath = [];
+  if (parentId) {
+    const { rows } = await client.query(`SELECT * FROM mp_nodes WHERE id = $1 AND project_id = $2`, [parentId, node.project_id]);
+    if (!rows[0]) throw httpError(400, 'Unknown parent', 'INVALID_PARENT');
+    if (rows[0].path.includes(node.id)) throw httpError(400, 'A node cannot move into itself', 'INVALID_PARENT');
+    parentPath = rows[0].path;
+  }
+  const { rows: deepest } = await client.query(`SELECT MAX(depth) AS d FROM mp_nodes WHERE path @> ARRAY[$1]::int[]`, [node.id]);
+  const below = Number(deepest[0].d) - node.depth;
+  if (parentPath.length + 1 + below > MAX_DEPTH) throw httpError(400, `The tree is at most ${MAX_DEPTH} levels deep`, 'TOO_DEEP');
+  const oldPrefix = node.depth - 1;
+  // Every node of the subtree: new ancestors + the part of its path from the moved node down.
+  await client.query(
+    `UPDATE mp_nodes SET path = $2::int[] || path[$3:array_length(path, 1)], depth = cardinality($2::int[]) + array_length(path, 1) - $3 + 1, updated_at = NOW()
+     WHERE path @> ARRAY[$1]::int[]`,
+    [node.id, parentPath, oldPrefix + 1]
+  );
+  const place = sort !== undefined && sort !== null && Number.isFinite(Number(sort)) ? Number(sort) : await nextSort(client, node.project_id, parentId);
+  await client.query(`UPDATE mp_nodes SET parent_id = $2, sort = $3 WHERE id = $1`, [node.id, parentId, place]);
+  await logEvent(client, { projectId: node.project_id, nodeId: node.id, kind: 'moved', data: { from: node.parent_id, to: parentId, ...extra }, authorId: ctx.userId });
+}
+
 /** Moves a node (and its subtree) under another parent of the same project (§4.2, administrators). */
 export async function moveNode(ctx, id, input) {
   const node = await requireNode(ctx, id);
   requireConfigure(ctx, node.project_id);
   const parentId = intOr(input.parentId) || null;
-  await withTransaction(async (client) => {
-    let parentPath = [];
-    if (parentId) {
-      const { rows } = await client.query(`SELECT * FROM mp_nodes WHERE id = $1 AND project_id = $2`, [parentId, node.project_id]);
-      if (!rows[0]) throw httpError(400, 'Unknown parent', 'INVALID_PARENT');
-      if (rows[0].path.includes(node.id)) throw httpError(400, 'A node cannot move into itself', 'INVALID_PARENT');
-      parentPath = rows[0].path;
-    }
-    const { rows: deepest } = await client.query(`SELECT MAX(depth) AS d FROM mp_nodes WHERE path @> ARRAY[$1]::int[]`, [node.id]);
-    const below = Number(deepest[0].d) - node.depth;
-    if (parentPath.length + 1 + below > MAX_DEPTH) throw httpError(400, `The tree is at most ${MAX_DEPTH} levels deep`, 'TOO_DEEP');
-    const oldPrefix = node.depth - 1;
-    // Every node of the subtree: new ancestors + the part of its path from the moved node down.
-    await client.query(
-      `UPDATE mp_nodes SET path = $2::int[] || path[$3:array_length(path, 1)], depth = cardinality($2::int[]) + array_length(path, 1) - $3 + 1, updated_at = NOW()
-       WHERE path @> ARRAY[$1]::int[]`,
-      [node.id, parentPath, oldPrefix + 1]
-    );
-    const sort = input.sort !== undefined && Number.isFinite(Number(input.sort)) ? Number(input.sort) : await nextSort(client, node.project_id, parentId);
-    await client.query(`UPDATE mp_nodes SET parent_id = $2, sort = $3 WHERE id = $1`, [node.id, parentId, sort]);
-    await logEvent(client, { projectId: node.project_id, nodeId: node.id, kind: 'moved', data: { from: node.parent_id, to: parentId }, authorId: ctx.userId });
-  });
+  await withTransaction(async (client) => moveWithin(client, ctx, node, parentId, input.sort));
   treeChanged(node.project_id);
   return getNode(ctx, node.id);
+}
+
+/**
+ * Moves several nodes under one parent in one action (e.g. ten houses into
+ * another sector): the same checks as a single move for every node, all or
+ * nothing. A node whose ancestor is also chosen moves with that ancestor.
+ * { ids, parentId } → { moved, ids }.
+ */
+export async function bulkMove(ctx, input = {}) {
+  const ids = idList(input.ids, 500);
+  if (!ids.length) throw httpError(400, 'Choose objects', 'EMPTY');
+  const parentId = intOr(input.parentId) || null;
+  const { rows } = await query(`SELECT * FROM mp_nodes WHERE id = ANY($1::int[])`, [ids]);
+  if (rows.length !== ids.length) throw notFound('Object not found');
+  const projectId = rows[0].project_id;
+  if (rows.some((row) => row.project_id !== projectId)) throw httpError(400, 'Objects of one project only', 'INVALID_FIELD');
+  await requireProject(ctx, projectId);
+  requireConfigure(ctx, projectId);
+  const chosen = new Set(ids);
+  // In the order chosen; descendants of chosen nodes travel with them.
+  const top = ids.map((id) => rows.find((row) => row.id === id)).filter((row) => !row.path.slice(0, -1).some((up) => chosen.has(up)));
+  const moved = [];
+  await withTransaction(async (client) => {
+    for (const row of top) {
+      // Fresh path / depth: an earlier move of this batch never changes it (they are disjoint subtrees), but read under the transaction anyway.
+      const { rows: fresh } = await client.query(`SELECT * FROM mp_nodes WHERE id = $1 FOR UPDATE`, [row.id]);
+      if (parentId === fresh[0].parent_id) continue;
+      await moveWithin(client, ctx, fresh[0], parentId, null, { bulk: top.length });
+      moved.push(row.id);
+    }
+  });
+  treeChanged(projectId);
+  return { moved: moved.length, ids: moved };
 }
 
 /** Deletes a node with its subtree, unless something in it is held for a client. */
@@ -428,11 +469,20 @@ export async function nodeCard(ctx, id, { presentation = false } = {}) {
     if (w) node.readiness = Math.round((v / w) * 10) / 10;
   }
   const summary = await subtreeSummary(ctx, base, caps);
+  // A building with units below (an apartment building): one aggregate of its units, after field hiding.
+  let building = null;
+  if (!node.unit && node.kind === 'object') {
+    const { rows: below } = await query(`${NODE_SELECT} WHERE n.path @> ARRAY[$1]::int[] AND n.id <> $1 AND u.node_id IS NOT NULL`, [base.id]);
+    if (below.length) building = buildingAggregate(below.map((row) => visibleNode(ctx, row, { presentation, caps })), caps);
+  }
+  // Plans and renders shared by every object of the same series (house project, apartment type).
+  const series = seriesKeyOf(node);
   const stageOwner = base.stage_set ? base : chain.slice(0, -1).reverse().find((item) => item.type?.stageSet && item.kind !== 'level');
   const stages = has(caps, 'build.view') && stageOwner ? await nodeStages(ctx, stageOwner.id ?? stageOwner) : null;
-  const [reports, media, prices] = await Promise.all([
+  const [reports, media, seriesMedia, prices] = await Promise.all([
     has(caps, 'build.view') ? recentReports(ctx, base, { limit: 8 }) : [],
     query(`SELECT * FROM mp_media WHERE node_id = $1 AND report_id IS NULL ORDER BY id DESC LIMIT 60`, [base.id]),
+    series ? query(`SELECT * FROM mp_media WHERE project_id = $1 AND series = $2 AND node_id IS NULL AND report_id IS NULL ORDER BY id DESC LIMIT 60`, [base.project_id, series]) : { rows: [] },
     node.unit && has(caps, 'price.view') && !presentation
       ? query(`SELECT h.*, COALESCE(u.display_name, u.username) AS author FROM mp_price_history h LEFT JOIN users u ON u.id = h.author_id WHERE h.unit_id = $1 ORDER BY h.id DESC LIMIT 50`, [base.id])
       : { rows: [] },
@@ -445,6 +495,9 @@ export async function nodeCard(ctx, id, { presentation = false } = {}) {
     node,
     breadcrumbs: chain.slice(0, -1).map((item) => ({ id: item.id, code: item.code, name: item.name, kind: item.kind, levelKey: item.levelKey })),
     summary,
+    building,
+    series,
+    seriesMedia: seriesMedia.rows.map(mediaShape),
     stages: stages ? { ownerId: stageOwner.id, inherited: stageOwner.id !== base.id, ...stages } : null,
     reports,
     media: media.rows.map(mediaShape),
@@ -462,6 +515,13 @@ export async function nodeCard(ctx, id, { presentation = false } = {}) {
           report: has(act, 'build.edit'),
           media: has(act, 'media.edit') || has(act, 'build.edit') || ctx.isAdmin,
           configure: canConfigure(ctx, base.project_id),
+          // A building's card: reserve a unit of it right there, close sales of all of it.
+          reserveUnits: Boolean(building) && has(act, 'status.reserve'),
+          closeAll: Boolean(building) && has(act, 'status.not_for_sale'),
+          // Shared media of the series: a project-wide role with media.edit, or the configurator.
+          seriesMedia: Boolean(series) && (has(actCaps(ctx, { project_id: base.project_id, path: [] }), 'media.edit') || canConfigure(ctx, base.project_id)),
+          // Status migration (administrators): any status, bypassing the chain and timers.
+          migrate: Boolean(unitFacts) && canConfigure(ctx, base.project_id),
         },
   };
 }
@@ -504,7 +564,7 @@ export async function nodeEvents(ctx, id, { before } = {}) {
   const items = rows.slice(0, 50).map((row) => {
     const data = { ...(row.data || {}) };
     if (!has(caps, 'price.view') && row.kind === 'price') return null;
-    if (!has(caps, 'status.view') && ['status', 'booking', 'extend', 'expired', 'manager', 'crm_stage'].includes(row.kind)) return null;
+    if (!has(caps, 'status.view') && ['status', 'migration', 'booking', 'extend', 'expired', 'manager', 'crm_stage'].includes(row.kind)) return null;
     // Who holds a unit and until when: booking.view (as on the unit itself).
     if (!has(caps, 'booking.view') && row.kind === 'manager') return null;
     const ownBooking = data.manager?.id && data.manager.id === ctx.userId;
@@ -519,6 +579,7 @@ export async function nodeEvents(ctx, id, { before } = {}) {
     }
     if (!(has(caps, 'amounts.all') || (has(caps, 'amounts.own') && ownBooking))) {
       delete data.amount;
+      delete data.paid;
       delete data.contract;
       delete data.actDate;
       delete data.cleared;

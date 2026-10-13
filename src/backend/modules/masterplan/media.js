@@ -42,6 +42,7 @@ export function mediaShape(row) {
     lng: row.lng,
     nodeId: row.node_id,
     reportId: row.report_id,
+    series: row.series || null,
     url: `/api/app/masterplan/media/${row.id}`,
     thumbUrl: row.thumb_key ? `/api/app/masterplan/media/${row.id}?thumb=1` : null,
     createdAt: iso(row.created_at),
@@ -104,6 +105,8 @@ export async function storeMedia(ctx, body, files) {
     const project = await requireProject(ctx, body.projectId);
     const kind = MEDIA_KINDS.includes(body.kind) ? body.kind : 'photo';
     const nodeId = intOr(body.nodeId);
+    // Media of a series (house project / apartment type): shown in the card of every object of it.
+    const series = !nodeId ? text(body.series, 160) || null : null;
     let node = null;
     if (nodeId) {
       const { rows } = await query(`SELECT id, project_id, path FROM mp_nodes WHERE id = $1 AND project_id = $2`, [nodeId, project.id]);
@@ -112,6 +115,9 @@ export async function storeMedia(ctx, body, files) {
     }
     if (kind === 'plan') {
       if (!canConfigure(ctx, project.id)) throw forbidden();
+    } else if (series) {
+      if (!['render', 'layout', 'doc'].includes(kind)) throw httpError(400, 'A series takes renders, layouts and documents', 'INVALID_FIELD');
+      if (!has(actCaps(ctx, { project_id: project.id, path: [] }), 'media.edit') && !canConfigure(ctx, project.id)) throw forbidden();
     } else if (node) {
       const caps = actCaps(ctx, node);
       const ok = has(caps, 'media.edit') || (['photo', 'video'].includes(kind) && has(caps, 'build.edit')) || canConfigure(ctx, project.id) || rolesAt(ctx, node).has('admin');
@@ -138,8 +144,8 @@ export async function storeMedia(ctx, body, files) {
       return n === null || Number.isNaN(n) || n < min || n > max ? null : n;
     };
     const { rows } = await query(
-      `INSERT INTO mp_media (project_id, node_id, kind, name, mime, size, storage_key, thumb_key, width, height, taken_at, lat, lng, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
+      `INSERT INTO mp_media (project_id, node_id, kind, name, mime, size, storage_key, thumb_key, width, height, taken_at, lat, lng, created_by, series)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
       [
         project.id,
         node?.id || null,
@@ -155,6 +161,7 @@ export async function storeMedia(ctx, body, files) {
         num(body.lat, -90, 90),
         num(body.lng, -180, 180),
         ctx.userId,
+        kind === 'plan' ? null : series,
       ]
     );
     return mediaShape(rows[0]);
@@ -175,6 +182,7 @@ async function mediaAccess(ctx, row) {
     if (report.status === 'published') return report.visibility !== 'internal' || has(caps, 'build.edit') || has(caps, 'build.drafts');
     return report.author_id === ctx.userId || has(caps, 'build.drafts') || has(caps, 'build.moderate');
   }
+  if (row.series) return true;
   if (!row.node_id && row.kind !== 'plan') return row.created_by === ctx.userId || canConfigure(ctx, row.project_id);
   return true;
 }
@@ -194,7 +202,7 @@ export async function deleteMedia(ctx, id) {
   const row = rows[0];
   if (!row || !(await mediaAccess(ctx, row))) throw notFound('File not found');
   const node = row.node_id ? { project_id: row.project_id, path: row.path } : null;
-  const ok = row.created_by === ctx.userId || canConfigure(ctx, row.project_id) || (node && has(actCaps(ctx, node), 'media.edit'));
+  const ok = row.created_by === ctx.userId || canConfigure(ctx, row.project_id) || (node && has(actCaps(ctx, node), 'media.edit')) || (row.series && has(actCaps(ctx, { project_id: row.project_id, path: [] }), 'media.edit'));
   if (!ok) throw forbidden();
   const { rows: used } = await query(`SELECT 1 FROM mp_plans WHERE media_id = $1 LIMIT 1`, [row.id]);
   if (used.length) throw httpError(409, 'The file is the background of a site plan', 'MEDIA_IN_USE');
@@ -204,7 +212,7 @@ export async function deleteMedia(ctx, id) {
 
 /** Uploads waiting for a report for more than a day are removed (scheduler, with the daily checks). */
 export async function purgeOrphans() {
-  const { rows } = await query(`DELETE FROM mp_media WHERE report_id IS NULL AND node_id IS NULL AND kind IN ('photo', 'video') AND created_at < NOW() - INTERVAL '2 days' AND id NOT IN (SELECT media_id FROM mp_plans WHERE media_id IS NOT NULL) RETURNING storage_key, thumb_key`);
+  const { rows } = await query(`DELETE FROM mp_media WHERE report_id IS NULL AND node_id IS NULL AND series IS NULL AND kind IN ('photo', 'video') AND created_at < NOW() - INTERVAL '2 days' AND id NOT IN (SELECT media_id FROM mp_plans WHERE media_id IS NOT NULL) RETURNING storage_key, thumb_key`);
   await removeMediaFiles(rows);
   return rows.length;
 }

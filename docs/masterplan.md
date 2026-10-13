@@ -9,6 +9,8 @@ Module id `masterplan`, app `/app/masterplan`, API `/api/app/masterplan`. **Off 
 - [Roles and zones](#roles-and-zones)
 - [Sales statuses](#sales-statuses)
 - [Construction](#construction)
+- [Site plan: numbers, search, sectors](#site-plan-numbers-search-sectors)
+- [Unified card of a building](#unified-card-of-a-building)
 - [Data model](#data-model)
 - [Settings](#settings)
 - [API](#api)
@@ -44,6 +46,10 @@ The MVP of the spec (§15, stage 1) plus the parts the customer called core:
 | CRM: unit ↔ deal, deal timeline lines, deal amount sync, stage → status mapping, «Masterplan» block in the deal panel with «Подобрать объект» | §11 | done |
 | Live colours (SSE), polling fallback | §13.1 | done |
 | History of every change (audit trail) with the same field hiding | §8.1.4 | done |
+| Status migration by an administrator («Перенести статус»: card, registry bulk, import columns) | WH ТЗ 1 | done |
+| Price grid by payment form (100 % / installments, first payment, term, monthly payment) with dated versions; variants in the card and the presentation | WH ТЗ 2 | done |
+| Planned price per m² at completion; price per m² over time on the dashboard | WH ТЗ 3 | done |
+| Bulk move of nodes in the tree (select several → move under another parent) | WH ТЗ 5 | done |
 
 ## Adaptation decisions
 
@@ -113,6 +119,24 @@ Skipping steps forward is refused (`INVALID_TRANSITION`). A held unit cannot be 
 
 **Prices.** Changes are written to `mp_price_history` (old, new, currency, author, reason) and the history. With `fixPriceOnBooking` held units keep their price (single changes `409 PRICE_FIXED`, bulk changes skip them). Heads of sales cannot cut more than `salesHeadMaxCutPct` at once (`403 PRICE_LIMIT`); management can.
 
+### Status migration
+
+For bookings and sales made before the portal (or outside it). **Who**: Masterplan administrators of the project (`masterplan.admin`, or an `admin` assignment on the whole project — not a zone); everyone else gets `403`. **What**: any status from any status, bypassing the transition chain of §6.2, the CRM-deal requirement and the timers. A **reason is mandatory**. Optional data: status date (`date`, default today — becomes `status_changed_at` and the month on the dashboard), client name, manager (a portal user), CRM deal (`dealId`, checked with the person's CRM rights, closed deals allowed), contract number / date / amount, paid amount, act date, and for a reserve / booking an end date (`endsAt`). **Timers**: without `endsAt` a migrated reserve / booking has no timer row and never expires (it is not in *Bookings*, which lists running timers); with `endsAt` (end of that day, UTC; must be in the future) it gets a normal timer. A running timer of the unit is closed (`released`, reason `migration: …`). Contract / sold / handed get the contract date = status date and the amount = price unless given; sold / handed are paid in full unless `paidAmount` is given; handed gets the act date = status date. Moving to free clears the client, deal and contract (kept in the event as `cleared`), as a normal return to sale. The row is locked and `version` checked (`409 VERSION_CONFLICT`). No notifications and no CRM side effects (the deal timeline and amount are not touched). History: a `migration` event `{ from, to, date, reason, manager, client, deal, contract, amount, paid, actDate, endsAt | noTimer, cleared, source }` — shown with the same field hiding as status events.
+
+Where: the unit card (**Перенести статус…**, `actions.migrate`), the registry bulk bar (selected units, same data for all; skipped units with a reason), and the **import**: a row whose «Статус» is a held status (Резерв … Передано) is a migration, with the columns «Клиент», «Менеджер» (login or display name), «Дата статуса», «Номер договора», «Дата договора», «Сумма договора», «Бронь до» (dates `YYYY-MM-DD` or `ДД.ММ.ГГГГ`); one reason for the whole file is required (`reason`). Free / not for sale of a held unit through the import is still refused (`UNIT_HELD`) — use the card for that.
+
+### Prices by payment form
+
+A project has **versions of a price grid**, each effective from a date (`mp_price_grids`); a version may be for one object type (overrides the project's for units of that type). A version holds up to 8 **payment plans** `{ key, name, mode, ppm | markupPct, firstPct, months }`: `base` — the unit's own price (the 100 % price; the unit price stays the base of everything: registry, exports, minimum price, bulk changes), `ppm` — price per m² × the unit's area (total area, else plot area; only in the grid's currency), `markup` — the unit price ± %. The **schedule**: first payment = total × firstPct (whole currency units), the rest in `months` equal payments, the last one takes the rounding difference (`paymentSchedule`, unit-tested; the client repeats the same arithmetic in `modules/masterplan/pricing.js`). A version also holds the **planned price per m² at completion** (`planned_ppm`), shown as an argument with the planned total and the growth against today's price per m². The version in force = the latest with `effective_from ≤ today` (portal time zone); later ones are scheduled; old ones are the history. Versions that were in force cannot be deleted (`409 GRID_IN_HISTORY`) unless added within the last day (a mistake).
+
+Edited on *Structure → Prices* (project administrators) with a live preview on a sample unit. The project shape carries `pricing: { today, grids: [versions in force], upcoming }` for people with `price.view` (also in presentation mode); `components/PaymentOptions.jsx` (`{ unit, project, presentation, node? }`) renders the variants in the card and the presentation and renders nothing without a grid, a price or the right to see prices. The unit shape carries `typeId` to pick a type's own grid.
+
+**Dashboard**: «Цена за м² во времени» (`dashboard.prices`, `price.view`): the area-weighted average list price per m² in the base currency at the end of each of the last 12 months and today, reconstructed from `mp_price_history` (a unit counts from its creation), the per-m² plans of the project-wide grid versions as steps, and the planned price at completion (dashed, to the project's finish date). Inline SVG, no chart library.
+
+### Bulk move
+
+*Structure → Дерево → Выбрать несколько*: tick nodes, **Перенести…**, choose the new parent (or the project root). `POST /nodes/bulk-move { ids, parentId }` — project administrators, nodes of one project, each with the checks of a single move (not into itself or its subtree, depth ≤ 8), in one transaction: all or nothing. A node whose ancestor is also chosen travels with it. Each moved node gets a `moved` event with `bulk: n`; order = the order chosen.
+
 ## Construction
 
 - **Stage sets** (`lowrise`, `apartment`, `infra`, seeded from §7.1 with weights summing to 100) — a type points at a set. Removing a stage archives it.
@@ -122,6 +146,39 @@ Skipping steps forward is refused (`INVALID_TRANSITION`). A held unit cannot be 
 - **Journal**: a report has objects (a level means every construction object inside), a stage and percent, the date of the state, a comment and up to 30 photos / videos. Publishing moves the stage percent of every target of that stage set (unless a report with a later date is already published for that object and stage: a late or backdated report never moves progress back), recomputes readiness and sets "last report". The author needs `build.edit` on every chosen object and every object the report moves (e.g. the building above a chosen apartment). A report is reviewed once (a second publish / return gets `409 ALREADY_PUBLISHED`). With project `moderation` a foreman's report goes to `review`; heads of construction publish or return it. Visible to sales once published (unless `visibility: internal`); drafts and reviews only to the author and moderators.
 - Job `masterplan:daily` (every 6 h): objects without a report for `staleReportDays` → one summary per person and project (foremen responsible, heads of construction); delays over `delayAlertDays` → heads of construction and management (again every further week; an object back on schedule starts from the threshold again); removes uploads never attached to a report after 2 days.
 
+## Site plan: numbers, search, sectors
+
+**Numbers on the plan** (`plan/labels.js`, pure, tested). For every contour at the current zoom: the number is drawn inside when the *text itself* fits — a rectangle of the label's width (≈ 0.6 em per digit) × its height, centred at the contour's centroid, must lie inside the polygon (corners and edge midpoints) — not when the contour's box is wider than a fixed 34 × 16 px. The font follows the contour's smaller side on screen, 9 to 14 px, with a white outline (`paint-order: stroke`, outline width kept constant on screen). A number that does not fit becomes a **round badge** in the contour's colour (status on the Sales layer) at its centre, as on the printed plan. In **auto** mode badges are placed from the top of the drawing down, and a badge that would cover a label already placed is hidden (the lower one loses); **always** shows every badge; **hide** shows no numbers (sector names stay). The switch «Номера: авто / всегда / скрыть» sits above the plan and is remembered per person in the browser (`mp_labels_<userId>`; the module has no server-side preferences); presentation mode has its own memory and starts with **always**. On White Hills (82 contours, 3350 × 2000 plan) every number fits as text from zoom ≈ 0.28 — the fit button (⤢) on a 1440 px screen gives ≈ 0.32, so all 82 are readable and none overlaps.
+
+**Search** (`components/PlanSearch.jsx`). The text still dims what does not match, now also through ancestors (an apartment matches its building's name) and by the old number. Under the field a list offers buildings, levels and units by code, name, apartment number or old number (exact code / name first, then exact old number, then prefixes; buildings before the units inside). Picking one — or Enter for the first — zooms the plan to its contour (or the nearest ancestor drawn: an apartment shows its building), keeping it clear of the side card, and opens its card. The registry search (`GET /units?q=`) also matches the old number and the name / code of the building a unit is in («Апарт-корпус 40» → its 42 apartments).
+
+**Old numbers** (transition from the previous sales plan). Stored in `attrs.oldNumber` ("14", "блок 1"). A one-time backfill at startup (`buildings.js → ensureBuildingSchema`, flag `app_settings.masterplan_old_numbers`) parses descriptions such as «На прежнем генплане продаж — №14.» / «… — блок 1.» / «Было: 7» (`parseOldNumber`, tested); nodes that already have the attribute are left alone and a number removed later is not brought back. Shown in the hover tooltip («Было №14»), as a chip in the card header (edited right there with ✎ by those who may edit attributes: configure, `unit.edit`, `build.edit`), and in the structure editor's attributes.
+
+**Sectors and overlapping contours.** Contours may overlap (sectors meet on a narrow strip). Levels are drawn under objects and, within each group, bigger contours under smaller ones, so a click always lands on the smallest, top-most object; a click on a sector outside its houses zooms into the sector. In the contour editor **Контур по объектам** draws the chosen node's contour around the contours of the objects inside it (convex hull pushed out by 0.8 % of the plan), ready to adjust and save.
+
+**Sales colour of a building** with several units: by the share of free units — from the colour of the furthest status of the others (none free) to «free» (all free); one free unit already reads green-ish.
+
+## Unified card of a building
+
+One frame for every building (`components/UnitCard.jsx` + `BuildingCard.jsx`): a cottage is a building with one unit, an apartment building one with many.
+
+| Block | Cottage (1 unit) | Building (N units) |
+|---|---|---|
+| Header | number, type, sector chip, old number chip, status | number, type, sector chip, old number chip, «Свободно X из N» with the status bar |
+| Price | price, $/m², payment options (`PaymentOptions`) | «от – до» and $/m² range of the **free** units |
+| Key figures | areas, plot, bedrooms, floors, finishing, payment forms | floors, units in total, sellable and free area, finishing, payment forms |
+| Composition | — | by rooms: type · area · free / total · price from, with **Резерв** (the first free unit of the row, lowest floor first) |
+| Units | — | mini-chessboard (floors × units, status colours, rooms in the corner), picker by rooms and floor, «Открыть в шахматке»; a unit opens its card with sale buttons and «← корпус» |
+| Actions | reserve and the other moves, close sales, + Отчёт | reserve from the composition, **Закрыть продажу корпуса** (bulk close, held units skipped with the reason), + Отчёт |
+| Construction | stage, readiness, schedule, photos | the same (readiness by floors / sections when it is kept) |
+| Plan tooltip | №, type, area, price, status, «Было №…» | №, type, «Свободно X из N», «от …», readiness |
+
+Reserving a free 3-room apartment of building 23 takes two clicks without leaving the plan: **Резерв** in the «3-комн.» row → **Подтвердить** in the dialog (deal and manager optional).
+
+**Server aggregate** (`buildings.js → buildingAggregate`, tested). `GET /nodes/:id` of an object with units below adds `building: { total, free, byStatus, area, freeArea, floors, finishing, paymentForms, prices, currency, price {min,max}, ppm {min,max}, composition: [{ rooms, typeName, area, total, free, freeIds, priceFrom }] }`. It is built from the units **after field hiding** (`visibleNode`) and checks the viewer's capabilities again: statuses, free counts and free ids only with `status.view`; prices, $/m², «price from» and payment forms only with `price.view` (ranges also need `status.view`, since they are of the free units); presentation mode keeps public prices only. Actions add `reserveUnits` (`status.reserve` in the zone) and `closeAll` (`status.not_for_sale`). The card reloads when a unit of the building changes in the live map.
+
+**Series media.** Plans and renders uploaded on a **series** are shown in the card of every object of that series. The series of a node is its attribute `series` (White Hills houses already have it: «Одноэтажный дом 96,72 м²», «… 156,76 м²», «… 200,53 м²»), else for a unit its type · rooms · area («Апартаменты · 1-комн. · 36,07 м²» — the three apartment types). Files go to `mp_media.series` (no node); uploading needs a project-wide role with `media.edit` or the configurator (`actions.seriesMedia`); everyone who sees the project sees them; the orphan cleanup never touches them. The card also lets those with `media.edit` (or the configurator) add layouts and renders to the object itself.
+
 ## Data model
 
 | Table | Columns |
@@ -129,16 +186,17 @@ Skipping steps forward is refused (`INVALID_TRANSITION`). A held unit cannot be 
 | `mp_projects` | `id, name, code, address, lat, lng, description, class, currency, status, start_date, finish_date, manager_id, settings JSONB {moderation, readinessMode, levels}, sort, archived_at, created_by, created_at, updated_at` |
 | `mp_types` | `id, key (seeded), name, category, node_kind ('object'|'plot'|'unit'), sellable, stage_set, icon, color, sort, archived_at` |
 | `mp_stages` | `id, set_key, name, weight, sort, archived_at` |
-| `mp_nodes` | `id, project_id, parent_id, path INT[], depth, kind ('level'|'plot'|'object'|'unit'), level_key, type_id, code (unique per project, case-insensitive), name, sort, description, area, build_user_id, sales_user_id, contractor, plan_start, plan_end, handover, readiness, readiness_manual, current_stage_id, last_report_at, stale_notified_at, delay_notified_days, attrs JSONB, created/updated by/at` |
+| `mp_nodes` | `id, project_id, parent_id, path INT[], depth, kind ('level'|'plot'|'object'|'unit'), level_key, type_id, code (unique per project, case-insensitive), name, sort, description, area, build_user_id, sales_user_id, contractor, plan_start, plan_end, handover, readiness, readiness_manual, current_stage_id, last_report_at, stale_notified_at, delay_notified_days, attrs JSONB (free attributes; `series`, `oldNumber`…), created/updated by/at` |
 | `mp_units` | 1:1 with sellable nodes: `node_id, project_id, status, version, price, currency, discount_pct, min_price, area_total, area_living, area_plot, area_terrace, rooms, bedrooms, bathrooms, levels, ceiling, floor, number, riser, finishing, payment_forms TEXT[], no_publish, manager_id, deal_id → crm_deals, person_id → cmp_people, company_id → cmp_companies, client_name, booking_id, contract_number, contract_date, contract_amount, paid_amount, act_date, status_changed_at, status_by, updated_by, updated_at` |
 | `mp_bookings` | `id, unit_id, project_id, kind ('reserve'|'booking'), manager_id, deal_id, person_id, company_id, client_name, paid, amount, price (fixed at booking), currency, starts_at, ends_at, status ('active'|'released'|'expired'|'converted'), extensions, extended_by, release_reason, warned_hours, created_by, created_at, closed_at, closed_by` |
 | `mp_price_history` | `id, unit_id, old_price, new_price, currency, reason, author_id, created_at` |
 | `mp_node_stages` | `node_id, stage_id, plan_start, plan_end, fact_start, fact_end, percent, state, pause_reason, updated_by, updated_at` |
 | `mp_reports`, `mp_report_nodes` | `id, project_id, stage_id, percent, fact_date, body, status, visibility, author_id, reviewer_id, reviewed_at, review_note, published_at, …` / `(report_id, node_id)` |
-| `mp_media` | `id, project_id, node_id, report_id, kind ('photo'|'video'|'render'|'layout'|'doc'|'plan'), name, mime, size, storage_key, thumb_key, width, height, taken_at, lat, lng, created_by, created_at` |
+| `mp_media` | `id, project_id, node_id, report_id, kind ('photo'|'video'|'render'|'layout'|'doc'|'plan'), name, mime, size, storage_key, thumb_key, width, height, taken_at, lat, lng, series (shared by a series, no node), created_by, created_at` |
 | `mp_plans`, `mp_contours` | `id, project_id, node_id (close-up of a node), media_id, name, width, height` / `(plan_id, node_id) points JSONB [[x,y]…]` in plan coordinates |
 | `mp_assignments` | `id, project_id, node_id (zone), subject_type ('user'|'group'), subject_id, role, until, created_by` |
-| `mp_events` | `id, project_id, node_id, kind, data JSONB, author_id, created_at` — kinds: `created, fields, price, status, expired, extend, manager, report, report_deleted, stage, readiness, moved, bulk, import, plan, contours, team, project, crm_stage, deleted` |
+| `mp_price_grids` | `id, project_id, type_id (null = whole project), effective_from DATE, currency, plans JSONB [{ key, name, mode: base|ppm|markup, ppm, markupPct, firstPct, months }], planned_ppm, note, created_by, created_at` |
+| `mp_events` | `id, project_id, node_id, kind, data JSONB, author_id, created_at` — kinds: `created, fields, price, status, migration, expired, extend, manager, report, report_deleted, stage, readiness, moved, bulk, import, plan, contours, team, project, pricing, crm_stage, deleted` |
 
 All tables are created idempotently at startup (`schema.js`); the directories (types, stages) are seeded **once** (`app_settings.masterplan_seeded`). No project data is ever seeded; the demo project in the screenshots comes from the end-to-end test script.
 
@@ -181,13 +239,17 @@ Edited in *Settings → Modules → Masterplan* (console, `settings.modules`) or
 | POST | `/projects/:id/plans` · PUT/DELETE `/plans/:id` · PUT `/plans/:id/contours` | plans and `{ contours: [{ nodeId, points \| null }] }` |
 | GET | `/stream?project=` | SSE: `hello`, `units {ids}`, `tree` |
 | POST | `/nodes` · `/nodes/bulk` | create one / a line (`prefix, from, count, pad, suffix, nameTemplate`) or apartments (`grid: { floorFrom, floorTo, perFloor, startNumber, numbering }`) |
-| GET / PUT / DELETE | `/nodes/:id` | card `{ node, breadcrumbs, summary, stages, reports, media, priceHistory, responsible, caps, actions }` / update (groups of fields by right; `version` for sales fields) / delete (`409 NODE_HAS_SALES`) |
+| GET / PUT / DELETE | `/nodes/:id` | card `{ node, breadcrumbs, summary, building, series, seriesMedia, stages, reports, media, priceHistory, responsible, caps, actions }` / update (groups of fields by right; `version` for sales fields) / delete (`409 NODE_HAS_SALES`) |
 | POST | `/nodes/:id/move` | `{ parentId, sort? }` |
+| POST | `/nodes/bulk-move` | `{ ids, parentId }` → `{ moved, ids }` (all or nothing) |
 | GET | `/nodes/:id/events?before=` | history |
 | PUT | `/nodes/:id/stages/:stageId` · `/nodes/:id/readiness` | stage plan / fact / percent; manual readiness (`null` = computed) |
 | GET | `/units?project&node&ids&q&status&types&priceMin…&sort&order&page&pageSize&presentation` | registry |
 | GET | `/units/export.csv` | CSV (BOM, `;`), only visible columns |
-| POST | `/units/import` | `{ projectId, rows, dryRun }` → `{ ok, created, updated, errors: [{ row, field, code, message }] }` |
+| POST | `/units/import` | `{ projectId, rows, dryRun, reason? }` → `{ ok, created, updated, migrated, errors: [{ row, field, code, message }] }` |
+| POST | `/units/:id/migrate` · `/units/migrate` | status migration `{ to, version?, reason, date, clientName, managerId, dealId, endsAt, contractNumber, contractDate, contractAmount, paidAmount, actDate }` / the same with `ids` → `{ affected, skipped }` |
+| GET / POST | `/projects/:id/price-grids` | grid versions (`price.view`) / a new version `{ typeId?, effectiveFrom, plans, plannedPpm?, note? }` (administrators) |
+| DELETE | `/price-grids/:id` | a version not in force yet (or added within a day) |
 | POST | `/units/bulk-price` · `/units/bulk-status` | `{ ids, mode, value, reason }` / `{ ids, to: 'not_for_sale'|'free', reason }` → `{ affected, skipped }` |
 | GET | `/units/:id` | one node with its unit |
 | POST | `/units/:id/status` | `{ to, version, reason, dealId, client, managerId, contractNumber, contractDate, contractAmount, paidAmount, actDate, paid, amount }` |
@@ -196,7 +258,7 @@ Edited in *Settings → Modules → Masterplan* (console, `settings.modules`) or
 | GET | `/deals/:dealId/units` | units linked to a CRM deal (with CRM rights) |
 | GET / POST | `/reports` | journal / new report `{ projectId, nodeIds, stageId, percent, factDate, body, mediaIds, submit }` |
 | GET / DELETE | `/reports/:id` · POST `/reports/:id/review` | `{ action: 'publish'|'reject', note }` |
-| POST / GET / DELETE | `/media` (multipart `file`, `thumb`, `projectId`, `nodeId?`, `kind`, `takenAt`, `lat`, `lng`, `width`, `height`) · `/media/:id?thumb=1&download=1` | uploads and access-checked downloads (uploads refused before anything is written unless the person has `media.edit` or `build.edit` somewhere) |
+| POST / GET / DELETE | `/media` (multipart `file`, `thumb`, `projectId`, `nodeId?` or `series?` (render / layout / doc), `kind`, `takenAt`, `lat`, `lng`, `width`, `height`) · `/media/:id?thumb=1&download=1` | uploads and access-checked downloads (uploads refused before anything is written unless the person has `media.edit` or `build.edit` somewhere) |
 
 Error codes: `VERSION_CONFLICT, SAME_STATUS, INVALID_TRANSITION, FORBIDDEN, NOT_OWN, REASON_REQUIRED, DEAL_REQUIRED, CLIENT_REQUIRED, CONTRACT_REQUIRED, ACT_DATE_REQUIRED, RESERVE_LIMIT, EXTEND_LIMIT, NOT_HELD, DEAL_LOCKED, DEAL_CLOSED, CRM_DISABLED, PRICE_FIXED, PRICE_LIMIT, OUT_OF_ZONE, ALREADY_PUBLISHED, SCOPE_DENIED, CODE_TAKEN (node codes only; other duplicates `DUPLICATE`), TOO_DEEP, INVALID_TYPE, INVALID_PARENT, NODE_HAS_SALES, PROJECT_HAS_SALES, TYPE_IN_USE, INVALID_CONTOUR, FILE_TYPE, FILE_CONTENT, MEDIA_IN_USE`. The API reference (`/developers`) has the Masterplan section; API tokens get the `masterplan` area automatically.
 
@@ -214,12 +276,15 @@ Error codes: `VERSION_CONFLICT, SAME_STATUS, INVALID_TRANSITION, FORBIDDEN, NOT_
 ## Tests
 
 - `src/backend/test/masterplan.test.js` (node:test, no database): catalog and sanitizer, permissions and notification kinds, directories, global roles and zones, field hiding incl. presentation mode, every transition of §6.2 with its requirements, reserve limit, extensions, deal lock and conflict text, prices (modes, head-of-sales limit), readiness weights, schedule states, inheritance up and down the tree, bulk codes and apartment grids, timer warnings, input cleaning (unit fields, attributes, contours, SVG, CSV, currencies).
+- `src/backend/test/masterplan-plan.test.js` (node:test, no database): old-number parsing and label, series keys, the building aggregate (counts, free-unit price ranges, composition, hiding for foreman / head of construction / presentation, mixed currencies), and the plan's pure label layout imported from the frontend (`plan/labels.js`: fit by text, 9–14 px, badges, hiding the lower badge, a street of houses with no overlaps, contours around contours).
+- `src/backend/test/masterplan-pricing.test.js` (no database): plan cleaning, the payment schedule (first payment, monthly, rounding), totals by mode, the White Hills variants of a 96.72 m² house, the version in force by date / type, prices at a moment from the history, migration rules (administrators only, bypass, no timer, dates, clearing).
+- `src/backend/test/masterplan-sales.db.test.js` — test database only (`MASTERPLAN_DB_TEST=1`): the White Hills migration (7 bookings + 1 sale dated 06.10.2026, no expiry a year later, `migration` history), version check, import with migration columns, bulk move of 10 houses (rights, all or nothing, order, history), price grid versions in the project shape and the dashboard trend.
 - `src/backend/test/masterplan.db.test.js` — against a **test** database only: a real double-booking race, zones on the journal, the expiry job, expiry vs a concurrent extension, the reserve-limit race, rights before the version check, closing a sold unit, backdated reports, double review. Skipped unless `MASTERPLAN_DB_TEST=1` (so `npm test` needs no database).
 - End-to-end (scratch scripts, not in the repo): the whole API flow with nine accounts and the browser screenshots on desktop and phone, light and dark.
 
 ## Deferred to v2 / v3 and open questions
 
-Deferred: payment schedules (plan / fact), price-change approval queue, saved registry presets and the PDF price list, «responsibles» layer and minimap on the plan, Gantt plan / fact, before / after photo comparison, monthly PDF report, watermarks, report comments by technical supervision, external agent and investor roles (the capabilities model is ready: add a role in `ROLE_CAPS` and a permission), contour import / export (SVG / GeoJSON), currency display switch, public showcase and buyer cabinet (v3), offline upload queue surviving a page reload (today retries happen while the page is open).
+Deferred: payment schedules per client (plan / fact; the grid gives the offer schedule only), price-change approval queue, saved registry presets and the PDF price list, «responsibles» layer and minimap on the plan, Gantt plan / fact, before / after photo comparison, monthly PDF report, watermarks, report comments by technical supervision, external agent and investor roles (the capabilities model is ready: add a role in `ROLE_CAPS` and a permission), contour import / export (SVG / GeoJSON), currency display switch, public showcase and buyer cabinet (v3), offline upload queue surviving a page reload (today retries happen while the page is open).
 
 Open questions of the spec (§18) that change behaviour, and where the answer goes:
 

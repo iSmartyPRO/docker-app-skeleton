@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { App, Alert, Button, Modal, Table, Tag, Upload } from 'antd';
+import { App, Alert, Button, Input, Modal, Table, Tag, Upload } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { mpApi } from '../api';
 import { useMp } from '../MpContext';
 import { IMPORT_COLUMNS, importTemplate, readImportFile } from '../media/xlsx';
+
+/** Columns that make a row a status migration (they need a reason for the whole file). */
+const MIGRATION_KEYS = ['status', 'client', 'manager', 'statusDate', 'contractNumber', 'contractDate', 'contractAmount', 'bookingUntil'];
 
 /**
  * Import of units from Excel / CSV (spec §9.10): the file is read in the
@@ -19,12 +22,14 @@ export default function ImportDialog({ open, project, onClose }) {
   const [parsed, setParsed] = useState(null);
   const [report, setReport] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [reason, setReason] = useState('');
 
   useEffect(() => {
     if (!open) return;
     setFile(null);
     setParsed(null);
     setReport(null);
+    setReason('');
   }, [open]);
 
   const pick = async (chosen) => {
@@ -42,7 +47,7 @@ export default function ImportDialog({ open, project, onClose }) {
   const run = async (dryRun) => {
     setBusy(true);
     try {
-      const res = await mpApi.importUnits({ projectId: project.id, rows: parsed.rows, dryRun });
+      const res = await mpApi.importUnits({ projectId: project.id, rows: parsed.rows, dryRun, reason: reason.trim() || undefined });
       setReport({ ...res.data, dryRun });
       if (!dryRun && res.data.ok) {
         message.success(t('mp.import.done', { created: res.data.created, updated: res.data.updated }));
@@ -92,10 +97,16 @@ export default function ImportDialog({ open, project, onClose }) {
           {!mapped.some((header) => header.key === 'code') && <Alert type="error" showIcon message={t('mp.import.noCode')} />}
         </div>
       )}
+      {parsed && mapped.some((header) => MIGRATION_KEYS.includes(header.key)) && (
+        <label className="mp-ffield">
+          <span>{t('mp.migrate.importReason')}</span>
+          <Input value={reason} onChange={(event) => { setReason(event.target.value); setReport(null); }} maxLength={300} placeholder={t('mp.migrate.importReasonHint')} />
+        </label>
+      )}
       {report && (
         <div className="mp-import__report">
           {report.ok ? (
-            <Alert type="success" showIcon message={t('mp.import.ok', { created: report.created, updated: report.updated })} />
+            <Alert type="success" showIcon message={t('mp.import.ok', { created: report.created, updated: report.updated })} description={report.migrated ? t('mp.migrate.importCount', { n: report.migrated }) : null} />
           ) : (
             <>
               <Alert type="error" showIcon message={t('mp.import.errors', { n: report.errors.length })} />

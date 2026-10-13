@@ -28,6 +28,14 @@ export const IMPORT_COLUMNS = [
   { key: 'number', ru: 'Номер', en: 'Number', aliases: ['номер', '№', 'number'] },
   { key: 'riser', ru: 'Стояк', en: 'Riser', aliases: ['стояк', 'riser'] },
   { key: 'finishing', ru: 'Отделка', en: 'Finishing', aliases: ['отделка', 'finishing'] },
+  // Status migration (a held status with its client, manager, date and contract; administrators).
+  { key: 'client', ru: 'Клиент', en: 'Client', aliases: ['клиент', 'покупатель', 'client', 'buyer'] },
+  { key: 'manager', ru: 'Менеджер', en: 'Manager', aliases: ['менеджер', 'manager'] },
+  { key: 'statusDate', ru: 'Дата статуса', en: 'Status date', aliases: ['дата статуса', 'дата брони', 'дата продажи', 'status date'] },
+  { key: 'contractNumber', ru: 'Номер договора', en: 'Contract number', aliases: ['номер договора', '№ договора', 'договор', 'contract number', 'contract no'] },
+  { key: 'contractDate', ru: 'Дата договора', en: 'Contract date', aliases: ['дата договора', 'contract date'] },
+  { key: 'contractAmount', ru: 'Сумма договора', en: 'Contract amount', aliases: ['сумма договора', 'contract amount'] },
+  { key: 'bookingUntil', ru: 'Бронь до', en: 'Booked until', aliases: ['бронь до', 'резерв до', 'booked until', 'booking until'] },
 ];
 
 async function excel() {
@@ -100,7 +108,12 @@ export async function importTemplate(locale, types) {
   const help = book.addWorksheet(locale === 'ru' ? 'Справка' : 'Help');
   help.columns = [{ width: 24 }, { width: 80 }];
   help.addRow([locale === 'ru' ? 'Типы' : 'Types', types.map((type) => type.name).join('; ')]);
-  help.addRow([locale === 'ru' ? 'Статус' : 'Status', locale === 'ru' ? 'Свободно или Не в продаже' : 'free or not_for_sale']);
+  help.addRow([
+    locale === 'ru' ? 'Статус' : 'Status',
+    locale === 'ru'
+      ? 'Свободно или Не в продаже. Перенос продаж (администратор): Резерв, Бронь, Задаток, Договор, Продано, Передано — с колонками Клиент, Менеджер (логин или имя), Дата статуса, Номер / Дата / Сумма договора, Бронь до (пусто — бронь не истекает). Нужна причина в окне импорта.'
+      : 'free or not_for_sale. Migration of sales (administrators): reserve, booking, deposit, contract, sold, handed — with the columns Client, Manager (login or name), Status date, Contract number / date / amount, Booked until (empty — never expires). A reason is required in the import window.',
+  ]);
   help.addRow([locale === 'ru' ? 'Отделка' : 'Finishing', 'pso, rough, whitebox, turnkey, furnished']);
   help.addRow([locale === 'ru' ? 'Родитель' : 'Parent', locale === 'ru' ? 'Код существующего узла (линии, секции) или строки выше' : 'Code of an existing node or of a row above']);
   download(await book.xlsx.writeBuffer(), `masterplan-import-template.xlsx`);

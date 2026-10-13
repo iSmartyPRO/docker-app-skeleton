@@ -1,12 +1,13 @@
 import { query, withTransaction } from '../../config/database.js';
 import { httpError } from '../shared/acl.js';
-import { FINISHINGS, HELD, MAX_DEPTH, STATUSES } from './constants.js';
+import { FINISHINGS, HELD, MAX_DEPTH, STATUSES, TIMED } from './constants.js';
 import { requireConfigure, requireProject, visibleProjectIds } from './access.js';
 import { capsOf, has, readCaps } from './rules.js';
 import { NODE_SELECT, visibleNode } from './shapes.js';
 import { treeChanged } from './realtime.js';
 import { unitCharacteristics, unitCommercial } from './nodes.js';
 import { Params, csvCell, idList, intOr, likePattern, logEvent, parseNumber, text } from './util.js';
+import { looseDay, migrateLocked } from './migration.js';
 
 /*
  * The registry of units (spec §9.3): filters, sorting, pages, CSV export,
@@ -62,7 +63,9 @@ export function unitFilter(ctx, input, p, caps, { statusIn = null } = {}) {
   if (listed.length) where.push(`n.id = ANY(${p.add(listed)}::int[])`);
   if (input.q) {
     const like = p.add(likePattern(text(input.q, 80)));
-    where.push(`(n.code ILIKE ${like} OR n.name ILIKE ${like} OR u.number ILIKE ${like})`);
+    // Also the old number (previous sales plan) and the building a unit is in («Апарт-корпус 40»).
+    where.push(`(n.code ILIKE ${like} OR n.name ILIKE ${like} OR u.number ILIKE ${like} OR n.attrs->>'oldNumber' ILIKE ${like}
+      OR EXISTS (SELECT 1 FROM mp_nodes b WHERE b.id = ANY(n.path) AND b.id <> n.id AND b.kind = 'object' AND (b.code ILIKE ${like} OR b.name ILIKE ${like})))`);
   }
   const statuses = String(input.status || '').split(',').filter((item) => STATUSES.includes(item));
   if (statuses.length && has(caps, 'status.view')) {
@@ -169,12 +172,20 @@ export async function exportCsv(ctx, input, res) {
 // ── Import ──────────────────────────────────────────────────────────────────
 
 const IMPORT_FIELDS = ['code', 'name', 'type', 'parent', 'status', 'price', 'currency', 'minPrice', 'discountPct', 'areaTotal', 'areaLiving', 'areaPlot', 'areaTerrace', 'rooms', 'bedrooms', 'bathrooms', 'levels', 'ceiling', 'floor', 'number', 'riser', 'finishing'];
+/** Columns of a status migration (a held status with its client, manager, date, contract, timer end). */
+const MIGRATION_FIELDS = ['client', 'manager', 'statusDate', 'contractNumber', 'contractDate', 'contractAmount', 'bookingUntil'];
 
 /**
  * Validates and (unless dryRun) writes rows: { projectId, rows: [{ code, name, type, parent, … }], dryRun }.
  * `type` is a type key or name; `parent` the code of a node in the project or
  * of an earlier row. Existing codes are updated (characteristics, price with
  * history), new ones created. → { ok, created, updated, errors: [{ row, field, code, message }] }
+ *
+ * Status migration: a row with a held status (reserve … handed) and the
+ * columns client, manager, statusDate, contractNumber, contractDate,
+ * contractAmount, bookingUntil moves the unit to that status bypassing the
+ * chain, the CRM deal and the timers (migration.js) — `reason` (one for the
+ * whole file) is then required. Only Masterplan administrators import.
  */
 export async function importUnits(ctx, input = {}) {
   const project = await requireProject(ctx, input.projectId);
@@ -182,14 +193,14 @@ export async function importUnits(ctx, input = {}) {
   const rows = Array.isArray(input.rows) ? input.rows : [];
   if (!rows.length) throw httpError(400, 'The file has no rows', 'EMPTY');
   if (rows.length > 5000) throw httpError(400, 'At most 5000 rows at once', 'BULK_LIMIT');
-  if (input.dryRun) return (await validateImport(ctx, project, rows)).result;
+  if (input.dryRun) return (await validateImport(ctx, project, rows, { query }, input)).result;
 
   let out = null;
   const written = await withTransaction(async (client) => {
     // Validated again under the units' locks: a unit reserved or repriced since the
     // dry run (or during the write) is not overwritten.
     await client.query(`SELECT node_id FROM mp_units WHERE project_id = $1 ORDER BY node_id FOR UPDATE`, [project.id]);
-    out = await validateImport(ctx, project, rows, client);
+    out = await validateImport(ctx, project, rows, client, input);
     if (!out.result.ok) return false;
     await writeImport(client, ctx, project, out.plan, out.result);
     return true;
@@ -199,7 +210,7 @@ export async function importUnits(ctx, input = {}) {
 }
 
 /** Checks every row against the project's nodes → { result, plan }. */
-async function validateImport(ctx, project, rows, client = { query }) {
+async function validateImport(ctx, project, rows, client = { query }, input = {}) {
   const [{ rows: types }, { rows: nodes }] = await Promise.all([
     client.query(`SELECT * FROM mp_types WHERE archived_at IS NULL`),
     client.query(`SELECT n.id, n.code, n.path, n.depth, n.kind, n.type_id, u.status, u.price, u.currency FROM mp_nodes n LEFT JOIN mp_units u ON u.node_id = n.id WHERE n.project_id = $1`, [project.id]),
@@ -209,13 +220,20 @@ async function validateImport(ctx, project, rows, client = { query }) {
     return types.find((type) => type.key === key || type.name.toLowerCase() === key) || null;
   };
   const byCode = new Map(nodes.filter((node) => node.code).map((node) => [node.code.toLowerCase(), node]));
+  const managerNames = rows.some((raw) => String(raw?.manager ?? '').trim())
+    ? (await client.query(`SELECT id, username, COALESCE(display_name, username) AS name FROM users WHERE is_active IS NOT FALSE`)).rows
+    : [];
+  const managerBy = (value) => {
+    const key = String(value).trim().toLowerCase();
+    return managerNames.find((user) => user.username.toLowerCase() === key || user.name.toLowerCase() === key) || null;
+  };
   const errors = [];
   const plan = [];
   const seen = new Map();
   rows.forEach((raw, index) => {
     const line = index + 1;
     const err = (field, code, message) => errors.push({ row: line, field, code, message });
-    const row = Object.fromEntries(IMPORT_FIELDS.map((key) => [key, raw?.[key] === undefined || raw?.[key] === null ? '' : String(raw[key]).trim()]));
+    const row = Object.fromEntries([...IMPORT_FIELDS, ...MIGRATION_FIELDS].map((key) => [key, raw?.[key] === undefined || raw?.[key] === null ? '' : String(raw[key]).trim()]));
     if (!row.code) return err('code', 'REQUIRED', 'Code is required');
     const key = row.code.toLowerCase();
     if (seen.has(key)) return err('code', 'DUPLICATE', `Code repeats row ${seen.get(key)}`);
@@ -231,12 +249,47 @@ async function validateImport(ctx, project, rows, client = { query }) {
       if (!parent) err('parent', 'UNKNOWN_PARENT', `No object with code “${row.parent}”`);
       else if ((parent.depth || 0) + 1 > MAX_DEPTH) err('parent', 'TOO_DEEP', 'Too deep');
     }
+    let migration = null;
     if (row.status) {
       const status = STATUSES.includes(row.status) ? row.status : Object.entries(STATUS_RU).find(([, name]) => name.toLowerCase() === row.status.toLowerCase())?.[0];
-      if (!['free', 'not_for_sale'].includes(status)) err('status', 'STATUS', 'Import sets only “Свободно” or “Не в продаже”');
+      if (!status) err('status', 'STATUS', `Unknown status “${row.status}”`);
       else row.status = status;
+      // A held status is a migration; so is the unit's own held status repeated with new client / contract data.
+      if (status && HELD.has(status)) migration = { to: status };
     }
-    if (existing && row.status && HELD.has(existing.status)) err('status', 'UNIT_HELD', 'The unit is held for a client');
+    if (!migration && existing && row.status && HELD.has(existing.status)) err('status', 'UNIT_HELD', 'The unit is held for a client');
+    if (!migration && MIGRATION_FIELDS.some((key) => row[key])) err(MIGRATION_FIELDS.find((key) => row[key]), 'MIGRATION_STATUS', 'Client, manager and contract columns need a held status (reserve … handed)');
+    if (migration) {
+      for (const key of ['statusDate', 'contractDate', 'bookingUntil']) {
+        const day = looseDay(row[key]);
+        if (day === false) err(key, 'INVALID_DATE', `Invalid date “${row[key]}”`);
+        else migration[key] = day;
+      }
+      const amount = parseNumber(row.contractAmount);
+      if (Number.isNaN(amount) || (amount !== null && amount < 0)) err('contractAmount', 'INVALID_FIELD', 'Invalid amount');
+      let manager = null;
+      if (row.manager) {
+        manager = managerBy(row.manager);
+        if (!manager) err('manager', 'UNKNOWN_MANAGER', `No portal user “${row.manager}”`);
+      }
+      if (migration.bookingUntil && TIMED.has(migration.to) && migration.bookingUntil < new Date().toISOString().slice(0, 10)) err('bookingUntil', 'ENDS_IN_PAST', 'The end of the reserve / booking is in the past');
+      if (!text(input.reason, 300)) err('status', 'REASON_REQUIRED', 'A migration of statuses needs a reason (the field above the file)');
+      migration = {
+        to: migration.to,
+        reason: text(input.reason, 300),
+        date: migration.statusDate || null,
+        clientName: text(row.client, 200) || null,
+        managerId: manager?.id || null,
+        deal: null,
+        endsAt: TIMED.has(migration.to) ? migration.bookingUntil || null : null,
+        contractNumber: text(row.contractNumber, 60) || null,
+        contractDate: migration.contractDate || null,
+        contractAmount: Number.isNaN(amount) ? null : amount,
+        paidAmount: null,
+        actDate: null,
+        source: 'import',
+      };
+    }
     let unit = {};
     try {
       const filled = Object.fromEntries(Object.entries(row).filter(([, value]) => value !== ''));
@@ -248,10 +301,11 @@ async function validateImport(ctx, project, rows, client = { query }) {
     for (const [field, value] of Object.entries(unit)) if (value === null) delete unit[field];
     const sellable = existing ? Boolean(existing.status) : Boolean(type?.sellable);
     if (!sellable && Object.keys(unit).length) err('price', 'NOT_SELLABLE', 'This type is not for sale: price and areas go to its card');
+    if (!sellable && migration) err('status', 'NOT_SELLABLE', 'This type is not for sale');
     if (existing && ctx.settings.fixPriceOnBooking && unit.price !== undefined && HELD.has(existing.status) && Number(existing.price) !== unit.price) err('price', 'PRICE_FIXED', 'The price of a held unit is fixed');
-    plan.push({ line, code: row.code, name: row.name, type, parent, existing, unit, status: row.status || null, depth: (parent?.depth || 0) + 1 });
+    plan.push({ line, code: row.code, name: row.name, type, parent, existing, unit, status: migration ? null : row.status || null, migration, depth: (parent?.depth || 0) + 1 });
   });
-  const result = { ok: !errors.length, total: rows.length, created: plan.filter((item) => !item.existing).length, updated: plan.filter((item) => item.existing).length, errors: errors.slice(0, 500) };
+  const result = { ok: !errors.length, total: rows.length, created: plan.filter((item) => !item.existing).length, updated: plan.filter((item) => item.existing).length, migrated: plan.filter((item) => item.migration).length, errors: errors.slice(0, 500) };
   return { result, plan };
 }
 
@@ -270,6 +324,7 @@ async function writeImport(client, ctx, project, plan, result) {
           await client.query(`INSERT INTO mp_price_history (unit_id, old_price, new_price, currency, reason, author_id) VALUES ($1, $2, $3, $4, 'Импорт', $5)`, [item.existing.id, item.existing.price, unit.price, unit.currency || item.existing.currency, ctx.userId]);
         }
       }
+      if (item.migration) await migrateImported(client, ctx, { id: item.existing.id, project_id: project.id }, item.migration);
       continue;
     }
     const path = parentNode ? parentNode.path : [];
@@ -288,7 +343,14 @@ async function writeImport(client, ctx, project, plan, result) {
         [id, project.id, item.status || 'free', ctx.userId, ...keys.map((key) => unit[key])]
       );
     }
+    if (item.type.sellable && item.migration) await migrateImported(client, ctx, { id, project_id: project.id }, item.migration);
     created.set(item.code.toLowerCase(), { id, path: [...path, id], depth: path.length + 1, code: item.code });
   }
-  await logEvent(client, { projectId: project.id, kind: 'import', data: { created: result.created, updated: result.updated }, authorId: ctx.userId });
+  await logEvent(client, { projectId: project.id, kind: 'import', data: { created: result.created, updated: result.updated, migrated: result.migrated || undefined }, authorId: ctx.userId });
+}
+
+/** A migration row of the import, on the unit row already locked by the import. */
+async function migrateImported(client, ctx, node, migration) {
+  const { rows } = await client.query(`SELECT * FROM mp_units WHERE node_id = $1 FOR UPDATE`, [node.id]);
+  await migrateLocked(client, ctx, node, rows[0], migration);
 }

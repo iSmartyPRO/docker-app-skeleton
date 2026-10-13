@@ -50,6 +50,7 @@ export function unitShape(row) {
   return {
     status: row.status,
     version: row.version,
+    typeId: row.type_id || null,
     statusChangedAt: iso(row.status_changed_at),
     price,
     currency: (row.currency || '').trim() || null,

@@ -8,13 +8,15 @@ import { STATUSES, ROLES, FINISHINGS, PAYMENT_FORMS, PROJECT_CLASSES, PROJECT_ST
 import { forbidden, modulesEnabled, mpContext, mpSettings, requireAdmin, requireProject } from './access.js';
 import { capsOf, has } from './rules.js';
 import { createPlan, createProject, deletePlan, deleteProject, getProject, listProjects, listTeam, projectMap, saveContours, saveTeam, updatePlan, updateProject } from './projects.js';
-import { bulkCreate, createNode, deleteNode, getNode, moveNode, nodeCard, nodeEvents, updateNode } from './nodes.js';
+import { bulkCreate, bulkMove, createNode, deleteNode, getNode, moveNode, nodeCard, nodeEvents, updateNode } from './nodes.js';
 import { assignManager, bulkPrice, bulkStatus, changeStatus, extendBooking, listBookings } from './sales.js';
 import { exportCsv, importUnits, listUnits } from './units.js';
 import { constructionList, createReport, deleteReport, listReports, listStages, reportById, reviewReport, saveStageSet, setReadiness, updateNodeStage } from './construction.js';
 import { deleteMedia, mediaUploader, sendMedia, storeMedia } from './media.js';
 import { listTypes, saveTypes, ICONS } from './directory.js';
 import { dashboard } from './dashboard.js';
+import { createGrid, deleteGrid, listGrids } from './pricing.js';
+import { migrateUnit, migrateUnits } from './migration.js';
 import { dealUnits } from './crmLink.js';
 import { openStream } from './realtime.js';
 import { mpMessage } from './messages.js';
@@ -164,6 +166,12 @@ export function privateRoutes() {
   router.put('/projects/:id/team', wrap(async (req, res) => ok(res, { team: await saveTeam(req.mp, req.params.id, req.body?.team) })));
   router.get('/projects/:id/construction', wrap(async (req, res) => ok(res, await constructionList(req.mp, req.params.id, req.query))));
   router.get('/projects/:id/dashboard', wrap(async (req, res) => ok(res, await dashboard(req.mp, req.params.id))));
+  router.get('/projects/:id/price-grids', wrap(async (req, res) => ok(res, await listGrids(req.mp, req.params.id))));
+  router.post('/projects/:id/price-grids', wrap(async (req, res) => ok(res, { grid: await createGrid(req.mp, req.params.id, req.body || {}) }, 201)));
+  router.delete('/price-grids/:id', wrap(async (req, res) => {
+    await deleteGrid(req.mp, req.params.id);
+    ok(res);
+  }));
   router.post('/projects/:id/plans', wrap(async (req, res) => ok(res, { plan: await createPlan(req.mp, req.params.id, req.body || {}) }, 201)));
   router.put('/plans/:id', wrap(async (req, res) => ok(res, { plan: await updatePlan(req.mp, req.params.id, req.body || {}) })));
   router.delete('/plans/:id', wrap(async (req, res) => {
@@ -180,6 +188,7 @@ export function privateRoutes() {
   // ── Tree ──
   router.post('/nodes', wrap(async (req, res) => ok(res, { node: await createNode(req.mp, req.body || {}) }, 201)));
   router.post('/nodes/bulk', wrap(async (req, res) => ok(res, await bulkCreate(req.mp, req.body || {}), 201)));
+  router.post('/nodes/bulk-move', wrap(async (req, res) => ok(res, await bulkMove(req.mp, req.body || {}))));
   router.get('/nodes/:id', wrap(async (req, res) => ok(res, await nodeCard(req.mp, req.params.id, { presentation: req.query.presentation === '1' }))));
   router.put('/nodes/:id', wrap(async (req, res) => ok(res, { node: await updateNode(req.mp, req.params.id, req.body || {}) })));
   router.delete('/nodes/:id', wrap(async (req, res) => {
@@ -197,8 +206,10 @@ export function privateRoutes() {
   router.post('/units/import', wrap(async (req, res) => ok(res, await importUnits(req.mp, req.body || {}))));
   router.post('/units/bulk-price', wrap(async (req, res) => ok(res, await bulkPrice(req.mp, req.body || {}))));
   router.post('/units/bulk-status', wrap(async (req, res) => ok(res, await bulkStatus(req.mp, req.body || {}))));
+  router.post('/units/migrate', wrap(async (req, res) => ok(res, await migrateUnits(req.mp, req.body || {}))));
   router.get('/units/:id', wrap(async (req, res) => ok(res, { node: await getNode(req.mp, req.params.id, { presentation: req.query.presentation === '1' }) })));
   router.post('/units/:id/status', wrap(async (req, res) => ok(res, { node: await changeStatus(req.mp, req.params.id, req.body || {}) })));
+  router.post('/units/:id/migrate', wrap(async (req, res) => ok(res, { node: await migrateUnit(req.mp, req.params.id, req.body || {}) })));
   router.post('/units/:id/extend', wrap(async (req, res) => ok(res, await extendBooking(req.mp, req.params.id, req.body || {}))));
   router.post('/units/:id/manager', wrap(async (req, res) => ok(res, { node: await assignManager(req.mp, req.params.id, req.body || {}) })));
   router.get('/bookings', wrap(async (req, res) => ok(res, { bookings: await listBookings(req.mp, req.query) })));

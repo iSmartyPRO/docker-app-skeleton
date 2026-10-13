@@ -8,6 +8,7 @@ import { nodeLabel } from '../lib';
 import { imageSize, uploadMedia } from '../media/photos';
 import PlanCanvas from '../plan/PlanCanvas';
 import { nodeFill } from '../plan/colors';
+import { contourAround } from '../plan/labels';
 
 /**
  * Site plans and the contour editor (spec §9.1, administrators): upload a
@@ -81,6 +82,12 @@ export default function PlansEditor() {
     }
   };
 
+  // Contours of the objects inside the chosen node: a sector's contour can be drawn around them in one click.
+  const childContours = useMemo(() => {
+    if (!nodeId) return [];
+    return [...existing].filter(([id]) => id !== nodeId && tree.byId.get(id)?.path?.includes(nodeId)).map(([, points]) => points);
+  }, [existing, nodeId, tree]);
+
   const shapes = useMemo(
     () =>
       [...existing]
@@ -134,6 +141,11 @@ export default function PlansEditor() {
                   <span className="mod-toolbar__grow" />
                   <Space wrap>
                     {!closed && draft.length >= 3 && <Button onClick={() => setClosed(true)}>{t('mp.plans.close')}</Button>}
+                    {childContours.length > 0 && (
+                      <Tooltip title={t('mp.plans.aroundHint')}>
+                        <Button onClick={() => { setDraft(contourAround(childContours, Math.max(plan.width, plan.height) * 0.008)); setClosed(true); }}>{t('mp.plans.around')}</Button>
+                      </Tooltip>
+                    )}
                     <Button onClick={() => { setDraft([]); setClosed(false); }}>{t('mp.plans.restart')}</Button>
                     {existing.has(nodeId) && <Button danger onClick={() => save(null)}>{t('mp.plans.remove')}</Button>}
                     <Tooltip title={draft.length < 3 ? t('mp.plans.need3') : ''}>

@@ -1,18 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Button, Image, InputNumber, Input, Modal, Skeleton, Tabs, Tooltip } from 'antd';
+import { App, Button, InputNumber, Input, Modal, Popover, Skeleton, Tabs, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { fmtDate, fmtDateTime } from '../../../lib/datetime';
 import { Person } from '../../shared/People';
 import { mpApi } from '../api';
-import { useMp } from '../MpContext';
-import { STATUSES, TIMED, formatArea, formatMoney, formatNumber, formatPercent, sumLines } from '../lib';
+import { useMp, useProject } from '../MpContext';
+import { STATUSES, TIMED, can, descendants, formatArea, formatMoney, formatNumber, formatPercent, oldNumberLabel, sumLines } from '../lib';
 import { Countdown, Empty, Facts, Money, Readiness, ScheduleBadge, StatusTag, TypeIcon } from './bits';
 import StatusDialog, { conflictText } from './StatusDialog';
 import ReportDialog from './ReportDialog';
 import ReportFeed from './ReportFeed';
 import EventList from './EventList';
+import BuildingBlock, { BuildingHead } from './BuildingCard';
+import MediaBlock from './MediaBlock';
+import PaymentOptions from './PaymentOptions';
+import { BulkStatusDialog } from './BulkDialogs';
+import MigrateDialog from './MigrateDialog';
 
 const RANK = Object.fromEntries(STATUSES.map((status, index) => [status, index]));
 
@@ -44,8 +49,17 @@ function actionLabel(t, unit, to) {
  * right, tabs Overview · Construction · Sale · Prices · History. Levels and
  * buildings: summary by status, readiness, reports.
  */
-export default function UnitCard({ nodeId, version, onClose, onChanged, onNavigate, presentation, dealId }) {
+export default function UnitCard({ nodeId: openId, version, onClose, onChanged, onNavigate, presentation, dealId }) {
   const { t, locale } = useLocale();
+  // The card may walk to another node (a unit of this building, "← building") without the page's help.
+  const [nodeId, setNodeId] = useState(openId);
+  useEffect(() => setNodeId(openId), [openId]);
+  const go = (id) => (onNavigate ? onNavigate(id) : setNodeId(id));
+  // The project's live map (absent on pages outside a project, e.g. bookings).
+  const projectData = useProject();
+  const tree = projectData?.tree || null;
+  const [closeAll, setCloseAll] = useState(null);
+  const [oldEdit, setOldEdit] = useState(null);
   const known = (key, fallback) => {
     const text = t(key);
     return text === key ? fallback : text;
@@ -57,6 +71,7 @@ export default function UnitCard({ nodeId, version, onClose, onChanged, onNaviga
   const [dialog, setDialog] = useState(null);
   const [report, setReport] = useState(null);
   const [price, setPrice] = useState(null);
+  const [migrate, setMigrate] = useState(null);
   const [tab, setTab] = useState('overview');
 
   const load = useCallback(async () => {
@@ -79,9 +94,21 @@ export default function UnitCard({ nodeId, version, onClose, onChanged, onNaviga
 
   // Fresh data when someone else changes this unit (the plan passes the live version).
   useEffect(() => {
-    if (card && version && card.node.unit && card.node.unit.version !== version) load();
+    if (card && version && nodeId === openId && card.node.unit && card.node.unit.version !== version) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version]);
+
+  // A building: fresh aggregate when any of its units changes in the live map.
+  const unitsSignature = useMemo(() => {
+    if (!tree || !tree.byId.has(nodeId) || tree.byId.get(nodeId).unit) return '';
+    return descendants(tree, nodeId).filter((item) => item.unit).map((item) => `${item.id}:${item.unit.status}:${item.unit.version}:${item.unit.price}`).join(',');
+  }, [tree, nodeId]);
+  const seenSignature = useRef(unitsSignature);
+  useEffect(() => {
+    if (seenSignature.current !== unitsSignature && card?.building) load();
+    seenSignature.current = unitsSignature;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitsSignature]);
 
   useEffect(() => {
     const onKey = (event) => event.key === 'Escape' && !document.querySelector('.ant-modal-wrap') && onClose?.();
@@ -118,6 +145,26 @@ export default function UnitCard({ nodeId, version, onClose, onChanged, onNaviga
 
   const { forward, back } = unit ? splitMoves(unit, actions.next) : { forward: [], back: [] };
   const summary = card.summary;
+  const building = card.building;
+  // Header facts of the unified card: the sector (nearest level above), the old number, the building of a unit.
+  const sector = [...card.breadcrumbs].reverse().find((item) => item.kind === 'level') || null;
+  const parentBuilding = node.kind === 'unit' && card.breadcrumbs.length && card.breadcrumbs[card.breadcrumbs.length - 1].kind === 'object' ? card.breadcrumbs[card.breadcrumbs.length - 1] : null;
+  const oldNumber = oldNumberLabel(node.attrs?.oldNumber);
+  const unitIds = building && tree ? descendants(tree, node.id).filter((item) => item.unit).map((item) => item.id) : [];
+  const ownMediaEdit = Boolean(actions.configure) || can(card.caps, 'media.edit');
+  // attrs follow the server's rule: configure, unit.edit or build.edit.
+  const attrsEdit = !presentation && node.kind !== 'level' && Boolean(actions.configure || actions.editUnit || actions.editBuild);
+  const saveOld = async () => {
+    try {
+      await mpApi.updateNode(node.id, { attrs: { oldNumber: (oldEdit || '').trim().replace(/^№\s*/, '') || null } });
+      setOldEdit(null);
+      message.success(t('common.saved'));
+      onChanged?.(null);
+      load();
+    } catch (err) {
+      message.error(errorMessage(err));
+    }
+  };
   const tabs = [
     { key: 'overview', label: t('mp.card.overview') },
     card.stages || card.reports?.length ? { key: 'build', label: t('mp.card.build') } : null,
@@ -143,19 +190,47 @@ export default function UnitCard({ nodeId, version, onClose, onChanged, onNaviga
       <div className="mp-card__head">
         <nav className="mp-card__crumbs" aria-label={t('mp.card.path')}>
           {card.breadcrumbs.map((item) => (
-            <button key={item.id} type="button" onClick={() => onNavigate?.(item.id)}>{item.code || item.name}</button>
+            <button key={item.id} type="button" onClick={() => go(item.id)}>{item.code || item.name}</button>
           ))}
         </nav>
         <button type="button" className="mp-card__close" onClick={onClose} aria-label={t('common.close')}>✕</button>
       </div>
       <div className="mp-card__body">
+        {parentBuilding && (
+          <button type="button" className="mp-card__back" onClick={() => go(parentBuilding.id)}>
+            ← {parentBuilding.name || parentBuilding.code}
+          </button>
+        )}
         <div className="mp-card__title">
           <TypeIcon node={node} size={26} />
           <div>
             <h2>{node.code || node.name}</h2>
             <p>{[node.code ? node.name : null, node.kind === 'level' ? known(`mp.level.${node.levelKey}`, node.levelKey) : node.type?.name].filter(Boolean).join(' · ')}</p>
+            {(sector || oldNumber || attrsEdit) && node.kind !== 'level' && (
+              <div className="mp-card__chips">
+                {sector && <button type="button" className="mp-chip" onClick={() => go(sector.id)}>{sector.name || sector.code}</button>}
+                {oldNumber && <span className="mp-chip is-was">{t('mp.labels.was', { n: oldNumber })}</span>}
+                {attrsEdit && (
+                  <Popover
+                    trigger="click"
+                    open={oldEdit !== null}
+                    onOpenChange={(open) => setOldEdit(open ? node.attrs?.oldNumber || '' : null)}
+                    title={t('mp.attr.oldNumber')}
+                    content={
+                      <div className="mp-oldedit">
+                        <Input autoFocus value={oldEdit || ''} onChange={(event) => setOldEdit(event.target.value)} onPressEnter={saveOld} maxLength={40} placeholder={t('mp.labels.oldHint')} />
+                        <Button type="primary" onClick={saveOld}>{t('common.save')}</Button>
+                      </div>
+                    }
+                  >
+                    <button type="button" className="mp-chip is-edit" aria-label={t('mp.attr.oldNumber')}>{oldNumber ? '✎' : `＋ ${t('mp.labels.oldAdd')}`}</button>
+                  </Popover>
+                )}
+              </div>
+            )}
           </div>
         </div>
+        {building && <BuildingHead building={building} presentation={presentation} />}
         {unit && (
           <div className="mp-card__sale">
             <StatusTag status={unit.status} size="lg" manager={unit.status && TIMED.has(unit.status) ? unit.manager : null} />
@@ -174,7 +249,8 @@ export default function UnitCard({ nodeId, version, onClose, onChanged, onNaviga
             {unit.minPrice !== undefined && unit.minPrice !== null && <div className="mp-card__min">{t('mp.card.minPrice')}: <Money amount={unit.minPrice} currency={unit.currency} /></div>}
           </div>
         )}
-        {!presentation && (forward.length > 0 || back.length > 0 || actions.extend || actions.report || unit?.deal) && (
+        {unit && unit.price !== undefined && <PaymentOptions unit={unit} project={projectData?.project || null} presentation={presentation} />}
+        {!presentation && (forward.length > 0 || back.length > 0 || actions.extend || actions.report || actions.migrate || unit?.deal || (actions.closeAll && unitIds.length > 0)) && (
           <div className="mp-card__actions">
             {forward.map((to, index) => (
               <Button key={to} type={index === 0 && to !== 'not_for_sale' && !(to === 'free' && TIMED.has(unit.status)) ? 'primary' : 'default'} danger={to === 'free' && TIMED.has(unit.status)} onClick={() => setDialog({ node, to })}>
@@ -186,7 +262,9 @@ export default function UnitCard({ nodeId, version, onClose, onChanged, onNaviga
             {unit?.deal && crmEnabled && (
               <Link className="ant-btn ant-btn-default mp-linkbtn" to={`/app/crm/deals/${unit.deal.id}`}>{t('mp.card.openDeal')} ↗</Link>
             )}
+            {actions.closeAll && unitIds.length > 0 && <Button onClick={() => setCloseAll({ ids: unitIds, to: 'not_for_sale' })}>{t('mp.bld.closeAll')}</Button>}
             {actions.report && <Button onClick={() => setReport({ projectId: node.projectId, nodeIds: [node.id] })}>＋ {t('mp.report.short')}</Button>}
+            {actions.migrate && <Button onClick={() => setMigrate({ node })}>{t('mp.migrate.action')}…</Button>}
           </div>
         )}
         <Tabs activeKey={tab} onChange={setTab} items={tabs} size="small" className="mp-card__tabs" />
@@ -199,7 +277,31 @@ export default function UnitCard({ nodeId, version, onClose, onChanged, onNaviga
                 {node.stage && <em>{node.stage.name}</em>}
               </div>
             )}
-            {summary && summary.total > 0 && !unit && (
+            {building && (
+              <>
+                <Facts
+                  items={[
+                    { label: t('mp.attr.floors'), value: node.attrs?.floors || (building.floors.length ? building.floors.length : null) },
+                    { label: t('mp.bld.totalUnits'), value: formatNumber(building.total, locale) },
+                    { label: t('mp.bld.saleArea'), value: building.area ? formatArea(building.area, locale) : null },
+                    { label: t('mp.bld.freeArea'), value: building.freeArea ? formatArea(building.freeArea, locale) : null },
+                    { label: t('mp.f.finishing'), value: building.finishing.length ? building.finishing.map((key) => t(`mp.finishing.${key}`)).join(', ') : null },
+                    { label: t('mp.f.paymentForms'), value: building.paymentForms.length ? building.paymentForms.map((key) => t(`mp.payment.${key}`)).join(', ') : null, wide: true },
+                  ]}
+                />
+                <BuildingBlock
+                  node={node}
+                  building={building}
+                  tree={tree}
+                  projectId={node.projectId}
+                  presentation={presentation}
+                  canReserve={Boolean(actions.reserveUnits) && Boolean(tree)}
+                  onOpenUnit={go}
+                  onReserve={(target) => setDialog({ node: target, to: 'reserve' })}
+                />
+              </>
+            )}
+            {summary && summary.total > 0 && !unit && !building && (
               <div className="mp-card__summary">
                 <div className="mp-statusbar" role="img" aria-label={t('mp.card.byStatus')}>
                   {STATUSES.filter((status) => summary.byStatus[status]).map((status) => (
@@ -244,24 +346,24 @@ export default function UnitCard({ nodeId, version, onClose, onChanged, onNaviga
                 { label: t('mp.f.handover'), value: node.handover ? t(`mp.finishing.${node.handover}`) : null },
                 { label: t('mp.f.contractor'), value: node.contractor },
                 { label: t('mp.f.plan'), value: node.planStart || node.planEnd ? `${fmtDate(node.planStart) || '…'} — ${fmtDate(node.planEnd) || '…'}` : null },
-                ...Object.entries(node.attrs || {}).map(([key, value]) => ({ label: known(`mp.attr.${key}`, key), value: Array.isArray(value) ? value.join(', ') : typeof value === 'boolean' ? (value ? t('common.yes') : t('common.no')) : String(value) })),
+                ...Object.entries(node.attrs || {}).filter(([key]) => key !== 'oldNumber' && !(building && key === 'floors')).map(([key, value]) => ({ label: known(`mp.attr.${key}`, key), value: Array.isArray(value) ? value.join(', ') : typeof value === 'boolean' ? (value ? t('common.yes') : t('common.no')) : String(value) })),
                 { label: t('mp.f.buildUser'), value: card.responsible?.build ? <Person user={card.responsible.build} /> : null },
                 { label: t('mp.f.salesUser'), value: card.responsible?.sales ? <Person user={card.responsible.sales} /> : null },
               ]}
             />
             {node.description && <p className="mp-card__desc">{node.description}</p>}
-            {card.media?.length > 0 && (
-              <div className="mp-gallery">
-                <Image.PreviewGroup>
-                  {card.media.filter((item) => item.mime?.startsWith('image/')).map((item) => (
-                    <Image key={item.id} src={item.thumbUrl || item.url} preview={{ src: item.url }} alt={item.name} width={88} height={66} />
-                  ))}
-                </Image.PreviewGroup>
-                {card.media.filter((item) => !item.mime?.startsWith('image/')).map((item) => (
-                  <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="mp-doc">📄 {item.name}</a>
-                ))}
-              </div>
+            {card.series && (
+              <MediaBlock
+                title={t('mp.series.title')}
+                name={card.series}
+                hint={actions.seriesMedia ? t('mp.series.hint') : null}
+                items={card.seriesMedia || []}
+                target={{ projectId: node.projectId, series: card.series }}
+                canEdit={Boolean(actions.seriesMedia) && !presentation}
+                onChanged={load}
+              />
             )}
+            <MediaBlock title={t('mp.series.own')} items={card.media || []} target={{ projectId: node.projectId, nodeId: node.id }} canEdit={ownMediaEdit && !presentation && node.kind !== 'level'} onChanged={load} />
           </div>
         )}
         {tab === 'build' && (
@@ -334,7 +436,9 @@ export default function UnitCard({ nodeId, version, onClose, onChanged, onNaviga
           </div>
         )}
       </div>
+      <BulkStatusDialog open={closeAll} onClose={(changed) => { setCloseAll(null); if (changed) { load(); onChanged?.(null); } }} />
       <StatusDialog open={dialog} onClose={done} onConflict={() => { load(); onChanged?.(null); }} caps={card.caps} dealId={dealId} />
+      <MigrateDialog open={migrate} onClose={(next) => { setMigrate(null); if (next) { onChanged?.(next === true ? null : next); load(); } }} />
       <ReportDialog open={report} onClose={(created) => { setReport(null); if (created) { load(); onChanged?.(null); } }} />
       <Modal open={Boolean(price)} title={t('mp.card.editPrice')} onCancel={() => setPrice(null)} onOk={priceSave} okText={t('common.save')} cancelText={t('common.cancel')} destroyOnClose>
         {price && (

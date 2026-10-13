@@ -25,6 +25,20 @@ function EventText({ event }) {
           {d.reason && <span className="mp-ev__reason">«{d.reason}»</span>}
         </>
       );
+    case 'migration':
+      return (
+        <>
+          <b>{t('mp.ev.migration')}</b> <StatusTag status={d.from} /> → <StatusTag status={d.to} />
+          {d.date && <span className="mp-ev__extra">{t('mp.ev.migrationDate', { date: fmtDate(d.date) })}</span>}
+          {d.manager && <span className="mp-ev__extra">{t('mp.ev.manager', { name: d.manager.name })}</span>}
+          {d.client && <span className="mp-ev__extra">{t('mp.ev.client', { name: d.client.name })}</span>}
+          {d.contract?.number && <span className="mp-ev__extra">{t('mp.ev.contract', { number: d.contract.number, date: fmtDate(d.contract.date) })}</span>}
+          {d.amount !== undefined && d.amount !== null && <span className="mp-ev__extra">{formatMoney(d.amount, null, locale)}</span>}
+          {d.endsAt ? <span className="mp-ev__extra">{t('mp.ev.until', { when: fmtDateTime(d.endsAt) })}</span> : d.noTimer ? <span className="mp-ev__extra">{t('mp.ev.noTimer')}</span> : null}
+          {d.source === 'import' && <span className="mp-ev__extra">{t('mp.ev.viaImport')}</span>}
+          {d.reason && <span className="mp-ev__reason">«{d.reason}»</span>}
+        </>
+      );
     case 'extend':
       return (
         <>
@@ -59,7 +73,7 @@ function EventText({ event }) {
     case 'readiness':
       return d.manual ? t('mp.ev.readinessManual', { value: formatPercent(d.readiness, locale) }) : t('mp.ev.readinessAuto');
     case 'moved':
-      return t('mp.ev.moved');
+      return d.bulk > 1 ? t('mp.ev.movedBulk', { n: d.bulk }) : t('mp.ev.moved');
     case 'bulk':
       return t('mp.ev.bulk', { n: d.count, from: d.from, to: d.to });
     case 'crm_stage':

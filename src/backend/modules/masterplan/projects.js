@@ -5,6 +5,7 @@ import { canConfigure, forbidden, notFound, requireAdmin, requireConfigure, requ
 import { has, readCaps, rolesIn } from './rules.js';
 import { NODE_SELECT, inheritReadiness, visibleNode } from './shapes.js';
 import { treeChanged } from './realtime.js';
+import { projectPricing } from './pricing.js';
 import { dayString, intOr, iso, logEvent, parseDay, parseNumber, text } from './util.js';
 
 /*
@@ -125,7 +126,10 @@ function projectFields(input, current = {}) {
 export async function getProject(ctx, id) {
   const row = await requireProject(ctx, id);
   const { rows } = await query(`${PROJECT_SELECT} WHERE p.id = $1`, [row.id]);
-  return projectShape(rows[0], ctx);
+  const shape = projectShape(rows[0], ctx);
+  // Payment plans in force (price grid by payment form) — for people who see prices.
+  shape.pricing = await projectPricing(ctx, row.id);
+  return shape;
 }
 
 export async function createProject(ctx, input) {

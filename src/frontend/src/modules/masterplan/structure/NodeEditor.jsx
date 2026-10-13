@@ -12,9 +12,9 @@ import { StatusTag, TypeIcon } from '../components/bits';
 
 /** Free attributes offered in the editor (stored in attrs JSONB; any other key survives too). */
 export const ATTRS = {
-  object: ['series', 'architect', 'material', 'foundation', 'roof', 'floors', 'permit'],
-  plot: ['cadastral', 'relief', 'view', 'orientation', 'utilities', 'restrictions', 'shape'],
-  unit: ['view', 'orientation', 'features', 'tour'],
+  object: ['series', 'oldNumber', 'architect', 'material', 'foundation', 'roof', 'floors', 'permit'],
+  plot: ['oldNumber', 'cadastral', 'relief', 'view', 'orientation', 'utilities', 'restrictions', 'shape'],
+  unit: ['series', 'oldNumber', 'view', 'orientation', 'features', 'tour'],
   level: [],
 };
 

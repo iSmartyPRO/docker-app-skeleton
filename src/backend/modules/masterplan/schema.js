@@ -6,6 +6,8 @@ import { runBookingTimers } from './sales.js';
 import { runDailyChecks } from './construction.js';
 import { purgeOrphans } from './media.js';
 import { registerCrmHooks } from './crmLink.js';
+import { ensurePricingSchema } from './pricing.js';
+import { ensureBuildingSchema } from './buildings.js';
 
 /*
  * Masterplan (docs/masterplan.md): development projects as a tree of nodes,
@@ -321,6 +323,8 @@ export async function ensureMasterplanSchema() {
   await query(`CREATE INDEX IF NOT EXISTS mp_events_node_idx ON mp_events (node_id, id DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS mp_events_project_idx ON mp_events (project_id, id DESC)`);
 
+  await ensurePricingSchema();
+  await ensureBuildingSchema();
   await seedDirectories();
   registerJob({ name: 'masterplan:bookings', everyMs: 60 * 1000, run: runBookingTimers });
   registerJob({

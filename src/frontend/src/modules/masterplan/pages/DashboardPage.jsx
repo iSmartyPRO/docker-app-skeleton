@@ -9,6 +9,7 @@ import { mpApi } from '../api';
 import { useMp, useProject } from '../MpContext';
 import { STATUSES, formatArea, formatMoney, formatNumber, formatPercent, statusColor } from '../lib';
 import { Readiness, StatusTag } from '../components/bits';
+import PriceChart from '../components/PriceChart';
 
 function Tile({ label, value, sub, tone }) {
   return (
@@ -122,6 +123,12 @@ export default function DashboardPage() {
             )}
           </div>
         </>
+      )}
+      {data.prices && (
+        <section className="mp-panel">
+          <h2>{t('mp.dash.priceChart')} <span>{data.prices.currency} / м²</span></h2>
+          <PriceChart data={data.prices} />
+        </section>
       )}
       {data.construction && (
         <div className="mp-dash__grid">

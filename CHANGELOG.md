@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Masterplan 1.1 (White Hills start)
+
+- **Status migration** («Перенести статус») for project administrators — any status with client, manager, date and contract data, bypassing the chain, the CRM deal requirement and the timer; per unit, in bulk from the registry and through import columns; history event «Миграция».
+- **Prices by payment form:** dated price grids per project (or object type) — 100 % / installments with first payment, term and monthly payment — shown in the unit card and presentation; **planned price at completion** and a «price per m² over time» dashboard chart.
+- **Bulk move** of several tree nodes in one action.
+- **Plan labels:** numbers fit by text length with 9–14 px font and outline, status-coloured badges without overlaps, «Номера: авто / всегда / скрыть»; plan search by building, sector, unit and old number zooms and opens the card; zoom buttons fixed.
+- **One card for any building:** apartment buildings show «свободно X из N», price ranges, composition by rooms with one-click reserve, a mini-chessboard, bulk close, and are coloured by share of free units.
+- **Sector contours** may overlap (smallest object wins the click, «Контур по объектам»); **old numbers** («Было №…») in tooltip, card and search; **series media** (plans and renders shared by all objects of a series).
+
 ### Code review fixes (October 2026)
 
 - **Masterplan:** expiry never releases a booking extended a moment ago and no longer deadlocks with manual actions; rights are checked before version conflicts; presentation mode stays redacted on live updates and CSV; history, status filter/sort and readiness follow field visibility; backdated reports can't lower progress; zone checks cover every object a report moves; import locks and re-validates units; one summary notification per bulk action; API tokens need the CRM scope to touch linked deals.

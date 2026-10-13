@@ -173,13 +173,41 @@ export function filterActive(filter) {
   return Object.entries(filter || {}).some(([key, value]) => (Array.isArray(value) ? value.length : value !== null && value !== '' && value !== false && value !== undefined && key !== 'q') || (key === 'q' && value));
 }
 
-/** Does a node (with sales data) pass the filter? */
-export function matches(node, filter, userId) {
+/** "14" → "№14"; words ("блок 1") stay as they are. The number on the previous sales plan (attrs.oldNumber). */
+export const oldNumberLabel = (value) => (value === null || value === undefined || value === '' ? null : /^\d/.test(String(value)) ? `№${value}` : String(value));
+
+const norm = (value) => String(value ?? '').toLowerCase().replace(/ё/g, 'е').replace(/№\s*/g, '').replace(/\s+/g, ' ').trim();
+
+/** Does the node's own code, name, number or old number contain the text? */
+export function textHit(node, q) {
+  const needle = norm(q);
+  if (!needle) return true;
+  return [node.code, node.name, node.unit?.number, node.attrs?.oldNumber].some((value) => value !== null && value !== undefined && norm(value).includes(needle));
+}
+
+/**
+ * How well a node answers a search (0 = not at all): exact code or old number
+ * first, then a name / code that starts with the text, then any hit.
+ */
+export function searchRank(node, q) {
+  const needle = norm(q);
+  if (!needle || !textHit(node, q)) return 0;
+  if (norm(node.code) === needle || norm(node.name) === needle) return 4;
+  if (norm(node.attrs?.oldNumber) === needle) return 3;
+  if ([node.code, node.name].some((value) => norm(value).startsWith(needle))) return 2;
+  return 1;
+}
+
+/**
+ * Does a node (with sales data) pass the filter? With `tree`, the text also
+ * matches through the node's ancestors: «Апарт-корпус 40» keeps its apartments.
+ */
+export function matches(node, filter, userId, tree) {
   if (!filter) return true;
   const u = node.unit || {};
   if (filter.q) {
-    const q = filter.q.toLowerCase();
-    if (![node.code, node.name, u.number].some((value) => String(value || '').toLowerCase().includes(q))) return false;
+    const chain = tree && node.path ? node.path.map((id) => tree.byId.get(id)).filter(Boolean) : [node];
+    if (!chain.some((item) => textHit(item, filter.q))) return false;
   }
   if (filter.statuses?.length && !filter.statuses.includes(u.status)) return false;
   if (filter.types?.length && !filter.types.includes(node.type?.id)) return false;

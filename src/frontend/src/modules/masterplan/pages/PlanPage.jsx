@@ -6,13 +6,15 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { HelpButton } from '../../../help/Hint';
 import { useMp, useProject } from '../MpContext';
-import { EMPTY_FILTER, can, descendants, filterActive, formatArea, formatMoney, formatPercent, matches, readStore, shortLabel, userKey, writeStore } from '../lib';
-import { Legend, FilterButton, SearchBox } from '../components/Filters';
+import { EMPTY_FILTER, can, descendants, filterActive, formatArea, formatMoney, formatPercent, matches, oldNumberLabel, readStore, shortLabel, userKey, writeStore } from '../lib';
+import { Legend, FilterButton } from '../components/Filters';
+import PlanSearch from '../components/PlanSearch';
 import { StatusTag, TypeIcon } from '../components/bits';
 import UnitCard from '../components/UnitCard';
 import PlanCanvas, { bboxOf } from '../plan/PlanCanvas';
 import TilesView from '../plan/TilesView';
-import { nodeFill, unitsUnder } from '../plan/colors';
+import { buildingStats, nodeFill, unitsUnder } from '../plan/colors';
+import { LABEL_MODES } from '../plan/labels';
 
 /**
  * The interactive site plan (spec §9.1): background with contours, layers
@@ -64,6 +66,16 @@ export default function PlanPage() {
   }, [plans, focus]);
   const [view, setView] = useState(() => readStore(userKey(user, 'planView'), 'plan'));
   const mode = plan && view === 'plan' ? 'plan' : 'tiles';
+  // Numbers on the plan: auto / always / hide, remembered per person; a presentation starts with "always".
+  const labelsKey = userKey(user, presentation ? 'labelsPresentation' : 'labels');
+  const [labelMode, setLabelModeState] = useState(() => {
+    const saved = readStore(labelsKey, null);
+    return LABEL_MODES.includes(saved) ? saved : presentation ? 'always' : 'auto';
+  });
+  const setLabelMode = (value) => {
+    setLabelModeState(value);
+    writeStore(labelsKey, value);
+  };
 
   const filtering = filterActive(filter);
   const shapes = useMemo(() => {
@@ -76,12 +88,13 @@ export default function PlanPage() {
         const level = node.kind === 'level';
         const fill = nodeFill(node, layer, ctx);
         const under = !node.unit && filtering ? unitsUnder(node, tree) : null;
-        const dim = filtering && (node.unit ? !matches(node, filter, user?.id) : under.length > 0 && !under.some((item2) => matches(item2, filter, user?.id)));
+        const dim = filtering && (node.unit ? !matches(node, filter, user?.id, tree) : under.length > 0 && !under.some((item2) => matches(item2, filter, user?.id, tree)));
         return {
           id: node.id,
           points: item.points,
           level,
           fill: level ? (layer === 'sales' ? 'rgba(148,163,184,.10)' : 'rgba(148,163,184,.08)') : fill,
+          badge: level ? null : fill,
           stroke: level ? 'rgba(71,85,105,.75)' : 'rgba(15,23,42,.55)',
           dim,
           selected: node.id === selectedId || (level && node.id === focusId),
@@ -95,14 +108,39 @@ export default function PlanPage() {
   useEffect(() => {
     if (mode !== 'plan' || !canvas.current) return;
     const shape = focusId ? contours.find((item) => item.planId === plan?.id && item.nodeId === focusId) : null;
-    if (shape) canvas.current.fitBox(bboxOf(shape.points), 0.12);
+    // The side card covers the right of a wide screen: keep the focused contour clear of it.
+    if (shape) canvas.current.fitBox(bboxOf(shape.points), 0.12, selectedId && window.innerWidth > 900 ? 450 : 0);
     else canvas.current.fit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusId, plan?.id, mode, canvasReady]);
 
   const scopeUnits = useMemo(() => (focus ? unitsUnder(focus, tree) : nodes.filter((node) => node.unit)), [focus, tree, nodes]);
-  const visibleUnits = useMemo(() => scopeUnits.filter((node) => !filter.q || matches(node, { q: filter.q }, user?.id)), [scopeUnits, filter.q, user?.id]);
-  const shown = filtering ? scopeUnits.filter((node) => matches(node, filter, user?.id)).length : null;
+  const visibleUnits = useMemo(() => scopeUnits.filter((node) => !filter.q || matches(node, { q: filter.q }, user?.id, tree)), [scopeUnits, filter.q, user?.id, tree]);
+  const shown = filtering ? scopeUnits.filter((node) => matches(node, filter, user?.id, tree)).length : null;
+  // Searchable: everything drawn on some plan or sold (apartments have no contour; their building is shown).
+  const searchable = useMemo(() => nodes.filter((node) => node.kind !== 'level' || contours.some((item) => item.nodeId === node.id)), [nodes, contours]);
+
+  /** Zoom the plan to a node's contour, or to the nearest ancestor drawn on this plan; open its card. */
+  const reveal = (node) => {
+    if (!node) return;
+    if (node.kind === 'level') {
+      select(node);
+      return;
+    }
+    if (mode === 'plan' && canvas.current) {
+      for (const id of [...node.path].reverse()) {
+        const shape = contours.find((item) => item.planId === plan?.id && item.nodeId === id);
+        if (!shape) continue;
+        const box = bboxOf(shape.points);
+        // Some neighbourhood around a small house; the side card covers the right of a wide screen.
+        const w = Math.max(box.w * 3, plan.width * 0.16);
+        const h = Math.max(box.h * 3, plan.height * 0.16);
+        canvas.current.fitBox({ x: box.x + box.w / 2 - w / 2, y: box.y + box.h / 2 - h / 2, w, h }, 0.04, window.innerWidth > 900 ? 450 : 0);
+        break;
+      }
+    }
+    setParam('node', node.id);
+  };
 
   const select = (node) => {
     if (!node) return;
@@ -127,6 +165,7 @@ export default function PlanPage() {
 
   const chain = focus ? focus.path.map((id) => tree.byId.get(id)).filter(Boolean) : [];
   const hovered = hover ? tree.byId.get(hover.id) : null;
+  const hoveredStats = hovered && !hovered.unit && hovered.kind === 'object' ? buildingStats(hovered, tree) : null;
   const togglePresentation = () => {
     const next = new URLSearchParams(window.location.search);
     if (presentation) next.delete('presentation');
@@ -180,9 +219,15 @@ export default function PlanPage() {
               aria-label={t('mp.plan.view')}
             />
           )}
-          <SearchBox value={filter.q} onChange={(q) => setFilter({ ...filter, q })} />
+          <PlanSearch value={filter.q} onChange={(q) => setFilter({ ...filter, q })} nodes={searchable} onPick={reveal} />
           <FilterButton value={filter} onChange={setFilter} caps={caps} />
           {shown !== null && <span className="mp-shown">{t('mp.plan.shown', { n: shown, total: scopeUnits.length })}</span>}
+          {mode === 'plan' && (
+            <label className="mp-labels-switch">
+              <span>{t('mp.labels.title')}</span>
+              <Segmented size="small" value={labelMode} onChange={setLabelMode} options={LABEL_MODES.map((key) => ({ value: key, label: t(`mp.labels.${key}`) }))} aria-label={t('mp.labels.title')} />
+            </label>
+          )}
         </div>
         <Legend units={layer === 'types' ? (focus ? [focus, ...descendants(tree, focus.id)] : nodes) : visibleUnits} filter={filter} onChange={setFilter} layer={layer} caps={caps} />
       </div>
@@ -206,6 +251,7 @@ export default function PlanPage() {
             onShapeHover={(id, at) => setHover(id ? { id, ...at } : null)}
             onBackgroundClick={() => setParam('node', null)}
             onReady={() => setCanvasReady((n) => n + 1)}
+            labelMode={labelMode}
             ariaLabel={t('mp.plan.aria')}
           >
             <div className="mp-zoom">
@@ -214,13 +260,21 @@ export default function PlanPage() {
               <button type="button" onClick={() => { setParam('focus', null); canvas.current?.fit(); }} aria-label={t('mp.plan.fit')} title={t('mp.plan.fit')}>⤢</button>
             </div>
             {hovered && hover && (
-              <div className="mp-tip" style={{ left: hover.x + 14, top: hover.y + 14 }}>
+              // Near the right / bottom edge the tooltip opens to the other side of the pointer.
+              <div className="mp-tip" style={{ left: hover.x + (hover.x + 300 > hover.w ? -14 : 14), top: hover.y + (hover.y + 170 > hover.h ? -14 : 14), transform: `translate(${hover.x + 300 > hover.w ? '-100%' : '0'}, ${hover.y + 170 > hover.h ? '-100%' : '0'})` }}>
                 <div className="mp-tip__head">
                   <TypeIcon node={hovered} size={16} />
                   <b>{shortLabel(hovered)}</b>
                   <span>{hovered.kind === 'level' ? '' : hovered.type?.name}</span>
                 </div>
+                {oldNumberLabel(hovered.attrs?.oldNumber) && <div className="mp-tip__was">{t('mp.labels.was', { n: oldNumberLabel(hovered.attrs.oldNumber) })}</div>}
                 {hovered.unit?.status && <StatusTag status={hovered.unit.status} manager={hovered.unit.manager && !presentation && ['reserve', 'booking'].includes(hovered.unit.status) ? hovered.unit.manager : null} />}
+                {hoveredStats && (
+                  <div className="mp-tip__facts">
+                    {hoveredStats.free !== null ? <b>{t('mp.bld.freeOf', { free: hoveredStats.free, total: hoveredStats.total })}</b> : <span>{t('mp.plan.units', { n: hoveredStats.total })}</span>}
+                    {hoveredStats.priceFrom !== null && <b>{t('mp.bld.from', { price: formatMoney(hoveredStats.priceFrom, hoveredStats.currency, locale) })}</b>}
+                  </div>
+                )}
                 <div className="mp-tip__facts">
                   {(hovered.unit?.areaTotal || hovered.area) && <span>{formatArea(hovered.unit?.areaTotal || hovered.area, locale)}</span>}
                   {hovered.unit?.areaPlot && <span>{t('mp.f.plotShort')} {formatArea(hovered.unit.areaPlot, locale)}</span>}
