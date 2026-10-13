@@ -13,6 +13,7 @@ import { kbEditorEn, kbEditorRu } from './kbEditor.js';
 import { assistantEn, assistantRu } from './assistant.js';
 import { outageEn, outageRu } from './outage.js';
 import { userLinksEn, userLinksRu } from './userLinks.js';
+import { sessionsEn, sessionsRu } from './sessions.js';
 
 const en = {
   brand: 'docker-app-skeleton',
@@ -869,7 +870,7 @@ const en = {
     passwordResetDesc: 'Set a new password and sign the user out of every device.',
     newPassword: 'New password',
     sessions: 'Sessions',
-    sessionsDesc: 'Sign this user out of every device immediately.',
+    sessionsDesc: 'Where this person is signed in. End one session or sign them out of every device.',
     revoke: 'Sign out everywhere',
     revoked: 'All sessions revoked',
     danger: 'Danger zone',
@@ -923,7 +924,7 @@ const en = {
     passwordMismatch: 'Passwords do not match',
     passwordDesc: 'At least 10 characters. Other devices will be signed out.',
     sessions: 'Sessions',
-    sessionsDesc: 'Signed in somewhere you do not recognise? Sign out every other device.',
+    sessionsDesc: 'Where you are signed in: devices, browsers and the installed app. Do not recognise one? End it.',
     revokeOthers: 'Sign out other devices',
     revoked: 'Other devices signed out',
     changeAvatar: 'Change avatar',
@@ -1816,7 +1817,7 @@ const ru = {
     passwordResetDesc: 'Задать новый пароль и завершить сессии на всех устройствах.',
     newPassword: 'Новый пароль',
     sessions: 'Сессии',
-    sessionsDesc: 'Немедленно завершить сессии пользователя на всех устройствах.',
+    sessionsDesc: 'Где пользователь сейчас вошёл. Завершите отдельную сессию или разлогиньте его на всех устройствах.',
     revoke: 'Выйти везде',
     revoked: 'Все сессии завершены',
     danger: 'Опасная зона',
@@ -1870,7 +1871,7 @@ const ru = {
     passwordMismatch: 'Пароли не совпадают',
     passwordDesc: 'Не менее 10 символов. Другие устройства будут разлогинены.',
     sessions: 'Сессии',
-    sessionsDesc: 'Видите вход, которого не было? Завершите сессии на всех других устройствах.',
+    sessionsDesc: 'Где вы сейчас вошли: устройства, браузеры и приложение. Видите незнакомый вход — завершите его.',
     revokeOthers: 'Выйти на других устройствах',
     revoked: 'Другие устройства разлогинены',
     changeAvatar: 'Сменить аватар',
@@ -1944,6 +1945,8 @@ mergeDeep(en, outageEn);
 mergeDeep(ru, outageRu);
 mergeDeep(en, userLinksEn);
 mergeDeep(ru, userLinksRu);
+mergeDeep(en, sessionsEn);
+mergeDeep(ru, sessionsRu);
 mergeDeep(en, tasks2En);
 mergeDeep(ru, tasks2Ru);
 mergeDeep(en, resourcesEn);

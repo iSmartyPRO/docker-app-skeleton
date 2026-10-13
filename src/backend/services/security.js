@@ -1,6 +1,8 @@
 import { createHash } from 'crypto';
 import { query } from '../config/database.js';
 import { getSettings, parseSettings } from './settings.js';
+import { registerJob } from './scheduler.js';
+import { ensureSessionTables, purgeSessions } from './sessions.js';
 
 export async function ensureSecurityTables() {
   await query(`
@@ -45,6 +47,9 @@ export async function ensureSecurityTables() {
       expires_at TIMESTAMPTZ NOT NULL
     )
   `);
+  // Sign-in sessions with device details (services/sessions.js).
+  await ensureSessionTables();
+  registerJob({ name: 'sessions:purge', everyMs: 6 * 60 * 60 * 1000, run: purgeSessions });
 }
 
 function ipv4ToInt(ip) {

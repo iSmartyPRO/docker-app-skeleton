@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { avatarUpload, verifyUploadedFile } from '../middleware/upload.js';
-import { cookieOptions, signToken } from '../services/auth.js';
+import { cookieOptions, signToken, verifyToken } from '../services/auth.js';
+import { listUserSessions, renewSession, revokeSessionById, revokeUserSessions } from '../services/sessions.js';
 import config from '../config/app.js';
 import { getSettings, parseSettings } from '../services/settings.js';
 import { verifyTelegramForLinking } from '../services/signin.js';
@@ -47,11 +48,21 @@ async function freshUser(id) {
   return toPublicUser(session.row, session.access);
 }
 
-/** Re-issues this device's cookie after token_version changed. */
+/**
+ * Re-issues this device's cookie after token_version changed: same session
+ * (`sid`), new token. Every other session of the person has just been cut off
+ * by the bump, so their rows are ended too.
+ */
 async function reissue(req, res) {
   const days = await sessionDays();
   const fresh = await findUserById(req.user.id);
-  res.cookie(config.auth.cookieName, signToken(fresh, { sessionDays: days }), cookieOptions(req, { sessionDays: days }));
+  const claims = req.sessionId ? { sid: req.sessionId } : {};
+  const token = signToken(fresh, { sessionDays: days, claims });
+  if (req.sessionId) {
+    await renewSession(req.sessionId, { tokenVersion: fresh.token_version, expiresAt: new Date(verifyToken(token).exp * 1000) });
+    await revokeUserSessions(req.user.id, { exceptId: req.sessionId });
+  }
+  res.cookie(config.auth.cookieName, token, cookieOptions(req, { sessionDays: days }));
 }
 
 router.get('/profile', wrap(async (req, res) => {
@@ -87,11 +98,33 @@ router.put('/password', wrap(async (req, res) => {
   res.json({ success: true, user: await freshUser(req.user.id) });
 }));
 
-// Signs out every other device: bumps token_version and re-issues this cookie.
-router.post('/sessions/revoke', wrap(async (req, res) => {
+// ── Sessions: where the person is signed in ─────────────────────────────────
+
+router.get('/sessions', wrap(async (req, res) => {
+  res.json({ success: true, sessions: await listUserSessions(req.user.id, { currentId: req.sessionId }) });
+}));
+
+// Signs out every other device: ends their rows, bumps token_version (cookies
+// from before sessions had rows) and re-issues this cookie.
+const revokeOthers = wrap(async (req, res) => {
   await revokeSessions(req.user.id);
   await reissue(req, res);
-  res.json({ success: true });
+  res.json({ success: true, sessions: await listUserSessions(req.user.id, { currentId: req.sessionId }) });
+});
+router.post('/sessions/revoke-others', revokeOthers);
+router.post('/sessions/revoke', revokeOthers);
+
+// Ends one other device; this one signs out with /auth/logout.
+router.delete('/sessions/:id', wrap(async (req, res) => {
+  if (req.params.id === req.sessionId) {
+    res.status(400).json({ success: false, code: 'CURRENT_SESSION', error: 'Use sign out to end this session' });
+    return;
+  }
+  if (!(await revokeSessionById(req.params.id, req.user.id))) {
+    res.status(404).json({ success: false, code: 'NOT_FOUND', error: 'Session not found' });
+    return;
+  }
+  res.json({ success: true, sessions: await listUserSessions(req.user.id, { currentId: req.sessionId }) });
 }));
 
 router.post('/telegram', wrap(async (req, res) => {

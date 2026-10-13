@@ -131,8 +131,8 @@ export default {
       id: 'security',
       title: { ru: 'Безопасность: пароль и сессии', en: 'Security: password and sessions' },
       body: {
-        ru: 'В разделе [Безопасность](/account/security):\n\n**Пароль.** Введите текущий пароль, новый (не менее 10 символов) и повторите его. После сохранения все другие устройства будут разлогинены — на них придётся войти заново.\n\nЕсли вы всегда входили без пароля (через Telegram, Google, код или Active Directory), здесь будет блок **«Задать пароль»** — текущий пароль вводить не нужно.\n\n**Сессии.** Кнопка **«Выйти на других устройствах»** завершает все входы, кроме текущего: на чужом компьютере, старом телефоне и т. д.',
-        en: 'In [Security](/account/security):\n\n**Password.** Enter your current password, a new one (at least 10 characters) and repeat it. After saving, all other devices are signed out — you will need to sign in there again.\n\nIf you have always signed in without a password (Telegram, Google, a code or Active Directory), you will see **“Set a password”** instead — no current password needed.\n\n**Sessions.** The **“Sign out other devices”** button ends every sign-in except the current one: on someone else’s computer, an old phone and so on.',
+        ru: 'В разделе [Безопасность](/account/security):\n\n**Пароль.** Введите текущий пароль, новый (не менее 10 символов) и повторите его. После сохранения все другие устройства будут разлогинены — на них придётся войти заново.\n\nЕсли вы всегда входили без пароля (через Telegram, Google, код или Active Directory), здесь будет блок **«Задать пароль»** — текущий пароль вводить не нужно.\n\n**Сессии.** Список мест, где вы сейчас вошли: устройство, браузер и система, открыт ли портал как установленное **приложение** или во **вкладке браузера**, IP-адрес, способ входа и последняя активность. Текущее отмечено «Это устройство». Кнопка **«Завершить»** разлогинивает одно устройство, **«Завершить все, кроме этого»** — все остальные. На компьютере приложение Chrome/Edge и сам браузер делят один вход, поэтому показываются одной сессией с отметкой «Приложение и браузер».',
+        en: 'In [Security](/account/security):\n\n**Password.** Enter your current password, a new one (at least 10 characters) and repeat it. After saving, all other devices are signed out — you will need to sign in there again.\n\nIf you have always signed in without a password (Telegram, Google, a code or Active Directory), you will see **“Set a password”** instead — no current password needed.\n\n**Sessions.** Where you are signed in right now: device, browser and system, whether the portal runs as the installed **app** or in a **browser tab**, IP address, sign-in method and last activity. The current one is marked “This device”. **“End”** signs one device out, **“End all except this one”** signs out all the others. On a computer the Chrome/Edge app and the browser itself share one sign-in, so they show as one session marked “App and browser”.',
       },
       steps: [
         { ru: 'Откройте «Личный кабинет» → «Безопасность».', en: 'Open “Account” → “Security”.' },
@@ -337,8 +337,8 @@ export default {
     sessions: {
       title: { ru: 'Сессии', en: 'Sessions' },
       text: {
-        ru: 'Завершает все входы, кроме этого браузера. Удобно, если забыли выйти на чужом устройстве.',
-        en: 'Ends every sign-in except this browser. Handy if you forgot to sign out on another device.',
+        ru: 'Где вы сейчас вошли: устройство, браузер или приложение, IP и активность. Незнакомый вход можно завершить.',
+        en: 'Where you are signed in: device, browser or app, IP and activity. End any sign-in you do not recognise.',
       },
       more: 'security',
     },

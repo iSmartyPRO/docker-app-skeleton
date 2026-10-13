@@ -9,15 +9,15 @@ import PageHeader from '../../components/ui/PageHeader';
 import { SettingsSection } from '../../components/ui/SettingsSection';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
-import { changeAccountPassword, revokeOtherSessions, unlinkAccountTelegram } from '../../services/api';
+import { changeAccountPassword, listAccountSessions, revokeAccountSession, revokeOtherSessions, unlinkAccountTelegram } from '../../services/api';
 import { HintLabel } from '../../help/Hint';
+import SessionList from '../../components/sessions/SessionList';
 
 export default function AccountSecurity() {
   const { t } = useLocale();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
-  const [revoking, setRevoking] = useState(false);
   const { user, setUser } = useAuth();
   const { settings } = useSettings();
   const location = useLocation();
@@ -48,18 +48,6 @@ export default function AccountSecurity() {
       message.error(errorMessage(err));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const onRevoke = async () => {
-    setRevoking(true);
-    try {
-      await revokeOtherSessions();
-      message.success(t('account.revoked'));
-    } catch (err) {
-      message.error(errorMessage(err));
-    } finally {
-      setRevoking(false);
     }
   };
 
@@ -116,9 +104,15 @@ export default function AccountSecurity() {
         </SettingsSection>
       )}
       <SettingsSection title={<HintLabel id="account.sessions">{t('account.sessions')}</HintLabel>} description={t('account.sessionsDesc')}>
-        <Button onClick={onRevoke} loading={revoking}>
-          {t('account.revokeOthers')}
-        </Button>
+        <SessionList
+          load={listAccountSessions}
+          revoke={revokeAccountSession}
+          revokeAll={revokeOtherSessions}
+          revokeAllLabel={t('sessions.endOthers')}
+          revokeAllConfirm={t('sessions.endOthersConfirm')}
+          revokeAllDone={t('sessions.endOthersDone')}
+          canRevoke={!user?.impersonator}
+        />
       </SettingsSection>
     </div>
   );

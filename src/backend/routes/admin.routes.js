@@ -55,7 +55,8 @@ import { disconnectGmailSender, publicBase, redirectUri } from '../services/goog
 import { listIncidents } from '../services/incidents.js';
 import rateLimit from 'express-rate-limit';
 import config from '../config/app.js';
-import { IMPERSONATOR_COOKIE, cookieOptions, signToken } from '../services/auth.js';
+import { IMPERSONATOR_COOKIE, cookieOptions, issueSessionToken } from '../services/auth.js';
+import { listUserSessions, revokeSessionById, revokeUserSessions } from '../services/sessions.js';
 import { disconnectGoogle, findDirectoryPeople, forgetDirectoryPassword, linkDirectory, linkTelegramId, setDirectoryPassword, testDirectoryLogin, unlinkDirectory, userLinks } from '../services/userLinks.js';
 import { readFile as readIconFile, unlink as removeIconFile, unlink as removeUploadedFile } from 'fs/promises';
 
@@ -285,7 +286,25 @@ router.post('/users/:id/revoke-sessions', manageUsers, wrap(async (req, res) => 
   const id = Number(req.params.id);
   await assertCanManage(req.actor, id);
   await revokeSessions(id);
+  await revokeUserSessions(id);
   res.json({ success: true, user: await getAdminUser(id) });
+}));
+
+// Where the person is signed in: devices, addresses, sign-in method.
+router.get('/users/:id/sessions', manageUsers, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await assertCanManage(req.actor, id);
+  res.json({ success: true, sessions: await listUserSessions(id, { currentId: req.sessionId }) });
+}));
+
+router.delete('/users/:id/sessions/:sid', manageUsers, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await assertCanManage(req.actor, id);
+  if (!(await revokeSessionById(req.params.sid, id))) {
+    res.status(404).json({ success: false, code: 'NOT_FOUND', error: 'Session not found' });
+    return;
+  }
+  res.json({ success: true, sessions: await listUserSessions(id, { currentId: req.sessionId }) });
 }));
 
 // ── Links to integrations (Active Directory, domain password, Telegram, Google) ──
@@ -388,7 +407,8 @@ router.post('/users/:id/impersonate', manageUsers, superadminOnly, wrap(async (r
   }
   const options = cookieOptions(req, { sessionDays: 1 });
   res.cookie(IMPERSONATOR_COOKIE, req.cookies?.[config.auth.cookieName], options);
-  res.cookie(config.auth.cookieName, signToken(target, { sessionDays: 1, claims: { imp: req.actor.id } }), options);
+  const token = await issueSessionToken(req, target, { method: 'impersonation', sessionDays: 1, impersonatedBy: req.actor.id });
+  res.cookie(config.auth.cookieName, token, options);
   await recordSecurityEvent({ kind: 'impersonation_start', severity: 'warning', username: req.user.username, ip: req.ip, detail: `as @${target.username}` }).catch(() => {});
   res.json({ success: true });
 }));

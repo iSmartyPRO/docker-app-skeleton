@@ -37,7 +37,10 @@ Assumptions:
 - The last active super administrator cannot be removed by any path — changes run in a transaction and roll back with `409 LAST_SUPERADMIN`.
 - Administrators cannot demote, disable, block or delete their own account.
 - Role change, disabling, blocking and password reset bump `token_version` — the user is signed out everywhere.
-- Users can sign out all other devices; admins can revoke any user's sessions.
+- Sessions: the cookie is a JWT whose `sid` claim names a row in `user_sessions` (device user agent, first and last IP, `X-Client-Mode` pwa/browser, sign-in method, `impersonated_by`, expiry). A cookie only works while its row exists, is not revoked and has not expired; last activity is written at most once a minute per session. Rows ended or expired more than 30 days ago are purged by the `sessions:purge` job.
+- Users see their sessions in Account → Security (`GET /api/account/sessions`) and end one (`DELETE /api/account/sessions/:id`) or all others (`POST /api/account/sessions/revoke-others`, which also bumps `token_version` and re-issues the current cookie with the same `sid`). Administrators with `users.manage` see and end a user's sessions (`GET`/`DELETE /api/admin/users/:id/sessions[/:sid]`, `POST /api/admin/users/:id/revoke-sessions`). None of this is available while signed in as another user or to API tokens.
+- Sign out ends the current row. "Sign in as" sessions are listed for the person with the administrator's name and end on "Return to my account".
+- Cookies issued before sessions existed (no `sid`) keep working until they expire; on their first request they get a row (method `legacy`, id derived from the token hash) so they appear in the list and can be ended. The older `revoked_sessions` list is still honoured for them.
 
 **Sign-in methods**
 

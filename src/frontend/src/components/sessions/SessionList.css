@@ -1,0 +1,198 @@
+/* Sessions list (Account → Security, Users → user). Theme tokens only, so light and dark both follow the portal theme. */
+
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.session-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.session-list__empty {
+  color: var(--da-muted);
+  padding: 8px 0;
+}
+
+.session-list__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.session-list__count {
+  color: var(--da-muted);
+  font-size: 13px;
+}
+
+.session-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 14px 16px;
+  border: 1px solid var(--da-hairline);
+  border-radius: var(--da-radius);
+  background: var(--da-surface);
+  box-shadow: var(--da-shadow-sm);
+  transition: border-color 0.2s var(--da-ease), box-shadow 0.2s var(--da-ease);
+}
+
+.session-card:hover {
+  border-color: color-mix(in srgb, var(--da-primary) 28%, var(--da-hairline));
+}
+
+.session-card.is-current {
+  border-color: color-mix(in srgb, var(--da-primary) 45%, transparent);
+  background: linear-gradient(135deg, var(--da-tint) 0%, var(--da-surface) 70%);
+}
+
+.session-card.is-impersonated {
+  border-color: color-mix(in srgb, var(--da-warning) 50%, transparent);
+}
+
+.session-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--da-primary);
+  background: var(--da-tint-strong);
+}
+
+.session-card.is-current .session-card__icon {
+  color: #fff;
+  background: var(--da-primary);
+}
+
+.session-card__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.session-card__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.session-card__title {
+  font-weight: 650;
+  color: var(--da-text);
+  overflow-wrap: anywhere;
+}
+
+.session-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.session-badge.is-current {
+  color: var(--da-success);
+  background: color-mix(in srgb, var(--da-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--da-success) 28%, transparent);
+}
+
+.session-badge.is-app {
+  color: var(--da-primary);
+  background: var(--da-tint-strong);
+}
+
+.session-badge.is-browser {
+  color: var(--da-muted);
+  border-color: var(--da-hairline);
+}
+
+.session-card__meta,
+.session-card__sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  font-size: 13px;
+  color: var(--da-muted);
+}
+
+.session-card__sub {
+  font-size: 12px;
+  color: var(--da-faint);
+}
+
+.session-card__activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-card__activity.is-now {
+  color: var(--da-success);
+  font-weight: 600;
+}
+
+.session-card__activity.is-now::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--da-success) 22%, transparent);
+}
+
+.session-card__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: var(--da-text);
+}
+
+.session-card__note {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--da-warning);
+  font-weight: 600;
+}
+
+.session-card__action {
+  align-self: center;
+}
+
+@media (max-width: 560px) {
+  .session-card {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .session-card__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .session-card__action {
+    grid-column: 2;
+    align-self: start;
+  }
+
+  .session-list__footer .ant-btn {
+    width: 100%;
+  }
+}

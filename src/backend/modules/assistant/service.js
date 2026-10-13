@@ -1,6 +1,6 @@
 import { query } from '../../config/database.js';
 
-export const AVATARS = ['pixel', 'orbi', 'kiko', 'classic', 'pro', 'boltik', 'builder', 'builder2', 'architect', 'girl', 'boy', 'ermek', 'aichurok', 'volt', 'nova', 'barsik', 'ryzhik'];
+export const AVATARS = ['pixel', 'orbi', 'kiko', 'classic', 'pro', 'boltik', 'nexus', 'bubbles', 'builder', 'builder2', 'architect', 'doctor', 'girl', 'boy', 'toddler', 'zayka', 'ermek', 'aichurok', 'berkut', 'jibek', 'volt', 'nova', 'shadow', 'aurora', 'barsik', 'ryzhik', 'bao', 'pingo'];
 const HEX = /^#[0-9a-f]{6}$/i;
 const SECTION = /^[a-z][a-z0-9-]{0,31}$/;
 

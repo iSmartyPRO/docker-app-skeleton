@@ -22,7 +22,7 @@ export const KB_FILE_GROUPS = {
 const HEX = /^#[0-9a-f]{6}$/i;
 
 // Characters of the robot assistant (modules/assistant/service.js keeps the same list).
-const ASSISTANT_AVATARS = ['pixel', 'orbi', 'kiko', 'classic', 'pro', 'boltik', 'builder', 'builder2', 'architect', 'girl', 'boy', 'ermek', 'aichurok', 'volt', 'nova', 'barsik', 'ryzhik'];
+const ASSISTANT_AVATARS = ['pixel', 'orbi', 'kiko', 'classic', 'pro', 'boltik', 'nexus', 'bubbles', 'builder', 'builder2', 'architect', 'doctor', 'girl', 'boy', 'toddler', 'zayka', 'ermek', 'aichurok', 'berkut', 'jibek', 'volt', 'nova', 'shadow', 'aurora', 'barsik', 'ryzhik', 'bao', 'pingo'];
 
 export const MODULE_CATALOG = [
   {

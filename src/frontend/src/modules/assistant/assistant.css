@@ -1376,6 +1376,202 @@
   }
 }
 
+/* Second cast: Nexus's halo hovers and a glint runs over its visor, Bubbles's
+   propeller spins, the toddler's balloon bobs, the eagle flaps its wing and
+   turns its head, leaves and pompoms swing, the lasso glows, Pingo waddles. */
+.rb-halo,
+.rb-prop,
+.rb-balloon,
+.rb-flap,
+.rb-eagle-head,
+.rb-swing,
+.rb-lasso {
+  transform-box: fill-box;
+}
+
+.rb-halo {
+  transform-origin: center;
+  animation: rb-halo 3s ease-in-out infinite;
+}
+
+.rb-scan {
+  animation: rb-scan 4.2s ease-in-out infinite;
+}
+
+.rb-prop {
+  transform-origin: center;
+  animation: rb-prop 0.42s linear infinite;
+}
+
+.rb.is-happy .rb-prop,
+.rb.is-wave .rb-prop,
+.rb.is-surprised .rb-prop {
+  animation-duration: 0.2s;
+}
+
+.rb-balloon {
+  transform-origin: 100% 100%;
+  animation: rb-balloon 3.6s ease-in-out infinite;
+}
+
+.rb-flap {
+  transform-origin: 100% 0%;
+  animation: rb-flap 6s ease-in-out infinite;
+}
+
+.rb.is-happy .rb-flap,
+.rb.is-wave .rb-flap,
+.rb.is-surprised .rb-flap {
+  animation: rb-flap-fast 0.32s ease-in-out infinite alternate;
+}
+
+.rb-eagle-head {
+  transform-origin: 70% 80%;
+  animation: rb-look 5s ease-in-out infinite;
+}
+
+.rb-swing {
+  transform-origin: 50% 100%;
+  animation: rb-sway 3s ease-in-out infinite;
+}
+
+.rb.is-happy .rb-swing,
+.rb.is-wave .rb-swing {
+  animation-duration: 0.9s;
+}
+
+.rb-lasso {
+  transform-origin: center;
+  animation: rb-lasso 2.4s ease-in-out infinite;
+}
+
+.rb--pingo .rb-float {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: rb-waddle 1.3s ease-in-out infinite;
+}
+
+.rb.is-still .rb-halo,
+.rb.is-still .rb-scan,
+.rb.is-still .rb-prop,
+.rb.is-still .rb-balloon,
+.rb.is-still .rb-flap,
+.rb.is-still .rb-eagle-head,
+.rb.is-still .rb-swing,
+.rb.is-still .rb-lasso,
+.rb--pingo.is-still .rb-float {
+  animation: none;
+}
+
+@keyframes rb-halo {
+  0%,
+  100% {
+    transform: translateY(0) scaleX(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-2px) scaleX(0.93);
+    opacity: 0.75;
+  }
+}
+
+@keyframes rb-scan {
+  0%,
+  35% {
+    transform: translateX(0);
+  }
+  75%,
+  100% {
+    transform: translateX(96px);
+  }
+}
+
+@keyframes rb-prop {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.12);
+  }
+}
+
+@keyframes rb-balloon {
+  0%,
+  100% {
+    transform: rotate(-3deg) translateY(0);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-1.5px);
+  }
+}
+
+@keyframes rb-flap {
+  0%,
+  78%,
+  100% {
+    transform: rotate(0deg);
+  }
+  82%,
+  90% {
+    transform: rotate(48deg);
+  }
+  86%,
+  94% {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes rb-flap-fast {
+  from {
+    transform: rotate(4deg);
+  }
+  to {
+    transform: rotate(55deg);
+  }
+}
+
+@keyframes rb-look {
+  0%,
+  40%,
+  100% {
+    transform: rotate(0deg);
+  }
+  48%,
+  62% {
+    transform: rotate(-14deg);
+  }
+  70% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes rb-lasso {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgba(253, 224, 71, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 2.5px rgba(253, 224, 71, 0.95));
+  }
+}
+
+@keyframes rb-waddle {
+  0%,
+  100% {
+    transform: rotate(-4deg) translateY(0);
+  }
+  25% {
+    transform: rotate(0deg) translateY(-2.5px);
+  }
+  50% {
+    transform: rotate(4deg) translateY(0);
+  }
+  75% {
+    transform: rotate(0deg) translateY(-2.5px);
+  }
+}
+
 /* Selection mode (administrator): characters that are not allowed fade. */
 .asst-castx__item.is-off {
   opacity: 0.5;

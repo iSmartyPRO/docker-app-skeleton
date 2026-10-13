@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/app.js';
 import { markLogin } from './users.js';
+import { createSession, newSessionId, requestDetails } from './sessions.js';
 
 function requireJwtSecret() {
   if (!config.auth.jwtSecret) {
@@ -53,8 +54,30 @@ export function cookieOptions(req, options = {}) {
 /** Cookie keeping the administrator's own session while they act as someone else. */
 export const IMPERSONATOR_COOKIE = 'da_impersonator';
 
+/**
+ * Creates a session row (device details for Account → Security → Sessions)
+ * and returns the cookie token naming it in its `sid` claim.
+ */
+export async function issueSessionToken(req, user, { method, sessionDays, impersonatedBy = null } = {}) {
+  const sid = newSessionId();
+  const claims = { sid, ...(impersonatedBy ? { imp: impersonatedBy } : {}) };
+  const token = signToken(user, { sessionDays, claims });
+  const { exp } = verifyToken(token);
+  await createSession({
+    id: sid,
+    userId: user.id,
+    expiresAt: new Date(exp * 1000),
+    method,
+    impersonatedBy,
+    tokenVersion: user.token_version,
+    ...requestDetails(req),
+  });
+  return token;
+}
+
 /** Records the sign-in and sets the session cookie. Shared by every sign-in method. */
 export async function startSession(req, res, user, { method, sessionDays }) {
   await markLogin(user.id, method);
-  res.cookie(config.auth.cookieName, signToken(user, { sessionDays }), cookieOptions(req, { sessionDays }));
+  const token = await issueSessionToken(req, user, { method, sessionDays });
+  res.cookie(config.auth.cookieName, token, cookieOptions(req, { sessionDays }));
 }

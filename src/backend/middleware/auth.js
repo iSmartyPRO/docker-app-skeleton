@@ -4,6 +4,7 @@ import { hasAnyPermission } from '../services/permissions.js';
 import { findUserById, getSessionUser, toPublicUser } from '../services/users.js';
 import { localeFor } from '../services/settings.js';
 import { isSessionRevoked } from '../services/security.js';
+import { createSession, getSession, legacySessionId, requestDetails, sessionState, touchSession } from '../services/sessions.js';
 
 /**
  * Resolves the session cookie into:
@@ -23,13 +24,35 @@ async function loadSessionUser(req) {
     return null;
   }
 
-  // Signed out on this device (the token is still cryptographically valid).
-  if (await isSessionRevoked(token)) return null;
+  // Every cookie names a session row (`sid`); tokens issued before sessions
+  // existed are named by their hash and get a row on first use.
+  const sid = payload.sid || legacySessionId(token);
+  let sessionRow = await getSession(sid);
+  if (sessionRow && (sessionState(sessionRow) !== 'active' || Number(sessionRow.user_id) !== Number(payload.sub))) return null;
+  if (!sessionRow && payload.sid) return null;
+  // Signed out on this device before sessions had rows (the token is still cryptographically valid).
+  if (!payload.sid && (await isSessionRevoked(token))) return null;
 
   const session = await getSessionUser(Number(payload.sub));
   if (!session) return null;
   const { row, access } = session;
   if (Number(payload.tv || 0) !== Number(row.token_version || 0)) return null;
+  const details = requestDetails(req);
+  if (!sessionRow) {
+    sessionRow = await createSession({
+      id: sid,
+      userId: row.id,
+      createdAt: payload.iat ? new Date(payload.iat * 1000) : null,
+      expiresAt: new Date(Number(payload.exp) * 1000),
+      method: payload.imp ? 'impersonation' : 'legacy',
+      impersonatedBy: payload.imp ? Number(payload.imp) : null,
+      tokenVersion: payload.tv,
+      ...details,
+    });
+  }
+  // Last activity: at most once a minute, never in the way of the request.
+  touchSession(sid, details).catch(() => {});
+  req.sessionId = sid;
   req.auth = payload;
   req.userRow = row;
   req.access = access;

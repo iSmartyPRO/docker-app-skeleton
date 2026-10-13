@@ -28,6 +28,7 @@ import {
   signInWithTelegram,
 } from '../services/signin.js';
 import { getSessionUser, toPublicUser } from '../services/users.js';
+import { isTokenSessionActive, legacySessionId, revokeSessionById } from '../services/sessions.js';
 import { getUserAccess } from '../services/rbac.js';
 
 const router = Router();
@@ -288,16 +289,17 @@ router.get('/google/callback', googleLimiter, optionalAuth, async (req, res) => 
 });
 
 /**
- * Ends this session only: the cookie's token is listed as revoked until it
- * would expire. Other devices stay signed in (signing out the other devices
- * is the token_version bump in account settings).
+ * Ends this session only: its row in user_sessions is marked revoked (tokens
+ * from before sessions had rows are also listed in revoked_sessions until they
+ * would expire). Other devices stay signed in.
  */
 router.post('/logout', async (req, res) => {
   const token = req.cookies?.[config.auth.cookieName];
   if (token) {
     try {
       const payload = verifyToken(token);
-      await revokeSession(token, payload.exp);
+      await revokeSessionById(payload.sid || legacySessionId(token));
+      if (!payload.sid) await revokeSession(token, payload.exp);
     } catch (err) {
       // An invalid or expired token needs no revocation; a database error must not block signing out.
       if (err?.name !== 'JsonWebTokenError' && err?.name !== 'TokenExpiredError') {
@@ -324,14 +326,15 @@ router.post('/impersonate/stop', requireAuth, async (req, res, next) => {
       return;
     }
     const current = req.cookies?.[config.auth.cookieName];
-    await revokeSession(current, req.auth.exp).catch(() => {});
+    await revokeSessionById(req.sessionId).catch(() => {});
+    if (!req.auth.sid) await revokeSession(current, req.auth.exp).catch(() => {});
     res.clearCookie(config.auth.cookieName, options);
     const original = req.cookies?.[IMPERSONATOR_COOKIE];
     res.clearCookie(IMPERSONATOR_COOKIE, options);
     let admin = null;
     try {
       const payload = original ? verifyToken(original) : null;
-      if (payload && Number(payload.sub) === Number(req.auth.imp) && !(await isSessionRevoked(original))) {
+      if (payload && Number(payload.sub) === Number(req.auth.imp) && !(await isSessionRevoked(original)) && (await isTokenSessionActive(payload))) {
         const session = await getSessionUser(Number(payload.sub));
         if (session && Number(payload.tv || 0) === Number(session.row.token_version || 0)) admin = session;
       }

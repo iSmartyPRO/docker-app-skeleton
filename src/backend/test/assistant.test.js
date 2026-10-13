@@ -43,3 +43,19 @@ test('administrators decide which characters people may choose', () => {
   assert.equal(sanitize({ avatar: 'pixel', choice: 'all', allowed: [] }, { choice: 'some', allowed: ['boy', 'girl'] }).avatar, 'boy');
   assert.equal(sanitize({ avatar: 'pixel', choice: 'all', allowed: [] }, { choice: 'some', allowed: [] }).choice, 'all');
 });
+
+test('the second cast of characters can be picked, coloured and allowed', () => {
+  const added = ['nexus', 'bubbles', 'doctor', 'toddler', 'zayka', 'berkut', 'jibek', 'shadow', 'aurora', 'bao', 'pingo'];
+  const all = allowedAvatars({});
+  assert.equal(all.length, 28);
+  assert.equal(new Set(all).size, all.length);
+  for (const id of added) {
+    assert.ok(all.includes(id), id);
+    assert.equal(cleanPrefs({ avatar: id }).avatar, id);
+  }
+  assert.deepEqual(cleanPrefs({ colors: { pingo: '#0EA5E9' } }, {}).colors, { pingo: '#0ea5e9' });
+  const sanitize = MODULE_CATALOG.find((module) => module.id === 'assistant').sanitize;
+  const next = sanitize({ avatar: 'pixel', choice: 'all', allowed: [] }, { avatar: 'aurora', choice: 'some', allowed: ['shadow', 'aurora', 'evil'] });
+  assert.equal(next.avatar, 'aurora');
+  assert.deepEqual(next.allowed, ['shadow', 'aurora']);
+});

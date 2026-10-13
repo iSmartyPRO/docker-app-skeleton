@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { clientSessionId, reportFailure } from '../lib/outage';
+import { isStandalone } from '../pwa/pwa';
 
 const api = axios.create({
   baseURL: '/api',
@@ -7,10 +8,30 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Every request names this tab's session; outages switch on the "technical works" screen.
+// Browsers freeze the user agent at "Windows NT 10.0" / "Mac OS X 10_15_7";
+// the real system version (Windows 11, macOS 14…) comes from Client Hints.
+let platformVersion = '';
+try {
+  navigator.userAgentData
+    ?.getHighEntropyValues?.(['platform', 'platformVersion'])
+    .then((hints) => {
+      // Only where the user agent hides the real version (and names the same system).
+      const known = ['Windows', 'macOS', 'Android'].includes(hints?.platform);
+      platformVersion = known && /^[\d.]{1,20}$/.test(hints?.platformVersion || '') ? hints.platformVersion : '';
+    })
+    .catch(() => {});
+} catch {
+  /* no Client Hints */
+}
+
+// Every request names this tab's session (outages switch on the "technical
+// works" screen) and whether the portal runs as the installed app or in a
+// browser tab (Account → Security → Sessions).
 api.interceptors.request.use((config) => {
   config.headers = config.headers || {};
   config.headers['X-Client-Session'] = clientSessionId();
+  config.headers['X-Client-Mode'] = isStandalone() ? 'pwa' : 'browser';
+  if (platformVersion) config.headers['X-Client-Platform-Version'] = platformVersion;
   return config;
 });
 api.interceptors.response.use(undefined, (error) => {
@@ -86,6 +107,8 @@ export const getAdminUser = (id) => api.get(`/admin/users/${id}`);
 export const updateAdminUser = (id, payload) => api.put(`/admin/users/${id}`, payload);
 export const deleteAdminUser = (id) => api.delete(`/admin/users/${id}`);
 export const revokeAdminUserSessions = (id) => api.post(`/admin/users/${id}/revoke-sessions`);
+export const listAdminUserSessions = (id) => api.get(`/admin/users/${id}/sessions`);
+export const revokeAdminUserSession = (id, sid) => api.delete(`/admin/users/${id}/sessions/${encodeURIComponent(sid)}`);
 export const unlinkAdminUserTelegram = (id) => api.delete(`/admin/users/${id}/telegram`);
 
 export const getPermissionCatalog = () => api.get('/admin/permissions');
@@ -112,7 +135,9 @@ export const updateAccountProfile = (payload) => api.put('/account/profile', pay
 export const changeAccountPassword = (payload) => api.put('/account/password', payload);
 export const linkAccountTelegram = (payload) => api.post('/account/telegram', payload);
 export const unlinkAccountTelegram = () => api.delete('/account/telegram');
-export const revokeOtherSessions = () => api.post('/account/sessions/revoke');
+export const listAccountSessions = () => api.get('/account/sessions');
+export const revokeAccountSession = (id) => api.delete(`/account/sessions/${encodeURIComponent(id)}`);
+export const revokeOtherSessions = () => api.post('/account/sessions/revoke-others');
 export const uploadAccountAvatar = (form) =>
   api.post('/account/avatar', form, {
     headers: { 'Content-Type': 'multipart/form-data' },

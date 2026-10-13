@@ -16,12 +16,15 @@ import { isSubset, permKey, roleLabel } from '../../lib/access';
 import {
   deleteAdminUser,
   getAdminUser,
+  listAdminUserSessions,
+  revokeAdminUserSession,
   revokeAdminUserSessions,
   updateAdminUser,
   uploadAdminUserAvatar,
 } from '../../services/api';
 import { AccessTags, SourceBadge, UserStatusTag } from './Users';
 import { HintLabel } from '../../help/Hint';
+import SessionList from '../../components/sessions/SessionList';
 
 function UserForm({ user, onUpdated, roles, groups }) {
   const { t, locale } = useLocale();
@@ -68,6 +71,10 @@ function UserForm({ user, onUpdated, roles, groups }) {
     onUpdated(res.data.user);
     if (isSelf) setMe((prev) => ({ ...prev, ...res.data.user }));
   });
+
+  const loadSessions = useCallback(() => listAdminUserSessions(user.id), [user.id]);
+  const revokeSession = useCallback((sid) => revokeAdminUserSession(user.id, sid), [user.id]);
+  const revokeAll = useCallback(() => revokeAdminUserSessions(user.id), [user.id]);
 
   const run = async (request, success) => {
     setBusy(true);
@@ -233,16 +240,16 @@ function UserForm({ user, onUpdated, roles, groups }) {
 
       {canManage && (
         <SettingsSection title={<HintLabel id="admin.sessions">{t('users.sessions')}</HintLabel>} description={t('users.sessionsDesc')}>
-          <Button
-            loading={busy}
-            onClick={() =>
-              run(() => revokeAdminUserSessions(user.id), t('users.revoked')).then((res) => {
-                if (res && isSelf) window.location.assign('/login');
-              })
-            }
-          >
-            {t('users.revoke')}
-          </Button>
+          <SessionList
+            load={loadSessions}
+            revoke={revokeSession}
+            revokeAll={revokeAll}
+            revokeAllScope="all"
+            revokeAllLabel={t('users.revoke')}
+            revokeAllConfirm={t('sessions.endAllConfirm')}
+            revokeAllDone={t('users.revoked')}
+            onRevokedAll={isSelf ? () => window.location.assign('/login') : undefined}
+          />
         </SettingsSection>
       )}
 
