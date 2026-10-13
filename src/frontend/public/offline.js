@@ -12,4 +12,12 @@
   window.addEventListener('online', function () {
     location.reload();
   });
+  // Back on its own as soon as the portal answers again (a deploy takes about a minute).
+  setInterval(function () {
+    fetch('/version.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (res) {
+        if (res.ok) location.reload();
+      })
+      .catch(function () {});
+  }, 8000);
 })();

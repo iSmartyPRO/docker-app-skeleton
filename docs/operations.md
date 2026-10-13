@@ -150,3 +150,10 @@ Override path: `make postgres-up POSTGRES_DIR=/path/to/postgres`.
 ## Disk space and Docker build cache
 
 Every `make rebuild` leaves Docker build-cache layers behind (a few GB per build). Left alone they fill the disk; PostgreSQL then cannot start (`could not write lock file "postmaster.pid": No space left on device`) and the portal answers `Database is not connected` — the sign-in page falls back to the skeleton defaults. `make rebuild` now ends with `make prune-build`, which trims the build cache to 4 GB and removes untagged images. Check with `docker system df` and `df -h /`; `docker builder prune -a -f` frees all build cache at once (the next build is just slower).
+
+## Outages, error screens and incident ids
+
+- **Technical works screen.** When the server restarts (deploys), the database is unavailable or the connection is lost, the app shows "Портал обновляется / Технические работы / Нет связи" instead of falling back to default settings. It checks `/api/status` every 5 s and disappears by itself; the page underneath keeps what was typed. Triggers: nginx answers `503 {"code":"MAINTENANCE"}` while the app server is down (`error_page 502 504`), the API answers `503 {"code":"DB_UNAVAILABLE"}`, or two network failures within 20 s.
+- **Ids a person can send.** Every request has an id (`X-Request-Id`, `R-XXXXXXXX`); each browser tab has a session id (`X-Client-Session`, `S-XXXX-XXXX`). Error screens show the code, the request id (when known), the session id and the time, with "Copy details". The app-crash screen also reports the crash to the server (`POST /api/client-errors`) and shows its incident id.
+- **Finding an incident.** Admin → Activity → "Failures and errors" lists server errors (5xx) and browser crashes since the last restart (in memory, newest first, 500 kept) — search by code, request id or session id. The same lines are in the container log: `docker logs portal 2>&1 | grep R-1A2B3C4D` (or the session id).
+- **Offline page.** With no network or the whole container down, the installed app shows "Портал временно недоступен" and reloads by itself once `/version.json` answers.

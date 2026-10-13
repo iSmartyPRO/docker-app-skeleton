@@ -8,6 +8,8 @@ import accountRoutes from './account.routes.js';
 import notificationRoutes from './notifications.routes.js';
 import pwaRoutes from './pwa.routes.js';
 import { moduleRouter } from '../modules/index.js';
+import rateLimit from 'express-rate-limit';
+import { incidentFromRequest, recordIncident } from '../services/incidents.js';
 import { accountApiRoutes, adminApiRoutes, developerRoutes } from '../api/routes.js';
 
 const router = Router();
@@ -60,12 +62,33 @@ router.get('/status', async (req, res, next) => {
   }
 });
 
+// Crashes in the browser (error screen) are reported here with the tab's session id.
+const clientErrorLimiter = rateLimit({ windowMs: 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false });
+router.post('/client-errors', clientErrorLimiter, (req, res) => {
+  const body = req.body || {};
+  const entry = recordIncident({
+    kind: 'client',
+    requestId: req.requestId,
+    session: req.clientSession,
+    code: /^[A-Z0-9_]{2,40}$/.test(String(body.code || '')) ? body.code : 'APP_CRASH',
+    message: body.message,
+    stack: body.stack,
+    path: body.url,
+    build: body.build,
+    agent: req.get('user-agent'),
+  });
+  res.json({ success: true, id: entry.id });
+});
+
 router.get('/settings', async (req, res, next) => {
   try {
     const db = await tryConnectDB();
     if (!db.ok) {
+      incidentFromRequest(req, 503, 'DB_UNAVAILABLE', new Error(db.error || 'Database is not connected'));
       return res.status(503).json({
         success: false,
+        code: 'DB_UNAVAILABLE',
+        requestId: req.requestId,
         error: 'Database is not connected',
       });
     }

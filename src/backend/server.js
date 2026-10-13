@@ -16,6 +16,7 @@ import { verifyToken } from './services/auth.js';
 import { bootstrapSchema } from './services/schema.js';
 import { APP_VERSION } from './config/version.js';
 import apiRoutes from './routes/index.js';
+import { requestIds } from './services/incidents.js';
 import { tokenGate, versionPrefix } from './api/gate.js';
 
 const app = express();
@@ -31,6 +32,8 @@ const DEFAULT_RATE_LIMIT = {
 app.set('trust proxy', trustProxy(process.env.TRUST_PROXY_HOPS));
 ensureUploadDirs();
 
+// Every request carries an id (and the browser's session id) for incident lookup.
+app.use(requestIds);
 // /api/v1/* is the stable address for integrations (same handlers as /api/*).
 app.use(versionPrefix);
 app.use(

@@ -5,6 +5,7 @@ import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { formatDateTime, formatRelative } from '../../lib/format';
 import { listSecurityEvents } from '../../services/api';
+import Incidents from './Incidents';
 
 const { Text } = Typography;
 
@@ -138,6 +139,7 @@ export default function AdminActivity() {
           ]}
         />
       </section>
+      <Incidents />
     </div>
   );
 }

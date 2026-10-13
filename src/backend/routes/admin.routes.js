@@ -50,6 +50,7 @@ import {
 } from '../services/rbac.js';
 
 import { disconnectGmailSender, publicBase, redirectUri } from '../services/google.js';
+import { listIncidents } from '../services/incidents.js';
 import { readFile as readIconFile, unlink as removeIconFile, unlink as removeUploadedFile } from 'fs/promises';
 
 /**
@@ -337,6 +338,11 @@ router.delete('/groups/:id', manageGroups, wrap(async (req, res) => {
 }));
 
 // ── Security ────────────────────────────────────────────────────────────────
+
+/** Server errors and browser crashes with their request and session ids (newest first). */
+router.get('/incidents', requirePermission('activity.view'), (req, res) => {
+  res.json({ success: true, incidents: listIncidents({ q: req.query.q, limit: req.query.limit }) });
+});
 
 router.get('/security/events', requirePermission('activity.view'), wrap(async (req, res) => {
   const data = await listSecurityEvents({ kind: req.query.kind, limit: req.query.limit });

@@ -11,6 +11,7 @@ import { helpEn, helpRu } from './help.js';
 import { notifyEn, notifyRu } from './notify.js';
 import { kbEditorEn, kbEditorRu } from './kbEditor.js';
 import { assistantEn, assistantRu } from './assistant.js';
+import { outageEn, outageRu } from './outage.js';
 
 const en = {
   brand: 'docker-app-skeleton',
@@ -1938,6 +1939,8 @@ mergeDeep(en, kbEditorEn);
 mergeDeep(ru, kbEditorRu);
 mergeDeep(en, assistantEn);
 mergeDeep(ru, assistantRu);
+mergeDeep(en, outageEn);
+mergeDeep(ru, outageRu);
 mergeDeep(en, tasks2En);
 mergeDeep(ru, tasks2Ru);
 mergeDeep(en, resourcesEn);

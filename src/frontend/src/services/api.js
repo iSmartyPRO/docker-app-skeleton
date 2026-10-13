@@ -1,9 +1,21 @@
 import axios from 'axios';
+import { clientSessionId, reportFailure } from '../lib/outage';
 
 const api = axios.create({
   baseURL: '/api',
   timeout: 20000,
   withCredentials: true,
+});
+
+// Every request names this tab's session; outages switch on the "technical works" screen.
+api.interceptors.request.use((config) => {
+  config.headers = config.headers || {};
+  config.headers['X-Client-Session'] = clientSessionId();
+  return config;
+});
+api.interceptors.response.use(undefined, (error) => {
+  reportFailure(error);
+  return Promise.reject(error);
 });
 
 const SETUP_TOKEN_KEY = 'da_setup_token';
