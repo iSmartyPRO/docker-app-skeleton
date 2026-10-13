@@ -9,6 +9,7 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 ### Security and reliability (audit)
 
+- Robot assistant: superheroes redrawn as Superbot and Supergirl (athletic bodies, the “S” shield, big fluttering capes); the owl gave way to Ryzhik, a lively fox cub; new Builder, Asel the builder, Architect, Girl and Boy. Administrators choose who picks the character — any, selected only, or one for everyone — and whether colours may change.
 - Robot assistant: whole bodies for every robot (arms, legs, feet instead of a cut-off torso); seven new characters — Classic (retro), Pro (business suit), Boltik (chatty), superheroes Volt and Nova with capes, and two animals, Barsik the snow-leopard cub and Ükü the owl; each character can be recoloured per person; the cast is grouped (robots, Kyrgyz style, superheroes, animals).
 - Robot assistant: two robots in Kyrgyz style — Ermek (white ak-kalpak with black brims and a tassel, red chapan with the koshkor-muyuz ornament) and Aichurok (red velvet topu with an owl-feather plume, braids with silver chach uchtuk, turquoise vest).
 - The portal notices a new deploy (build id vs `/version.json`) when the app returns to the screen, on focus and every 5 minutes: a “New version” banner, an automatic update after a long absence or on the next page change — installed apps (PWA) no longer stay on an old version. On phones a row of tabs wider than the screen scrolls instead of widening the page; the assistant and the banner render in `<body>`.

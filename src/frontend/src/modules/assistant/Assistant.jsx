@@ -10,7 +10,7 @@ import { helpForPath, loadHelp, tr } from '../../help/registry';
 import Rich from '../../help/Rich';
 import { ROBOTS, Robot } from './robots';
 import Cast from './Cast';
-import { readPosition, savePrefs, searchHelp, useAssistantPrefs, writePosition } from './store';
+import { livePrefs, readPosition, savePrefs, searchHelp, useAssistantPrefs, writePosition } from './store';
 import './assistant.css';
 
 /*
@@ -94,8 +94,7 @@ export default function Assistant() {
   if (!user || !moduleOn || !prefs?.enabled || hiddenNow || !SHOWN_ON.test(pathname)) return null;
   // The organisation's robot and offers come from public settings, which refresh
   // as soon as an administrator saves them; a personal choice wins.
-  const org = settings.modules.assistant;
-  const live = { ...prefs, defaultAvatar: org.avatar || prefs.defaultAvatar, proactive: org.proactive ?? prefs.proactive };
+  const live = livePrefs(prefs, settings.modules.assistant);
   return <FloatingRobot user={user} prefs={live} pathname={pathname} onHide={() => setHiddenNow(true)} />;
 }
 
@@ -416,6 +415,8 @@ function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, on
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
   const [view, setView] = useState('main');
+  // The administrator may allow one character only and turn colours off.
+  const changeable = prefs.canChoose || prefs.allowColors;
   const [hello, setHello] = useState(null);
 
   // A new robot introduces itself for a moment in the header.
@@ -469,7 +470,7 @@ function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, on
   const title = doc ? tr(doc.title, locale) : '';
   const menu = {
     items: [
-      { key: 'robot', label: t('assistant.menu.robot') },
+      ...(changeable ? [{ key: 'robot', label: t(prefs.canChoose ? 'assistant.menu.robot' : 'assistant.menu.color') }] : []),
       {
         key: 'size',
         label: t('assistant.menu.size'),
@@ -502,19 +503,20 @@ function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, on
       <div className="asst-panel__head">
         <button
           type="button"
-          className={`asst-avatar${view === 'robots' ? ' is-on' : ''}`}
-          onClick={() => setView(view === 'robots' ? 'main' : 'robots')}
-          aria-label={t('assistant.switch.open')}
-          title={t('assistant.switch.open')}
+          className={`asst-avatar${view === 'robots' ? ' is-on' : ''}${changeable ? '' : ' is-fixed'}`}
+          onClick={() => changeable && setView(view === 'robots' ? 'main' : 'robots')}
+          disabled={!changeable}
+          aria-label={changeable ? t('assistant.switch.open') : name}
+          title={changeable ? t('assistant.switch.open') : undefined}
         >
           <span key={kind} className="asst__swap">
             <Robot kind={kind} tint={prefs.colors?.[kind]} mood={hello ? 'wave' : 'happy'} size={52} />
           </span>
-          <span className="asst-avatar__badge" aria-hidden="true">
+          {changeable && <span className="asst-avatar__badge" aria-hidden="true">
             <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 6h9l-2.5-2.5M13 10H4l2.5 2.5" />
             </svg>
-          </span>
+          </span>}
         </button>
         <div className="asst-panel__who">
           {hello ? (
@@ -548,15 +550,20 @@ function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, on
         <div className="asst-panel__body">
           <Cast
             compact
+            only={prefs.allowed}
             value={prefs.avatar || prefs.defaultAvatar}
             colors={prefs.colors}
             onPick={pick}
-            onTint={(avatar, color) => {
-              savePrefs({ colors: { [avatar]: color } }).catch(() => {});
-              setMood('happy', 1200);
-            }}
+            onTint={
+              prefs.allowColors
+                ? (avatar, color) => {
+                    savePrefs({ colors: { [avatar]: color } }).catch(() => {});
+                    setMood('happy', 1200);
+                  }
+                : undefined
+            }
           />
-          {prefs.avatar && (
+          {prefs.avatar && prefs.canChoose && (
             <button type="button" className="asst-cast__default" onClick={() => pick(null)}>
               ↺ {t('assistant.switch.useDefault', { name: t(`assistant.robots.${prefs.defaultAvatar}.name`) })}
             </button>

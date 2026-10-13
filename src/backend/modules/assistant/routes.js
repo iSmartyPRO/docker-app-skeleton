@@ -12,8 +12,9 @@ export function privateRoutes() {
     res.json({ success: true, prefs: resolvePrefs(await storedPrefs(req.user.id), await moduleSettings()) });
   }));
   router.put('/prefs', wrap(async (req, res) => {
-    const saved = await savePrefs(req.user.id, req.body || {});
-    res.json({ success: true, prefs: resolvePrefs(saved, await moduleSettings()) });
+    const module = await moduleSettings();
+    const saved = await savePrefs(req.user.id, req.body || {}, module);
+    res.json({ success: true, prefs: resolvePrefs(saved, module) });
   }));
   return router;
 }

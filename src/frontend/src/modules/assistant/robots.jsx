@@ -28,15 +28,21 @@ export const ROBOTS = [
   { id: 'classic', accent: '#EF4444', group: 'robots' },
   { id: 'pro', accent: '#2563EB', group: 'robots' },
   { id: 'boltik', accent: '#F97316', group: 'robots' },
+  { id: 'builder', accent: '#EAB308', group: 'work' },
+  { id: 'builder2', accent: '#65A30D', group: 'work' },
+  { id: 'architect', accent: '#334155', group: 'work' },
+  { id: 'girl', accent: '#EC4899', group: 'kids' },
+  { id: 'boy', accent: '#0D9488', group: 'kids' },
   { id: 'ermek', accent: '#C8102E', group: 'kyrgyz' },
   { id: 'aichurok', accent: '#0D9488', group: 'kyrgyz' },
   { id: 'volt', accent: '#2563EB', group: 'heroes' },
-  { id: 'nova', accent: '#DB2777', group: 'heroes' },
+  { id: 'nova', accent: '#2563EB', group: 'heroes' },
   { id: 'barsik', accent: '#0EA5E9', group: 'animals' },
-  { id: 'uku', accent: '#4F46E5', group: 'animals' },
+  { id: 'ryzhik', accent: '#EA580C', group: 'animals' },
 ];
 
-export const ROBOT_GROUPS = ['robots', 'kyrgyz', 'heroes', 'animals'];
+export const ROBOT_GROUPS = ['robots', 'work', 'kids', 'kyrgyz', 'heroes', 'animals'];
+export const ROBOT_IDS = ROBOTS.map((robot) => robot.id);
 
 /** Colours a person can give their character (null = as designed). */
 export const TINTS = ['#6366F1', '#0EA5E9', '#14B8A6', '#22C55E', '#EAB308', '#F97316', '#E11D48', '#EC4899', '#8B5CF6', '#475569'];
@@ -213,15 +219,6 @@ function Muyuz({ x, y, scale = 1, color, width = 1.6 }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-  );
-}
-
-/** A flowing cape from the shoulders (heroes). */
-function Cape({ fill }) {
-  return (
-    <g className="rb-cape">
-      <path d="M 43 70 Q 30 90 29 111 Q 44 104 60 109 Q 76 104 91 111 Q 90 90 77 70 Z" style={{ fill }} />
-    </g>
   );
 }
 
@@ -643,107 +640,6 @@ function Aichurok({ mood, blink, look, uid, t }) {
   );
 }
 
-/** Volt — a superhero: blue suit, golden wing fins, a lightning shield and a red cape. */
-function Volt({ mood, blink, look, uid, t }) {
-  const id = (name) => `${uid}-${name}`;
-  return (
-    <>
-      <defs>
-        <Grad id={id('suit')} stops={[[0, tone(t, '#60A5FA', 25)], [1, tone(t, '#1D4ED8', -20)]]} />
-        <Grad id={id('cape')} stops={[[0, '#EF4444'], [1, '#991B1B']]} />
-        <Grad id={id('visor')} x2={1} stops={[[0, '#0F172A'], [1, '#020617']]} />
-        <Glow id={id('glow')} sd={1.8} />
-      </defs>
-      <Body
-        behind={<Cape fill={`url(#${id('cape')})`} />}
-        torso={`url(#${id('suit')})`}
-        arm={`url(#${id('suit')})`}
-        hand="#DC2626"
-        cuff="#FACC15"
-        leg={`url(#${id('suit')})`}
-        foot="#DC2626"
-        chest={
-          <>
-            <path d="M 49.5 73 H 70.5 L 70.5 83 Q 60 92 49.5 83 Z" fill="#FACC15" stroke="#CA8A04" strokeWidth="0.8" />
-            <path d="M 62 75 L 55 84 H 60 L 57 90 L 66 80.5 H 60.5 Z" fill="#DC2626" />
-            <rect x="39.5" y="93" width="41" height="4" rx="2" fill="#FACC15" />
-            <rect x="57" y="92.5" width="6" height="5" rx="1.5" fill="#CA8A04" />
-          </>
-        }
-      />
-      <Head look={look}>
-        <path d="M 20 50 L 6 40 L 12 54 L 3 56 L 19 64 Z" fill="#FACC15" stroke="#CA8A04" strokeWidth="0.8" />
-        <path d="M 100 50 L 114 40 L 108 54 L 117 56 L 101 64 Z" fill="#FACC15" stroke="#CA8A04" strokeWidth="0.8" />
-        <rect x="18" y="24" width="84" height="64" rx="26" fill={`url(#${id('suit')})`} style={{ stroke: tone(t, '#1E40AF', -20) }} strokeWidth="1.4" />
-        <path d="M30 31 Q 44 26 58 28" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" opacity="0.55" fill="none" />
-        <path d="M 62 26 L 57 33 H 61 L 58 38 L 65 31 H 61 Z" fill="#FACC15" />
-        <rect x="27" y="40" width="66" height="38" rx="17" fill={`url(#${id('visor')})`} />
-        <Cheeks y={68} opacity={0.45} />
-        <Face look={look}>
-          <Eyes mood={mood} blink={blink} cx={[47, 73]} cy={57} color="#F8FAFC" glow={`url(#${id('glow')})`} rx={5.4} ry={6.8} />
-          <Mouth mood={mood} x={60} y={68} color="#F8FAFC" />
-        </Face>
-        <Extras x={86} y={16} color="#2563EB" />
-      </Head>
-    </>
-  );
-}
-
-/** Nova — a superheroine: a star tiara, a ponytail, a bright suit, golden cuffs and a violet cape. */
-function Nova({ mood, blink, look, uid, t }) {
-  const id = (name) => `${uid}-${name}`;
-  return (
-    <>
-      <defs>
-        <Grad id={id('shell')} stops={[[0, '#FFFFFF'], [1, '#FCE7F3']]} />
-        <Grad id={id('suit')} stops={[[0, tone(t, '#F472B6', 20)], [1, tone(t, '#BE185D', -15)]]} />
-        <Grad id={id('cape')} stops={[[0, '#8B5CF6'], [1, '#4C1D95']]} />
-        <Grad id={id('hair')} x2={1} stops={[[0, '#7C3AED'], [1, '#4C1D95']]} />
-        <Grad id={id('visor')} x2={1} stops={[[0, '#2E1065'], [1, '#14082E']]} />
-        <Glow id={id('glow')} sd={1.6} />
-      </defs>
-      <Body
-        behind={<Cape fill={`url(#${id('cape')})`} />}
-        torso={`url(#${id('suit')})`}
-        arm="#FCE7F3"
-        armStroke="#F9A8D4"
-        hand="#FFF1F7"
-        cuff="#FBBF24"
-        leg={`url(#${id('suit')})`}
-        foot="#FBBF24"
-        chest={
-          <>
-            <path d="M 60 74 L 62.4 79.6 L 68.4 80 L 63.8 83.8 L 65.4 89.6 L 60 86.4 L 54.6 89.6 L 56.2 83.8 L 51.6 80 L 57.6 79.6 Z" fill="#FBBF24" stroke="#D97706" strokeWidth="0.6" />
-            <rect x="39.5" y="93" width="41" height="3.6" rx="1.8" fill="#FBBF24" />
-          </>
-        }
-      />
-      <Head look={look}>
-        <g className="rb-ponytail">
-          <path d="M 86 34 C 104 36 112 56 104 78 C 102 84 96 86 96 80 C 102 62 98 48 84 44 Z" fill={`url(#${id('hair')})`} />
-        </g>
-        <path d="M 22 54 C 20 30 38 20 60 20 C 82 20 100 30 98 54 Z" fill={`url(#${id('hair')})`} />
-        <rect x="20" y="30" width="80" height="60" rx="26" fill={`url(#${id('shell')})`} stroke="#F9A8D4" strokeWidth="1.4" />
-        <path d="M 24 44 C 30 30 44 26 56 30 C 46 32 36 38 30 48 Z" fill={`url(#${id('hair')})`} />
-        <path d="M 96 44 C 90 30 76 26 64 30 C 74 32 84 38 90 48 Z" fill={`url(#${id('hair')})`} />
-        <path d="M 30 36 Q 60 22 90 36" fill="none" stroke="#FBBF24" strokeWidth="3.4" strokeLinecap="round" />
-        <path className="rb-star" d="M 60 17 L 62.6 23 L 69 23.4 L 64 27.4 L 65.8 33.6 L 60 30 L 54.2 33.6 L 56 27.4 L 51 23.4 L 57.4 23 Z" fill="#FBBF24" stroke="#D97706" strokeWidth="0.6" />
-        <rect x="29" y="43" width="62" height="38" rx="17" fill={`url(#${id('visor')})`} />
-        <Cheeks y={70} left={38} right={82} opacity={0.65} />
-        <Face look={look}>
-          <g stroke="#F9A8D4" strokeWidth="1.6" strokeLinecap="round">
-            <path d="M 42 52 L 40 49.5 M 45 51 L 44.5 48" />
-            <path d="M 78 52 L 80 49.5 M 75 51 L 75.5 48" />
-          </g>
-          <Eyes mood={mood} blink={blink} cx={[48, 72]} cy={60} color="#F9A8D4" glow={`url(#${id('glow')})`} rx={5} ry={6.8} />
-          <Mouth mood={mood} x={60} y={71} color="#F9A8D4" inner="#FB7185" />
-        </Face>
-        <Extras x={88} y={18} color="#DB2777" />
-      </Head>
-    </>
-  );
-}
-
 // ── Animals ────────────────────────────────────────────────────────────────
 
 /** A snow-leopard rosette (small broken ring). */
@@ -814,65 +710,500 @@ function Barsik({ mood, blink, look, uid, t }) {
   );
 }
 
-/** Uku (үкү) — a wise owl in a scholar's cap: big amber eyes, ear tufts, wings that wave. */
-function Uku({ mood, blink, look, uid, t }) {
+// ── Superheroes ────────────────────────────────────────────────────────────
+
+/** The hero's shield: a gold diamond-pentagon with a red "S", centred on x 60. */
+function SShield({ y = 73, scale = 1 }) {
+  return (
+    <g transform={`translate(60 ${y}) scale(${scale})`}>
+      <path d="M -12 0 H 12 L 15.5 4.6 L 0 21 L -15.5 4.6 Z" fill="#FACC15" stroke="#DC2626" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M 5.6 4 H -2.6 Q -6 4 -6 6.4 Q -6 8.6 -2.4 8.8 H 2.4 Q 6 9 6 11.3 Q 6 13.6 2.4 13.6 H -4.4" fill="none" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  );
+}
+
+/** A big red cape flowing from the shoulders and fluttering (two layers in opposite phase). */
+function HeroCape({ id }) {
+  return (
+    <g className="rb-cape">
+      <path d="M 41 69 Q 27 88 20 113 Q 37 105 50 111 Q 62 104 74 111 Q 88 104 101 112 Q 94 88 79 69 Z" fill={`url(#${id})`} />
+      <g className="rb-cape-fold">
+        <path d="M 46 74 Q 40 92 37 109 M 60 76 Q 60 94 61 108 M 74 74 Q 82 92 88 109" fill="none" stroke="#7F1D1D" strokeWidth="1.4" strokeLinecap="round" opacity="0.45" />
+      </g>
+    </g>
+  );
+}
+
+/** An athletic hero body: broad shoulders, narrow waist, slim legs and boots; `girl` adds a skirt. */
+function HeroBody({ uid, t, girl }) {
+  const id = (name) => `${uid}-${name}`;
+  const torso = girl
+    ? 'M 42 70 H 78 Q 83 70 82.2 76 L 73.5 91 Q 72.4 94 68.4 94 H 51.6 Q 47.6 94 46.5 91 L 37.8 76 Q 37 70 42 70 Z'
+    : 'M 38 69.5 H 82 Q 87.5 69.5 86.4 76 L 75.4 93 Q 74 96 70 96 H 50 Q 46 96 44.6 93 L 33.6 76 Q 32.5 69.5 38 69.5 Z';
+  const arm = (x) => (
+    <>
+      <path d={`M ${x} 73 Q ${x + 4} 70 ${x + 8} 73 L ${x + 7.4} 90 Q ${x + 4} 92.5 ${x + 0.6} 90 Z`} style={{ fill: `url(#${id('suit')})` }} />
+      {girl && <rect x={x + 0.3} y="86.5" width="7.4" height="3" rx="1.4" fill="#FACC15" />}
+      <circle cx={x + 4} cy="93.5" r="4.2" fill={girl ? '#F1F5F9' : '#E2E8F0'} stroke="#CBD5E1" strokeWidth="0.8" />
+    </>
+  );
+  return (
+    <g className="rb-body">
+      <HeroCape id={id('cape')} />
+      {girl ? (
+        <>
+          <rect x="49.5" y="96" width="7" height="12" rx="3.2" fill="#E2E8F0" />
+          <rect x="63.5" y="96" width="7" height="12" rx="3.2" fill="#E2E8F0" />
+          <path d="M 48.6 101 H 57.4 V 109 Q 53 111 48.6 109 Z M 62.6 101 H 71.4 V 109 Q 67 111 62.6 109 Z" fill="#DC2626" />
+        </>
+      ) : (
+        <>
+          <rect x="48.5" y="94" width="8" height="15" rx="3.6" style={{ fill: `url(#${id('suit')})` }} />
+          <rect x="63.5" y="94" width="8" height="15" rx="3.6" style={{ fill: `url(#${id('suit')})` }} />
+          <path d="M 48 101 H 57 V 109.5 Q 52.5 111.5 48 109.5 Z M 63 101 H 72 V 109.5 Q 67.5 111.5 63 109.5 Z" fill="#DC2626" />
+        </>
+      )}
+      <ellipse cx="52.5" cy="110.6" rx="6" ry="3.2" fill="#B91C1C" />
+      <ellipse cx="67.5" cy="110.6" rx="6" ry="3.2" fill="#B91C1C" />
+      <path d={torso} style={{ fill: `url(#${id('suit')})` }} />
+      {/* Muscle lines: chest and a hint of abs. */}
+      <path d={girl ? 'M 47 88 Q 60 91 73 88' : 'M 44 86 Q 60 90 76 86 M 56 90 V 94 M 64 90 V 94'} fill="none" stroke="#fff" strokeWidth="0.9" opacity="0.25" strokeLinecap="round" />
+      <path d="M 44 72 Q 52 70 58 71" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity="0.35" fill="none" />
+      {girl ? (
+        <>
+          <path d="M 46 92.5 H 74 L 80.5 103.5 Q 60 108 39.5 103.5 Z" fill="#DC2626" />
+          <path d="M 46 92.5 H 74 L 74.6 95 H 45.4 Z" fill="#FACC15" />
+          <path d="M 50 97 L 47 103.5 M 60 97.5 V 105 M 70 97 L 73 103.5" stroke="#991B1B" strokeWidth="0.9" opacity="0.5" />
+        </>
+      ) : (
+        <>
+          <path d="M 45.5 91 H 74.5 L 74 97.5 Q 67 101 60 97.5 Q 53 101 46 97.5 Z" fill="#DC2626" />
+          <rect x="45" y="90.4" width="30" height="3.2" rx="1.6" fill="#FACC15" />
+        </>
+      )}
+      <SShield y={girl ? 72.5 : 72} scale={girl ? 0.82 : 1} />
+      <g className="rb-arm rb-arm--left">{arm(girl ? 31 : 27.5)}</g>
+      <g className="rb-arm rb-arm--right">{arm(girl ? 81 : 84.5)}</g>
+    </g>
+  );
+}
+
+/** Superbot — the hero in blue with a red cape, the "S" shield and the famous forelock. */
+function Volt({ mood, blink, look, uid, t }) {
   const id = (name) => `${uid}-${name}`;
   return (
     <>
       <defs>
-        <Grad id={id('feathers')} stops={[[0, '#B7791F'], [1, '#7C4A12']]} />
-        <Grad id={id('wing')} x2={1} stops={[[0, '#8B5A1E'], [1, '#5B3A12']]} />
-        <Grad id={id('cap')} stops={[[0, tone(t, '#334155', 15)], [1, tone(t, '#0F172A', -25)]]} />
+        <Grad id={id('suit')} stops={[[0, tone(t, '#3B82F6', 10)], [1, tone(t, '#1E3A8A', -25)]]} />
+        <Grad id={id('cape')} stops={[[0, '#EF4444'], [1, '#991B1B']]} />
+        <Grad id={id('shell')} stops={[[0, '#FFFFFF'], [1, '#DCE3EC']]} />
+        <Grad id={id('visor')} x2={1} stops={[[0, '#0F172A'], [1, '#020617']]} />
+        <Glow id={id('glow')} sd={1.7} />
       </defs>
+      <HeroBody uid={uid} t={t} />
+      <Head look={look}>
+        <rect x="20" y="24" width="80" height="64" rx="26" fill={`url(#${id('shell')})`} stroke="#CBD5E1" strokeWidth="1.4" />
+        <path d="M 19 48 C 16 22 36 12 60 12 C 86 12 104 24 101 48 C 92 33 78 28 60 28 C 44 28 30 33 19 48 Z" fill="#111827" />
+        <rect x="27" y="38" width="66" height="40" rx="17" fill={`url(#${id('visor')})`} />
+        <path d="M 58 27 C 50 31 50 40 57 41 C 61 41.4 61 37 57.6 36.6" fill="none" stroke="#111827" strokeWidth="3.6" strokeLinecap="round" />
+        <Cheeks y={68} opacity={0.45} />
+        <Face look={look}>
+          <Eyes mood={mood} blink={blink} cx={[47, 73]} cy={57} color="#BFDBFE" glow={`url(#${id('glow')})`} rx={5.4} ry={6.8} />
+          <Mouth mood={mood} x={60} y={68} color="#BFDBFE" />
+        </Face>
+        <Extras x={88} y={14} color="#2563EB" />
+      </Head>
+    </>
+  );
+}
+
+/** Supergirl — blonde hair, blue top with the "S" shield, red skirt, boots and cape. */
+function Nova({ mood, blink, look, uid, t }) {
+  const id = (name) => `${uid}-${name}`;
+  return (
+    <>
+      <defs>
+        <Grad id={id('suit')} stops={[[0, tone(t, '#3B82F6', 10)], [1, tone(t, '#1E40AF', -20)]]} />
+        <Grad id={id('cape')} stops={[[0, '#EF4444'], [1, '#991B1B']]} />
+        <Grad id={id('shell')} stops={[[0, '#FFFFFF'], [1, '#FCE7F3']]} />
+        <Grad id={id('hair')} stops={[[0, '#FDE68A'], [1, '#EAB308']]} />
+        <Grad id={id('visor')} x2={1} stops={[[0, '#1E1B4B'], [1, '#0B0A24']]} />
+        <Glow id={id('glow')} sd={1.6} />
+      </defs>
+      <HeroBody uid={uid} t={t} girl />
+      <Head look={look}>
+        <g className="rb-ponytail">
+          <path d="M 22 40 C 8 62 10 92 22 106 C 26 96 26 82 30 70 Z" fill={`url(#${id('hair')})`} />
+          <path d="M 98 40 C 112 62 110 92 98 106 C 94 96 94 82 90 70 Z" fill={`url(#${id('hair')})`} />
+        </g>
+        <path d="M 20 54 C 18 28 38 16 60 16 C 82 16 102 28 100 54 Z" fill={`url(#${id('hair')})`} />
+        <rect x="21" y="30" width="78" height="60" rx="26" fill={`url(#${id('shell')})`} stroke="#F9A8D4" strokeWidth="1.4" />
+        <path d="M 22 50 C 24 30 40 22 58 26 C 48 30 38 36 31 48 Z" fill={`url(#${id('hair')})`} />
+        <path d="M 98 50 C 96 30 80 22 62 26 C 72 30 82 36 89 48 Z" fill={`url(#${id('hair')})`} />
+        <rect x="29" y="43" width="62" height="38" rx="17" fill={`url(#${id('visor')})`} />
+        <Cheeks y={70} left={38} right={82} opacity={0.65} />
+        <Face look={look}>
+          <g stroke="#93C5FD" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M 42 52 L 40 49.5 M 45 51 L 44.5 48" />
+            <path d="M 78 52 L 80 49.5 M 75 51 L 75.5 48" />
+          </g>
+          <Eyes mood={mood} blink={blink} cx={[48, 72]} cy={60} color="#93C5FD" glow={`url(#${id('glow')})`} rx={5} ry={6.8} />
+          <Mouth mood={mood} x={60} y={71} color="#93C5FD" inner="#FB7185" />
+        </Face>
+        <Extras x={88} y={18} color="#DC2626" />
+      </Head>
+    </>
+  );
+}
+
+// ── Professions and kids ───────────────────────────────────────────────────
+
+/** A hard hat: dome, ridge and brim; `color` is any CSS colour. */
+function HardHat({ fill, ridge }) {
+  return (
+    <>
+      <path d="M 22 40 C 22 16 40 6 60 6 C 80 6 98 16 98 40 Z" style={{ fill }} />
+      <path d="M 54 7 H 66 V 39 H 54 Z" style={{ fill: ridge }} opacity="0.9" />
+      <path d="M 14 41 Q 60 32 106 41 L 106 45 Q 60 37 14 45 Z" style={{ fill: ridge }} />
+      <path d="M 30 22 Q 38 13 50 11" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" opacity="0.5" />
+    </>
+  );
+}
+
+/** A hi-vis vest with silver reflective stripes over the torso. */
+function Vest({ fill }) {
+  return (
+    <>
+      <path d="M 39 72 Q 39 69 45 69 H 53 L 56 101.5 H 47.5 Q 40 101.5 39.5 94 Z" style={{ fill }} />
+      <path d="M 81 72 Q 81 69 75 69 H 67 L 64 101.5 H 72.5 Q 80 101.5 80.5 94 Z" style={{ fill }} />
+      <path d="M 39.6 84 H 54.8 V 87.4 H 40 Z M 65.2 84 H 80.4 L 80 87.4 H 65.2 Z" fill="#E2E8F0" />
+      <path d="M 40 92 H 55.5 V 95.2 H 40.2 Z M 64.5 92 H 80 L 79.8 95.2 H 64.5 Z" fill="#E2E8F0" />
+    </>
+  );
+}
+
+/** Bob — a builder: yellow hard hat with a headlamp, orange hi-vis vest and a tool belt with a hammer. */
+function Builder({ mood, blink, look, uid, t }) {
+  const id = (name) => `${uid}-${name}`;
+  return (
+    <>
+      <defs>
+        <Grad id={id('shell')} stops={[[0, '#FFFFFF'], [1, '#E2E8F0']]} />
+        <Grad id={id('hat')} stops={[[0, tone(t, '#FDE047', 25)], [1, tone(t, '#EAB308', -5)]]} />
+        <Grad id={id('shirt')} stops={[[0, '#64748B'], [1, '#334155']]} />
+        <Grad id={id('visor')} x2={1} stops={[[0, '#1F2937'], [1, '#0B1220']]} />
+        <Glow id={id('glow')} sd={1.5} />
+      </defs>
+      <Body
+        torso={`url(#${id('shirt')})`}
+        arm={`url(#${id('shirt')})`}
+        hand="#D97706"
+        leg="#1E3A5F"
+        foot="#78350F"
+        chest={
+          <>
+            <Vest fill="#F97316" />
+            <rect x="39" y="96" width="42" height="4.6" rx="2" fill="#78350F" />
+            <rect x="44" y="95.4" width="6" height="7" rx="1.2" fill="#92400E" />
+            <g transform="translate(72 98) rotate(18)">
+              <rect x="-1.2" y="0" width="2.4" height="10" rx="1" fill="#A16207" />
+              <rect x="-4.4" y="-1.6" width="8.8" height="3.4" rx="1" fill="#475569" />
+            </g>
+          </>
+        }
+      />
+      <Head look={look}>
+        <rect x="19" y="32" width="82" height="58" rx="25" fill={`url(#${id('shell')})`} stroke="#CBD5E1" strokeWidth="1.4" />
+        <rect x="28" y="46" width="64" height="36" rx="16" fill={`url(#${id('visor')})`} />
+        <Cheeks y={72} left={38} right={82} opacity={0.55} />
+        <Face look={look}>
+          <Eyes mood={mood} blink={blink} cx={[48, 72]} cy={61} color="#FDE68A" glow={`url(#${id('glow')})`} rx={5} ry={6.4} />
+          <Mouth mood={mood} x={60} y={72} color="#FDE68A" />
+        </Face>
+        <HardHat fill={`url(#${id('hat')})`} ridge={tone(t, '#CA8A04', -15)} />
+        <rect x="53" y="24" width="14" height="9" rx="3" fill="#334155" />
+        <circle className="rb-blinker" cx="60" cy="28.5" r="3" fill="#FEF9C3" />
+        <Extras x={88} y={12} color="#CA8A04" />
+      </Head>
+    </>
+  );
+}
+
+/** Asel — a builder too: white hard hat, a braid, a green hi-vis vest and a tablet with plans. */
+function Builder2({ mood, blink, look, uid, t }) {
+  const id = (name) => `${uid}-${name}`;
+  return (
+    <>
+      <defs>
+        <Grad id={id('shell')} stops={[[0, '#FFFFFF'], [1, '#FCE7F3']]} />
+        <Grad id={id('hat')} stops={[[0, '#FFFFFF'], [1, '#E2E8F0']]} />
+        <Grad id={id('shirt')} stops={[[0, '#93C5FD'], [1, '#3B82F6']]} />
+        <Grad id={id('vest')} stops={[[0, tone(t, '#A3E635', 15)], [1, tone(t, '#65A30D', -5)]]} />
+        <Grad id={id('visor')} x2={1} stops={[[0, '#2B1630'], [1, '#170B1A']]} />
+        <Glow id={id('glow')} sd={1.5} />
+      </defs>
+      <Body
+        torso={`url(#${id('shirt')})`}
+        arm={`url(#${id('shirt')})`}
+        hand="#FBE7EC"
+        leg="#1E3A5F"
+        foot="#334155"
+        chest={
+          <>
+            <Vest fill={`url(#${id('vest')})`} />
+            <g transform="translate(60 85) rotate(-8)">
+              <rect x="-7" y="-9" width="14" height="18" rx="2.4" fill="#0F172A" />
+              <rect x="-5.6" y="-7.4" width="11.2" height="14.4" rx="1.2" fill="#38BDF8" />
+              <path d="M -4 -4 H 4 M -4 -1 H 2 M -4 2 H 4" stroke="#E0F2FE" strokeWidth="1" />
+            </g>
+          </>
+        }
+      />
+      <Head look={look}>
+        <g className="rb-ponytail">
+          <path d="M 92 50 C 106 56 108 76 102 92 C 100 98 94 98 96 92 C 100 78 98 64 88 58 Z" fill="#4A2E28" />
+          {[66, 74, 82, 90].map((y) => <path key={y} d={`M 97 ${y} L 103 ${y + 2}`} stroke="#3B2420" strokeWidth="1.2" />)}
+          <circle cx="98" cy="96" r="2.6" style={{ fill: tone(t, '#84CC16') }} />
+        </g>
+        <rect x="20" y="32" width="80" height="58" rx="25" fill={`url(#${id('shell')})`} stroke="#F3C6D2" strokeWidth="1.4" />
+        <rect x="29" y="46" width="62" height="36" rx="16" fill={`url(#${id('visor')})`} />
+        <Cheeks y={72} left={38} right={82} opacity={0.7} />
+        <Face look={look}>
+          <g stroke="#F9A8D4" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M 42 55 L 40 52.5 M 45 54 L 44.5 51" />
+            <path d="M 78 55 L 80 52.5 M 75 54 L 75.5 51" />
+          </g>
+          <Eyes mood={mood} blink={blink} cx={[48, 72]} cy={62} color="#F9A8D4" glow={`url(#${id('glow')})`} rx={4.8} ry={6.4} />
+          <Mouth mood={mood} x={60} y={73} color="#F9A8D4" inner="#FB7185" />
+        </Face>
+        <HardHat fill={`url(#${id('hat')})`} ridge="#CBD5E1" />
+        <path d="M 46 22 H 74" stroke={tone(t, '#65A30D')} strokeWidth="3" strokeLinecap="round" />
+        <Extras x={88} y={12} color="#65A30D" />
+      </Head>
+    </>
+  );
+}
+
+/** Timur — an architect: round glasses, a pencil behind the ear, a turtleneck and a rolled blueprint. */
+function Architect({ mood, blink, look, uid, t }) {
+  const id = (name) => `${uid}-${name}`;
+  return (
+    <>
+      <defs>
+        <Grad id={id('shell')} stops={[[0, '#FFFFFF'], [1, '#E5E7EB']]} />
+        <Grad id={id('knit')} stops={[[0, tone(t, '#334155', 10)], [1, tone(t, '#0F172A', -20)]]} />
+        <Grad id={id('roll')} x2={1} stops={[[0, '#60A5FA'], [1, '#1D4ED8']]} />
+        <Grad id={id('visor')} x2={1} stops={[[0, '#111827'], [1, '#030712']]} />
+        <Glow id={id('glow')} sd={1.4} />
+      </defs>
+      <Body
+        torso={`url(#${id('knit')})`}
+        arm={`url(#${id('knit')})`}
+        hand="#E5E7EB"
+        leg="#57534E"
+        foot="#1C1917"
+        chest={
+          <>
+            <path d="M 48 69 Q 60 75 72 69 V 72.5 Q 60 78.5 48 72.5 Z" fill="#000" opacity="0.18" />
+            <g transform="translate(62 86) rotate(-34)">
+              <rect x="-16" y="-3.6" width="32" height="7.2" rx="3.6" fill={`url(#${id('roll')})`} />
+              <ellipse cx="16" cy="0" rx="2" ry="3.6" fill="#DBEAFE" />
+              <path d="M -10 -1 H 8 M -8 1.6 H 4" stroke="#DBEAFE" strokeWidth="0.8" opacity="0.8" />
+            </g>
+          </>
+        }
+      />
+      <Head look={look}>
+        <g transform="translate(96 30) rotate(30)">
+          <rect x="-2" y="-14" width="4" height="22" rx="1" fill="#FACC15" />
+          <path d="M -2 8 L 0 13 L 2 8 Z" fill="#FDE68A" />
+          <rect x="-2" y="-16" width="4" height="3" fill="#F472B6" />
+        </g>
+        <rect x="19" y="26" width="82" height="62" rx="26" fill={`url(#${id('shell')})`} stroke="#D1D5DB" strokeWidth="1.4" />
+        <path d="M 22 46 C 22 26 40 18 60 18 C 82 18 98 28 98 44 C 88 34 76 30 60 30 C 44 30 30 36 22 46 Z" fill="#44403C" />
+        <rect x="27" y="40" width="66" height="38" rx="16" fill={`url(#${id('visor')})`} />
+        <Cheeks y={68} opacity={0.45} />
+        <Face look={look}>
+          <Eyes mood={mood} blink={blink} cx={[47, 73]} cy={58} color="#A7F3D0" glow={`url(#${id('glow')})`} rx={4.8} ry={6} />
+          <g fill="none" stroke="#D4A017" strokeWidth="2.2">
+            <circle cx="47" cy="58" r="10" />
+            <circle cx="73" cy="58" r="10" />
+            <path d="M 57 57 Q 60 55 63 57" />
+          </g>
+          <Mouth mood={mood} x={60} y={71} color="#A7F3D0" />
+        </Face>
+        <Extras x={86} y={14} color="#475569" />
+      </Head>
+    </>
+  );
+}
+
+/** Ainura — a schoolgirl: two pigtails with bows, freckles, a dress with a white collar. */
+function Girl({ mood, blink, look, uid, t }) {
+  const id = (name) => `${uid}-${name}`;
+  const bow = (x) => (
+    <g transform={`translate(${x} 26)`}>
+      <path d="M 0 0 L -9 -6 Q -11 0 -9 6 Z M 0 0 L 9 -6 Q 11 0 9 6 Z" style={{ fill: tone(t, '#EC4899') }} />
+      <circle r="2.6" style={{ fill: tone(t, '#BE185D', -10) }} />
+    </g>
+  );
+  return (
+    <>
+      <defs>
+        <Grad id={id('shell')} stops={[[0, '#FFFFFF'], [1, '#FFE4EC']]} />
+        <Grad id={id('dress')} stops={[[0, tone(t, '#F472B6', 20)], [1, tone(t, '#DB2777', -10)]]} />
+        <Grad id={id('hair')} stops={[[0, '#7C4A2D'], [1, '#4A2C1A']]} />
+        <Grad id={id('visor')} x2={1} stops={[[0, '#3B1D33'], [1, '#1E0E1A']]} />
+        <Glow id={id('glow')} sd={1.5} />
+      </defs>
+      <Body
+        dress
+        torso={`url(#${id('dress')})`}
+        arm="#FFE4EC"
+        armStroke="#F9C4D4"
+        hand="#FFF1F5"
+        foot="#BE185D"
+        chest={
+          <>
+            <path d="M 48 69 Q 54 76 60 72 Q 66 76 72 69 Z" fill="#FFFFFF" />
+            <circle cx="60" cy="80" r="1.4" fill="#FFFFFF" />
+            <circle cx="60" cy="86" r="1.4" fill="#FFFFFF" />
+            <path d="M 37 102 Q 60 99 83 102" fill="none" stroke="#FFFFFF" strokeWidth="1.4" opacity="0.8" />
+          </>
+        }
+      />
+      <Head look={look} tilt={5}>
+        <g className="rb-ponytail">
+          <path d="M 22 34 C 6 40 4 62 12 74 C 16 64 18 52 26 46 Z" fill={`url(#${id('hair')})`} />
+        </g>
+        <g className="rb-braid rb-braid--right">
+          <path d="M 98 34 C 114 40 116 62 108 74 C 104 64 102 52 94 46 Z" fill={`url(#${id('hair')})`} />
+        </g>
+        <rect x="20" y="24" width="80" height="66" rx="31" fill={`url(#${id('shell')})`} stroke="#F9C4D4" strokeWidth="1.4" />
+        <path d="M 21 52 C 18 26 40 16 60 16 C 80 16 102 26 99 52 C 92 40 84 34 74 32 C 66 38 52 38 44 32 C 36 34 28 40 21 52 Z" fill={`url(#${id('hair')})`} />
+        {bow(22)}
+        {bow(98)}
+        <rect x="29" y="44" width="62" height="38" rx="18" fill={`url(#${id('visor')})`} />
+        <g fill="#F9A8D4" opacity="0.7">
+          {[[36, 72], [40, 75], [84, 72], [80, 75]].map(([x, y]) => <circle key={`${x}${y}`} cx={x} cy={y} r="1" />)}
+        </g>
+        <Cheeks y={70} left={38} right={82} opacity={0.75} />
+        <Face look={look}>
+          <g stroke="#FBCFE8" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M 42 53 L 40 50.5 M 45 52 L 44.5 49" />
+            <path d="M 78 53 L 80 50.5 M 75 52 L 75.5 49" />
+          </g>
+          <Eyes mood={mood} blink={blink} cx={[48, 72]} cy={61} color="#FBCFE8" glow={`url(#${id('glow')})`} rx={5.6} ry={7} />
+          <Mouth mood={mood} x={60} y={72} color="#FBCFE8" inner="#FB7185" />
+        </Face>
+        <Extras x={86} y={14} color="#EC4899" />
+      </Head>
+    </>
+  );
+}
+
+/** Daniyar — a schoolboy: a cap turned sideways, a T-shirt with a star, backpack straps, shorts and sneakers. */
+function Boy({ mood, blink, look, uid, t }) {
+  const id = (name) => `${uid}-${name}`;
+  return (
+    <>
+      <defs>
+        <Grad id={id('shell')} stops={[[0, '#FFFFFF'], [1, '#E0F2FE']]} />
+        <Grad id={id('tee')} stops={[[0, tone(t, '#34D399', 20)], [1, tone(t, '#059669', -10)]]} />
+        <Grad id={id('cap')} stops={[[0, tone(t, '#2DD4BF', 10)], [1, tone(t, '#0F766E', -15)]]} />
+        <Grad id={id('visor')} x2={1} stops={[[0, '#0F2A2A'], [1, '#051515']]} />
+        <Glow id={id('glow')} sd={1.5} />
+      </defs>
+      <Body
+        torso={`url(#${id('tee')})`}
+        arm="#E0F2FE"
+        armStroke="#BAE6FD"
+        hand="#F0F9FF"
+        leg="#E0F2FE"
+        foot="#FFFFFF"
+        chest={
+          <>
+            <path d="M 46 69 V 101 M 74 69 V 101" stroke="#C2410C" strokeWidth="3.4" strokeLinecap="round" />
+            <path d="M 60 78 L 62.2 82.6 L 67.2 83 L 63.4 86.2 L 64.6 91 L 60 88.4 L 55.4 91 L 56.6 86.2 L 52.8 83 L 57.8 82.6 Z" fill="#FDE047" />
+            <path d="M 40 96 H 80 L 79.6 101 Q 72 103 67 101 L 64 104 H 56 L 53 101 Q 48 103 40.4 101 Z" fill="#1E3A8A" />
+            <path d="M 44.5 106.8 H 56.5 M 63.5 106.8 H 75.5" stroke="#EF4444" strokeWidth="1.6" strokeLinecap="round" />
+          </>
+        }
+      />
+      <Head look={look} tilt={5}>
+        <rect x="20" y="26" width="80" height="64" rx="30" fill={`url(#${id('shell')})`} stroke="#BAE6FD" strokeWidth="1.4" />
+        <path d="M 24 46 C 24 22 42 14 60 14 C 80 14 96 24 96 44 Z" fill={`url(#${id('cap')})`} />
+        <path d="M 58 15 L 62 15 L 61 44 L 59 44 Z" fill="#fff" opacity="0.35" />
+        <path d="M 92 38 Q 112 36 116 46 Q 104 50 92 46 Z" fill={tone(t, '#0F766E', -20)} />
+        <circle cx="60" cy="15" r="3" fill={tone(t, '#0F766E', -20)} />
+        <rect x="29" y="44" width="62" height="38" rx="17" fill={`url(#${id('visor')})`} />
+        <Cheeks y={70} left={38} right={82} opacity={0.6} />
+        <Face look={look}>
+          <Eyes mood={mood} blink={blink} cx={[48, 72]} cy={61} color="#99F6E4" glow={`url(#${id('glow')})`} rx={5.6} ry={7} />
+          <Mouth mood={mood} x={60} y={72} color="#99F6E4" />
+        </Face>
+        <Extras x={86} y={12} color="#0D9488" />
+      </Head>
+    </>
+  );
+}
+
+/** Ryzhik — a lively fox cub: a bouncing walk, perky ears and a fluffy tail that wags. */
+function Ryzhik({ mood, blink, look, uid, t }) {
+  const id = (name) => `${uid}-${name}`;
+  return (
+    <>
+      <defs>
+        <Grad id={id('fur')} stops={[[0, '#FDBA74'], [1, '#EA580C']]} />
+        <Grad id={id('tail')} x2={1} stops={[[0, '#F97316'], [1, '#C2410C']]} />
+        <Grad id={id('scarf')} x2={1} stops={[[0, tone(t, '#34D399', 10)], [1, tone(t, '#059669', -10)]]} />
+      </defs>
+      <g className="rb-tail rb-wag">
+        <path d="M 74 100 C 92 104 108 92 106 74 C 105 64 98 60 94 64 C 98 74 92 88 74 92 Z" fill={`url(#${id('tail')})`} />
+        <path d="M 106 74 C 105 64 98 60 94 64 C 97 67 98 72 98 76 C 101 76 104 76 106 74 Z" fill="#FFF7ED" />
+      </g>
       <g className="rb-body">
-        <ellipse cx="60" cy="72" rx="35" ry="39" fill={`url(#${id('feathers')})`} />
-        <ellipse cx="60" cy="88" rx="21" ry="19" fill="#FDE9B8" />
-        {[[52, 80], [60, 78], [68, 80], [55, 89], [65, 89], [60, 97]].map(([x, y]) => (
-          <path key={`${x}${y}`} d={`M ${x - 3} ${y} L ${x} ${y + 3} L ${x + 3} ${y}`} fill="none" stroke="#B7791F" strokeWidth="1.3" strokeLinecap="round" />
-        ))}
+        <path d="M 42 106 Q 38 84 48 72 H 72 Q 82 84 78 106 Q 60 111 42 106 Z" fill={`url(#${id('fur')})`} />
+        <path d="M 52 74 Q 60 104 68 74 Q 60 78 52 74 Z" fill="#FFF7ED" />
+        <ellipse cx="49" cy="108.5" rx="7" ry="3.6" fill="#1C1917" />
+        <ellipse cx="71" cy="108.5" rx="7" ry="3.6" fill="#1C1917" />
         <g className="rb-arm rb-arm--left">
-          <path d="M 28 60 Q 14 80 25 102 Q 33 92 34 70 Z" fill={`url(#${id('wing')})`} />
+          <rect x="41" y="80" width="8" height="20" rx="4" fill={`url(#${id('fur')})`} />
+          <rect x="41" y="94" width="8" height="7" rx="3.5" fill="#1C1917" />
         </g>
         <g className="rb-arm rb-arm--right">
-          <path d="M 92 60 Q 106 80 95 102 Q 87 92 86 70 Z" fill={`url(#${id('wing')})`} />
+          <rect x="71" y="80" width="8" height="20" rx="4" fill={`url(#${id('fur')})`} />
+          <rect x="71" y="94" width="8" height="7" rx="3.5" fill="#1C1917" />
         </g>
-        {[50, 70].map((x) => (
-          <g key={x} fill="#F59E0B">
-            <ellipse cx={x - 3.5} cy="110" rx="2.4" ry="3.4" />
-            <ellipse cx={x} cy="111" rx="2.4" ry="3.4" />
-            <ellipse cx={x + 3.5} cy="110" rx="2.4" ry="3.4" />
-          </g>
-        ))}
       </g>
-      <g className="rb-head" style={{ transform: `rotate(${look.x * 5}deg)` }}>
-        <path d="M 30 42 L 26 22 L 45 34 Z" fill="#6B4212" />
-        <path d="M 90 42 L 94 22 L 75 34 Z" fill="#6B4212" />
-        <circle cx="46" cy="52" r="15.5" fill="#FDF2D6" stroke="#E7C98A" strokeWidth="1" />
-        <circle cx="74" cy="52" r="15.5" fill="#FDF2D6" stroke="#E7C98A" strokeWidth="1" />
-        <Face look={look} reach={2.5}>
-          <circle cx="46" cy="52" r="10" fill="#F59E0B" />
-          <circle cx="74" cy="52" r="10" fill="#F59E0B" />
-          <Eyes mood={mood} blink={blink} cx={[46, 74]} cy={52} color="#1C1917" rx={5.2} ry={6.2} />
+      <g className="rb-head" style={{ transform: `rotate(${look.x * 6}deg)` }}>
+        <g className="rb-ear rb-ear--left">
+          <path d="M 28 40 L 26 6 L 50 26 Z" fill={`url(#${id('fur')})`} />
+          <path d="M 31 34 L 30 13 L 44 26 Z" fill="#FFEDD5" />
+          <path d="M 26 6 L 29 14 L 34 12 Z" fill="#1C1917" />
+        </g>
+        <g className="rb-ear rb-ear--right">
+          <path d="M 92 40 L 94 6 L 70 26 Z" fill={`url(#${id('fur')})`} />
+          <path d="M 89 34 L 90 13 L 76 26 Z" fill="#FFEDD5" />
+          <path d="M 94 6 L 91 14 L 86 12 Z" fill="#1C1917" />
+        </g>
+        <path d="M 24 40 Q 26 22 60 20 Q 94 22 96 40 Q 98 58 80 68 Q 70 74 60 74 Q 50 74 40 68 Q 22 58 24 40 Z" fill={`url(#${id('fur')})`} />
+        <path d="M 30 50 Q 44 52 52 62 Q 58 70 60 72 Q 62 70 68 62 Q 76 52 90 50 Q 88 64 72 72 Q 66 75 60 75 Q 54 75 48 72 Q 32 64 30 50 Z" fill="#FFF7ED" />
+        <Cheeks y={58} left={36} right={84} color="#FB7185" opacity={0.6} />
+        <Face look={look} reach={3}>
+          <Eyes mood={mood} blink={blink} cx={[46, 74]} cy={45} color="#1C1917" rx={4.8} ry={6} />
+          <ellipse cx="60" cy="61" rx="4" ry="3" fill="#1C1917" />
+          <Mouth mood={mood} x={60} y={66} color="#7C2D12" scale={0.6} />
         </Face>
-        <path d="M 55.5 61 L 64.5 61 L 60 70 Z" fill="#F59E0B" stroke="#D97706" strokeWidth="0.8" strokeLinejoin="round" />
-        <g className="rb-mouth" style={show(mood === 'happy' || mood === 'wave' || mood === 'surprised')}>
-          <path d="M 57 66 L 63 66 L 60 70 Z" fill="#B45309" />
-        </g>
-        <Cheeks y={64} left={34} right={86} color="#FB7185" opacity={0.55} />
-        {/* Scholar's cap: board, base and a swinging gold tassel. */}
-        <path d="M 60 30 L 72 34 Q 60 40 48 34 Z" style={{ fill: tone(t, '#1E293B', -20) }} />
-        <path d="M 36 26 L 60 16 L 84 26 L 60 36 Z" fill={`url(#${id('cap')})`} />
-        <g className="rb-tassel">
-          <path d="M 60 26 L 80 28 L 81 38" fill="none" stroke="#FBBF24" strokeWidth="1.6" strokeLinecap="round" />
-          <circle cx="81" cy="40" r="2.4" fill="#FBBF24" />
-        </g>
-        <Extras x={90} y={14} color="#B7791F" />
+        <path d="M 38 70 Q 60 80 82 70 L 82 76 Q 60 86 38 76 Z" fill={`url(#${id('scarf')})`} />
+        <path d="M 46 77 L 40 90 L 47 89 L 51 79 Z" fill={`url(#${id('scarf')})`} />
+        <Extras x={88} y={14} color="#EA580C" />
       </g>
     </>
   );
 }
 
-const DRAW = { pixel: Pixel, orbi: Orbi, kiko: Kiko, classic: Classic, pro: Pro, boltik: Boltik, ermek: Ermek, aichurok: Aichurok, volt: Volt, nova: Nova, barsik: Barsik, uku: Uku };
+const DRAW = { pixel: Pixel, orbi: Orbi, kiko: Kiko, classic: Classic, pro: Pro, boltik: Boltik, builder: Builder, builder2: Builder2, architect: Architect, girl: Girl, boy: Boy, ermek: Ermek, aichurok: Aichurok, volt: Volt, nova: Nova, barsik: Barsik, ryzhik: Ryzhik };
 
 /**
  * A character at `size` px with a mood; `still` turns idle motion off (pickers,

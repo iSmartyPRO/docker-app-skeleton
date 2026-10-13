@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import api from '../../services/api';
 import { loadAllHelp, tr } from '../../help/registry';
+import { ROBOT_IDS } from './robots';
 
 /*
  * The person's robot settings, shared by the floating robot and the settings
@@ -38,6 +39,31 @@ export async function savePrefs(patch) {
   const res = await api.put('/app/assistant/prefs', patch);
   set({ prefs: res.data.prefs });
   return res.data.prefs;
+}
+
+/**
+ * The person's settings under the administrator's rules, read live from the
+ * public settings (they refresh as soon as an administrator saves):
+ * which characters may be chosen, the default, colours on or off.
+ */
+export function livePrefs(prefs, org = {}) {
+  if (!prefs) return prefs;
+  const defaultAvatar = ROBOT_IDS.includes(org.avatar) ? org.avatar : prefs.defaultAvatar || 'pixel';
+  const choice = org.choice || prefs.choice || 'all';
+  const some = (org.allowed || prefs.allowed || []).filter((id) => ROBOT_IDS.includes(id));
+  const allowed = choice === 'one' ? [defaultAvatar] : choice === 'some' && some.length ? some : ROBOT_IDS;
+  const allowColors = (org.allowColors ?? prefs.allowColors) !== false;
+  return {
+    ...prefs,
+    defaultAvatar,
+    proactive: org.proactive ?? prefs.proactive,
+    choice,
+    allowed,
+    allowColors,
+    canChoose: allowed.length > 1,
+    avatar: choice !== 'one' && allowed.includes(prefs.avatar) ? prefs.avatar : null,
+    colors: allowColors ? prefs.colors || {} : {},
+  };
 }
 
 export function useAssistantPrefs(userId) {

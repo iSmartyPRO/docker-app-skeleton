@@ -184,9 +184,7 @@
 }
 
 /* The owl waves with both wings. */
-.rb--uku.is-wave .rb-arm--left {
-  animation: rb-wave-left 0.5s ease-in-out 4 alternate;
-}
+
 
 .rb.is-still .rb-cape,
 .rb.is-still .rb-tail,
@@ -202,10 +200,16 @@
 @keyframes rb-cape {
   0%,
   100% {
-    transform: skewX(0deg) scaleY(1);
+    transform: skewX(0deg) scale(1, 1);
+  }
+  25% {
+    transform: skewX(-8deg) scale(1.04, 1.03);
   }
   50% {
-    transform: skewX(-5deg) scaleY(1.03);
+    transform: skewX(-3deg) scale(0.98, 1.05);
+  }
+  75% {
+    transform: skewX(6deg) scale(1.03, 1.01);
   }
 }
 
@@ -1297,4 +1301,133 @@
 
 .asst-cast__done:hover {
   filter: brightness(1.06);
+}
+
+/* Fox: a wagging tail, twitching ears and a livelier bounce. */
+.rb-wag {
+  transform-origin: 0% 100%;
+  animation: rb-wag 0.9s ease-in-out infinite;
+}
+
+.rb-ear {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: rb-ear 4s ease-in-out infinite;
+}
+
+.rb-ear--right {
+  animation-delay: -2s;
+}
+
+.rb--ryzhik .rb-float {
+  animation: rb-bounce 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+.rb-cape-fold {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: rb-cape 2.8s ease-in-out infinite reverse;
+}
+
+.rb.is-still .rb-wag,
+.rb.is-still .rb-ear,
+.rb.is-still .rb-cape-fold,
+.rb--ryzhik.is-still .rb-float {
+  animation: none;
+}
+
+@keyframes rb-wag {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes rb-ear {
+  0%,
+  86%,
+  100% {
+    transform: rotate(0deg);
+  }
+  90% {
+    transform: rotate(-9deg);
+  }
+  95% {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes rb-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  12% {
+    transform: translateY(1.5px) scale(1.04, 0.96);
+  }
+  40% {
+    transform: translateY(-7px) scale(0.98, 1.03);
+  }
+  70% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+/* Selection mode (administrator): characters that are not allowed fade. */
+.asst-castx__item.is-off {
+  opacity: 0.5;
+  filter: grayscale(0.75);
+}
+
+.asst-castx__item.is-off:hover {
+  opacity: 0.85;
+  filter: grayscale(0.2);
+}
+
+.asst-castx__box {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--da-border);
+  background: var(--da-surface);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.asst-castx__box.is-on {
+  border-color: var(--asst-accent);
+  background: var(--asst-accent);
+}
+
+.asst-avatar.is-fixed {
+  cursor: default;
+  transform: none;
+}
+
+.asst-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0 2px;
+}
+
+.asst-mode__hint {
+  margin: 0;
+  color: var(--da-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.asst-mode__bulk {
+  display: flex;
+  gap: 8px;
 }
