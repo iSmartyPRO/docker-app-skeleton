@@ -1,4 +1,4 @@
-import { AndFilter, Client, EqualityFilter, OrFilter } from 'ldapts';
+import { AndFilter, Client, EqualityFilter, OrFilter, PresenceFilter, SubstringFilter } from 'ldapts';
 
 /*
  * Active Directory / LDAP sign-in.
@@ -136,10 +136,15 @@ export async function authenticateDirectory(cfg, login, password) {
     await userClient.unbind().catch(() => {});
   }
 
+  return profileOf(entry, login);
+}
+
+/** A directory entry as a portal profile: { dn, username, displayName, email, memberOf }. */
+function profileOf(entry, fallback = '') {
   // Attribute names come back in whatever case the server uses (memberOf / memberof).
   const attrs = Object.fromEntries(Object.entries(entry).map(([key, value]) => [key.toLowerCase(), value]));
   const account =
-    first(attrs.samaccountname) || first(attrs.uid) || String(first(attrs.userprincipalname) || login).split('@')[0];
+    first(attrs.samaccountname) || first(attrs.uid) || String(first(attrs.userprincipalname) || fallback).split('@')[0];
   return {
     dn: entry.dn,
     username: String(account),
@@ -147,4 +152,68 @@ export async function authenticateDirectory(cfg, login, password) {
     email: first(attrs.mail) ? String(first(attrs.mail)) : null,
     memberOf: asList(attrs.memberof),
   };
+}
+
+const PEOPLE = new OrFilter({
+  filters: ['user', 'person', 'inetOrgPerson'].map((value) => new EqualityFilter({ attribute: 'objectClass', value })),
+});
+
+/**
+ * People whose login, name or e-mail contains `text` (service account bind),
+ * for linking portal users to directory accounts. Filters are built from
+ * escaped objects, never from strings.
+ */
+export async function searchDirectory(cfg, text, limit = 15) {
+  const value = String(text || '').trim().slice(0, 64);
+  if (value.length < 2) return [];
+  const client = connect(cfg);
+  try {
+    await serviceBind(client, cfg);
+    const { searchEntries } = await client.search(cfg.baseDn, {
+      scope: 'sub',
+      filter: new AndFilter({
+        filters: [
+          PEOPLE,
+          new OrFilter({
+            filters: ['sAMAccountName', 'userPrincipalName', 'uid', 'displayName', 'cn', 'mail'].map(
+              (attribute) => new SubstringFilter({ attribute, any: [value] })
+            ),
+          }),
+        ],
+      }),
+      // All attributes: some servers match requested names case-sensitively.
+      attributes: ATTRIBUTES,
+      sizeLimit: Math.min(50, Math.max(1, limit)),
+    });
+    return searchEntries.map((entry) => profileOf(entry));
+  } catch (err) {
+    // More results than the size limit still returns the first page on most servers.
+    if (err?.name === 'SizeLimitExceededError') return [];
+    throw err;
+  } finally {
+    await client.unbind().catch(() => {});
+  }
+}
+
+/** One directory entry by its DN, or null when it no longer exists. */
+export async function directoryEntry(cfg, dn) {
+  if (!dn) return null;
+  const client = connect(cfg);
+  try {
+    await serviceBind(client, cfg);
+    const { searchEntries } = await client.search(String(dn), {
+      scope: 'base',
+      filter: new PresenceFilter({ attribute: 'objectClass' }),
+      attributes: ATTRIBUTES,
+    });
+    // Only the entry with exactly this DN: never trust a server that ignores the scope.
+    const norm = (value) => String(value).toLowerCase().replace(/\s*,\s*/g, ',');
+    const entry = searchEntries.find((item) => norm(item.dn) === norm(dn));
+    return entry ? profileOf(entry) : null;
+  } catch (err) {
+    if (err?.name === 'NoSuchObjectError' || err?.code === 32) return null;
+    throw err;
+  } finally {
+    await client.unbind().catch(() => {});
+  }
 }

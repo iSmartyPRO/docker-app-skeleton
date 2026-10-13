@@ -1,7 +1,7 @@
 import { query } from '../../config/database.js';
 import { registerJob } from '../../services/scheduler.js';
-import { onDirectorySignIn } from '../../services/hooks.js';
-import { cleanupCredentials, rememberLoginCredential } from './credentials.js';
+import { onDirectoryCredential, onDirectorySignIn } from '../../services/hooks.js';
+import { cleanupCredentials, rememberLoginCredential, storeDirectoryCredential } from './credentials.js';
 import { pruneActivity } from './activity.js';
 
 /*
@@ -138,6 +138,7 @@ export async function ensureDriveSchema() {
   await query(`CREATE INDEX IF NOT EXISTS drive_activity_action_idx ON drive_activity (action, at DESC)`);
 
   onDirectorySignIn(rememberLoginCredential);
+  onDirectoryCredential(storeDirectoryCredential);
   registerJob({ name: 'drive:activity', everyMs: 24 * 60 * 60 * 1000, run: pruneActivity });
   registerJob({ name: 'drive:credentials', everyMs: 60 * 60 * 1000, run: cleanupCredentials });
 }

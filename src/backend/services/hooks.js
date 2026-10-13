@@ -37,6 +37,21 @@ async function emit(event, payload) {
 export const onDirectorySignIn = (fn) => on('directory-sign-in', fn);
 export const emitDirectorySignIn = (payload) => emit('directory-sign-in', payload);
 
+/*
+ * A directory password an administrator set for a person (or `forget: true`
+ * to remove it). Unlike sign-in hooks, errors reach the caller: the
+ * administrator must know whether it was stored.
+ */
+const directoryCredential = new Set();
+export function onDirectoryCredential(fn) {
+  directoryCredential.add(fn);
+  return () => directoryCredential.delete(fn);
+}
+export async function emitDirectoryCredential(payload) {
+  for (const fn of directoryCredential) await fn(payload);
+  return directoryCredential.size > 0;
+}
+
 const beforeUserDelete = new Set();
 
 export function onBeforeUserDelete(fn) {

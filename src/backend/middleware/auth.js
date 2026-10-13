@@ -1,7 +1,7 @@
 import config from '../config/app.js';
 import { verifyToken } from '../services/auth.js';
 import { hasAnyPermission } from '../services/permissions.js';
-import { getSessionUser, toPublicUser } from '../services/users.js';
+import { findUserById, getSessionUser, toPublicUser } from '../services/users.js';
 import { localeFor } from '../services/settings.js';
 import { isSessionRevoked } from '../services/security.js';
 
@@ -37,8 +37,16 @@ async function loadSessionUser(req) {
   // Language for server-made texts: the person's choice, else the portal default.
   req.locale = await localeFor(row);
   req.actor = { id: row.id, permissions: new Set(access.permissions) };
+  // A superadministrator acting as this person ("sign in as"): who, for the banner and audit.
+  if (payload.imp) {
+    const admin = await findUserById(Number(payload.imp));
+    req.impersonator = admin ? { id: admin.id, username: admin.username, displayName: admin.display_name || admin.username } : { id: Number(payload.imp) };
+    req.user = { ...req.user, impersonator: req.impersonator };
+  }
   return row;
 }
+
+const IMPERSONATION_LOCKED = /^\/api(\/v1)?\/(account\/(password|sessions|telegram|google|api)|auth\/(telegram|google)|admin\/users\/\d+\/impersonate)(\/|$)/;
 
 export async function requireAuth(req, res, next) {
   try {
@@ -52,6 +60,11 @@ export async function requireAuth(req, res, next) {
     }
     if (user.is_blocked === true) {
       return res.status(403).json({ success: false, error: 'Account is blocked' });
+    }
+    // Acting as someone else ("sign in as"): look and work, but never change how
+    // the person signs in — password, sessions, linked accounts, API tokens.
+    if (req.auth?.imp && req.method !== 'GET' && IMPERSONATION_LOCKED.test(req.originalUrl.split('?')[0])) {
+      return res.status(403).json({ success: false, code: 'IMPERSONATION_LIMIT', error: 'Not available while signed in as another user' });
     }
     return next();
   } catch (err) {

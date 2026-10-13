@@ -183,3 +183,23 @@ Enable *Sign-in links* once at least one code channel works. `FRONTEND_URL` must
 4. Use `useAuth().can('reports.manage')` to hide UI the user cannot use, and set `permission` on the navigation entry.
 
 Existing installations keep their built-in roles' permissions; grant the new permission through **Roles** or a one-off SQL update.
+
+## Links to integrations (Users → a person)
+
+- **Active Directory.** A manually created person can be linked to a directory account: *Link* searches the directory (login, name or e-mail; service bind, escaped filters) and stores the DN (`users.external_id`, `auth_source = 'ldap'`). The person then signs in with the domain login and password; at each directory sign-in their name, e-mail and mapped groups follow the directory. A DN can belong to one portal account only (`DIRECTORY_TAKEN`). *Unlink* returns the account to local sign-in (codes, Telegram, portal password).
+- **Domain password** (superadministrators only). *Check* binds with the login and password; *Save* checks again, links the account if it was not linked (refusing a login of another account — `DIRECTORY_MISMATCH`), and stores the password sealed for file servers (`drive_credentials`, `server_id NULL`, `source = 'admin'`). It is used for servers with "use the portal sign-in", even when "remember the sign-in password" is off — so a person signing in with a WhatsApp/e-mail code still reaches the shares. 10 checks a minute per administrator. Events: `directory_linked/unlinked`, `directory_password(_removed)`.
+- **Telegram** can be linked by the numeric Telegram id or unlinked; **Google** can be disconnected; WhatsApp phone and Mattermost name are edited in Contacts.
+
+| Method | Path | Permission |
+|--------|------|-----------|
+| GET | `/api/admin/users/:id/links` | `users.view` |
+| GET | `/api/admin/directory/search?q=&forUser=` | `users.manage` |
+| PUT / DELETE | `/api/admin/users/:id/directory` `{ dn }` | `users.manage` |
+| POST | `/api/admin/users/:id/directory/test` `{ login, password }` | superadministrator |
+| PUT / DELETE | `/api/admin/users/:id/directory/password` `{ login, password }` | superadministrator |
+| PUT / DELETE | `/api/admin/users/:id/telegram` `{ telegramId, username }` | `users.manage` |
+| DELETE | `/api/admin/users/:id/google` | `users.manage` |
+
+## Sign in as a user
+
+A superadministrator can open the portal as another person (*Users → the person → Sign in as*). The administrator's own session is kept in the `da_impersonator` cookie; the borrowed session (`imp` claim, at most a day) shows a banner with *Back to my account* (`POST /api/auth/impersonate/stop`, which revokes the borrowed session and restores the original only if it is still valid and belongs to that administrator). While acting as someone, changing their password, sessions, Telegram/Google links and API tokens is refused (`IMPERSONATION_LIMIT`), as is starting another impersonation. Start and end are security events (`impersonation_start/end`).

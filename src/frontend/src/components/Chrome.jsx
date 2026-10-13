@@ -15,6 +15,7 @@ import NotificationBell from './NotificationBell';
 import ChatButton from '../modules/chat/components/ChatButton';
 import { isStandalone } from '../pwa/pwa';
 import { useHelp } from '../help/HelpContext';
+import api from '../services/api';
 
 /** Grid button listing every enabled module (the "app launcher"). */
 function AppsLauncher() {
@@ -114,6 +115,32 @@ function UserMenu({ user }) {
   );
 }
 
+/**
+ * Shown while a superadministrator acts as someone else ("sign in as"):
+ * whose portal this is and a way back to their own account.
+ */
+function ImpersonationBar({ user }) {
+  const { t } = useLocale();
+  const back = async () => {
+    try {
+      await api.post('/auth/impersonate/stop');
+    } finally {
+      window.location.assign(`/admin/users/${user.id}`);
+    }
+  };
+  return (
+    <div className="imp-bar" role="status">
+      <span className="imp-bar__eye" aria-hidden="true">👁</span>
+      <span className="imp-bar__text">
+        {t('userLinks.barText', { name: user.displayName || user.username, admin: user.impersonator.displayName || user.impersonator.username || '' })}
+      </span>
+      <button type="button" onClick={back}>
+        {t('userLinks.barBack')}
+      </button>
+    </div>
+  );
+}
+
 export default function Chrome({ dense }) {
   const { user } = useAuth();
   const { t } = useLocale();
@@ -126,6 +153,8 @@ export default function Chrome({ dense }) {
   const showBack = isStandalone() && location.pathname !== '/' && window.history.length > 1;
 
   return (
+    <>
+    {user?.impersonator && <ImpersonationBar user={user} />}
     <header className={`chrome ${dense ? 'chrome--dense' : ''}`}>
       {showBack && (
         <button type="button" className="chrome__back" onClick={() => navigate(-1)} aria-label={t('common.back')}>
@@ -173,5 +202,6 @@ export default function Chrome({ dense }) {
         )}
       </div>
     </header>
+    </>
   );
 }

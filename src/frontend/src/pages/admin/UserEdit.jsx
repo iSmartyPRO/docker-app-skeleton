@@ -5,7 +5,7 @@ import PageHeader from '../../components/ui/PageHeader';
 import SaveBar from '../../components/ui/SaveBar';
 import LoadState from '../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
-import { IconTelegram } from '../../components/icons/AdminIcons';
+import UserLinks from './UserLinks';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
@@ -17,7 +17,6 @@ import {
   deleteAdminUser,
   getAdminUser,
   revokeAdminUserSessions,
-  unlinkAdminUserTelegram,
   updateAdminUser,
   uploadAdminUserAvatar,
 } from '../../services/api';
@@ -159,28 +158,6 @@ function UserForm({ user, onUpdated, roles, groups }) {
               <Input prefix="@" placeholder="username" />
             </Form.Item>
           </SettingRow>
-          <SettingRow label="Telegram" description={t('users.telegramDesc')}>
-            {user.telegram ? (
-              <span className="linked-account">
-                <IconTelegram />
-                <span>{user.telegram.username ? `@${user.telegram.username}` : `ID ${user.telegram.id}`}</span>
-                {canManage && (
-                  <Popconfirm
-                    title={t('users.unlinkTelegram')}
-                    onConfirm={() =>
-                      run(() => unlinkAdminUserTelegram(user.id), t('common.saved')).then((res) => {
-                        if (res) onUpdated(res.data.user);
-                      })
-                    }
-                  >
-                    <Button size="small" type="text" danger>{t('users.unlink')}</Button>
-                  </Popconfirm>
-                )}
-              </span>
-            ) : (
-              <span className="muted">{t('users.telegramNotLinked')}</span>
-            )}
-          </SettingRow>
         </SettingsSection>
 
         <SettingsSection title={t('users.access')} description={t('users.accessDesc')}>
@@ -251,6 +228,8 @@ function UserForm({ user, onUpdated, roles, groups }) {
         </SettingsSection>
         )}
       </Form>
+
+      <UserLinks user={user} canManage={canManage} isSelf={isSelf} />
 
       {canManage && (
         <SettingsSection title={<HintLabel id="admin.sessions">{t('users.sessions')}</HintLabel>} description={t('users.sessionsDesc')}>

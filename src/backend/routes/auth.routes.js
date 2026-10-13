@@ -16,9 +16,9 @@ import {
   verifyIdToken,
 } from '../services/google.js';
 import { clientIp } from '../middleware/ipGuard.js';
-import { cookieOptions, startSession, verifyToken } from '../services/auth.js';
+import { IMPERSONATOR_COOKIE, cookieOptions, startSession, verifyToken } from '../services/auth.js';
 import { getSettings, parseSettings } from '../services/settings.js';
-import { isLockedOut, lockoutKey, recordLoginAttempt, recordSecurityEvent, revokeSession } from '../services/security.js';
+import { isLockedOut, isSessionRevoked, lockoutKey, recordLoginAttempt, recordSecurityEvent, revokeSession } from '../services/security.js';
 import {
   requestSignInCode,
   signInWithCode,
@@ -27,7 +27,7 @@ import {
   signInWithGoogle,
   signInWithTelegram,
 } from '../services/signin.js';
-import { toPublicUser } from '../services/users.js';
+import { getSessionUser, toPublicUser } from '../services/users.js';
 import { getUserAccess } from '../services/rbac.js';
 
 const router = Router();
@@ -307,7 +307,47 @@ router.post('/logout', async (req, res) => {
   }
   const { maxAge, ...options } = cookieOptions(req);
   res.clearCookie(config.auth.cookieName, options);
+  res.clearCookie(IMPERSONATOR_COOKIE, options);
   res.json({ success: true });
+});
+
+/**
+ * Back from "sign in as": the session acting as the person ends (revoked) and
+ * the administrator's own session, kept aside in IMPERSONATOR_COOKIE, returns —
+ * only if it is still valid and belongs to the administrator who started it.
+ */
+router.post('/impersonate/stop', requireAuth, async (req, res, next) => {
+  try {
+    const { maxAge, ...options } = cookieOptions(req);
+    if (!req.auth?.imp) {
+      res.status(400).json({ success: false, code: 'NOT_IMPERSONATING', error: 'Not acting as another user' });
+      return;
+    }
+    const current = req.cookies?.[config.auth.cookieName];
+    await revokeSession(current, req.auth.exp).catch(() => {});
+    res.clearCookie(config.auth.cookieName, options);
+    const original = req.cookies?.[IMPERSONATOR_COOKIE];
+    res.clearCookie(IMPERSONATOR_COOKIE, options);
+    let admin = null;
+    try {
+      const payload = original ? verifyToken(original) : null;
+      if (payload && Number(payload.sub) === Number(req.auth.imp) && !(await isSessionRevoked(original))) {
+        const session = await getSessionUser(Number(payload.sub));
+        if (session && Number(payload.tv || 0) === Number(session.row.token_version || 0)) admin = session;
+      }
+    } catch {
+      admin = null;
+    }
+    await recordSecurityEvent({ kind: 'impersonation_end', severity: 'info', username: req.impersonator?.username || String(req.auth.imp), ip: req.ip, detail: `as @${req.user.username}` }).catch(() => {});
+    if (!admin) {
+      res.status(401).json({ success: false, code: 'SESSION_REQUIRED', error: 'Sign in again' });
+      return;
+    }
+    res.cookie(config.auth.cookieName, original, { ...options, maxAge: Math.max(60_000, Number(verifyToken(original).exp) * 1000 - Date.now()) });
+    res.json({ success: true, user: toPublicUser(admin.row, admin.access) });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get('/me', requireAuth, (req, res) => {

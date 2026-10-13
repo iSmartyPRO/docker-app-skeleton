@@ -14,6 +14,7 @@ import {
   assertCanManage,
   createUser,
   deleteUser,
+  findUserById,
   getAdminUser,
   listUsers,
   revokeSessions,
@@ -32,6 +33,7 @@ import {
   listIpRules,
   listSecurityEvents,
   removeIpRule,
+  recordSecurityEvent,
 } from '../services/security.js';
 import {
   PERMISSION_CATALOG,
@@ -51,6 +53,10 @@ import {
 
 import { disconnectGmailSender, publicBase, redirectUri } from '../services/google.js';
 import { listIncidents } from '../services/incidents.js';
+import rateLimit from 'express-rate-limit';
+import config from '../config/app.js';
+import { IMPERSONATOR_COOKIE, cookieOptions, signToken } from '../services/auth.js';
+import { disconnectGoogle, findDirectoryPeople, forgetDirectoryPassword, linkDirectory, linkTelegramId, setDirectoryPassword, testDirectoryLogin, unlinkDirectory, userLinks } from '../services/userLinks.js';
 import { readFile as readIconFile, unlink as removeIconFile, unlink as removeUploadedFile } from 'fs/promises';
 
 /**
@@ -280,6 +286,111 @@ router.post('/users/:id/revoke-sessions', manageUsers, wrap(async (req, res) => 
   await assertCanManage(req.actor, id);
   await revokeSessions(id);
   res.json({ success: true, user: await getAdminUser(id) });
+}));
+
+// ── Links to integrations (Active Directory, domain password, Telegram, Google) ──
+
+const isSuperadmin = (req) => req.actor.permissions.has('*');
+const superadminOnly = (req, res, next) =>
+  isSuperadmin(req) ? next() : res.status(403).json({ success: false, code: 'SUPERADMIN_ONLY', error: 'Only a superadministrator can do this' });
+// Checking domain passwords from the console: a few attempts a minute, never a brute-force channel.
+const directoryLoginLimiter = rateLimit({ windowMs: 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false, keyGenerator: (req) => `dir:${req.actor?.id || req.ip}` });
+const linkEvent = (req, kind, target, detail) =>
+  recordSecurityEvent({ kind, severity: 'info', username: req.user?.username, ip: req.ip, detail: `@${target?.username || '?'}${detail ? ` · ${detail}` : ''}` }).catch(() => {});
+
+router.get('/users/:id/links', viewUsers, wrap(async (req, res) => {
+  res.json({ success: true, links: await userLinks(Number(req.params.id)), canSetPassword: isSuperadmin(req), canImpersonate: isSuperadmin(req) });
+}));
+
+router.get('/directory/search', manageUsers, wrap(async (req, res) => {
+  res.json({ success: true, people: await findDirectoryPeople(req.query.q, Number(req.query.forUser) || 0) });
+}));
+
+router.put('/users/:id/directory', manageUsers, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await assertCanManage(req.actor, id);
+  const entry = await linkDirectory(id, String(req.body?.dn || ''));
+  const user = await getAdminUser(id);
+  linkEvent(req, 'directory_linked', user, entry.username);
+  res.json({ success: true, user, links: await userLinks(id) });
+}));
+
+router.delete('/users/:id/directory', manageUsers, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await assertCanManage(req.actor, id);
+  await unlinkDirectory(id);
+  const user = await getAdminUser(id);
+  linkEvent(req, 'directory_unlinked', user);
+  res.json({ success: true, user, links: await userLinks(id) });
+}));
+
+router.post('/users/:id/directory/test', manageUsers, superadminOnly, directoryLoginLimiter, wrap(async (req, res) => {
+  await assertCanManage(req.actor, Number(req.params.id));
+  res.json({ success: true, profile: await testDirectoryLogin(req.body?.login, req.body?.password) });
+}));
+
+router.put('/users/:id/directory/password', manageUsers, superadminOnly, directoryLoginLimiter, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await assertCanManage(req.actor, id);
+  const { profile, stored } = await setDirectoryPassword(id, req.body?.login, req.body?.password);
+  const user = await getAdminUser(id);
+  linkEvent(req, 'directory_password', user, profile.username);
+  res.json({ success: true, stored, user, links: await userLinks(id) });
+}));
+
+router.delete('/users/:id/directory/password', manageUsers, superadminOnly, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await assertCanManage(req.actor, id);
+  await forgetDirectoryPassword(id);
+  const user = await getAdminUser(id);
+  linkEvent(req, 'directory_password_removed', user);
+  res.json({ success: true, links: await userLinks(id) });
+}));
+
+router.put('/users/:id/telegram', manageUsers, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await assertCanManage(req.actor, id);
+  await linkTelegramId(id, req.body?.telegramId, req.body?.username);
+  res.json({ success: true, user: await getAdminUser(id), links: await userLinks(id) });
+}));
+
+router.delete('/users/:id/google', manageUsers, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  await assertCanManage(req.actor, id);
+  await disconnectGoogle(id);
+  res.json({ success: true, user: await getAdminUser(id), links: await userLinks(id) });
+}));
+
+/**
+ * "Sign in as": a superadministrator sees the portal exactly as the person
+ * does. Their own session is kept aside (IMPERSONATOR_COOKIE) and returns with
+ * /auth/impersonate/stop; the borrowed session lasts at most a day and cannot
+ * change the person's password, sessions, links or API tokens.
+ */
+router.post('/users/:id/impersonate', manageUsers, superadminOnly, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  if (req.auth?.imp) {
+    res.status(409).json({ success: false, code: 'ALREADY_IMPERSONATING', error: 'Return to your own account first' });
+    return;
+  }
+  if (id === req.actor.id) {
+    res.status(400).json({ success: false, code: 'SELF', error: 'This is your own account' });
+    return;
+  }
+  const target = await findUserById(id);
+  if (!target) {
+    res.status(404).json({ success: false, code: 'NOT_FOUND', error: 'User not found' });
+    return;
+  }
+  if (target.is_active === false || target.is_blocked === true) {
+    res.status(400).json({ success: false, code: 'USER_INACTIVE', error: 'The account is disabled or blocked' });
+    return;
+  }
+  const options = cookieOptions(req, { sessionDays: 1 });
+  res.cookie(IMPERSONATOR_COOKIE, req.cookies?.[config.auth.cookieName], options);
+  res.cookie(config.auth.cookieName, signToken(target, { sessionDays: 1, claims: { imp: req.actor.id } }), options);
+  await recordSecurityEvent({ kind: 'impersonation_start', severity: 'warning', username: req.user.username, ip: req.ip, detail: `as @${target.username}` }).catch(() => {});
+  res.json({ success: true });
 }));
 
 router.delete('/users/:id/telegram', manageUsers, wrap(async (req, res) => {

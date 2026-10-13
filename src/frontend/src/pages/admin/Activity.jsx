@@ -19,9 +19,21 @@ export const EVENT_KINDS = [
   'rate_limited',
   'code_unknown',
   'code_delivery_failed',
+  'impersonation_start',
+  'impersonation_end',
+  'directory_linked',
+  'directory_unlinked',
+  'directory_password',
+  'directory_password_removed',
 ];
 
 export const EVENT_TAG = {
+  impersonation_start: 'purple',
+  impersonation_end: 'purple',
+  directory_linked: 'blue',
+  directory_unlinked: 'blue',
+  directory_password: 'blue',
+  directory_password_removed: 'blue',
   login_failed: 'warning',
   lockout: 'error',
   account_disabled: 'error',

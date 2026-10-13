@@ -48,6 +48,27 @@ export async function rememberLoginCredential({ user, profile, password }) {
   );
 }
 
+/**
+ * A directory password set by an administrator for a person (Users → the
+ * person → Domain account), e.g. for someone who signs in with a WhatsApp code
+ * but needs their domain account on file servers. Stored like the login
+ * credential, marked 'admin' so it is used even when "remember the sign-in
+ * password" is off.
+ */
+export async function storeDirectoryCredential({ userId, username, password, forget }) {
+  if (forget) {
+    await query(`DELETE FROM drive_credentials WHERE user_id = $1 AND server_id IS NULL`, [userId]);
+    return;
+  }
+  await query(
+    `INSERT INTO drive_credentials (user_id, server_id, username, domain, secret, source, status, verified_at, updated_at)
+     VALUES ($1, NULL, $2, NULL, $3, 'admin', 'ok', NOW(), NOW())
+     ON CONFLICT (user_id, COALESCE(server_id, 0))
+     DO UPDATE SET username = EXCLUDED.username, secret = EXCLUDED.secret, source = 'admin', status = 'ok', verified_at = NOW(), updated_at = NOW()`,
+    [userId, String(username).slice(0, 255), seal(password)]
+  );
+}
+
 /** Hourly: drop secrets of people who can no longer sign in, and login secrets when the feature is off. */
 export async function cleanupCredentials() {
   await query(
@@ -86,7 +107,9 @@ export async function credentialFor(userId, server, { settings } = {}) {
   const { manual, login } = await rowsFor(userId, server.id);
   const domainDefault = server.domain || (await directoryDomain());
 
-  for (const row of [manual, server.auth === 'user' && server.use_login && config.rememberLogin ? login : null]) {
+  // The domain password: remembered at sign-in (when allowed) or set by an administrator.
+  const domainLogin = login && server.auth === 'user' && server.use_login && (config.rememberLogin || login.source === 'admin') ? login : null;
+  for (const row of [manual, domainLogin]) {
     if (!row) continue;
     if (row.status !== 'ok') {
       // A parked manual credential blocks the login fallback too: the person decides.
