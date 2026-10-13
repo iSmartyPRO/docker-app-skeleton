@@ -18,6 +18,7 @@ export const SECTIONS = [
   { key: 'chat', area: 'chat', prefix: ['/app/chat'], title: L('Чат', 'Chat'), intro: L('Личные, групповые чаты и чаты записей (например, задачи). Для событий в реальном времени — поток SSE или вебхук `chat.message`.', 'Direct, group and record conversations (e.g. a task). For real time use the SSE stream or the `chat.message` webhook.') },
   { key: 'calendar', area: 'calendar', prefix: ['/app/calendar'], title: L('Календарь', 'Calendar'), intro: L('Календари и события с повторениями, участниками и напоминаниями. Даты — ISO 8601.', 'Calendars and events with recurrence, attendees and reminders. Dates are ISO 8601.') },
   { key: 'companies', area: 'companies', prefix: ['/app/companies'], title: L('Контрагенты', 'Counterparties'), intro: L('Компании и контакты, проверка по реестрам, заметки и оценки.', 'Companies and people, registry checks, notes and ratings.') },
+  { key: 'crm', area: 'crm', prefix: ['/app/crm'], title: L('CRM', 'CRM'), intro: L('Сделки по стадиям воронок, дела, история, фильтры. Клиенты — компании и люди модуля «Контрагенты». Суммы — числа с двумя знаками, валюты — ISO 4217. Видимость сделок та же, что в интерфейсе; токен можно ограничить воронками (`crm.pipelines`).', 'Deals moving through pipeline stages, activities, history, filters. Clients are companies and people of the Counterparties module. Amounts are numbers with two decimals, currencies ISO 4217. Deals are visible as in the UI; a token can be narrowed to pipelines (`crm.pipelines`).') },
   { key: 'files', area: 'files', prefix: ['/app/files'], title: L('Файлы', 'Files'), intro: L('Личные файлы и общие пространства: папки, загрузка, скачивание, доступ и ссылки.', 'Personal files and shared spaces: folders, upload, download, sharing and links.') },
   { key: 'kb', area: 'kb', prefix: ['/app/kb'], title: L('База знаний', 'Knowledge base'), intro: L('Папки и материалы базы знаний.', 'Knowledge base folders and items.') },
   { key: 'drive', area: 'drive', prefix: ['/app/drive'], title: L('Файловый сервер', 'File server'), intro: L('Сетевые папки (SMB): список, чтение, загрузка. Пути передаются параметром `path`.', 'Network shares (SMB): listing, reading, uploading. Paths go in the `path` parameter.') },
@@ -184,6 +185,66 @@ export const DOCS = {
   'PUT /app/calendar/events/:id': { summary: L('Изменить событие', 'Update an event'), body: [b('scope', '"all" | "single"', L('Всю серию или одно вхождение', 'The whole series or one occurrence')), b('occurrence', 'ISO date-time', L('Какое вхождение', 'Which occurrence'))] },
   'DELETE /app/calendar/events/:id': { summary: L('Удалить событие', 'Delete an event'), query: [q('scope', '"all" | "single"', L('Всю серию или одно вхождение', 'The whole series or one occurrence')), q('occurrence', 'ISO date-time', L('Вхождение', 'Occurrence'))] },
   'PUT /app/calendar/events/:id/rsvp': { summary: L('Ответить на приглашение', 'Answer an invitation'), body: [b('status', '"accepted" | "declined" | "tentative" | "needs"', L('Ответ', 'Answer'), { required: true })] },
+
+  // ── CRM ──
+  'GET /app/crm/meta': {
+    summary: L('Настройки, воронки и мои права', 'Settings, pipelines and my rights'),
+    response: { success: true, settings: { currency: 'KGS', currencies: ['KGS', 'USD'], visibility: 'all', sources: ['Сайт'], lostReasons: ['Дорого'], sections: [{ key: 'about', title: 'О сделке' }], fields: [{ key: 'region', label: 'Region', type: 'select', options: ['Бишкек', 'Ош'], section: 'about', listColumn: true, required: false }] }, pipelines: [{ id: 1, name: 'Продажи', color: '#2563EB', sort: 0, isDefault: true, stages: [{ id: 1, pipelineId: 1, name: 'Новая', color: '#94A3B8', sort: 0, kind: 'open' }], counts: { open: 12 } }], me: { id: 7, canAdmin: false, canAll: false }, companiesEnabled: true, chatEnabled: true },
+  },
+  'GET /app/crm/board': {
+    summary: L('Канбан воронки', 'Pipeline kanban'),
+    description: L('Все стадии с количеством и суммами по валютам (по фильтру); сделки — для стадий группы `group` (по умолчанию открытые), по `limit` на стадию. Дальше — `GET /board/stage/:stageId?offset=`.', 'Every stage with its count and sums per currency (over the filter); deals for the stages of `group` (open by default), `limit` per stage. Further pages: `GET /board/stage/:stageId?offset=`.'),
+    query: [q('pipeline', 'integer', L('Воронка (по умолчанию — основная)', 'Pipeline (default one if omitted)')), q('group', '"open" | "won" | "lost" | "all"', L('Группа стадий', 'Stage group')), q('limit', 'integer', L('Сделок на стадию, до 100 (30)', 'Deals per stage, up to 100 (30)')), q('q, owners, client, amountMin, amountMax, createdFrom, createdTo, closeFrom, closeTo, createdBy, activity, source, stages, cf_<key>', 'string', L('Фильтр — см. «Сделки»', 'Filter — see "Deals"')), q('tz', 'IANA zone', L('Часовой пояс для «сегодня»', 'Time zone for "today"'))],
+  },
+  'GET /app/crm/deals': {
+    summary: L('Сделки (список)', 'Deals (list)'),
+    query: [
+      q('q', 'string', L('Название, клиент, комментарий', 'Title, client, comment')),
+      q('pipeline', 'integer', L('Воронка', 'Pipeline')),
+      q('stages', 'ids', L('Стадии через запятую', 'Comma-separated stages')),
+      q('group', '"open" | "won" | "lost" | "all"', L('Группа стадий (open)', 'Stage group (open)')),
+      q('owners / createdBy', 'ids | "me"', L('Ответственные / авторы', 'Owners / authors')),
+      q('client', '"c:<id>" | "p:<id>"', L('Компания или контакт', 'Company or person')),
+      q('amountMin / amountMax', 'number', L('Сумма', 'Amount')),
+      q('createdFrom / createdTo / closeFrom / closeTo', 'YYYY-MM-DD', L('Даты (включительно)', 'Dates (inclusive)')),
+      q('activity', '"overdue" | "today" | "planned" | "none"', L('Состояние дел', 'Activity state')),
+      q('source', 'string', L('Источник; несколько через |', 'Source; several with |')),
+      q('cf_<key>', 'string', L('Своё поле: равно (select: a|b), содержит (multiselect, text), диапазон дат a..b', 'Custom field: equals (select: a|b), contains (multiselect, text), date range a..b')),
+      q('sort', '"updated" | "created" | "amount" | "title" | "close" | "stage"', L('Сортировка', 'Sort')),
+      q('order', '"asc" | "desc"', L('Направление', 'Direction')),
+      q('page / pageSize', 'integer', L('Страница, размер до 100 (20)', 'Page, size up to 100 (20)')),
+      q('count', '"1"', L('Вернуть total', 'Return total')),
+    ],
+    response: { success: true, items: [{ id: 42, pipelineId: 1, stageId: 3, title: 'Поставка оборудования', amount: 150000, currency: 'KGS', company: { id: 5, name: 'ОсОО «Ала-Тоо»' }, person: null, owner: { id: 7, username: 'aida', name: 'Aida Bekova', avatarUrl: null }, version: 4, activity: { next: { id: 9, kind: 'call', title: 'Перезвонить', dueAt: '2026-10-14T05:00:00.000Z', overdue: false }, open: 1, overdue: 0 }, canEdit: true, canDelete: true }], page: 1, pageSize: 20, total: 57 },
+  },
+  'POST /app/crm/deals': {
+    summary: L('Создать сделку', 'Create a deal'),
+    body: [b('title', 'string', L('Название', 'Title'), { required: true }), b('pipelineId / stageId', 'integer', L('Воронка и стадия (по умолчанию — основная, первая открытая)', 'Pipeline and stage (default pipeline, first open stage)')), b('amount', 'number', L('Сумма ≥ 0', 'Amount ≥ 0')), b('currency', 'string', L('Валюта из настроек', 'A currency from the settings')), b('companyId / personId', 'integer', L('Клиент', 'Client')), b('ownerId', 'integer', L('Ответственный (по умолчанию — вы)', 'Owner (you by default)')), b('source / comment', 'string', L('Источник, комментарий', 'Source, comment')), b('closeDate', 'YYYY-MM-DD', L('Дата закрытия', 'Close date')), b('custom', 'object', L('Значения своих полей', 'Custom field values')), b('watcherIds', 'integer[]', L('Наблюдатели', 'Watchers'))],
+    example: { title: 'Поставка оборудования', pipelineId: 1, amount: 150000, currency: 'KGS', companyId: 5, ownerId: 7, closeDate: '2026-11-30' },
+  },
+  'GET /app/crm/deals/:id': { summary: L('Сделка: поля, воронка, дела, история', 'Deal: fields, pipeline, activities, history') },
+  'PUT /app/crm/deals/:id': {
+    summary: L('Изменить сделку', 'Update a deal'),
+    description: L('Любые поля сделки; `custom` сливается по ключам (null удаляет). Передайте `version` — при устаревшей версии ответ 409 `VERSION_CONFLICT` со свежей сделкой в `deal`.', 'Any deal field; `custom` is merged key by key (null removes). Send `version`: a stale one answers 409 `VERSION_CONFLICT` with the fresh deal in `deal`.'),
+  },
+  'POST /app/crm/deals/:id/move': {
+    summary: L('Перенести на стадию / в колонке', 'Move to a stage / within a column'),
+    body: [b('stageId', 'integer', L('Стадия этой воронки', 'A stage of the same pipeline'), { required: true }), b('beforeId', 'integer', L('Карточка, которая окажется выше', 'The card that ends up above')), b('afterId', 'integer', L('Карточка, которая окажется ниже', 'The card that ends up below')), b('lostReason', 'string', L('Причина (обязательна для стадии «провал», если в настройках есть причины)', 'Reason (required for the lost stage when the settings list reasons)')), b('version', 'integer', L('Версия для проверки', 'Version to check'))],
+  },
+  'POST /app/crm/deals/bulk': {
+    summary: L('Массовые действия', 'Bulk actions'),
+    body: [b('ids', 'integer[]', L('Сделки (до 1000)', 'Deals (up to 1000)')), b('all / filter', 'true / object', L('Все по фильтру', 'All matching a filter')), b('action', '"stage" | "owner" | "pipeline" | "watchers" | "delete"', L('Действие', 'Action'), { required: true }), b('value', 'any', L('stageId | {stageId, lostReason} · userId · {pipelineId, stageId} · {add, remove}', 'stageId | {stageId, lostReason} · userId · {pipelineId, stageId} · {add, remove}'))],
+    response: { success: true, affected: 12 },
+  },
+  'POST /app/crm/deals/:id/activities': { summary: L('Добавить дело', 'Add an activity'), body: [b('kind', '"call" | "meeting" | "task" | "email" | "other"', L('Тип', 'Kind')), b('title / note', 'string', L('Название, заметка', 'Title, note')), b('dueAt', 'ISO date-time', L('Срок', 'Due')), b('ownerId', 'integer', L('Ответственный', 'Responsible')), b('remindMinutes', 'integer', L('Напомнить за N минут', 'Remind N minutes before'))] },
+  'PUT /app/crm/activities/:id': { summary: L('Изменить дело / отметить выполненным', 'Update / complete an activity'), body: [b('done', 'boolean', L('Выполнено', 'Done')), b('dueAt', 'ISO date-time', L('Новый срок', 'New due time'))] },
+  'GET /app/crm/counters': { summary: L('Счётчики по делам', 'Activity counters'), response: { success: true, overdue: 3, today: 5, planned: 20, none: 7, incoming: 1 } },
+  'GET /app/crm/activity-board': { summary: L('Сделки по ближайшему делу', 'Deals by their nearest activity'), query: [q('column', '"overdue" | "today" | "week" | "nextWeek" | "later" | "none"', L('Одна колонка (с offset)', 'One column (with offset)')), q('tz', 'IANA zone', L('Часовой пояс', 'Time zone'))] },
+  'GET /app/crm/calendar': { summary: L('Сделки по дате', 'Deals by date'), query: [q('from / to', 'YYYY-MM-DD', L('Период', 'Period'), { required: true }), q('field', '"closeDate" | "cf_<key>"', L('Поле даты', 'Date field'))] },
+  'GET /app/crm/export.csv': { summary: L('Выгрузка CSV', 'CSV export'), description: L('UTF-8 с BOM, разделитель `;`, до 20 000 строк. `columns` — ключи через запятую (id, title, pipeline, stage, amount, currency, company, person, phone, email, owner, source, closeDate, createdAt, updatedAt, closedAt, createdBy, comment, lostReason, watchers, nextActivity, cf_<key>).', 'UTF-8 with BOM, `;` separator, up to 20 000 rows. `columns`: comma-separated keys (id, title, pipeline, stage, amount, currency, company, person, phone, email, owner, source, closeDate, createdAt, updatedAt, closedAt, createdBy, comment, lostReason, watchers, nextActivity, cf_<key>).') },
+  'GET /app/crm/clients': { summary: L('Поиск клиентов', 'Client search'), response: { success: true, companies: [{ id: 5, name: 'ОсОО «Ала-Тоо»', inn: '01234567891011' }], people: [{ id: 3, name: 'Иванов Пётр', phone: '+996 555 000000', email: null, company: { id: 5, name: 'ОсОО «Ала-Тоо»' } }] } },
+  'GET /app/crm/pipelines': { summary: L('Воронки со стадиями', 'Pipelines with stages') },
+  'PUT /app/crm/pipelines/:id': { summary: L('Изменить воронку и стадии (crm.admin)', 'Update a pipeline and its stages (crm.admin)'), body: [b('name / color', 'string', L('Название, цвет', 'Name, colour')), b('stages', '[{ id?, name, color, kind }]', L('Стадии по порядку: открытые, затем won, затем lost', 'Stages in order: open, then won, then lost')), b('moveTo', 'integer | { removedId: keptId }', L('Куда перенести сделки удаляемых стадий', 'Where deals of removed stages go'))] },
 
   // ── Companies ──
   'GET /app/companies/companies': {

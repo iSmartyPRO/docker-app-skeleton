@@ -184,14 +184,18 @@ export function decide(policy, method, path) {
 // ── Resource limits ─────────────────────────────────────────────────────────
 
 /*
- * A token (or a webhook) may be narrowed to some projects, calendars or
- * spaces. The limit is applied by the shared access lists of the modules
- * (modules/shared/acl.js), so every endpoint of the module honours it.
+ * A token (or a webhook) may be narrowed to some projects, calendars,
+ * spaces or CRM pipelines. The limit is applied by the shared access lists of
+ * the modules (modules/shared/acl.js), so every endpoint of the module honours
+ * it. `table` is the key the limit is stored under (req.apiLimits[table]); for
+ * kinds without an access list (`acl: false`, CRM pipelines) it is just a name
+ * the module checks itself (withinLimits in modules/crm/access.js).
  */
 export const RESOURCE_KINDS = [
   { key: 'tasks.projects', module: 'tasks', table: 'task_acl' },
   { key: 'calendar.calendars', module: 'calendar', table: 'cal_acl' },
   { key: 'files.spaces', module: 'files', table: 'fs_space_acl' },
+  { key: 'crm.pipelines', module: 'crm', table: 'crm_pipelines', acl: false },
 ];
 
 export function cleanLimits(input) {

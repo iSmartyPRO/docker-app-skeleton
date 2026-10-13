@@ -34,6 +34,7 @@ export const SETTINGS_PAGES = {
   resources: lazy(() => import('../modules/resources/ResourcesSettings')),
   companies: lazy(() => import('../modules/companies/CompaniesSettings')),
   tasks: lazy(() => import('../modules/tasks/TasksSettings')),
+  crm: lazy(() => import('../modules/crm/CrmSettings')),
   assistant: lazy(() => import('../modules/assistant/AssistantSettings')),
   calendar: lazy(() => import('../modules/calendar/CalendarSettings')),
 };

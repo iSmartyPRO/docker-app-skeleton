@@ -107,6 +107,7 @@ A token (or a webhook) can be narrowed to some:
 | `tasks.projects` | Tasks: lists, search, cards, creation, the dashboard task widgets, the task chat. "No project" (`TSK`) is one of the choices |
 | `calendar.calendars` | Calendar: calendars and their events |
 | `files.spaces` | Files: shared spaces only. A narrowed token does not reach the owner's personal files (`403 TOKEN_LIMITED`) |
+| `crm.pipelines` | CRM: deals, boards, lists, counters, export and calendar of those pipelines only (CRM has no access lists: the module checks this limit itself) |
 
 The limit is applied inside the shared access lists of the modules (`modules/shared/acl.js`: `contextFromRequest`, `levelMap`, `levelOn`), so every endpoint honours it. A narrowed token never gets a module administrator's bypass, even if the owner holds `tasks.admin`.
 
@@ -185,6 +186,7 @@ Administrators create webhooks in the console. A webhook has:
 | `task.comment`, `task.result` | A message in the task chat, a result added |
 | `task.due_soon`, `task.overdue` | Deadline reminders |
 | `chat.message` | A message in any conversation |
+| `deal.created`, `deal.updated`, `deal.stage_changed`, `deal.won`, `deal.lost`, `deal.deleted` | CRM deals (`deal.updated` carries `changes`, `deal.stage_changed` `from`/`to`); only deals the run-as person may see |
 | `calendar.event.created`, `.updated`, `.deleted` | Calendar events |
 | `user.created`, `.updated`, `.deleted` | Accounts changed in the console or through the API (needs `users.view` for the run-as person) |
 

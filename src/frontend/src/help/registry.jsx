@@ -23,6 +23,7 @@ export const HELP_ORDER = [
   'drive',
   'kb',
   'companies',
+  'crm',
   'resources',
   'admin',
   'api',

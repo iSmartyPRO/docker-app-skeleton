@@ -585,7 +585,7 @@ export default function Conversation({ roomId, entity, header = true, placeholde
                   <strong>{title}</strong>
                 </Link>
               ) : (
-                <strong>{header === 'bare' ? t('chat.taskChat') : title}</strong>
+                <strong>{header === 'bare' ? t(entity?.type === 'deal' ? 'chat.dealChat' : 'chat.taskChat') : title}</strong>
               )}
               <span>
                 {room.muted && '🔕 '}

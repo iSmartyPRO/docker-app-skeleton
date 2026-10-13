@@ -9,6 +9,7 @@ import calendar from './calendar/index.js';
 import drive from './drive/index.js';
 import resources from './resources/index.js';
 import companies from './companies/index.js';
+import crm from './crm/index.js';
 import dashboard from './dashboard/index.js';
 import chat from './chat/index.js';
 import assistant from './assistant/index.js';
@@ -29,7 +30,8 @@ import assistant from './assistant/index.js';
 
 // Files first: the knowledge base keeps its files there.
 // Chat before tasks: task conversations are entity rooms of the chat module.
-export const MODULES = [files, kb, chat, tasks, calendar, drive, resources, companies, dashboard, assistant];
+// CRM after companies and chat: deals point at companies and people, and have conversations.
+export const MODULES = [files, kb, chat, tasks, calendar, drive, resources, companies, crm, dashboard, assistant];
 
 async function moduleState(id) {
   const parsed = parseSettings(await getSettings());

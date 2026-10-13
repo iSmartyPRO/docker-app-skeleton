@@ -244,6 +244,11 @@ export const SETTINGS_GROUPS = [
         keywords: 'tasks projects kanban board todo задачи проекты канбан доска',
       },
       {
+        id: 'crm',
+        defaultIcon: 'target',
+        keywords: 'crm deals pipeline sales funnel kanban leads clients activities сделки воронка продажи лиды клиенты дела срм црм',
+      },
+      {
         id: 'assistant',
         defaultIcon: 'robot',
         keywords: 'assistant robot helper avatar tips помощник робот подсказки аватар',

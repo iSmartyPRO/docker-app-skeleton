@@ -32,6 +32,17 @@ export const NOTIFICATION_GROUPS = [
     ],
   },
   {
+    key: 'crm',
+    module: 'crm',
+    events: [
+      { kind: 'crm.assigned', defaults: on(true, true, true) },
+      { kind: 'crm.activity', defaults: on(true, true, true) },
+      // Reminders set on an activity ("remind N minutes before"), like tasks.reminder.
+      { kind: 'crm.activity_due', defaults: on(true, true, true), urgent: true },
+      { kind: 'crm.stage', defaults: on(true, false, false) },
+    ],
+  },
+  {
     key: 'calendar',
     module: 'calendar',
     events: [

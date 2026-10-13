@@ -90,9 +90,12 @@ export async function resourceOptions(req, { all = false } = {}) {
   const out = {};
   for (const kind of RESOURCE_KINDS) {
     const ctx = contextFromRequest({ ...req, apiLimits: null }, `${kind.module}.admin`);
-    const levels = await levelMap(kind.table, ctx);
+    // Kinds without an access list: every pipeline is offered (deals inside keep their own visibility).
+    const levels = kind.acl === false ? { of: () => 1 } : await levelMap(kind.table, ctx);
     let rows = [];
-    if (kind.key === 'tasks.projects') {
+    if (kind.key === 'crm.pipelines') {
+      ({ rows } = await query(`SELECT id, name, color FROM crm_pipelines WHERE archived_at IS NULL ORDER BY sort, id`).catch(() => ({ rows: [] })));
+    } else if (kind.key === 'tasks.projects') {
       ({ rows } = await query(`SELECT id, name, key AS code, color, is_personal FROM task_projects WHERE archived_at IS NULL ORDER BY is_personal DESC, LOWER(name)`).catch(() => ({ rows: [] })));
       rows = rows.filter((row) => all || row.is_personal || levels.of(row.id) > 0);
     } else if (kind.key === 'calendar.calendars') {

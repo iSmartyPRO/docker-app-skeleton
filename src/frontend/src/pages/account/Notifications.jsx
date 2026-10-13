@@ -5,6 +5,7 @@ import { App, Button, Checkbox, Dropdown, Skeleton, Switch, TimePicker, Tooltip 
 import PageHeader from '../../components/ui/PageHeader';
 import { IconBell, IconMail, IconMattermost, IconTelegram, IconWhatsapp } from '../../components/icons/AdminIcons';
 import { MenuIcon } from '../../components/icons/menuIcons';
+import { moduleById } from '../../modules/registry';
 import { useLocale } from '../../context/LocaleContext';
 import { useSettings } from '../../context/SettingsContext';
 import { errorMessage } from '../../lib/errors';
@@ -365,7 +366,7 @@ export default function AccountNotifications() {
           {catalog.map((group) => (
             <div key={group.key} className="np-matrix__group">
               <div className="np-matrix__gtitle">
-                {group.module && <MenuIcon name={group.module} />}
+                {group.module && <MenuIcon name={moduleById(group.module)?.icon || group.module} />}
                 {t(`notifyPrefs.groups.${group.key}`)}
               </div>
               {group.events.map((event) => (

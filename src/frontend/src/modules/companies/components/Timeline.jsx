@@ -72,6 +72,10 @@ function describe(event, t, type) {
       return event.body === 'extract' ? t('companies.ev.extract', { source: d.source || '' }) : t('companies.ev.file');
     case 'file_removed':
       return t('companies.ev.fileRemoved');
+    case 'deal':
+      // Rows written by the CRM carry the deal; notes of kind «deal» do not.
+      if (d.dealId) return t(`companies.ev.deal.${['created', 'won', 'lost'].includes(d.action) ? d.action : 'other'}`);
+      return t('companies.note.deal');
     default:
       return t(`companies.note.${event.kind}`);
   }
@@ -178,8 +182,15 @@ export default function Timeline({ type, id, country, onChange }) {
                       </span>
                     )}
                     {event.kind === 'rating' && <Stars value={d.score} size={14} />}
+                    {event.kind === 'deal' && d.dealId && (
+                      <span className="cmp-event__link">
+                        <Link to={`/app/crm/deals/${d.dealId}`}>{d.title || event.body}</Link>
+                        {Number(d.amount) > 0 && <em> · {Number(d.amount).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', { maximumFractionDigits: 2 })} {d.currency || ''}</em>}
+                        {d.stage && <em> · {typeof d.stage === 'object' ? d.stage.name : d.stage}</em>}
+                      </span>
+                    )}
                   </div>
-                  {event.body && event.kind !== 'file' && <p className="cmp-event__text">{event.body}</p>}
+                  {event.body && event.kind !== 'file' && !(event.kind === 'deal' && d.dealId) && <p className="cmp-event__text">{event.body}</p>}
                   {event.kind === 'file' && event.body !== 'extract' && <p className="cmp-event__text">📎 {event.body}</p>}
                   {(event.kind === 'changed' || event.kind === 'registry' || event.kind === 'position') && <Changes changes={d.changes} country={country} />}
                   <div className="cmp-event__meta">
@@ -189,7 +200,7 @@ export default function Timeline({ type, id, country, onChange }) {
                       <span>{t('companies.system')}</span>
                     )}
                     <span title={new Date(event.at).toLocaleString(locale)}>· {formatRelative(event.at, locale)}</span>
-                    {note && (
+                    {note && !d.dealId && (
                       <Popconfirm title={t('companies.deleteNote')} onConfirm={() => cmpApi.deleteEvent(event.id).then(load).catch((err) => message.error(errorMessage(err)))}>
                         <button type="button" className="cmp-event__del">{t('common.delete')}</button>
                       </Popconfirm>

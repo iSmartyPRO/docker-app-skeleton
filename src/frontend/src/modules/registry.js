@@ -70,6 +70,15 @@ export const MODULE_REGISTRY = [
     Settings: lazy(() => import('./tasks/TasksSettings')),
   },
   {
+    id: 'crm',
+    path: '/app/crm',
+    icon: 'target',
+    labelKey: 'apps.crm.name',
+    descKey: 'apps.crm.desc',
+    App: lazy(() => import('./crm/CrmApp')),
+    Settings: lazy(() => import('./crm/CrmSettings')),
+  },
+  {
     id: 'calendar',
     path: '/app/calendar',
     icon: 'calendar',

@@ -24,6 +24,109 @@ const HEX = /^#[0-9a-f]{6}$/i;
 // Characters of the robot assistant (modules/assistant/service.js keeps the same list).
 const ASSISTANT_AVATARS = ['pixel', 'orbi', 'kiko', 'classic', 'pro', 'boltik', 'nexus', 'bubbles', 'builder', 'builder2', 'architect', 'doctor', 'girl', 'boy', 'toddler', 'zayka', 'ermek', 'aichurok', 'berkut', 'jibek', 'volt', 'nova', 'shadow', 'aurora', 'barsik', 'ryzhik', 'bao', 'pingo'];
 
+// ── CRM settings (docs/crm.md) ──────────────────────────────────────────────
+
+export const CRM_FIELD_TYPES = ['text', 'textarea', 'number', 'money', 'date', 'select', 'multiselect', 'bool', 'url', 'user'];
+// Built-in deal fields: custom field keys may not take these names; their section can be moved (builtinSections).
+export const CRM_BUILTIN_FIELDS = ['title', 'amount', 'client', 'owner', 'source', 'close_date', 'comment', 'watchers'];
+const CRM_RESERVED_KEYS = new Set([...CRM_BUILTIN_FIELDS, 'id', 'currency', 'company', 'person', 'stage', 'pipeline', 'closedate', 'custom', 'version', 'rank']);
+
+export const CRM_DEFAULTS = {
+  // Default currency of new deals (one of `currencies`).
+  currency: 'KGS',
+  currencies: ['KGS', 'USD', 'EUR', 'RUB', 'KZT', 'CNY'],
+  // 'all': everyone sees every deal; 'own': deals they own, watch or created (crm.all / crm.admin see all).
+  visibility: 'all',
+  sources: ['Сайт', 'Звонок', 'Рекомендация', 'WhatsApp', 'Instagram', 'Выставка', 'Другое'],
+  lostReasons: ['Дорого', 'Выбрали конкурента', 'Нет бюджета', 'Не актуально', 'Не дозвонились'],
+  sections: [
+    { key: 'about', title: 'О сделке' },
+    { key: 'extra', title: 'Дополнительно' },
+  ],
+  // Custom fields: { key, label, type, options, section, listColumn, required }; values live in crm_deals.custom[key].
+  fields: [],
+  // Section of a built-in field when moved out of 'about': { source: 'extra' }.
+  builtinSections: {},
+  activityReminders: true,
+};
+
+const crmText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
+const crmHash = (label) => {
+  let hash = 0;
+  for (const ch of label) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+  return hash.toString(36);
+};
+const crmList = (list, max, size) => [...new Set((Array.isArray(list) ? list : []).map((item) => crmText(item, size)).filter(Boolean))].slice(0, max);
+
+/** A latin key from the given one, the label ("Region" → region), or f_<base36> for other scripts. */
+export function crmFieldKey(item, prefix = 'f') {
+  const own = String(item?.key ?? '').trim().toLowerCase();
+  if (/^[a-z][a-z0-9_]{0,39}$/.test(own)) return own;
+  const label = crmText(item?.label ?? item?.title, 60);
+  if (!label) return '';
+  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+  if (/^[a-z][a-z0-9_]*$/.test(slug) && /^[\x20-\x7e]+$/.test(label)) return slug;
+  return `${prefix}_${crmHash(label)}`;
+}
+
+export function sanitizeCrm(current, incoming = {}) {
+  const next = { ...current };
+  if (Array.isArray(incoming.currencies)) {
+    const list = [...new Set(incoming.currencies.map((code) => String(code || '').trim().toUpperCase()).filter((code) => /^[A-Z]{3}$/.test(code)))].slice(0, 20);
+    if (list.length) next.currencies = list;
+  }
+  if (typeof incoming.currency === 'string' && /^[A-Z]{3}$/.test(incoming.currency.trim().toUpperCase())) next.currency = incoming.currency.trim().toUpperCase();
+  if (!next.currencies?.includes(next.currency)) next.currency = next.currencies?.[0] || 'KGS';
+  if (['all', 'own'].includes(incoming.visibility)) next.visibility = incoming.visibility;
+  if (Array.isArray(incoming.sources)) next.sources = crmList(incoming.sources, 50, 80);
+  if (Array.isArray(incoming.lostReasons)) next.lostReasons = crmList(incoming.lostReasons, 50, 120);
+  if (typeof incoming.activityReminders === 'boolean') next.activityReminders = incoming.activityReminders;
+
+  if (Array.isArray(incoming.sections)) {
+    const seen = new Set();
+    const sections = incoming.sections
+      .map((item) => ({ key: crmFieldKey(item, 's'), title: crmText(item?.title ?? item?.label, 60) }))
+      .filter((item) => item.key && item.title && !seen.has(item.key) && seen.add(item.key))
+      .slice(0, 12);
+    // Built-in fields live in 'about' unless moved: it always exists.
+    if (!sections.some((item) => item.key === 'about')) sections.unshift({ key: 'about', title: 'О сделке' });
+    next.sections = sections.slice(0, 12);
+  }
+  const sectionKeys = new Set((next.sections || []).map((item) => item.key));
+
+  if (Array.isArray(incoming.fields)) {
+    const seen = new Set();
+    next.fields = incoming.fields
+      .map((item) => {
+        const type = CRM_FIELD_TYPES.includes(item?.type) ? item.type : 'text';
+        const field = {
+          key: crmFieldKey(item, 'f'),
+          label: crmText(item?.label, 60),
+          type,
+          options: ['select', 'multiselect'].includes(type) ? crmList(item?.options, 100, 80) : [],
+          section: sectionKeys.has(item?.section) ? item.section : 'about',
+          listColumn: item?.listColumn === true,
+          required: item?.required === true,
+        };
+        return field;
+      })
+      .filter((item) => item.key && item.label && !CRM_RESERVED_KEYS.has(item.key) && !seen.has(item.key) && seen.add(item.key))
+      .slice(0, 80);
+  } else if (Array.isArray(incoming.sections)) {
+    // Sections changed alone: fields of a removed section fall back to 'about'.
+    next.fields = (next.fields || []).map((field) => (sectionKeys.has(field.section) ? field : { ...field, section: 'about' }));
+  }
+
+  if (incoming.builtinSections && typeof incoming.builtinSections === 'object' && !Array.isArray(incoming.builtinSections)) {
+    next.builtinSections = Object.fromEntries(
+      CRM_BUILTIN_FIELDS.filter((key) => sectionKeys.has(incoming.builtinSections[key]) && incoming.builtinSections[key] !== 'about').map((key) => [key, incoming.builtinSections[key]])
+    );
+  } else if (Array.isArray(incoming.sections)) {
+    next.builtinSections = Object.fromEntries(Object.entries(next.builtinSections || {}).filter(([, section]) => sectionKeys.has(section)));
+  }
+  return next;
+}
+
 export const MODULE_CATALOG = [
   {
     id: 'files',
@@ -126,6 +229,14 @@ export const MODULE_CATALOG = [
       }
       return next;
     },
+  },
+  {
+    id: 'crm',
+    defaultEnabled: true,
+    // crm.admin: settings, pipelines, every deal; crm.all: sees and edits every deal.
+    permissions: ['crm.admin', 'crm.all'],
+    defaults: CRM_DEFAULTS,
+    sanitize: sanitizeCrm,
   },
   {
     id: 'chat',

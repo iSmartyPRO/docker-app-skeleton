@@ -19,6 +19,8 @@ import { ChatProvider } from './modules/chat/ChatContext';
 import { HelpProvider } from './help/HelpContext';
 // Texts of task events in conversations (task chats show up on the chat page too).
 import './modules/tasks/chatEvents';
+// …and of deal events (deal chats of the CRM).
+import './modules/crm/chatEvents';
 import { LEGACY_ADMIN_ROUTES, SETTINGS_ITEMS } from './admin/navigation';
 import { SETTINGS_PAGES } from './admin/settingsPages';
 import { loginUrl } from './lib/returnPath';

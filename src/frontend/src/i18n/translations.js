@@ -14,6 +14,7 @@ import { assistantEn, assistantRu } from './assistant.js';
 import { outageEn, outageRu } from './outage.js';
 import { userLinksEn, userLinksRu } from './userLinks.js';
 import { sessionsEn, sessionsRu } from './sessions.js';
+import { crmEn, crmRu } from './crm.js';
 
 const en = {
   brand: 'docker-app-skeleton',
@@ -1957,6 +1958,8 @@ mergeDeep(ru, { account: { languageAuto: 'Как в портале ({name})', la
 mergeDeep(en, { appError: { title: 'This page did not load', text: 'Something went wrong while opening it. Reload the page — your data is safe.', updateTitle: 'A new version is available', updateText: 'The portal was updated while this tab was open. Reload to continue.', updating: 'Loading the new version…', reload: 'Reload', home: 'Home' } });
 mergeDeep(ru, { appError: { title: 'Страница не загрузилась', text: 'При открытии что-то пошло не так. Обновите страницу — ваши данные в порядке.', updateTitle: 'Доступна новая версия', updateText: 'Пока вкладка была открыта, портал обновился. Обновите страницу, чтобы продолжить.', updating: 'Загружаем новую версию…', reload: 'Обновить', home: 'На главную' } });
 mergeDeep(ru, companiesRu);
+mergeDeep(en, crmEn);
+mergeDeep(ru, crmRu);
 mergeDeep(en, { appUpdate: { title: 'A new version is out', text: 'Update to see what’s new — it takes a second.', button: 'Update', updating: 'Updating…', later: 'Later' } });
 mergeDeep(ru, { appUpdate: { title: 'Вышла новая версия', text: 'Обновите, чтобы увидеть новое — это секунда.', button: 'Обновить', updating: 'Обновляем…', later: 'Позже' } });
 
