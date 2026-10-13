@@ -116,10 +116,11 @@ function overlaps(a, b) {
  * drawing down and a badge that would cover a placed label is dropped (the
  * lower one is hidden); in 'always' every badge stays.
  */
-export function layoutLabels(items, k, mode = 'auto') {
+export function layoutLabels(items, k, mode = 'auto', obstacles = []) {
   if (mode === 'hide' || !k) return [];
   const placed = [];
-  const boxes = [];
+  // Point markers (plan/markers.js) are explicit placements: in 'auto' a badge never covers one.
+  const boxes = [...(obstacles || [])];
   const fits = (items || []).filter((item) => item.text && item.points?.length >= 3).map((item, order) => {
     const fit = fitLabel(item.points, item.text, k);
     const [x, y] = centroidOf(item.points);

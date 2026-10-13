@@ -201,6 +201,12 @@ export async function deleteMedia(ctx, id) {
   const { rows } = await query(`SELECT m.*, n.path FROM mp_media m LEFT JOIN mp_nodes n ON n.id = m.node_id WHERE m.id = $1`, [intOr(id, 0)]);
   const row = rows[0];
   if (!row || !(await mediaAccess(ctx, row))) throw notFound('File not found');
+  // A photo of a journal report follows the report's rights (author window, moderators), not the uploader's.
+  if (row.report_id) {
+    const { deleteReportMedia } = await import('./construction.js');
+    await deleteReportMedia(ctx, row.report_id, row.id);
+    return;
+  }
   const node = row.node_id ? { project_id: row.project_id, path: row.path } : null;
   const ok = row.created_by === ctx.userId || canConfigure(ctx, row.project_id) || (node && has(actCaps(ctx, node), 'media.edit')) || (row.series && has(actCaps(ctx, { project_id: row.project_id, path: [] }), 'media.edit'));
   if (!ok) throw forbidden();

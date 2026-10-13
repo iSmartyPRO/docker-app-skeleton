@@ -190,8 +190,12 @@ export const DOCS = {
   // ── Masterplan ──
   'GET /app/masterplan/meta': { summary: L('Настройки, статусы, справочники, проекты и мои роли', 'Settings, statuses, directories, projects and my roles') },
   'GET /app/masterplan/projects/:id/map': {
-    summary: L('Всё для генплана: узлы с данными продаж, планы, контуры', 'Everything for the site plan: nodes with sales data, plans, contours'),
+    summary: L('Всё для генплана: узлы с данными продаж, планы, контуры и точки', 'Everything for the site plan: nodes with sales data, plans, contours and point markers'),
     query: [q('presentation', '"1"', L('Режим презентации: без клиентов, менеджеров, минимальных цен и сумм', 'Presentation mode: no clients, managers, minimum prices or amounts'))],
+  },
+  'PUT /app/masterplan/plans/:id/markers': {
+    summary: L('Точки на плане (администраторы): кружок с номером вместо контура; точка заменяет контур объекта на этом плане', 'Point markers on a plan (administrators): a numbered circle instead of a contour; a marker replaces the object\'s contour on this plan'),
+    body: [b('markers', '[{ nodeId, x, y, r?, label? } | { nodeId, remove: true }]', L('Центр в координатах плана, радиус (число или "S" | "M" | "L"), подпись до 12 символов; до 2000 за раз, всё или ничего', 'Centre in plan coordinates, radius (a number or "S" | "M" | "L"), a label up to 12 characters; up to 2000 at once, all or nothing'), { required: true })],
   },
   'GET /app/masterplan/units': {
     summary: L('Реестр юнитов', 'Units registry'),

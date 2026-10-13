@@ -177,10 +177,12 @@ export async function deleteProject(ctx, id) {
 export async function projectMap(ctx, id, { presentation = false } = {}) {
   const project = await getProject(ctx, id);
   const caps = readCaps(ctx, project.id);
-  const [nodes, plans, contours] = await Promise.all([
+  const [nodes, plans, contours, markers] = await Promise.all([
     query(`${NODE_SELECT} WHERE n.project_id = $1 ORDER BY n.depth, n.sort, n.id`, [project.id]),
     query(`SELECT p.*, m.thumb_key FROM mp_plans p LEFT JOIN mp_media m ON m.id = p.media_id WHERE p.project_id = $1 ORDER BY p.sort, p.id`, [project.id]),
     query(`SELECT c.plan_id, c.node_id, c.points FROM mp_contours c JOIN mp_plans p ON p.id = c.plan_id WHERE p.project_id = $1`, [project.id]),
+    // Point markers (markers.js): an object placed as a numbered circle instead of a polygon.
+    query(`SELECT k.plan_id, k.node_id, k.x, k.y, k.r, k.label FROM mp_markers k JOIN mp_plans p ON p.id = k.plan_id WHERE p.project_id = $1`, [project.id]),
   ]);
   const list = inheritReadiness(nodes.rows.map((row) => visibleNode(ctx, row, { presentation, caps })));
   return {
@@ -188,6 +190,7 @@ export async function projectMap(ctx, id, { presentation = false } = {}) {
     nodes: list,
     plans: plans.rows.map(planShape),
     contours: contours.rows.map((row) => ({ planId: row.plan_id, nodeId: row.node_id, points: row.points })),
+    markers: markers.rows.map((row) => ({ planId: row.plan_id, nodeId: row.node_id, x: Number(row.x), y: Number(row.y), r: Number(row.r), label: row.label || null })),
     caps: [...caps],
     presentation,
   };
@@ -233,7 +236,7 @@ export async function createPlan(ctx, projectId, input) {
   return planShape(rows[0]);
 }
 
-async function requirePlan(ctx, id) {
+export async function requirePlan(ctx, id) {
   const { rows } = await query(`SELECT * FROM mp_plans WHERE id = $1`, [intOr(id, 0)]);
   if (!rows[0]) throw notFound('Plan not found');
   await requireProject(ctx, rows[0].project_id);
@@ -301,6 +304,8 @@ export async function saveContours(ctx, planId, input) {
           `INSERT INTO mp_contours (plan_id, node_id, points) VALUES ($1, $2, $3) ON CONFLICT (plan_id, node_id) DO UPDATE SET points = EXCLUDED.points`,
           [plan.id, nodeId, JSON.stringify(points)]
         );
+        // One placement per plan: a contour replaces the node's point marker (markers.js).
+        await client.query(`DELETE FROM mp_markers WHERE plan_id = $1 AND node_id = $2`, [plan.id, nodeId]);
       }
       changed += 1;
     }

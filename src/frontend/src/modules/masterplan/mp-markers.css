@@ -1,0 +1,401 @@
+/* ── Point markers on the site plan (docs/masterplan.md "Point markers") ──
+ * Drawn on the plan's paper (always light), so the marker itself uses fixed
+ * colours; the editor's panels use the theme tokens (light / dark). */
+
+.mp-mk {
+  cursor: pointer;
+  outline: none;
+  transition: opacity 0.2s ease;
+}
+
+.mp-mk > *:not(.mp-mk__hit) {
+  pointer-events: none;
+}
+
+.mp-mk__hit {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+
+.mp-mk__disc {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+.mp-mk:hover .mp-mk__disc,
+.mp-mk.is-hover .mp-mk__disc,
+.mp-mk:focus-visible .mp-mk__disc {
+  transform: scale(1.12);
+}
+
+.mp-mk__body {
+  filter: url(#mpMkShadow);
+  transition: fill 0.35s ease;
+}
+
+.mp-mk:hover .mp-mk__body,
+.mp-mk.is-hover .mp-mk__body,
+.mp-mk.is-selected .mp-mk__body {
+  filter: url(#mpMkLift);
+}
+
+.mp-mk__gloss {
+  fill: url(#mpMkGloss);
+}
+
+.mp-mk__rim {
+  fill: none;
+  stroke: #fff;
+}
+
+.mp-mk__track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.92);
+}
+
+.mp-mk__arc {
+  fill: none;
+  stroke-linecap: butt;
+}
+
+.mp-mk__num {
+  fill: #fff;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke;
+  stroke: rgba(15, 23, 42, 0.42);
+  stroke-linejoin: round;
+}
+
+.mp-mk__num.is-ink {
+  fill: #0f172a;
+  stroke: rgba(255, 255, 255, 0.7);
+}
+
+.mp-mk.is-dot .mp-mk__body {
+  filter: none;
+}
+
+.mp-mk.is-dim {
+  opacity: 0.22;
+}
+
+.mp-mk.is-dim:hover {
+  opacity: 0.6;
+}
+
+/* Selected: a soft blue halo that breathes once, then rests. */
+.mp-mk__halo {
+  fill: rgba(37, 99, 235, 0.14);
+  stroke: #2563eb;
+  animation: mp-mk-halo 1.6s ease-out 1;
+}
+
+@keyframes mp-mk-halo {
+  0% {
+    stroke-opacity: 0;
+    fill-opacity: 0;
+  }
+  35% {
+    stroke-opacity: 1;
+    fill-opacity: 1;
+  }
+}
+
+.mp-mk__focus {
+  fill: none;
+  stroke: #2563eb;
+  opacity: 0;
+}
+
+.mp-mk:focus-visible .mp-mk__focus {
+  opacity: 1;
+}
+
+.mp-mk__chip rect {
+  fill: rgba(255, 255, 255, 0.96);
+  stroke: rgba(15, 23, 42, 0.14);
+  filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.18));
+}
+
+.mp-mk__chip text {
+  fill: #0f172a;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-mk__disc,
+  .mp-mk__body {
+    transition: none;
+  }
+  .mp-mk__halo {
+    animation: none;
+  }
+}
+
+/* ── Editor ── */
+
+.mp-mks.is-editing .mp-mk {
+  cursor: grab;
+}
+
+.mp-canvas.is-dragging .mp-mks.is-editing .mp-mk {
+  cursor: grabbing;
+}
+
+.mp-mk.is-picked .mp-mk__halo {
+  fill: rgba(37, 99, 235, 0.1);
+}
+
+.mp-mk__ghost {
+  fill: rgba(37, 99, 235, 0.06);
+  stroke: #2563eb;
+}
+
+.mp-mk__resize circle[data-mk-resize] {
+  fill: #fff;
+  stroke: #2563eb;
+  cursor: ew-resize;
+  pointer-events: all;
+}
+
+.mp-mk-guides line {
+  stroke: #db2777;
+  pointer-events: none;
+}
+
+.mp-mkx {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.mp-mkx__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+  font-size: 12.5px;
+  color: var(--da-muted);
+}
+
+.mp-mkx__progress b {
+  color: var(--da-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-mkx__bar {
+  height: 6px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--da-text) 9%, transparent);
+  overflow: hidden;
+}
+
+.mp-mkx__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  transition: width 0.3s ease;
+}
+
+.mp-mkx__filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+
+.mp-mkx__list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+}
+
+.mp-mkx__list:focus-visible {
+  outline: 2px solid var(--da-primary);
+  outline-offset: 1px;
+}
+
+.mp-mkx__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.mp-mkx__item:hover {
+  background: var(--da-tint);
+}
+
+.mp-mkx__item.is-active {
+  background: color-mix(in srgb, var(--da-primary) 14%, transparent);
+  color: var(--da-primary);
+  font-weight: 650;
+}
+
+.mp-mkx__item small {
+  margin-left: auto;
+  color: var(--da-faint);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.mp-mkx__dot {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border-radius: 99px;
+  border: 2px solid #fff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.3);
+  text-shadow: 0 0 2px rgba(15, 23, 42, 0.45);
+}
+
+.mp-mkx__dot.is-placed {
+  opacity: 0.55;
+}
+
+.mp-mkx__empty {
+  padding: 18px 10px;
+  text-align: center;
+  color: var(--da-muted);
+  font-size: 13px;
+}
+
+.mp-mkx__done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 22px 10px;
+  text-align: center;
+  color: var(--da-muted);
+  font-size: 13px;
+}
+
+.mp-mkx__done b {
+  color: #16a34a;
+  font-size: 15px;
+}
+
+.mp-mkx__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--da-primary) 12%, transparent);
+  color: var(--da-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.mp-mkx__hint .mp-mkx__dot {
+  min-width: 22px;
+  height: 22px;
+  font-size: 10px;
+}
+
+.mp-mkx kbd,
+.mp-plans__bar kbd {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid var(--da-hairline);
+  border-bottom-width: 2px;
+  background: var(--da-surface);
+  color: var(--da-muted);
+  font: 600 11px/1.5 inherit;
+}
+
+.mp-plans__mode {
+  flex: none;
+}
+
+.has-point .mp-plans__mark {
+  color: #2563eb;
+}
+
+.mp-planpick {
+  min-width: 160px;
+}
+
+@media (max-width: 900px) {
+  .mp-mkx__list {
+    max-height: 220px;
+  }
+}
+
+.mp-mkx__picker {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.mp-mkx__toggle,
+.mp-mkx__opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--da-muted);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.mp-mkx__opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+}
+
+.mp-mkx__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-mkx__keys {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+
+.mp-mkx__done.is-inline {
+  flex-direction: row;
+  padding: 0;
+  gap: 8px;
+}

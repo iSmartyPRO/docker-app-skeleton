@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Result, Segmented, Spin, Tooltip } from 'antd';
+import { Button, Result, Segmented, Select, Spin, Tooltip } from 'antd';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -13,7 +13,7 @@ import { StatusTag, TypeIcon } from '../components/bits';
 import UnitCard from '../components/UnitCard';
 import PlanCanvas, { bboxOf } from '../plan/PlanCanvas';
 import TilesView from '../plan/TilesView';
-import { buildingStats, nodeFill, unitsUnder } from '../plan/colors';
+import { buildingStats, markerLook, nodeFill, unitsUnder } from '../plan/colors';
 import { LABEL_MODES } from '../plan/labels';
 
 /**
@@ -28,7 +28,7 @@ export default function PlanPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useSearchParams();
   const { settings } = useMp();
-  const { project, nodes, tree, plans, contours, caps, error, data, live, presentation, refreshUnits, reload } = useProject();
+  const { project, nodes, tree, plans, contours, markers, caps, error, data, live, presentation, refreshUnits, reload } = useProject();
   const canvas = useRef(null);
   // The canvas measures itself after its first render (again after a remount); focusing waits for that.
   const [canvasReady, setCanvasReady] = useState(0);
@@ -54,7 +54,9 @@ export default function PlanPage() {
     [setSearch]
   );
 
-  // The plan to draw: the focused node's own close-up, an ancestor's, or the project's.
+  // The plan to draw: the focused node's own close-up, an ancestor's, or the project's (several project plans: the chosen one).
+  const projectPlans = useMemo(() => plans.filter((item) => !item.nodeId), [plans]);
+  const chosenPlanId = Number(search.get('plan')) || null;
   const plan = useMemo(() => {
     if (!plans.length) return null;
     const chain = focus ? [...focus.path].reverse() : [];
@@ -62,8 +64,20 @@ export default function PlanPage() {
       const own = plans.find((item) => item.nodeId === id);
       if (own) return own;
     }
-    return plans.find((item) => !item.nodeId) || plans[0];
-  }, [plans, focus]);
+    return projectPlans.find((item) => item.id === chosenPlanId) || projectPlans[0] || plans[0];
+  }, [plans, projectPlans, focus, chosenPlanId]);
+
+  /** Where a node is on this plan: its contour's box, or its marker's circle; null when not placed here. */
+  const placementBox = useCallback(
+    (nodeId) => {
+      if (!plan) return null;
+      const contour = contours.find((item) => item.planId === plan.id && item.nodeId === nodeId);
+      if (contour) return bboxOf(contour.points);
+      const marker = markers.find((item) => item.planId === plan.id && item.nodeId === nodeId);
+      return marker ? { x: marker.x - marker.r, y: marker.y - marker.r, w: marker.r * 2, h: marker.r * 2 } : null;
+    },
+    [plan, contours, markers]
+  );
   const [view, setView] = useState(() => readStore(userKey(user, 'planView'), 'plan'));
   const mode = plan && view === 'plan' ? 'plan' : 'tiles';
   // Numbers on the plan: auto / always / hide, remembered per person; a presentation starts with "always".
@@ -104,12 +118,46 @@ export default function PlanPage() {
       });
   }, [plan, contours, tree, layer, filter, filtering, selectedId, focusId, hover?.id, settings, user?.id]);
 
-  // Focus: zoom to the node's contour on this plan (or the whole plan).
+  // Point markers of this plan: the same colours as contours; a building with many units carries a ring of its
+  // statuses (sales) and every object its readiness arc (construction).
+  const markerShapes = useMemo(() => {
+    if (!plan) return [];
+    const ctx = { settings, tree, caps };
+    return markers
+      .filter((item) => item.planId === plan.id && tree.byId.has(item.nodeId))
+      .map((item) => {
+        const node = tree.byId.get(item.nodeId);
+        const look = markerLook(node, layer, ctx);
+        const units = node.unit ? [node] : unitsUnder(node, tree);
+        const dim = filtering && (node.unit ? !matches(node, filter, user?.id, tree) : units.length > 0 && !units.some((unit) => matches(unit, filter, user?.id, tree)));
+        const label = item.label || shortLabel(node);
+        const status = node.unit?.status ? t(`mp.status.${node.unit.status}`) : look.chip ? t('mp.bld.freeOf', { free: look.free, total: look.total }) : '';
+        return {
+          ...look,
+          id: node.id,
+          x: item.x,
+          y: item.y,
+          r: item.r,
+          label,
+          dim,
+          selected: node.id === selectedId,
+          hover: hover?.id === node.id,
+          title: [label, node.type?.name, status].filter(Boolean).join(' · '),
+        };
+      });
+  }, [plan, markers, tree, layer, filter, filtering, selectedId, hover?.id, settings, user?.id, caps, t]);
+
+  // Focus: zoom to the node's contour or marker on this plan; a sector without its own contour —
+  // to everything placed inside it; else the whole plan.
   useEffect(() => {
     if (mode !== 'plan' || !canvas.current) return;
-    const shape = focusId ? contours.find((item) => item.planId === plan?.id && item.nodeId === focusId) : null;
+    let box = focusId ? placementBox(focusId) : null;
+    if (!box && focus && focus.kind === 'level') {
+      const inside = descendants(tree, focus.id).map((node) => placementBox(node.id)).filter(Boolean);
+      if (inside.length) box = bboxOf(inside.flatMap((b) => [[b.x, b.y], [b.x + b.w, b.y + b.h]]));
+    }
     // The side card covers the right of a wide screen: keep the focused contour clear of it.
-    if (shape) canvas.current.fitBox(bboxOf(shape.points), 0.12, selectedId && window.innerWidth > 900 ? 450 : 0);
+    if (box) canvas.current.fitBox(box, 0.12, selectedId && window.innerWidth > 900 ? 450 : 0);
     else canvas.current.fit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusId, plan?.id, mode, canvasReady]);
@@ -129,9 +177,8 @@ export default function PlanPage() {
     }
     if (mode === 'plan' && canvas.current) {
       for (const id of [...node.path].reverse()) {
-        const shape = contours.find((item) => item.planId === plan?.id && item.nodeId === id);
-        if (!shape) continue;
-        const box = bboxOf(shape.points);
+        const box = placementBox(id);
+        if (!box) continue;
         // Some neighbourhood around a small house; the side card covers the right of a wide screen.
         const w = Math.max(box.w * 3, plan.width * 0.16);
         const h = Math.max(box.h * 3, plan.height * 0.16);
@@ -205,6 +252,16 @@ export default function PlanPage() {
             ].filter(Boolean)}
             aria-label={t('mp.layer.label')}
           />
+          {mode === 'plan' && projectPlans.length > 1 && !plan?.nodeId && (
+            <Select
+              className="mp-planpick"
+              value={plan?.id}
+              onChange={(value) => setParam('plan', value === projectPlans[0].id ? null : value)}
+              options={projectPlans.map((item) => ({ value: item.id, label: item.name || t('mp.plans.plan') }))}
+              aria-label={t('mp.mk.planPick')}
+              popupMatchSelectWidth={false}
+            />
+          )}
           {plan && (
             <Segmented
               value={mode}
@@ -247,6 +304,7 @@ export default function PlanPage() {
             height={plan.height}
             background={plan.url}
             shapes={shapes}
+            markers={markerShapes}
             onShapeClick={(id) => select(tree.byId.get(id))}
             onShapeHover={(id, at) => setHover(id ? { id, ...at } : null)}
             onBackgroundClick={() => setParam('node', null)}

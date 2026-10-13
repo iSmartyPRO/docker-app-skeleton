@@ -245,6 +245,39 @@ export function scheduleState(stages, today) {
   return { state: 'on_track', delayDays: 0 };
 }
 
+/** Hours after publishing during which the author may still correct or delete their own report. */
+export const REPORT_AUTHOR_HOURS = 24;
+
+/**
+ * Who may change a journal report. `nodeCaps` are the acting capabilities of
+ * the person on every object of the report (zones).
+ *   - Moderators — `build.moderate` on every object (heads of construction in
+ *     their zone, project and module administrators): always, any status.
+ *   - The author — only while still holding `build.edit` on every object:
+ *     drafts, reports under review and returned ones; a published report for
+ *     REPORT_AUTHOR_HOURS after publishing (a typo, a wrong photo), after that
+ *     it is part of the record and only a moderator corrects it.
+ * `editUntil` (ms) is when the author's window closes (published reports only).
+ */
+export function reportRights({ report, nodeCaps, userId, now = Date.now() }) {
+  const caps = nodeCaps || [];
+  const moderate = caps.length > 0 && caps.every((item) => has(item, 'build.moderate'));
+  const author = Boolean(userId) && Number(report.author_id) === Number(userId) && caps.length > 0 && caps.every((item) => has(item, 'build.edit'));
+  const published = report.status === 'published';
+  const until = published && report.published_at ? new Date(report.published_at).getTime() + REPORT_AUTHOR_HOURS * 3600000 : null;
+  const authorOpen = author && (!published || (until !== null && now < until));
+  const manage = moderate || authorOpen;
+  return {
+    moderate,
+    edit: manage,
+    delete: manage,
+    review: report.status === 'review' && moderate,
+    // A draft or a returned report goes (back) to review / publication.
+    submit: manage && ['draft', 'rejected'].includes(report.status) && (author || moderate),
+    editUntil: !moderate && authorOpen && published ? until : null,
+  };
+}
+
 // ── Codes ───────────────────────────────────────────────────────────────────
 
 /**

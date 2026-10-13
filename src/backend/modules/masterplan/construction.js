@@ -2,10 +2,10 @@ import { query, withTransaction } from '../../config/database.js';
 import { getSettings, parseSettings, regionalFor } from '../../services/settings.js';
 import { isoDay } from '../../services/datetime.js';
 import { notify } from '../../services/notifications.js';
-import { httpError } from '../shared/acl.js';
+import { avatarOf, httpError } from '../shared/acl.js';
 import { STAGE_SETS, STAGE_STATES } from './constants.js';
 import { forbidden, notFound, requireAdmin, requireNode, requireProject, usersWithRole, visibleProjectIds } from './access.js';
-import { actCaps, has, readCaps, scheduleState, weightedReadiness } from './rules.js';
+import { actCaps, has, readCaps, reportRights, scheduleState, weightedReadiness } from './rules.js';
 import { projectSettings } from './projects.js';
 import { mediaShape, removeMediaFiles } from './media.js';
 import { treeChanged, unitsChanged } from './realtime.js';
@@ -222,13 +222,29 @@ async function reportTargets(client, projectId, nodeIds) {
   return { selected: rows, targets: [...targets.values()] };
 }
 
+/** Columns added after the first release of the journal (idempotent). */
+export async function ensureReportSchema() {
+  // What a report changed: the stage percent before it, and when it was applied (the order of application).
+  await query(`ALTER TABLE mp_report_nodes ADD COLUMN IF NOT EXISTS prev_percent NUMERIC(5,1)`);
+  await query(`ALTER TABLE mp_report_nodes ADD COLUMN IF NOT EXISTS applied_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE mp_reports ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ`);
+  await query(`ALTER TABLE mp_reports ADD COLUMN IF NOT EXISTS edited_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+}
+
+async function stagePercent(client, nodeId, stageId) {
+  const { rows } = await client.query(`SELECT percent FROM mp_node_stages WHERE node_id = $1 AND stage_id = $2`, [nodeId, stageId]);
+  return rows[0] ? Number(rows[0].percent) : null;
+}
+
 /**
  * Applies a published report: the stage percent of every target of that stage
  * set, readiness, "last report". A report dated before one already published
  * for the same object and stage (published late, or backdated) does not move
- * the percent back: the newer fact stands.
+ * the percent back: the newer fact stands. For every object it moves, the
+ * percent before it and the moment are kept (mp_report_nodes.prev_percent,
+ * applied_at) so deleting or correcting the report can undo exactly that.
  */
-async function applyReport(client, ctx, report, targets) {
+async function applyReport(client, ctx, report, targets, { touchLast = true } = {}) {
   const { rows } = report.stage_id ? await client.query(`SELECT * FROM mp_stages WHERE id = $1`, [report.stage_id]) : { rows: [] };
   const stage = rows[0];
   const day = dayString(report.fact_date);
@@ -240,15 +256,104 @@ async function applyReport(client, ctx, report, targets) {
         [target.id, stage.id, report.id, day]
       );
       if (!newer.length) {
+        const before = (await stagePercent(client, target.id, stage.id)) ?? 0;
         await writeStage(client, ctx, target.id, stage.id, { percent: Number(report.percent) }, day);
         await recomputeReadiness(client, target.id);
+        await client.query(`UPDATE mp_report_nodes SET prev_percent = $3, applied_at = clock_timestamp() WHERE report_id = $1 AND node_id = $2`, [report.id, target.id, before]);
       }
     }
-    await client.query(`UPDATE mp_nodes SET last_report_at = NOW(), stale_notified_at = NULL WHERE id = $1`, [target.id]);
+    if (touchLast) await client.query(`UPDATE mp_nodes SET last_report_at = NOW(), stale_notified_at = NULL WHERE id = $1`, [target.id]);
   }
   const ids = targets.map((target) => target.id);
-  await client.query(`UPDATE mp_nodes SET last_report_at = NOW() WHERE id IN (SELECT node_id FROM mp_report_nodes WHERE report_id = $1)`, [report.id]);
+  if (touchLast) await client.query(`UPDATE mp_nodes SET last_report_at = NOW() WHERE id IN (SELECT node_id FROM mp_report_nodes WHERE report_id = $1)`, [report.id]);
   return ids;
+}
+
+/** Objects of a report whose stages it moves (construction objects among its linked nodes). */
+async function linkedTargets(client, reportId) {
+  const { rows } = await client.query(
+    `SELECT n.id, n.kind, n.path, n.code, n.name, t.stage_set FROM mp_report_nodes rn JOIN mp_nodes n ON n.id = rn.node_id JOIN mp_types t ON t.id = n.type_id
+     WHERE rn.report_id = $1 AND t.stage_set IS NOT NULL AND n.kind <> 'level'`,
+    [reportId]
+  );
+  return rows;
+}
+
+/**
+ * Takes back what a published report did to stage progress (before it is
+ * deleted, or before it is re-applied with a corrected percent / date).
+ *
+ * The reports applied to one object and stage form a chain in the order they
+ * were applied; each remembers the percent before it. Removing a link:
+ *   - a later report was applied after this one → it inherits our "before"
+ *     and the stage keeps its current value (the newer fact stands);
+ *   - this was the last one → the stage goes back to our "before", or to the
+ *     newest remaining report that was skipped because of ours (a late,
+ *     older-dated report), whichever is the newest fact.
+ * The stage is only changed while it still shows this report's percent: a
+ * later correction by hand (stage editor) is never overwritten. Reports
+ * applied before this bookkeeping existed (no applied_at) are handled by
+ * date: when it is the newest report, the stage goes back to the newest
+ * remaining report's percent, or 0 when nothing else (no report, no edit by
+ * hand) ever set that stage. Readiness is recomputed for every object moved.
+ */
+async function unapplyReport(client, ctx, report) {
+  if (report.status !== 'published' || !report.stage_id || report.percent === null) return [];
+  const percent = Number(report.percent);
+  const { rows: links } = await client.query(`SELECT node_id, prev_percent, applied_at FROM mp_report_nodes WHERE report_id = $1`, [report.id]);
+  const day = await today();
+  const moved = [];
+  for (const link of links) {
+    const remaining = await client.query(
+      `SELECT r.id, r.percent, rn.applied_at FROM mp_reports r JOIN mp_report_nodes rn ON rn.report_id = r.id
+       WHERE rn.node_id = $1 AND r.stage_id = $2 AND r.status = 'published' AND r.percent IS NOT NULL AND r.id <> $3
+       ORDER BY r.fact_date DESC, r.id DESC LIMIT 1`,
+      [link.node_id, report.stage_id, report.id]
+    );
+    const newest = remaining.rows[0] || null;
+    let restore;
+    let adopt = null;
+    if (link.applied_at) {
+      const { rows: next } = await client.query(
+        `SELECT rn.report_id FROM mp_report_nodes rn JOIN mp_reports r ON r.id = rn.report_id
+         WHERE rn.node_id = $1 AND r.stage_id = $2 AND r.status = 'published' AND rn.applied_at IS NOT NULL AND r.id <> $3
+           AND (rn.applied_at > $4 OR (rn.applied_at = $4 AND r.id > $3))
+         ORDER BY rn.applied_at, r.id LIMIT 1`,
+        [link.node_id, report.stage_id, report.id, link.applied_at]
+      );
+      if (next[0]) {
+        await client.query(`UPDATE mp_report_nodes SET prev_percent = $3 WHERE report_id = $1 AND node_id = $2`, [next[0].report_id, link.node_id, link.prev_percent]);
+        continue;
+      }
+      if (newest && !newest.applied_at) {
+        restore = Number(newest.percent);
+        adopt = newest.id;
+      } else if (link.prev_percent !== null) restore = Number(link.prev_percent);
+    } else {
+      // Applied before the bookkeeping (or skipped as an older fact): only the newest report owns the stage.
+      const { rows: mine } = await client.query(
+        `SELECT 1 FROM mp_reports r JOIN mp_report_nodes rn ON rn.report_id = r.id
+         WHERE rn.node_id = $1 AND r.stage_id = $2 AND r.status = 'published' AND r.percent IS NOT NULL AND r.id <> $3
+           AND (r.fact_date > $4 OR (r.fact_date = $4 AND r.id > $3)) LIMIT 1`,
+        [link.node_id, report.stage_id, report.id, dayString(report.fact_date)]
+      );
+      if (mine.length) continue;
+      if (newest) restore = Number(newest.percent);
+      else {
+        const { rows: manual } = await client.query(`SELECT 1 FROM mp_events WHERE node_id = $1 AND kind = 'stage' AND (data->'stage'->>'id')::int = $2 LIMIT 1`, [link.node_id, report.stage_id]);
+        if (!manual.length) restore = 0;
+      }
+    }
+    if (restore === undefined) continue;
+    const current = await stagePercent(client, link.node_id, report.stage_id);
+    if (current === null || current !== percent) continue;
+    await writeStage(client, ctx, link.node_id, report.stage_id, { percent: restore }, day);
+    await recomputeReadiness(client, link.node_id);
+    if (adopt) await client.query(`UPDATE mp_report_nodes SET prev_percent = $3, applied_at = clock_timestamp() WHERE report_id = $1 AND node_id = $2`, [adopt, link.node_id, link.prev_percent]);
+    moved.push({ nodeId: link.node_id, from: current, to: restore });
+  }
+  await client.query(`UPDATE mp_report_nodes SET prev_percent = NULL, applied_at = NULL WHERE report_id = $1`, [report.id]);
+  return moved;
 }
 
 /**
@@ -343,10 +448,12 @@ async function loadReport(id) {
   return rows[0] || null;
 }
 
-async function reportNodes(reportIds) {
+async function reportNodes(reportIds, client = { query }) {
   if (!reportIds.length) return new Map();
-  const { rows } = await query(
-    `SELECT rn.report_id, n.id, n.code, n.name, n.kind, n.path, n.project_id FROM mp_report_nodes rn JOIN mp_nodes n ON n.id = rn.node_id WHERE rn.report_id = ANY($1::int[]) ORDER BY n.sort, n.id`,
+  const { rows } = await client.query(
+    `SELECT rn.report_id, rn.prev_percent, rn.applied_at, n.id, n.code, n.name, n.kind, n.path, n.project_id, t.stage_set
+     FROM mp_report_nodes rn JOIN mp_nodes n ON n.id = rn.node_id LEFT JOIN mp_types t ON t.id = n.type_id
+     WHERE rn.report_id = ANY($1::int[]) ORDER BY n.sort, n.id`,
     [reportIds]
   );
   const out = new Map();
@@ -365,12 +472,49 @@ function canSeeReport(ctx, row) {
   return row.author_id === ctx.userId || has(caps, 'build.drafts') || has(caps, 'build.moderate');
 }
 
+const rightsOf = (ctx, row, nodes) => reportRights({ report: row, nodeCaps: nodes.map((node) => actCaps(ctx, node)), userId: ctx.userId });
+
+/**
+ * The percent of the report's stage before it, for "40 % → 55 %": what it
+ * replaced when it was applied; for a report not published yet, the stage as
+ * it is now (what publishing would change); for reports applied before that
+ * was recorded, the previous published report on the same object and stage.
+ */
+async function previousPercents(rows, nodesOf) {
+  const out = new Map();
+  const pending = [];
+  for (const row of rows) {
+    if (!row.stage_id || row.percent === null) continue;
+    const targets = (nodesOf.get(row.id) || []).filter((node) => node.stage_set && node.kind !== 'level');
+    const applied = targets.find((node) => node.applied_at && node.prev_percent !== null);
+    if (applied) out.set(row.id, Number(applied.prev_percent));
+    else if (targets.length) pending.push({ row, nodeId: targets[0].id });
+  }
+  for (const { row, nodeId } of pending) {
+    if (row.status !== 'published') {
+      const { rows: now } = await query(`SELECT percent FROM mp_node_stages WHERE node_id = $1 AND stage_id = $2`, [nodeId, row.stage_id]);
+      out.set(row.id, now[0] ? Number(now[0].percent) : 0);
+      continue;
+    }
+    const { rows: before } = await query(
+      `SELECT r.percent FROM mp_reports r JOIN mp_report_nodes rn ON rn.report_id = r.id
+       WHERE rn.node_id = $1 AND r.stage_id = $2 AND r.status = 'published' AND r.percent IS NOT NULL AND r.id <> $3
+         AND (r.fact_date < $4 OR (r.fact_date = $4 AND r.id < $3))
+       ORDER BY r.fact_date DESC, r.id DESC LIMIT 1`,
+      [nodeId, row.stage_id, row.id, dayString(row.fact_date)]
+    );
+    if (before[0]) out.set(row.id, Number(before[0].percent));
+  }
+  return out;
+}
+
 async function shapeReports(ctx, rows) {
   const nodesOf = await reportNodes(rows.map((row) => row.id));
-  const { rows: media } = rows.length ? await query(`SELECT * FROM mp_media WHERE report_id = ANY($1::int[]) ORDER BY id`, [rows.map((row) => row.id)]) : { rows: [] };
+  const { rows: media } = rows.length ? await query(`SELECT * FROM mp_media WHERE report_id = ANY($1::int[]) ORDER BY taken_at NULLS LAST, id`, [rows.map((row) => row.id)]) : { rows: [] };
+  const before = await previousPercents(rows, nodesOf);
   return rows.map((row) => {
     const nodes = nodesOf.get(row.id) || [];
-    const moderate = nodes.length > 0 && nodes.every((node) => has(actCaps(ctx, node), 'build.moderate'));
+    const rights = rightsOf(ctx, row, nodes);
     return {
       id: row.id,
       projectId: row.project_id,
@@ -378,23 +522,28 @@ async function shapeReports(ctx, rows) {
       visibility: row.visibility,
       stage: row.stage_id ? { id: row.stage_id, name: row.stage_name } : null,
       percent: row.percent === null ? null : Number(row.percent),
+      prevPercent: before.has(row.id) ? before.get(row.id) : null,
       factDate: dayString(row.fact_date),
       body: row.body,
-      author: row.author_id ? { id: row.author_id, name: row.author_name } : null,
+      author: row.author_id ? { id: row.author_id, name: row.author_name, avatarUrl: avatarOf(row.author_avatar) } : null,
       reviewer: row.reviewer_id ? { id: row.reviewer_id, name: row.reviewer_name } : null,
       reviewNote: row.review_note,
       reviewedAt: iso(row.reviewed_at),
       publishedAt: iso(row.published_at),
       createdAt: iso(row.created_at),
+      editedAt: iso(row.edited_at),
       nodes: nodes.map((node) => ({ id: node.id, code: node.code, name: node.name, kind: node.kind })),
       media: media.filter((item) => item.report_id === row.id).map(mediaShape),
-      canReview: row.status === 'review' && moderate,
-      canDelete: (row.author_id === ctx.userId && row.status !== 'published') || moderate,
+      canReview: rights.review,
+      canEdit: rights.edit,
+      canDelete: rights.delete,
+      canSubmit: rights.submit,
+      editUntil: rights.editUntil ? iso(rights.editUntil) : null,
     };
   });
 }
 
-const REPORT_SELECT = `SELECT r.*, s.name AS stage_name, COALESCE(a.display_name, a.username) AS author_name, COALESCE(v.display_name, v.username) AS reviewer_name
+const REPORT_SELECT = `SELECT r.*, s.name AS stage_name, COALESCE(a.display_name, a.username) AS author_name, a.avatar_path AS author_avatar, COALESCE(v.display_name, v.username) AS reviewer_name
   FROM mp_reports r LEFT JOIN mp_stages s ON s.id = r.stage_id LEFT JOIN users a ON a.id = r.author_id LEFT JOIN users v ON v.id = r.reviewer_id`;
 
 export async function reportById(ctx, id) {
@@ -403,7 +552,10 @@ export async function reportById(ctx, id) {
   return (await shapeReports(ctx, rows))[0];
 }
 
-/** Journal: { project, node, status, mine, before, limit }. */
+/**
+ * Journal: { project, node, status, mine, cursor, limit }. Newest state first
+ * (date of the state, then id); `cursor` is `nextCursor` of the previous page.
+ */
 export async function listReports(ctx, input = {}) {
   const ids = visibleProjectIds(ctx);
   const params = [];
@@ -429,19 +581,32 @@ export async function listReports(ctx, input = {}) {
     params.push(ctx.userId);
     where.push(`r.author_id = $${params.length}`);
   }
-  if (intOr(input.before)) {
+  const cursor = /^(\d{4}-\d{2}-\d{2})_(\d+)$/.exec(String(input.cursor || ''));
+  if (cursor) {
+    params.push(cursor[1], Number(cursor[2]));
+    where.push(`(r.fact_date, r.id) < ($${params.length - 1}::date, $${params.length})`);
+  } else if (intOr(input.before)) {
     params.push(intOr(input.before));
     where.push(`r.id < $${params.length}`);
   }
   const limit = Math.min(100, Math.max(1, intOr(input.limit, 20)));
-  const { rows } = await query(`${REPORT_SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY r.fact_date DESC, r.id DESC LIMIT ${limit * 3}`, params);
-  const visible = rows.filter((row) => canSeeReport(ctx, row)).slice(0, limit);
-  return { reports: await shapeReports(ctx, visible), hasMore: rows.length >= limit * 3 || visible.length === limit };
+  const { rows } = await query(`${REPORT_SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY r.fact_date DESC, r.id DESC LIMIT ${limit * 3 + 1}`, params);
+  const scanned = rows.slice(0, limit * 3);
+  const visible = [];
+  let last = null;
+  for (const row of scanned) {
+    last = row;
+    if (canSeeReport(ctx, row)) visible.push(row);
+    if (visible.length === limit) break;
+  }
+  const hasMore = rows.length > limit * 3 || (last !== null && last !== scanned[scanned.length - 1]);
+  return { reports: await shapeReports(ctx, visible), hasMore, nextCursor: hasMore && last ? `${dayString(last.fact_date)}_${last.id}` : null };
 }
 
+/** The card's journal: everything on and around the object the person may see (drafts only to their author and moderators). */
 export async function recentReports(ctx, node, { limit = 8 } = {}) {
-  const { reports } = await listReports(ctx, { project: node.project_id, node: node.id, status: 'published', limit });
-  return reports;
+  const { reports, hasMore, nextCursor } = await listReports(ctx, { project: node.project_id, node: node.id, limit });
+  return Object.assign(reports, { hasMore, nextCursor });
 }
 
 /** Moderation: { action: 'publish' | 'reject', note }. */
@@ -476,16 +641,153 @@ export async function reviewReport(ctx, id, input = {}) {
   return reportById(ctx, report.id);
 }
 
-/** Drafts and returned reports by their author; anything by a moderator. */
+/**
+ * Locks a report for a change and checks the rights on the locked row (the
+ * status may have changed since the person loaded it). 404 when invisible.
+ */
+async function lockReport(client, ctx, id, right) {
+  const { rows } = await client.query(`SELECT * FROM mp_reports WHERE id = $1 FOR UPDATE`, [intOr(id, 0)]);
+  const row = rows[0];
+  if (!row || !canSeeReport(ctx, row)) throw notFound('Report not found');
+  const nodes = (await reportNodes([row.id], client)).get(row.id) || [];
+  const rights = rightsOf(ctx, row, nodes);
+  if (!rights[right]) {
+    const late = row.author_id === ctx.userId && row.status === 'published' && !rights.moderate;
+    throw forbidden(late ? 'A published report can be changed by its author for 24 hours; ask the head of construction' : undefined, late ? 'REPORT_LOCKED' : 'FORBIDDEN');
+  }
+  return { row, nodes, rights };
+}
+
+/**
+ * Deletes a report (rights: reportRights). Hard delete with a history event on
+ * each of its objects; a published report's effect on stage progress is
+ * taken back first (unapplyReport) and readiness recomputed; its photo and
+ * video files are removed from disk (they belong to this report only).
+ */
 export async function deleteReport(ctx, id) {
-  const report = await reportById(ctx, id);
-  if (!report.canDelete) throw forbidden();
-  const { rows } = await query(`SELECT storage_key, thumb_key FROM mp_media WHERE report_id = $1`, [report.id]);
-  await withTransaction(async (client) => {
-    await client.query(`DELETE FROM mp_reports WHERE id = $1`, [report.id]);
-    for (const node of report.nodes) await logEvent(client, { projectId: report.projectId, nodeId: node.id, kind: 'report_deleted', data: { reportId: report.id }, authorId: ctx.userId });
+  const out = await withTransaction(async (client) => {
+    const { row, nodes } = await lockReport(client, ctx, id, 'delete');
+    const { rows: stage } = row.stage_id ? await client.query(`SELECT name FROM mp_stages WHERE id = $1`, [row.stage_id]) : { rows: [] };
+    const moved = await unapplyReport(client, ctx, row);
+    const { rows: media } = await client.query(`DELETE FROM mp_media WHERE report_id = $1 RETURNING storage_key, thumb_key`, [row.id]);
+    await client.query(`DELETE FROM mp_reports WHERE id = $1`, [row.id]);
+    for (const node of nodes) {
+      const back = moved.find((item) => item.nodeId === node.id);
+      await logEvent(client, {
+        projectId: row.project_id,
+        nodeId: node.id,
+        kind: 'report_deleted',
+        data: {
+          reportId: row.id,
+          status: row.status,
+          stage: row.stage_id ? { id: row.stage_id, name: stage[0]?.name || null } : null,
+          percent: row.percent === null ? null : Number(row.percent),
+          factDate: dayString(row.fact_date),
+          authorId: row.author_id,
+          photos: media.length,
+          restored: back ? { from: back.from, to: back.to } : null,
+        },
+        authorId: ctx.userId,
+      });
+    }
+    return { media, moved, projectId: row.project_id };
   });
-  await removeMediaFiles(rows);
+  await removeMediaFiles(out.media);
+  if (out.moved.length) treeChanged(out.projectId);
+  return { restored: out.moved };
+}
+
+/**
+ * Corrects a report: { body?, factDate?, percent?, removeMediaIds?, addMediaIds?, submit? }.
+ * The objects and the stage stay (delete and report again to change them).
+ * A published report with a new percent or date is taken back and applied
+ * again, so progress follows the correction; `submit` sends a draft or a
+ * returned report to review (or publishes it for a moderator / without
+ * moderation). Removed photos leave the disk; added ones must be the
+ * person's own uploads not yet attached anywhere.
+ */
+export async function updateReport(ctx, id, input = {}) {
+  const patch = {};
+  if (input.body !== undefined) patch.body = text(input.body, 5000) || null;
+  if (input.factDate !== undefined) patch.fact_date = parseDay(input.factDate, 'factDate');
+  if (input.percent !== undefined) {
+    const n = parseNumber(input.percent);
+    if (Number.isNaN(n) || (n !== null && (n < 0 || n > 100))) throw httpError(400, 'Percent is 0–100', 'INVALID_FIELD');
+    patch.percent = n === null ? null : Math.round(n * 10) / 10;
+  }
+  if (patch.fact_date === null) delete patch.fact_date;
+  const removeIds = idList(input.removeMediaIds, 60);
+  const addIds = idList(input.addMediaIds, 30);
+  const out = await withTransaction(async (client) => {
+    const { row, nodes, rights } = await lockReport(client, ctx, id, 'edit');
+    if (patch.percent !== undefined && patch.percent !== null && !row.stage_id) throw httpError(400, 'The report has no stage', 'INVALID_FIELD');
+    const project = (await client.query(`SELECT id, name, settings FROM mp_projects WHERE id = $1`, [row.project_id])).rows[0];
+    const stageName = row.stage_id ? (await client.query(`SELECT name FROM mp_stages WHERE id = $1`, [row.stage_id])).rows[0]?.name || null : null;
+    const changes = {};
+    if (patch.body !== undefined && patch.body !== row.body) changes.body = true;
+    if (patch.fact_date !== undefined && patch.fact_date !== dayString(row.fact_date)) changes.factDate = { from: dayString(row.fact_date), to: patch.fact_date };
+    const oldPercent = row.percent === null ? null : Number(row.percent);
+    if (patch.percent !== undefined && patch.percent !== oldPercent) changes.percent = { from: oldPercent, to: patch.percent };
+    let status = row.status;
+    if (input.submit && rights.submit) {
+      const moderator = nodes.every((node) => has(actCaps(ctx, node), 'build.moderate'));
+      status = projectSettings(project.settings).moderation && !moderator ? 'review' : 'published';
+      if (status !== row.status) changes.status = { from: row.status, to: status };
+    }
+    // Progress: a published report whose percent or date changes is taken back and applied again.
+    const reapply = row.status === 'published' && (changes.percent || changes.factDate);
+    const moved = reapply ? await unapplyReport(client, ctx, row) : [];
+    const { rows: removed } = removeIds.length
+      ? await client.query(`DELETE FROM mp_media WHERE report_id = $1 AND id = ANY($2::int[]) RETURNING id, storage_key, thumb_key`, [row.id, removeIds])
+      : { rows: [] };
+    if (addIds.length) {
+      const { rows: count } = await client.query(`SELECT COUNT(*)::int AS n FROM mp_media WHERE report_id = $1`, [row.id]);
+      if (count[0].n + addIds.length > 30) throw httpError(400, 'A report takes up to 30 photos and videos', 'TOO_MANY');
+      const { rowCount } = await client.query(`UPDATE mp_media SET report_id = $1 WHERE id = ANY($2::int[]) AND project_id = $3 AND created_by = $4 AND report_id IS NULL AND node_id IS NULL AND series IS NULL`, [row.id, addIds, row.project_id, ctx.userId]);
+      if (rowCount !== addIds.length) throw httpError(400, 'Some photos are not yours or already used', 'INVALID_MEDIA');
+    }
+    if (removed.length) changes.photosRemoved = removed.length;
+    if (addIds.length) changes.photosAdded = addIds.length;
+    if (!Object.keys(changes).length) return { row, nodes, removed, moved, status, project, changed: false };
+    const { rows: updated } = await client.query(
+      `UPDATE mp_reports SET body = $2, fact_date = $3, percent = $4, status = $5::text,
+              published_at = CASE WHEN $5::text = 'published' AND status <> 'published' THEN NOW() ELSE published_at END,
+              reviewer_id = CASE WHEN $5::text = 'review' AND status <> 'review' THEN NULL ELSE reviewer_id END,
+              edited_at = NOW(), edited_by = $6, updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [row.id, patch.body !== undefined ? patch.body : row.body, patch.fact_date || dayString(row.fact_date), patch.percent !== undefined ? patch.percent : row.percent, status, ctx.userId]
+    );
+    const next = updated[0];
+    let touched = [];
+    if (next.status === 'published' && (reapply || row.status !== 'published')) {
+      // Re-applying a correction does not count as a fresh visit to the site ("last report").
+      touched = await applyReport(client, ctx, next, await linkedTargets(client, next.id), { touchLast: row.status !== 'published' });
+    }
+    for (const node of nodes) {
+      await logEvent(client, { projectId: row.project_id, nodeId: node.id, kind: 'report_edited', data: { reportId: row.id, stage: row.stage_id ? { id: row.stage_id, name: stageName } : null, ...changes }, authorId: ctx.userId });
+    }
+    return { row: next, nodes, removed, moved, status, project, changed: true, touched, submitted: Boolean(changes.status), stage: stageName ? { name: stageName } : null };
+  });
+  await removeMediaFiles(out.removed);
+  if (out.moved.length || out.touched?.length) treeChanged(out.row.project_id);
+  if (out.submitted) {
+    afterReport(ctx, out.project, out.row, out.nodes, out.stage).catch((err) => console.warn('[masterplan] report notifications:', err.message));
+  }
+  return reportById(ctx, out.row.id);
+}
+
+/** One photo or video of a report (the same rights as editing the report). */
+export async function deleteReportMedia(ctx, reportId, mediaId) {
+  const removed = await withTransaction(async (client) => {
+    const { row, nodes } = await lockReport(client, ctx, reportId, 'edit');
+    const { rows } = await client.query(`DELETE FROM mp_media WHERE id = $1 AND report_id = $2 RETURNING id, name, storage_key, thumb_key`, [intOr(mediaId, 0), row.id]);
+    if (!rows[0]) throw notFound('File not found');
+    await client.query(`UPDATE mp_reports SET edited_at = NOW(), edited_by = $2, updated_at = NOW() WHERE id = $1`, [row.id, ctx.userId]);
+    for (const node of nodes) await logEvent(client, { projectId: row.project_id, nodeId: node.id, kind: 'report_edited', data: { reportId: row.id, photosRemoved: 1, name: rows[0].name }, authorId: ctx.userId });
+    return rows;
+  });
+  await removeMediaFiles(removed);
+  return reportById(ctx, reportId);
 }
 
 // ── Objects list (§9.6) ─────────────────────────────────────────────────────

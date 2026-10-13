@@ -500,6 +500,7 @@ export async function nodeCard(ctx, id, { presentation = false } = {}) {
     seriesMedia: seriesMedia.rows.map(mediaShape),
     stages: stages ? { ownerId: stageOwner.id, inherited: stageOwner.id !== base.id, ...stages } : null,
     reports,
+    reportsCursor: reports.nextCursor || null,
     media: media.rows.map(mediaShape),
     priceHistory: prices.rows.map((row) => ({ id: row.id, from: money(row.old_price), to: money(row.new_price), currency: (row.currency || '').trim(), reason: row.reason, author: row.author, createdAt: iso(row.created_at) })),
     caps: presentation ? [] : [...act],

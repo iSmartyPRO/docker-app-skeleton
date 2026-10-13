@@ -32,6 +32,7 @@ export const mpApi = {
   updatePlan: (id, payload) => api.put(`${base}/plans/${id}`, payload),
   deletePlan: (id) => api.delete(`${base}/plans/${id}`),
   saveContours: (id, contours) => api.put(`${base}/plans/${id}/contours`, { contours }),
+  saveMarkers: (id, markers) => api.put(`${base}/plans/${id}/markers`, { markers }),
 
   createNode: (payload) => api.post(`${base}/nodes`, payload),
   bulkNodes: (payload) => api.post(`${base}/nodes/bulk`, payload),
@@ -60,7 +61,9 @@ export const mpApi = {
   reports: (params) => api.get(`${base}/reports`, { params }),
   createReport: (payload) => api.post(`${base}/reports`, payload),
   reviewReport: (id, payload) => api.post(`${base}/reports/${id}/review`, payload),
+  updateReport: (id, payload) => api.put(`${base}/reports/${id}`, payload),
   deleteReport: (id) => api.delete(`${base}/reports/${id}`),
+  deleteReportMedia: (id, mediaId) => api.delete(`${base}/reports/${id}/media/${mediaId}`),
 
   upload: (form, onUploadProgress) => api.post(`${base}/media`, form, { timeout: 300000, onUploadProgress }),
   deleteMedia: (id) => api.delete(`${base}/media/${id}`),

@@ -7,11 +7,12 @@ import { httpError, userShape } from '../shared/acl.js';
 import { STATUSES, ROLES, FINISHINGS, PAYMENT_FORMS, PROJECT_CLASSES, PROJECT_STATUSES, MEDIA_KINDS, TYPE_CATEGORIES } from './constants.js';
 import { forbidden, modulesEnabled, mpContext, mpSettings, requireAdmin, requireProject } from './access.js';
 import { capsOf, has } from './rules.js';
+import { saveMarkers } from './markers.js';
 import { createPlan, createProject, deletePlan, deleteProject, getProject, listProjects, listTeam, projectMap, saveContours, saveTeam, updatePlan, updateProject } from './projects.js';
 import { bulkCreate, bulkMove, createNode, deleteNode, getNode, moveNode, nodeCard, nodeEvents, updateNode } from './nodes.js';
 import { assignManager, bulkPrice, bulkStatus, changeStatus, extendBooking, listBookings } from './sales.js';
 import { exportCsv, importUnits, listUnits } from './units.js';
-import { constructionList, createReport, deleteReport, listReports, listStages, reportById, reviewReport, saveStageSet, setReadiness, updateNodeStage } from './construction.js';
+import { constructionList, createReport, deleteReport, deleteReportMedia, listReports, listStages, reportById, reviewReport, saveStageSet, setReadiness, updateNodeStage, updateReport } from './construction.js';
 import { deleteMedia, mediaUploader, sendMedia, storeMedia } from './media.js';
 import { listTypes, saveTypes, ICONS } from './directory.js';
 import { dashboard } from './dashboard.js';
@@ -179,6 +180,7 @@ export function privateRoutes() {
     ok(res);
   }));
   router.put('/plans/:id/contours', wrap(async (req, res) => ok(res, await saveContours(req.mp, req.params.id, req.body || {}))));
+  router.put('/plans/:id/markers', wrap(async (req, res) => ok(res, await saveMarkers(req.mp, req.params.id, req.body || {}))));
   // Live updates of a project's plan (SSE).
   router.get('/stream', wrap(async (req, res) => {
     const project = await requireProject(req.mp, req.query.project);
@@ -220,10 +222,9 @@ export function privateRoutes() {
   router.post('/reports', wrap(async (req, res) => ok(res, { report: await createReport(req.mp, req.body || {}) }, 201)));
   router.get('/reports/:id', wrap(async (req, res) => ok(res, { report: await reportById(req.mp, req.params.id) })));
   router.post('/reports/:id/review', wrap(async (req, res) => ok(res, { report: await reviewReport(req.mp, req.params.id, req.body || {}) })));
-  router.delete('/reports/:id', wrap(async (req, res) => {
-    await deleteReport(req.mp, req.params.id);
-    ok(res);
-  }));
+  router.put('/reports/:id', wrap(async (req, res) => ok(res, { report: await updateReport(req.mp, req.params.id, req.body || {}) })));
+  router.delete('/reports/:id', wrap(async (req, res) => ok(res, await deleteReport(req.mp, req.params.id))));
+  router.delete('/reports/:id/media/:mediaId', wrap(async (req, res) => ok(res, { report: await deleteReportMedia(req.mp, req.params.id, req.params.mediaId) })));
 
   // ── Media ──
   router.post('/media', wrap(async (req, res) => {

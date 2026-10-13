@@ -1,5 +1,8 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { layoutLabels, polygonArea } from './labels';
+import { layoutMarkers, markerBoxes, pickMarker } from './markers';
+import MarkerLayer from './MarkerLayer';
+import '../mp-markers.css';
 
 /*
  * The site plan surface: a background (image or SVG) with clickable polygons
@@ -9,6 +12,10 @@ import { layoutLabels, polygonArea } from './labels';
  * shapes: [{ id, points: [[x, y]…], fill, stroke, level, dim, selected, label, badge? }]
  * edit:   { points, closed, onAdd(pt), onMove(index, pt), onRemove(index) } — the contour editor
  * labelMode: 'auto' | 'always' | 'hide' — numbers of objects (plan/labels.js); levels keep their names
+ * markers: [{ id, x, y, r, label, fill, ring?, progress?, chip?, dim, selected, hover, title }] — point
+ *         markers (plan/markers.js, MarkerLayer.jsx), drawn above contours, never hidden
+ * markerEdit: { selectedId, armed, resizable, guides: { x, y }, onPlace(pt), onSelect(id | null),
+ *         onMove(id, pt, done), onResize(id, r, done) } — the point editor
  *
  * Contours may overlap (sectors meeting on a narrow strip): levels are drawn
  * under objects, and within each group bigger contours under smaller ones, so
@@ -52,7 +59,7 @@ export function centroid(points) {
   return [cx / (3 * a), cy / (3 * a)];
 }
 
-const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, shapes: rawShapes, onShapeClick, onShapeHover, onBackgroundClick, onReady, edit, labelMode = 'auto', className = '', ariaLabel, children }, ref) {
+const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, shapes: rawShapes, markers = [], markerEdit = null, onShapeClick, onShapeHover, onBackgroundClick, onReady, edit, labelMode = 'auto', className = '', ariaLabel, children }, ref) {
   // Drawing order: levels first, then objects; bigger under smaller (parents under children).
   const shapes = useMemo(() => {
     const withArea = rawShapes.map((shape) => ({ shape, area: polygonArea(shape.points) }));
@@ -112,7 +119,9 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
     fit,
     fitBox,
     zoom: (factor) => zoomAt(factor, size.w / 2, size.h / 2),
-  }), [fit, fitBox, zoomAt, size]);
+    /** Screen px per plan unit (snapping tolerances, nudges). */
+    scale: () => view?.k || 1,
+  }), [fit, fitBox, zoomAt, size, view]);
 
   // Wheel zoom must be non-passive to stop the page from scrolling.
   useEffect(() => {
@@ -144,7 +153,23 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
       gesture.current = { type: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), view };
       return;
     }
-    gesture.current = { type: vertex !== undefined ? 'vertex' : 'pan', index: Number(vertex), startX: event.clientX, startY: event.clientY, view, moved: false, target: event.target };
+    const base = { startX: event.clientX, startY: event.clientY, view, moved: false, target: event.target };
+    // The point editor: drag a marker to move it, its handle to resize it.
+    const resizeId = event.target.dataset?.mkResize;
+    if (markerEdit && resizeId !== undefined) {
+      const marker = markers.find((item) => item.id === Number(resizeId));
+      const [px, py] = toPlan(event.clientX, event.clientY);
+      gesture.current = { ...base, type: 'mkresize', id: Number(resizeId), r0: marker?.r || 1, d0: Math.max(1e-6, Math.hypot(px - (marker?.x || 0), py - (marker?.y || 0))), cx: marker?.x || 0, cy: marker?.y || 0 };
+      return;
+    }
+    const markerId = markerAt(event);
+    if (markerEdit && markerId) {
+      const marker = markers.find((item) => item.id === markerId);
+      const [px, py] = toPlan(event.clientX, event.clientY);
+      gesture.current = { ...base, type: 'marker', id: markerId, dx: (marker?.x || 0) - px, dy: (marker?.y || 0) - py };
+      return;
+    }
+    gesture.current = { ...base, type: vertex !== undefined ? 'vertex' : 'pan', index: Number(vertex) };
   };
 
   const onPointerMove = (event) => {
@@ -152,7 +177,7 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
     if (!view) return;
     if (!g) {
       if (onShapeHover) {
-        const id = event.target.dataset?.shape;
+        const id = markerAt(event) || event.target.closest?.('[data-shape]')?.dataset?.shape;
         const rect = box.current.getBoundingClientRect();
         onShapeHover(id ? Number(id) : null, { x: event.clientX - rect.left, y: event.clientY - rect.top, w: rect.width, h: rect.height });
       }
@@ -178,7 +203,15 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
     }
     if (!g.moved) return;
     if (g.type === 'vertex') edit?.onMove?.(g.index, toPlan(event.clientX, event.clientY));
-    else setView({ ...g.view, x: g.view.x + dx, y: g.view.y + dy });
+    else if (g.type === 'marker') {
+      const [px, py] = toPlan(event.clientX, event.clientY);
+      g.last = [px + g.dx, py + g.dy];
+      markerEdit?.onMove?.(g.id, g.last, false);
+    } else if (g.type === 'mkresize') {
+      const [px, py] = toPlan(event.clientX, event.clientY);
+      g.last = (g.r0 * Math.hypot(px - g.cx, py - g.cy)) / g.d0;
+      markerEdit?.onResize?.(g.id, g.last, false);
+    } else setView({ ...g.view, x: g.view.x + dx, y: g.view.y + dy });
   };
 
   const onPointerUp = (event) => {
@@ -187,30 +220,54 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
     if (pointers.current.size) return;
     gesture.current = null;
     setDragging(false);
+    if (g?.moved && g.type === 'marker' && g.last) markerEdit?.onMove?.(g.id, g.last, true);
+    if (g?.moved && g.type === 'mkresize' && g.last) markerEdit?.onResize?.(g.id, g.last, true);
     if (!g || g.moved || g.type === 'pinch') return;
     // A click (no drag).
-    const id = g.target?.dataset?.shape;
     if (g.type === 'vertex') return;
+    if (g.type === 'mkresize') return;
+    if (markerEdit) {
+      if (g.type === 'marker') markerEdit.onSelect?.(g.id);
+      else if (markerEdit.armed) markerEdit.onPlace?.(toPlan(event.clientX, event.clientY));
+      else if (g.target?.closest?.('[data-shape]')) onShapeClick?.(Number(g.target.closest('[data-shape]').dataset.shape));
+      else markerEdit.onSelect?.(null);
+      return;
+    }
     if (edit && !edit.closed) {
       edit.onAdd?.(toPlan(event.clientX, event.clientY));
       return;
     }
+    const id = pickedMarker(g) || g.target?.closest?.('[data-shape]')?.dataset?.shape;
     if (id) onShapeClick?.(Number(id));
     else onBackgroundClick?.();
   };
 
   const k = view?.k || 1;
+  // Rounded zoom: markers and labels are laid out again only when the scale really changes.
+  const kStep = Math.round(k * 400) / 400;
+  const markerLayout = useMemo(() => (view ? layoutMarkers(markers.map((m) => ({ id: m.id, x: m.x, y: m.y, r: m.r, text: m.label })), kStep, labelMode) : []), [markers, kStep, labelMode, view]);
+  const markerObstacles = useMemo(() => markerBoxes(markerLayout, kStep), [markerLayout, kStep]);
+
+  /** The marker meant by a pointer event: the nearest centre among the tap circles under it. */
+  function markerAt(event) {
+    if (!view || !event.target.closest?.('[data-mk]')) return null;
+    const [px, py] = toPlan(event.clientX, event.clientY);
+    return pickMarker(markerLayout, px, py, view.k) || Number(event.target.closest('[data-mk]').dataset.mk);
+  }
+  function pickedMarker(g) {
+    if (!g.target?.closest?.('[data-mk]')) return null;
+    const [px, py] = toPlan(g.startX, g.startY);
+    return pickMarker(markerLayout, px, py, g.view.k) || Number(g.target.closest('[data-mk]').dataset.mk);
+  }
   const levelLabels = useMemo(() => shapes.filter((shape) => shape.label && shape.level).map((shape) => ({ id: shape.id, box: bboxOf(shape.points), label: shape.label })), [shapes]);
   const objects = useMemo(() => shapes.filter((shape) => !shape.level), [shapes]);
   const byId = useMemo(() => new Map(objects.map((shape) => [shape.id, shape])), [objects]);
-  // Rounded zoom: labels are laid out again only when the scale really changes.
-  const kStep = Math.round(k * 400) / 400;
-  const numbers = useMemo(() => (view ? layoutLabels(objects.map((shape) => ({ id: shape.id, points: shape.points, text: shape.label })), kStep, labelMode) : []), [objects, kStep, labelMode, view]);
+  const numbers = useMemo(() => (view ? layoutLabels(objects.map((shape) => ({ id: shape.id, points: shape.points, text: shape.label })), kStep, labelMode, markerObstacles) : []), [objects, kStep, labelMode, view, markerObstacles]);
 
   return (
     <div
       ref={box}
-      className={`mp-canvas${dragging ? ' is-dragging' : ''}${edit ? ' is-editing' : ''} ${className}`}
+      className={`mp-canvas${dragging ? ' is-dragging' : ''}${edit || markerEdit?.armed ? ' is-editing' : ''} ${className}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -264,6 +321,26 @@ const PlanCanvas = forwardRef(function PlanCanvas({ width, height, background, s
                 </g>
               );
             })}
+            {markers.length > 0 && (
+              <MarkerLayer
+                markers={markers}
+                layout={markerLayout}
+                k={k}
+                editing={markerEdit}
+                onKeyActivate={(id) => (markerEdit ? markerEdit.onSelect?.(id) : onShapeClick?.(id))}
+                onFocusMarker={(id, item) => {
+                  if (!onShapeHover || gesture.current) return;
+                  if (!id) onShapeHover(null);
+                  else onShapeHover(id, { x: item.x * view.k + view.x, y: item.y * view.k + view.y + item.rPx, w: size.w, h: size.h });
+                }}
+              />
+            )}
+            {markerEdit?.guides && (
+              <g className="mp-mk-guides">
+                {markerEdit.guides.x !== null && markerEdit.guides.x !== undefined && <line x1={markerEdit.guides.x} x2={markerEdit.guides.x} y1={0} y2={height} style={{ strokeWidth: 1 / k, strokeDasharray: `${5 / k} ${4 / k}` }} />}
+                {markerEdit.guides.y !== null && markerEdit.guides.y !== undefined && <line y1={markerEdit.guides.y} y2={markerEdit.guides.y} x1={0} x2={width} style={{ strokeWidth: 1 / k, strokeDasharray: `${5 / k} ${4 / k}` }} />}
+              </g>
+            )}
             {edit?.points?.length > 0 && (
               <g className="mp-edit">
                 {edit.closed ? <polygon points={edit.points.map((p) => p.join(',')).join(' ')} style={{ strokeWidth: 2 / k }} /> : <polyline points={edit.points.map((p) => p.join(',')).join(' ')} style={{ strokeWidth: 2 / k }} />}

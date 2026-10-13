@@ -1,4 +1,5 @@
 import { HELD, STATUSES, descendants, readinessColor, statusColor } from '../lib';
+import { ringSegments } from './markers';
 
 const RANK = Object.fromEntries(STATUSES.map((status, index) => [status, index]));
 
@@ -53,6 +54,31 @@ export function nodeFill(node, layer, { settings, tree }) {
   if (!free) return topColor;
   // One free unit already reads green-ish; a half-sold building sits in between.
   return mixColor(topColor, freeColor, 0.3 + 0.7 * (free / below.length));
+}
+
+/**
+ * How a point marker of a node looks on a layer: { fill, ring, chip, progress }.
+ *   sales  — a building with several units: a ring of status shares around the
+ *            disc (free first from 12 o'clock) and a «free/total» chip
+ *   build  — the readiness arc (progress, 0..100) when readiness is known
+ */
+export function markerLook(node, layer, { settings, tree, caps = null }) {
+  const fill = nodeFill(node, layer, { settings, tree });
+  const look = { fill: fill === 'transparent' ? '#94A3B8' : fill, ring: null, chip: null, progress: null, free: null, total: null };
+  if (layer === 'sales' && !node.unit) {
+    const units = descendants(tree, node.id).filter((item) => item.unit?.status);
+    const counts = {};
+    for (const item of units) counts[item.unit.status] = (counts[item.unit.status] || 0) + 1;
+    if (units.length > 1) {
+      look.ring = ringSegments(counts, STATUSES).map((seg) => ({ ...seg, color: statusColor(seg.status, settings) }));
+      look.free = counts.free || 0;
+      look.total = units.length;
+      look.chip = `${look.free}/${look.total}`;
+    }
+  }
+  const seesBuild = !caps || caps.includes('*') || caps.includes('build.view');
+  if (layer === 'build' && seesBuild && node.readiness !== null && node.readiness !== undefined) look.progress = Math.max(0, Math.min(100, Number(node.readiness)));
+  return look;
 }
 
 /** Units at or below a node. */

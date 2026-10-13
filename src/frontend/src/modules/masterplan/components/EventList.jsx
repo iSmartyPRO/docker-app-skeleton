@@ -79,7 +79,24 @@ function EventText({ event }) {
     case 'crm_stage':
       return t('mp.ev.crmStage', { stage: d.stage?.name || '', status: t(`mp.status.${d.action}`), code: d.code || '' });
     case 'report_deleted':
-      return t('mp.ev.reportDeleted');
+      return (
+        <>
+          {t('mp.ev.reportDeleted')} {d.stage?.name && <b>{d.stage.name}</b>} {d.percent !== null && d.percent !== undefined && formatPercent(d.percent, locale)}
+          {d.factDate && <span className="mp-ev__extra">{fmtDate(d.factDate)}</span>}
+          {d.restored && <span className="mp-ev__extra">{t('mp.ev.progressBack', { from: formatPercent(d.restored.from, locale), to: formatPercent(d.restored.to, locale) })}</span>}
+        </>
+      );
+    case 'report_edited':
+      return (
+        <>
+          {t('mp.ev.reportEdited')} {d.stage?.name && <b>{d.stage.name}</b>}
+          {d.percent && <span className="mp-ev__extra">{formatPercent(d.percent.from, locale)} → {formatPercent(d.percent.to, locale)}</span>}
+          {d.factDate && <span className="mp-ev__extra">{fmtDate(d.factDate.from)} → {fmtDate(d.factDate.to)}</span>}
+          {d.status && <span className="mp-ev__extra">{t(`mp.report.state.${d.status.to}`)}</span>}
+          {d.photosRemoved > 0 && <span className="mp-ev__extra">{t('mp.ev.photosRemoved', { n: d.photosRemoved })}</span>}
+          {d.photosAdded > 0 && <span className="mp-ev__extra">{t('mp.ev.photosAdded', { n: d.photosAdded })}</span>}
+        </>
+      );
     default:
       return t('mp.ev.other');
   }

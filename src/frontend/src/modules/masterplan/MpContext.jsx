@@ -157,6 +157,7 @@ export function ProjectProvider({ projectId, presentation = false, children }) {
       caps: data?.caps || [],
       plans: data?.plans || [],
       contours: data?.contours || [],
+      markers: data?.markers || [],
       reload: load,
       refreshUnits,
       /** A node changed locally (after an action): merge it right away. */

@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Masterplan: point markers and construction reports
+
+- **Point markers:** place an object on the site plan as a circle with its number instead of a contour — editor mode «Точки» with «Размещено X из N», chain placement («Ставить подряд»), drag with alignment, S/M/L size, labels, contour ↔ point, undo; markers follow the layers (status, readiness arc, type), apartment buildings get a ring of unit statuses and a «free/total» chip; numbers shrink to dots where markers would touch; works in presentation, search and on phones. Projects with several plans get a plan picker.
+- **Construction reports:** edit and delete reports and single photos (author while not published and 24 h after publishing; head of construction and admins always), progress rolls back correctly and files leave the disk; a redesigned feed grouped by day with stage change «40% → 55%», status badges and inline moderation; a full-screen photo/video viewer with zoom, filmstrip, download, delete and shooting date/place.
+
 ### Masterplan 1.1 (White Hills start)
 
 - **Status migration** («Перенести статус») for project administrators — any status with client, manager, date and contract data, bypassing the chain, the CRM deal requirement and the timer; per unit, in bulk from the registry and through import columns; history event «Миграция».

@@ -9,7 +9,7 @@ import { mpApi } from '../api';
 import { useMp, useProject } from '../MpContext';
 import { can } from '../lib';
 import { Empty, Readiness, ScheduleBadge, TypeIcon } from '../components/bits';
-import ReportFeed from '../components/ReportFeed';
+import ReportFeed, { ReportFeedSkeleton } from '../components/ReportFeed';
 import ReportDialog from '../components/ReportDialog';
 import UnitCard from '../components/UnitCard';
 
@@ -49,8 +49,9 @@ export default function ConstructionPage() {
   }, [project.id, filter, message]);
   const loadReports = useCallback(async () => {
     try {
-      const [published, pending] = await Promise.all([mpApi.reports({ project: project.id, limit: 30 }), mpApi.reports({ project: project.id, status: 'review', limit: 50 })]);
-      setReports(published.data.reports.filter((report) => report.status === 'published' || report.canDelete));
+      const [journal, pending] = await Promise.all([mpApi.reports({ project: project.id, limit: 20 }), mpApi.reports({ project: project.id, status: 'review', limit: 50 })]);
+      // Everything the person may see, newest state first (drafts and reviews only reach their author and moderators).
+      setReports({ list: journal.data.reports, cursor: journal.data.nextCursor || null });
       setReview(pending.data.reports);
     } catch (err) {
       message.error(errorMessage(err));
@@ -93,6 +94,15 @@ export default function ConstructionPage() {
       render: (_, item) => item.canReport && <Button size="small" onClick={() => setReportOpen({ projectId: project.id, nodeIds: [item.id] })}>＋ {t('mp.report.short')}</Button>,
     },
   ].filter(Boolean);
+
+  // A report published, corrected or deleted may move stage progress: the list and the map follow.
+  const afterChange = (kind) => {
+    loadReports();
+    if (kind !== 'media') {
+      loadList();
+      reload();
+    }
+  };
 
   const afterReport = (created) => {
     setReportOpen(null);
@@ -159,8 +169,17 @@ export default function ConstructionPage() {
           )}
         </>
       )}
-      {tab === 'journal' && (reports ? <ReportFeed reports={reports} onChanged={loadReports} onOpenNode={(id) => setParam('node', id)} /> : <Skeleton active paragraph={{ rows: 6 }} />)}
-      {tab === 'review' && (review ? <ReportFeed reports={review} onChanged={() => { loadReports(); loadList(); reload(); }} onOpenNode={(id) => setParam('node', id)} /> : <Skeleton active />)}
+      {tab === 'journal' && (reports ? (
+        <ReportFeed
+          reports={reports.list}
+          cursor={reports.cursor}
+          params={{ project: project.id, limit: 20 }}
+          onChanged={afterChange}
+          onOpenNode={(id) => setParam('node', id)}
+          onCreate={canReport ? () => setReportOpen({ projectId: project.id }) : null}
+        />
+      ) : <ReportFeedSkeleton count={3} />)}
+      {tab === 'review' && (review ? <ReportFeed reports={review} onChanged={afterChange} onOpenNode={(id) => setParam('node', id)} emptyTitle={t('mp.rep.reviewEmpty')} emptyText={null} /> : <ReportFeedSkeleton />)}
       {canReport && <button type="button" className="mp-fab" onClick={() => setReportOpen({ projectId: project.id })} aria-label={t('mp.report.title')}>＋</button>}
       <ReportDialog open={reportOpen} onClose={afterReport} />
       {selectedId && tree.byId.has(selectedId) && <UnitCard key={selectedId} nodeId={selectedId} onClose={() => setParam('node', null)} onChanged={() => { loadList(); reload(); }} />}

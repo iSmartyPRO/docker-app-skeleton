@@ -393,7 +393,17 @@ export default function UnitCard({ nodeId: openId, version, onClose, onChanged, 
                 </ol>
               </>
             )}
-            <ReportFeed reports={card.reports} compact />
+            <ReportFeed
+              reports={card.reports}
+              cursor={card.reportsCursor}
+              params={{ project: node.projectId, node: node.id, limit: 8 }}
+              compact
+              onChanged={() => {
+                load();
+                onChanged?.(null);
+              }}
+              onCreate={actions.report && !presentation ? () => setReport({ projectId: node.projectId, nodeIds: [node.id] }) : null}
+            />
           </div>
         )}
         {tab === 'sale' && unit && (

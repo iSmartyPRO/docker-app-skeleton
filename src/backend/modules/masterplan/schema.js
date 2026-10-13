@@ -3,7 +3,7 @@ import { getSetting, setSetting } from '../../services/settings.js';
 import { registerJob } from '../../services/scheduler.js';
 import { DEFAULT_STAGES, DEFAULT_TYPES } from './constants.js';
 import { runBookingTimers } from './sales.js';
-import { runDailyChecks } from './construction.js';
+import { ensureReportSchema, runDailyChecks } from './construction.js';
 import { purgeOrphans } from './media.js';
 import { registerCrmHooks } from './crmLink.js';
 import { ensurePricingSchema } from './pricing.js';
@@ -24,7 +24,8 @@ import { ensureBuildingSchema } from './buildings.js';
  *   mp_node_stages    stage progress of construction objects (plan / fact / percent)
  *   mp_reports        construction journal, mp_report_nodes its objects
  *   mp_media          photos, renders, layouts, documents, plan backgrounds
- *   mp_plans          site plans (a project's, or a node's close-up), mp_contours their polygons
+ *   mp_plans          site plans (a project's, or a node's close-up), mp_contours their polygons,
+ *                     mp_markers point markers (a numbered circle instead of a polygon)
  *   mp_assignments    module roles with a zone (project or node subtree)
  *   mp_events         history of everything (audit trail)
  */
@@ -295,6 +296,19 @@ export async function ensureMasterplanSchema() {
       PRIMARY KEY (plan_id, node_id)
     )
   `);
+  // Point markers (markers.js): a numbered circle instead of a contour, one placement per object per plan.
+  await query(`
+    CREATE TABLE IF NOT EXISTS mp_markers (
+      plan_id INTEGER NOT NULL REFERENCES mp_plans(id) ON DELETE CASCADE,
+      node_id INTEGER NOT NULL REFERENCES mp_nodes(id) ON DELETE CASCADE,
+      x REAL NOT NULL,
+      y REAL NOT NULL,
+      r REAL NOT NULL,
+      label VARCHAR(12),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (plan_id, node_id)
+    )
+  `);
   await query(`
     CREATE TABLE IF NOT EXISTS mp_assignments (
       id SERIAL PRIMARY KEY,
@@ -325,6 +339,7 @@ export async function ensureMasterplanSchema() {
 
   await ensurePricingSchema();
   await ensureBuildingSchema();
+  await ensureReportSchema();
   await seedDirectories();
   registerJob({ name: 'masterplan:bookings', everyMs: 60 * 1000, run: runBookingTimers });
   registerJob({

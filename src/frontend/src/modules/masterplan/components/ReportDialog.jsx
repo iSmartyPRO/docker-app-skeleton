@@ -18,7 +18,8 @@ let seq = 0;
  * Built for a phone: the camera button opens the camera, photos are shrunk
  * and uploaded in the background while the form is filled, with retries.
  * Only objects in the person's zone are offered (the server checks again).
- * `open` = { projectId, nodeIds? }.
+ * `open` = { projectId, nodeIds? } — a new report; { projectId, report } —
+ * correcting one: comment, date, percent and photos (objects and stage stay).
  */
 export default function ReportDialog({ open, onClose }) {
   const { t } = useLocale();
@@ -34,18 +35,32 @@ export default function ReportDialog({ open, onClose }) {
   const [photos, setPhotos] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [kept, setKept] = useState([]);
   const camera = useRef(null);
   const gallery = useRef(null);
+  const editing = open?.report || null;
 
   useEffect(() => {
     if (!open) return;
+    setPhotos([]);
+    setError(null);
+    if (open.report) {
+      const report = open.report;
+      setSelected(report.nodes.map((node) => node.id));
+      setStageId(report.stage?.id || null);
+      setPercent(report.percent);
+      setFactDate(report.factDate || todayISO());
+      setBody(report.body || '');
+      setKept(report.media || []);
+      setObjects([]);
+      return;
+    }
+    setKept([]);
     setSelected([]);
     setStageId(null);
     setPercent(null);
     setFactDate(todayISO());
     setBody('');
-    setPhotos([]);
-    setError(null);
     setObjects(null);
     mpApi
       .construction(open.projectId)
@@ -94,7 +109,7 @@ export default function ReportDialog({ open, onClose }) {
     .flatMap(([set, list]) => list.map((stage) => ({ value: stage.id, label: stage.name, set })));
 
   const addFiles = async (files) => {
-    const list = [...files].slice(0, Math.max(0, 30 - photos.length));
+    const list = [...files].slice(0, Math.max(0, 30 - photos.length - kept.length));
     for (const file of list) {
       const id = ++seq;
       const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
@@ -113,6 +128,29 @@ export default function ReportDialog({ open, onClose }) {
   };
 
   const pending = photos.some((photo) => photo.state === 'prep' || photo.state === 'up');
+  const save = async (send) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const keptIds = new Set(kept.map((item) => item.id));
+      const res = await mpApi.updateReport(editing.id, {
+        body,
+        factDate,
+        ...(editing.stage ? { percent: percent ?? null } : {}),
+        removeMediaIds: editing.media.filter((item) => !keptIds.has(item.id)).map((item) => item.id),
+        addMediaIds: photos.filter((photo) => photo.mediaId).map((photo) => photo.mediaId),
+        submit: send || undefined,
+      });
+      const next = res.data.report;
+      message.success(send ? (next.status === 'review' ? t('mp.report.sentReview') : t('mp.report.published')) : t('mp.rep.saved'));
+      onClose(next);
+    } catch (err) {
+      setError(conflictText(err, t));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submit = async () => {
     if (!selected.length) {
       setError(t('mp.report.chooseObjects'));
@@ -142,8 +180,12 @@ export default function ReportDialog({ open, onClose }) {
 
   if (!open) return null;
   return (
-    <Modal open title={t('mp.report.title')} onCancel={() => onClose(null)} className="mp-report-dlg" width={560} destroyOnClose
-      footer={[
+    <Modal open title={editing ? t('mp.rep.editTitle') : t('mp.report.title')} onCancel={() => onClose(null)} className="mp-report-dlg" width={560} destroyOnClose
+      footer={editing ? [
+        <Button key="cancel" onClick={() => onClose(null)}>{t('common.cancel')}</Button>,
+        editing.canSubmit && <Button key="send" loading={busy} disabled={pending} onClick={() => save(true)} title={t('mp.rep.submitHint')}>{t('mp.rep.submit')}</Button>,
+        <Button key="ok" type="primary" loading={busy} disabled={pending} onClick={() => save(false)}>{pending ? t('mp.report.uploading') : t('mp.rep.save')}</Button>,
+      ].filter(Boolean) : [
         <Button key="cancel" onClick={() => onClose(null)}>{t('common.cancel')}</Button>,
         <Button key="ok" type="primary" loading={busy} disabled={pending || !selected.length} onClick={submit}>{pending ? t('mp.report.uploading') : t('mp.report.send')}</Button>,
       ]}
@@ -161,6 +203,12 @@ export default function ReportDialog({ open, onClose }) {
             <span aria-hidden="true">🖼️</span>
             {t('mp.report.gallery')}
           </button>
+          {kept.map((item) => (
+            <div key={`m${item.id}`} className="mp-report__thumb is-done" title={item.name}>
+              {item.thumbUrl || !/^video\//.test(item.mime || '') ? <img src={item.thumbUrl || item.url} alt="" /> : <span className="mp-report__file">🎬</span>}
+              <button type="button" aria-label={t('common.delete')} onClick={() => setKept((prev) => prev.filter((entry) => entry.id !== item.id))}>×</button>
+            </div>
+          ))}
           {photos.map((photo) => (
             <div key={photo.id} className={`mp-report__thumb is-${photo.state}`} title={photo.error || photo.name}>
               {photo.preview ? <img src={photo.preview} alt="" /> : <span className="mp-report__file">🎬</span>}
@@ -170,7 +218,17 @@ export default function ReportDialog({ open, onClose }) {
             </div>
           ))}
         </div>
-        <p className="mp-report__count">{t('mp.report.photos', { n: photos.length })}</p>
+        <p className="mp-report__count">{t('mp.report.photos', { n: photos.length + kept.length })}</p>
+        {editing ? (
+          <div className="mp-ffield">
+            <span>{t('mp.report.objects')}{editing.stage ? ` · ${t('mp.report.stage')}` : ''}</span>
+            <div className="mpr-chips">
+              {editing.nodes.map((node) => <span key={node.id} className="mpr-chip">{node.code || node.name}</span>)}
+              {editing.stage && <span className="mpr-chip is-stage">{editing.stage.name}</span>}
+            </div>
+            <small className="mp-muted">{t('mp.rep.objectsFixed')}</small>
+          </div>
+        ) : (
         <label className="mp-ffield">
           <span>{t('mp.report.objects')}</span>
           <TreeSelect
@@ -187,11 +245,14 @@ export default function ReportDialog({ open, onClose }) {
             style={{ width: '100%' }}
           />
         </label>
-        <div className="form-grid-2">
+        )}
+        <div className={editing ? undefined : 'form-grid-2'}>
+          {!editing && (
           <label className="mp-ffield">
             <span>{t('mp.report.stage')}</span>
             <Select allowClear showSearch optionFilterProp="label" value={stageId} onChange={setStageId} options={stageOptions} placeholder={t('mp.report.stageHint')} />
           </label>
+          )}
           <label className="mp-ffield">
             <span>{t('mp.report.date')}</span>
             <DateField value={factDate} onChange={(day) => setFactDate(day || todayISO())} allowClear={false} style={{ width: '100%' }} />
