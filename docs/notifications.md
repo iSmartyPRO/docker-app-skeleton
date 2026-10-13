@@ -100,6 +100,8 @@ registerJob({ name: 'tasks:reminders', everyMs: 5 * 60 * 1000, run: runReminders
 |-----|----------|
 | `tasks:reminders` | 5 min |
 | `calendar:reminders` | 1 min |
+| `masterplan:bookings` | 1 min — booking warnings and automatic release ([Masterplan](masterplan.md)) |
+| `masterplan:daily` | 6 h — stale reports, delays, orphan uploads |
 | `calendar:cleanup` | 12 h |
 | `notifications:retention` | 6 h |
 

@@ -250,6 +250,16 @@ export const PREMIUM_ICONS = {
       d="M7.4 5.6h9.2v2.2c0 1.6-1.4 2.8-3 3.6 1.6.8 3 2 3 3.6v2.2H7.4v-2.2c0-1.6 1.4-2.8 3-3.6-1.6-.8-3-2-3-3.6V5.6Z"
     />
   )),
+  // Site plan: plots in a grid along a road, one highlighted (the Masterplan app icon).
+  siteplan: icon('#0F766E', () => (
+    <>
+      <rect x="5.2" y="5.4" width="5.6" height="5" rx="1" fill="#fff" />
+      <rect x="13.2" y="5.4" width="5.6" height="5" rx="1" fill="#fff" opacity=".55" />
+      <rect x="5.2" y="13.6" width="5.6" height="5" rx="1" fill="#fff" opacity=".55" />
+      <rect x="13.2" y="13.6" width="5.6" height="5" rx="1" fill="#fff" />
+      <path d="M4.6 12h14.8" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" strokeDasharray="1.6 1.6" />
+    </>
+  )),
   target: icon('#E03131', () => (
     <>
       <circle cx="12" cy="12" r="5.7" {...S} />

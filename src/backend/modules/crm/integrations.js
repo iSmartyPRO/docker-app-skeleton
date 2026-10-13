@@ -1,6 +1,7 @@
 import { query } from '../../config/database.js';
 import { notify } from '../../services/notifications.js';
 import { emitEvent } from '../../api/events.js';
+import { emitModuleEvent } from '../../services/hooks.js';
 import { publicBase } from '../../services/google.js';
 import { logEvent as companyEvent } from '../companies/service.js';
 import { postSystem } from '../chat/service.js';
@@ -109,6 +110,8 @@ export async function afterDealChange(ctx, dealId, effects = []) {
           await chatLine(row.id, ctx.userId, { event: 'deal.stage', from: effect.from, to, lostReason: to.kind === 'lost' ? row.lost_reason : undefined, pipeline: effect.pipeline || undefined });
           await dealWebhook('deal.stage_changed', row, ctx, { from: effect.from, to });
         }
+        // Other modules follow stage moves (Masterplan: deal stage → unit status).
+        await emitModuleEvent('crm.deal.stage', { dealId: row.id, from: effect.from, to, actorId: ctx.userId });
         if (to.kind === 'won' || to.kind === 'lost') {
           await clientTimeline(row, to.kind, ctx.userId);
           await dealWebhook(to.kind === 'won' ? 'deal.won' : 'deal.lost', row, ctx, { lostReason: to.kind === 'lost' ? row.lost_reason : undefined });

@@ -24,6 +24,7 @@ export const HELP_ORDER = [
   'kb',
   'companies',
   'crm',
+  'masterplan',
   'resources',
   'admin',
   'api',

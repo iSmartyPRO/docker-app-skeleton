@@ -249,6 +249,11 @@ export const SETTINGS_GROUPS = [
         keywords: 'crm deals pipeline sales funnel kanban leads clients activities сделки воронка продажи лиды клиенты дела срм црм',
       },
       {
+        id: 'masterplan',
+        defaultIcon: 'siteplan',
+        keywords: 'masterplan site plan chessboard units booking construction real estate генплан мастерплан шахматка юниты брони стройка застройка недвижимость',
+      },
+      {
         id: 'assistant',
         defaultIcon: 'robot',
         keywords: 'assistant robot helper avatar tips помощник робот подсказки аватар',

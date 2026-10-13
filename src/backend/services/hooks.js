@@ -34,6 +34,15 @@ async function emit(event, payload) {
   }
 }
 
+/*
+ * Module events: one module announces a change other modules may follow,
+ * without importing each other. Listeners never break the event.
+ *
+ *   crm.deal.stage  { dealId, from, to: { id, name, kind }, actorId }  a deal moved to another stage
+ */
+export const onModuleEvent = (name, fn) => on(`module:${name}`, fn);
+export const emitModuleEvent = (name, payload) => emit(`module:${name}`, payload);
+
 export const onDirectorySignIn = (fn) => on('directory-sign-in', fn);
 export const emitDirectorySignIn = (payload) => emit('directory-sign-in', payload);
 

@@ -88,6 +88,8 @@ Changing the settings remounts the app, so components need no special handling. 
 - **Support text** (crash and outage screens): local time, zone and UTC ISO.
 - **API log charts:** grouped by UTC day; their day labels are shown in UTC.
 
+- **Masterplan** ([masterplan.md](masterplan.md)): booking timers are instants; contract, act, stage plan / fact and report dates are calendar days (`YYYY-MM-DD`). "Today" for schedules and delays is the portal's day; warnings, CRM history lines and notifications are written in the recipient's (or the portal's) zone and formats.
+
 ## Pitfalls
 
 - Do not use `new Date().setHours(…)` or `getDay()` on the server for a person: the container's zone is not theirs.

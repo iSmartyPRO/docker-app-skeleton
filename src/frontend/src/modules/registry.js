@@ -79,6 +79,15 @@ export const MODULE_REGISTRY = [
     Settings: lazy(() => import('./crm/CrmSettings')),
   },
   {
+    id: 'masterplan',
+    path: '/app/masterplan',
+    icon: 'siteplan',
+    labelKey: 'apps.masterplan.name',
+    descKey: 'apps.masterplan.desc',
+    App: lazy(() => import('./masterplan/MasterplanApp')),
+    Settings: lazy(() => import('./masterplan/MasterplanSettings')),
+  },
+  {
     id: 'calendar',
     path: '/app/calendar',
     icon: 'calendar',

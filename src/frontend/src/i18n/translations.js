@@ -16,6 +16,7 @@ import { userLinksEn, userLinksRu } from './userLinks.js';
 import { regionalEn, regionalRu } from './regional.js';
 import { sessionsEn, sessionsRu } from './sessions.js';
 import { crmEn, crmRu } from './crm.js';
+import { masterplanEn, masterplanRu } from './masterplan.js';
 
 const en = {
   brand: 'docker-app-skeleton',
@@ -1963,6 +1964,8 @@ mergeDeep(ru, { appError: { title: 'Страница не загрузилась
 mergeDeep(ru, companiesRu);
 mergeDeep(en, crmEn);
 mergeDeep(ru, crmRu);
+mergeDeep(en, masterplanEn);
+mergeDeep(ru, masterplanRu);
 mergeDeep(en, { appUpdate: { title: 'A new version is out', text: 'Update to see what’s new — it takes a second.', button: 'Update', updating: 'Updating…', later: 'Later' } });
 mergeDeep(ru, { appUpdate: { title: 'Вышла новая версия', text: 'Обновите, чтобы увидеть новое — это секунда.', button: 'Обновить', updating: 'Обновляем…', later: 'Позже' } });
 

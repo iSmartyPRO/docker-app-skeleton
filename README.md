@@ -336,6 +336,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Time zones and formats](docs/datetime.md) | Portal and personal time zone, date/time formats, week start; rules for code |
 | [Installable app (PWA)](docs/pwa.md) | Manifest, service worker, icons, install guide, deployment notes |
 | [Counterparties](docs/companies.md) | Companies, contacts, registers (Minjust KG, DaData, EGRUL), careers, history, ratings, API |
+| [Masterplan](docs/masterplan.md) | Development projects: site plan with contours, chessboard, registry, sales statuses and bookings, prices, construction journal, roles with zones, CRM link, API |
 | [Dashboard](docs/dashboard.md) | Personal widgets over the modules: catalog, customization, starting layout, API |
 | [Online resources](docs/resources.md) | Home page board, visibility, personal layouts, icons, API |
 | [File server (Drive)](docs/drive.md) | SMB file servers, sign-in, viewers, public links, security, operations, API |

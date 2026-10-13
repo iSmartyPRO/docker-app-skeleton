@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Masterplan module
+
+- **Masterplan** ([docs/masterplan.md](docs/masterplan.md)), off by default: development projects as a configurable tree (up to 8 levels, bulk lines «A-1-01…A-1-15» and apartments «floors × per floor», drag & drop moves), an object types directory and construction stage sets seeded from the spec; the **interactive site plan** (image/SVG background, contours, zoom/pan/pinch, hover tooltips, side card, layers Sales / Construction / Types, legend with counters, filters, breadcrumbs, contour editor, a tiles scheme while contours are missing, presentation mode); the **chessboard** with bulk price changes; the **registry** with Excel/CSV export and a validated Excel/CSV **import**; **sales statuses** with the transition rules enforced on the server, optimistic locking («Объект только что забронирован менеджером X»), reserves and bookings with 24 h / 2 h warnings, automatic release, extension and per-manager limits, price history and limits; the **construction journal** (stage plan / fact, readiness by weights, delays, photo reports from phones with in-browser compression, optional moderation); a simple **dashboard**; module roles as portal permissions plus project assignments with **zones of responsibility** and server-side field hiding; CRM link (deal ↔ units, deal history lines and amount, stage → status mapping, a Masterplan block in the deal panel through a new extension point); notifications and live updates over SSE.
+
 The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md) for the reasoning behind each change.
 
 ### Security and reliability (audit)

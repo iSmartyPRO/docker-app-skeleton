@@ -43,6 +43,24 @@ export const NOTIFICATION_GROUPS = [
     ],
   },
   {
+    key: 'masterplan',
+    module: 'masterplan',
+    events: [
+      // A reserve or booking of mine ends soon (settings.warnHours before) / was released by the timer.
+      { kind: 'masterplan.expiring', defaults: on(true, true, true) },
+      { kind: 'masterplan.expired', defaults: on(true, true, true) },
+      // Units reserved, booked, sold… in my zone (heads of sales, management).
+      { kind: 'masterplan.status', defaults: on(true, false, false) },
+      // New construction report on units I hold / sell.
+      { kind: 'masterplan.report', defaults: on(true, false, false) },
+      // Moderation: a report waits for me / my report was published or returned.
+      { kind: 'masterplan.review', defaults: on(true, true, false) },
+      // Objects without fresh reports, delays over the threshold.
+      { kind: 'masterplan.construction', defaults: on(true, true, false) },
+      { kind: 'masterplan.access', defaults: on(true, true, false) },
+    ],
+  },
+  {
     key: 'calendar',
     module: 'calendar',
     events: [

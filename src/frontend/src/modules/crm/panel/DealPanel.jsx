@@ -16,6 +16,7 @@ import { Glyph, Money } from '../components/bits';
 import DealFields from './DealFields';
 import StageBar from './StageBar';
 import Timeline from './Timeline';
+import DealExtensions from './extensions';
 import './panel.css';
 
 const EVENTS_PAGE = 50;
@@ -355,6 +356,7 @@ export default function DealPanel({ id, onClose, onChanged }) {
               </div>
               <StageBar deal={deal} pipeline={pipeline} disabled={!editable} onMove={onMove} onFinish={onFinish} />
               <DealFields deal={deal} editable={editable} onPatch={patch} />
+              <DealExtensions deal={deal} onChanged={refreshTimeline} />
               <div className="dp-foot-meta">
                 {t('crm.panel.createdBy', { who: deal.createdBy?.name || '—', when: formatDateTime(deal.createdAt, locale) })}
                 {deal.updatedAt && ` · ${t('crm.panel.updated', { when: formatDateTime(deal.updatedAt, locale) })}`}

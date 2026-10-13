@@ -1,0 +1,108 @@
+export default {
+  id: 'masterplan',
+  icon: 'siteplan',
+  title: { ru: 'Мастерплан', en: 'Masterplan' },
+  tagline: {
+    ru: 'Живой генплан проекта: что свободно, что в брони, что продано и как идёт стройка.',
+    en: 'The live site plan of a project: what is available, booked, sold, and how construction goes.',
+  },
+  summary: {
+    ru: '«Мастерплан» показывает проект застройки на генплане, в шахматке и в реестре. Менеджеры резервируют и бронируют юниты, финансисты и юристы ведут их до продажи и передачи, прорабы с телефона отправляют фотоотчёты о стройке. Все видят одну картину, и двойная бронь невозможна.',
+    en: 'Masterplan shows a development project on the site plan, in a chessboard and in a registry. Managers reserve and book units, finance and legal take them to the sale and handover, foremen send construction photo reports from their phones. Everyone sees the same picture, and a double booking is impossible.',
+  },
+  highlights: [
+    { icon: '🗺️', title: { ru: 'Генплан со слоями', en: 'Site plan with layers' }, text: { ru: 'Цвета продаж, готовность стройки или типы объектов — переключателем над планом.', en: 'Sales colours, construction readiness or object types — one switch above the plan.' } },
+    { icon: '🔒', title: { ru: 'Без двойных броней', en: 'No double bookings' }, text: { ru: 'Если коллега успел первым, вы увидите «Объект только что забронирован менеджером X».', en: 'If a colleague was first you see “The unit has just been reserved by X”.' } },
+    { icon: '⏳', title: { ru: 'Брони с таймером', en: 'Bookings with a timer' }, text: { ru: 'Напоминания за 24 и 2 часа, по истечении объект освобождается сам.', en: 'Reminders 24 and 2 hours before; when time is up the unit is released by itself.' } },
+    { icon: '🏢', title: { ru: 'Шахматка', en: 'Chessboard' }, text: { ru: 'Этажи × квартиры с ценой, ценой за м² или площадью и групповой сменой цен.', en: 'Floors × apartments with price, price per m² or area, and bulk price changes.' } },
+    { icon: '📷', title: { ru: 'Фотоотчёты стройки', en: 'Construction photo reports' }, text: { ru: 'Прораб отправляет отчёт с телефона за три касания; готовность считается сама.', en: 'A foreman sends a report from a phone in three taps; readiness is computed.' } },
+    { icon: '🤝', title: { ru: 'Связь с CRM', en: 'Linked with the CRM' }, text: { ru: 'Бронь привязывается к сделке, в сделке виден объект и его стройка.', en: 'A booking is linked to a deal; the deal shows the unit and its construction.' } },
+  ],
+  tips: [
+    { ru: 'Нажмите на статус в легенде — останутся только такие юниты.', en: 'Click a status in the legend to keep only those units.' },
+    { ru: 'Кнопка «Презентация» прячет клиентов, менеджеров и минимальные цены — можно показывать клиенту.', en: 'The Presentation button hides clients, managers and minimum prices — safe to show a client.' },
+    { ru: 'Из сделки CRM нажмите «Подобрать объект»: на генплане сделка уже будет выбрана для брони.', en: 'In a CRM deal press “Pick a unit”: on the site plan the deal is already chosen for the booking.' },
+    { ru: 'Прорабу удобно добавить портал на главный экран телефона: «+ Отчёт» → Камера → Отправить.', en: 'Foremen: add the portal to the phone home screen — “+ Report” → Camera → Send.' },
+    { ru: 'Без нарисованных контуров генплан показывает объекты схемой — работать можно с первого дня.', en: 'Without contours the plan shows objects as a scheme — you can work from day one.' },
+  ],
+  sections: [
+    {
+      id: 'plan',
+      title: { ru: 'Генплан', en: 'Site plan' },
+      body: {
+        ru: 'Поверх подложки — контуры очередей, секторов, участков и зданий. Колесо мыши или щипок приближают, перетаскивание двигает план, кнопка ⤢ показывает весь проект.\n\nНаведите на объект — появится подсказка: код, тип, площадь, цена, статус и готовность. Щелчок по сектору приближает его и открывает сводку, щелчок по участку или дому открывает карточку справа, не уходя с плана.\n\n- **Продажи** — цвет по статусу продажи;\n- **Строительство** — от серого к зелёному по проценту готовности;\n- **Типы** — жилые, коммерческие, инфраструктура.\n\nЦвета меняются сами, когда коллеги бронируют и продают.',
+        en: 'On top of the background are contours of phases, sectors, plots and buildings. The mouse wheel or a pinch zooms, dragging moves the plan, ⤢ shows the whole project.\n\nHover an object to see its code, type, area, price, status and readiness. A click on a sector zooms in and opens its summary; a click on a plot or a house opens the card on the right without leaving the plan.\n\n- **Sales** — colour by sales status;\n- **Construction** — grey to green by readiness;\n- **Types** — residential, commercial, infrastructure.\n\nColours change by themselves as colleagues book and sell.',
+      },
+    },
+    {
+      id: 'statuses',
+      title: { ru: 'Статусы и кто их меняет', en: 'Statuses and who changes them' },
+      body: {
+        ru: '1. **Свободно → Резерв** — менеджер продаж (у менеджера ограничено число одновременных резервов).\n2. **Резерв → Бронь** — менеджер своего резерва, нужна сделка CRM с клиентом.\n3. **Бронь → Задаток** — финансист.\n4. **Задаток → Договор** — юрист или РОП, с номером и датой договора.\n5. **Договор → Продано** — финансист (оплачено 100%).\n6. **Продано → Передано** — руководитель строительства или юрист, с датой акта.\n\nСнять резерв или бронь может её менеджер (с причиной) или РОП. Продлить — менеджер один раз, дальше РОП. Закрыть продажу — только руководство. Откат назад — РОП и руководство, всегда с причиной.',
+        en: '1. **Available → Reserved** — a sales manager (the number of reserves at once is limited).\n2. **Reserved → Booked** — the manager of the reserve, with a CRM deal that has a client.\n3. **Booked → Deposit** — finance.\n4. **Deposit → Contract** — legal or the head of sales, with the contract number and date.\n5. **Contract → Sold** — finance (paid in full).\n6. **Sold → Handed over** — the head of construction or legal, with the act date.\n\nA reserve or booking is released by its manager (with a reason) or the head of sales. A manager extends once, then the head of sales. Closing sales is for management. Rolling back is for the head of sales and management, always with a reason.',
+      },
+      note: { ru: 'Если двое бронируют один объект одновременно, бронь получает только один — второй увидит, кто его опередил.', en: 'If two people book one unit at the same moment, only one gets it — the other sees who was first.' },
+    },
+    {
+      id: 'chess',
+      title: { ru: 'Шахматка', en: 'Chessboard' },
+      body: {
+        ru: 'Колонки — секции и стояки, строки — этажи (верхний этаж сверху). В ячейке — номер, комнатность, площадь и цена; переключатель показывает цену, цену за м² или площадь.\n\nКнопка **Выбрать** включает выделение ячеек: выберите несколько квартир и измените цену на процент или сумму, закройте или откройте их продажу.',
+        en: 'Columns are sections and risers, rows are floors (top floor first). A cell shows the number, rooms, area and price; a switch shows price, price per m² or area.\n\n**Select** turns on picking: choose several apartments and change their price by a percent or an amount, close or open their sales.',
+      },
+    },
+    {
+      id: 'registry',
+      title: { ru: 'Реестр, экспорт и импорт', en: 'Registry, export and import' },
+      body: {
+        ru: 'Таблица всех юнитов: колонки настраиваются, сортировка — по заголовку, фильтры — те же, что на генплане. Выделите строки, чтобы изменить цены или закрыть продажу.\n\n**Экспорт** — Excel или CSV, только с теми колонками, которые вам положено видеть.\n\n**Импорт** (администратор): скачайте шаблон, заполните, загрузите. Портал проверит каждую строку и покажет ошибки; ничего не запишется, пока файл не чистый.',
+        en: 'A table of every unit: columns are configurable, sort by a header, the same filters as on the plan. Select rows to change prices or close sales.\n\n**Export** — Excel or CSV, only with the columns you may see.\n\n**Import** (administrators): download the template, fill it in, upload. Every row is checked and errors are listed; nothing is written until the file is clean.',
+      },
+    },
+    {
+      id: 'bookings',
+      title: { ru: 'Брони', en: 'Bookings' },
+      body: {
+        ru: 'Активные резервы и брони с оставшимся временем. Истекающие сегодня и завтра — сверху. Отсюда же продлевают и открывают карточку, чтобы снять бронь или перевести в задаток.',
+        en: 'Active reserves and bookings with the time left. Those ending today and tomorrow are on top. Extend from here, or open the card to release or move to a deposit.',
+      },
+    },
+    {
+      id: 'construction',
+      title: { ru: 'Строительство и фотоотчёты', en: 'Construction and photo reports' },
+      body: {
+        ru: 'Список объектов с этапом, готовностью, графиком и датой последнего отчёта. Фильтры: «нет отчёта больше 14 дней», «отставание», «мои».\n\nКнопка **+ Отчёт**: объекты (можно целую линию), этап, процент, фото с камеры и комментарий. Фото сжимаются на телефоне и догружаются при плохой связи.\n\nЕсли в проекте включена модерация, отчёт прораба сначала проверяет руководитель строительства (вкладка «На проверке»). Опубликованный отчёт сдвигает этап, пересчитывает готовность и уведомляет менеджеров с бронями на этих объектах.',
+        en: 'Objects with stage, readiness, schedule and the last report date. Filters: “no report for over 14 days”, “behind”, “mine”.\n\n**+ Report**: objects (a whole line too), stage, percent, photos from the camera and a comment. Photos are shrunk on the phone and resumed on a weak connection.\n\nWith moderation on, a foreman’s report is reviewed by the head of construction first (the Review tab). A published report moves the stage, recomputes readiness and notifies managers who hold units there.',
+      },
+      steps: [
+        { ru: 'Нажмите **+ Отчёт** (на телефоне — круглая кнопка внизу).', en: 'Press **+ Report** (on a phone — the round button at the bottom).' },
+        { ru: 'Нажмите **Камера** и снимите фото.', en: 'Press **Camera** and take photos.' },
+        { ru: 'Выберите этап и процент, нажмите **Отправить**.', en: 'Choose the stage and percent, press **Send**.' },
+      ],
+      note: { ru: 'Прораб видит и может выбрать только объекты своей зоны ответственности.', en: 'A foreman sees and picks only objects of their own zone.' },
+    },
+    {
+      id: 'dashboard',
+      title: { ru: 'Дашборд', en: 'Dashboard' },
+      body: {
+        ru: 'Продано, в брони и свободно — в штуках, м² и деньгах (в базовой валюте по курсам из настроек); продажи по месяцам и менеджерам; готовность по очередям и секторам; объекты без свежих отчётов и «продано, но не построено».',
+        en: 'Sold, booked and available — in pieces, m² and money (in the base currency at the rates from the settings); sales by month and manager; readiness by phases and sectors; objects without fresh reports and “sold but not built”.',
+      },
+    },
+    {
+      id: 'structure',
+      title: { ru: 'Структура, генплан и команда', en: 'Structure, site plan and team' },
+      body: {
+        ru: 'Администратор строит дерево: очередь → сектор → линия → участок → здание → юнит (уровни можно пропускать, до 8 уровней). **Массово** создаёт линию «A-1-01…A-1-15» или квартиры секции «этажи × на этаже». Узлы перетаскиваются мышью.\n\nНа вкладке **Генпланы** загрузите подложку (картинку или SVG), выберите объект и щёлкайте по подложке, ставя точки контура; замкните и сохраните.\n\nНа вкладке **Команда** выдайте роли: на весь проект или только внутри сектора, линии, здания. Роль может быть временной.',
+        en: 'An administrator builds the tree: phase → sector → line → plot → building → unit (levels may be skipped, up to 8). **In bulk** creates a line “A-1-01…A-1-15” or a section’s apartments “floors × per floor”. Drag nodes to move them.\n\nOn **Site plans** upload a background (picture or SVG), pick an object and click the background to put contour points; close and save.\n\nOn **Team** grant roles: over the whole project or only inside a sector, line or building. A role can be temporary.',
+      },
+    },
+  ],
+  faq: [
+    { q: { ru: 'Почему я не вижу минимальную цену и клиентов?', en: 'Why can’t I see the minimum price and clients?' }, a: { ru: 'Их видят РОП и руководство; менеджер видит клиентов только своих броней. Это скрывается на сервере, а не только в интерфейсе.', en: 'Heads of sales and management see them; a manager sees clients of their own bookings only. This is hidden on the server, not just in the interface.' } },
+    { q: { ru: 'Что будет, если бронь истекла?', en: 'What happens when a booking expires?' }, a: { ru: 'Объект сам становится свободным, менеджер и РОП получают уведомление, в сделку CRM пишется строка.', en: 'The unit becomes available by itself, the manager and the head of sales are notified, the CRM deal gets a line.' } },
+    { q: { ru: 'Почему не получается отправить отчёт по соседнему сектору?', en: 'Why can’t I report on the neighbouring sector?' }, a: { ru: 'Прораб вносит данные только в своей зоне ответственности; её назначает администратор на вкладке «Команда».', en: 'A foreman enters data only in their zone of responsibility; an administrator sets it on the Team tab.' } },
+    { q: { ru: 'Как стадия сделки меняет статус объекта?', en: 'How does a deal stage change the unit status?' }, a: { ru: 'Администратор задаёт соответствие «стадия → статус» в настройках модуля. Когда сделка переходит на такую стадию, её объекты меняют статус по тем же правилам и правам.', en: 'An administrator maps “stage → status” in the module settings. When a deal moves to such a stage, its units change status by the same rules and rights.' } },
+  ],
+  related: ['crm', 'companies', 'notifications'],
+};

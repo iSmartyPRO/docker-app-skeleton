@@ -19,6 +19,7 @@ export const SECTIONS = [
   { key: 'calendar', area: 'calendar', prefix: ['/app/calendar'], title: L('Календарь', 'Calendar'), intro: L('Календари и события с повторениями, участниками и напоминаниями. Даты — ISO 8601.', 'Calendars and events with recurrence, attendees and reminders. Dates are ISO 8601.') },
   { key: 'companies', area: 'companies', prefix: ['/app/companies'], title: L('Контрагенты', 'Counterparties'), intro: L('Компании и контакты, проверка по реестрам, заметки и оценки.', 'Companies and people, registry checks, notes and ratings.') },
   { key: 'crm', area: 'crm', prefix: ['/app/crm'], title: L('CRM', 'CRM'), intro: L('Сделки по стадиям воронок, дела, история, фильтры. Клиенты — компании и люди модуля «Контрагенты». Суммы — числа с двумя знаками, валюты — ISO 4217. Видимость сделок та же, что в интерфейсе; токен можно ограничить воронками (`crm.pipelines`).', 'Deals moving through pipeline stages, activities, history, filters. Clients are companies and people of the Counterparties module. Amounts are numbers with two decimals, currencies ISO 4217. Deals are visible as in the UI; a token can be narrowed to pipelines (`crm.pipelines`).') },
+  { key: 'masterplan', area: 'masterplan', prefix: ['/app/masterplan'], title: L('Мастерплан', 'Masterplan'), intro: L('Проекты застройки: дерево объектов, генплан с контурами, статусы продаж с бронированием, цены, ход строительства и фотоотчёты. Права — роли модуля с зонами ответственности; чувствительные поля (минимальная цена, клиенты, суммы) сервер скрывает по ролям. Смена статуса принимает `version` — при устаревшей версии 409 `VERSION_CONFLICT` с текущим держателем в `info.holder`.', 'Development projects: the object tree, the site plan with contours, sales statuses with bookings, prices, construction progress and photo reports. Rights are module roles with zones of responsibility; the server hides sensitive fields (minimum price, clients, amounts) by role. Status changes take `version`; a stale one answers 409 `VERSION_CONFLICT` with the current holder in `info.holder`.') },
   { key: 'files', area: 'files', prefix: ['/app/files'], title: L('Файлы', 'Files'), intro: L('Личные файлы и общие пространства: папки, загрузка, скачивание, доступ и ссылки.', 'Personal files and shared spaces: folders, upload, download, sharing and links.') },
   { key: 'kb', area: 'kb', prefix: ['/app/kb'], title: L('База знаний', 'Knowledge base'), intro: L('Папки и материалы базы знаний.', 'Knowledge base folders and items.') },
   { key: 'drive', area: 'drive', prefix: ['/app/drive'], title: L('Файловый сервер', 'File server'), intro: L('Сетевые папки (SMB): список, чтение, загрузка. Пути передаются параметром `path`.', 'Network shares (SMB): listing, reading, uploading. Paths go in the `path` parameter.') },
@@ -185,6 +186,41 @@ export const DOCS = {
   'PUT /app/calendar/events/:id': { summary: L('Изменить событие', 'Update an event'), body: [b('scope', '"all" | "single"', L('Всю серию или одно вхождение', 'The whole series or one occurrence')), b('occurrence', 'ISO date-time', L('Какое вхождение', 'Which occurrence'))] },
   'DELETE /app/calendar/events/:id': { summary: L('Удалить событие', 'Delete an event'), query: [q('scope', '"all" | "single"', L('Всю серию или одно вхождение', 'The whole series or one occurrence')), q('occurrence', 'ISO date-time', L('Вхождение', 'Occurrence'))] },
   'PUT /app/calendar/events/:id/rsvp': { summary: L('Ответить на приглашение', 'Answer an invitation'), body: [b('status', '"accepted" | "declined" | "tentative" | "needs"', L('Ответ', 'Answer'), { required: true })] },
+
+  // ── Masterplan ──
+  'GET /app/masterplan/meta': { summary: L('Настройки, статусы, справочники, проекты и мои роли', 'Settings, statuses, directories, projects and my roles') },
+  'GET /app/masterplan/projects/:id/map': {
+    summary: L('Всё для генплана: узлы с данными продаж, планы, контуры', 'Everything for the site plan: nodes with sales data, plans, contours'),
+    query: [q('presentation', '"1"', L('Режим презентации: без клиентов, менеджеров, минимальных цен и сумм', 'Presentation mode: no clients, managers, minimum prices or amounts'))],
+  },
+  'GET /app/masterplan/units': {
+    summary: L('Реестр юнитов', 'Units registry'),
+    query: [
+      q('project', 'integer', L('Проект', 'Project')),
+      q('node', 'integer', L('Только внутри узла', 'Only inside a node')),
+      q('status', 'string', L('Статусы через запятую: not_for_sale, free, reserve, booking, deposit, contract, sold, handed', 'Comma-separated statuses: not_for_sale, free, reserve, booking, deposit, contract, sold, handed')),
+      q('priceMin, priceMax, areaMin, areaMax, plotMin, plotMax, floorMin, floorMax', 'number', L('Диапазоны', 'Ranges')),
+      q('sort', '"code" | "price" | "area" | "ppm" | "status" | "floor" | "updated"', L('Сортировка', 'Sort')),
+      q('page, pageSize', 'integer', L('Страница (до 5000 строк)', 'Page (up to 5000 rows)')),
+    ],
+  },
+  'POST /app/masterplan/units/:id/status': {
+    summary: L('Сменить статус продажи (правила §6.2)', 'Change the sales status (rules §6.2)'),
+    body: [
+      b('to', 'string', L('Новый статус', 'New status'), { required: true }),
+      b('version', 'integer', L('Версия, которую видел человек (оптимистичная блокировка)', 'Version the person saw (optimistic locking)')),
+      b('reason', 'string', L('Причина (снятие, откат, закрытие продаж)', 'Reason (release, rollback, closing sales)')),
+      b('dealId', 'integer', L('Сделка CRM (для брони)', 'CRM deal (for a booking)')),
+      b('contractNumber / contractDate', 'string / YYYY-MM-DD', L('Для «Договор»', 'For “contract”')),
+      b('actDate', 'YYYY-MM-DD', L('Для «Передано»', 'For “handed over”')),
+    ],
+  },
+  'POST /app/masterplan/units/:id/extend': { summary: L('Продлить резерв или бронь', 'Extend a reserve or booking'), body: [b('version', 'integer', L('Версия юнита', 'Unit version'))] },
+  'POST /app/masterplan/units/bulk-price': { summary: L('Изменить цены группы юнитов', 'Change prices of several units'), body: [b('ids', 'integer[]', L('Юниты', 'Units'), { required: true }), b('mode', '"set" | "percent" | "amount"', L('Как менять', 'How'), { required: true }), b('value', 'number', L('Значение', 'Value'), { required: true }), b('reason', 'string', L('Причина', 'Reason'))] },
+  'POST /app/masterplan/units/import': { summary: L('Импорт юнитов (проверка с отчётом об ошибках)', 'Import units (validated, with an error report)'), body: [b('projectId', 'integer', L('Проект', 'Project'), { required: true }), b('rows', 'object[]', L('Строки: code, name, type, parent, price, currency, areaTotal, areaPlot, rooms, bedrooms, floor, number, finishing, status', 'Rows: code, name, type, parent, price, currency, areaTotal, areaPlot, rooms, bedrooms, floor, number, finishing, status'), { required: true }), b('dryRun', 'boolean', L('Только проверить', 'Validate only'))] },
+  'GET /app/masterplan/bookings': { summary: L('Активные резервы и брони', 'Active reserves and bookings'), query: [q('project', 'integer', L('Проект', 'Project')), q('scope', '"mine" | "all"', L('Только мои', 'Mine only'))] },
+  'POST /app/masterplan/reports': { summary: L('Запись журнала строительства', 'Construction journal entry'), body: [b('projectId', 'integer', L('Проект', 'Project'), { required: true }), b('nodeIds', 'integer[]', L('Объекты (в своей зоне)', 'Objects (in your zone)'), { required: true }), b('stageId', 'integer', L('Этап', 'Stage')), b('percent', 'number', L('Процент этапа', 'Stage percent')), b('factDate', 'YYYY-MM-DD', L('Дата состояния', 'Date of the state')), b('mediaIds', 'integer[]', L('Загруженные фото', 'Uploaded photos'))] },
+  'GET /app/masterplan/deals/:dealId/units': { summary: L('Юниты, привязанные к сделке CRM', 'Units linked to a CRM deal') },
 
   // ── CRM ──
   'GET /app/crm/meta': {
