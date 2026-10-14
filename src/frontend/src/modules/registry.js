@@ -108,6 +108,15 @@ export const MODULE_REGISTRY = [
     Settings: lazy(() => import('./procurement/ProcurementSettings')),
   },
   {
+    id: 'warehouse',
+    path: '/app/warehouse',
+    icon: 'box',
+    labelKey: 'apps.warehouse.name',
+    descKey: 'apps.warehouse.desc',
+    App: lazy(() => import('./warehouse/WarehouseApp')),
+    Settings: lazy(() => import('./warehouse/WarehouseSettings')),
+  },
+  {
     id: 'contracts',
     path: '/app/contracts',
     icon: 'clipboard',

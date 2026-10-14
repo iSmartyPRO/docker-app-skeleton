@@ -1668,7 +1668,11 @@
 
 @media (max-width: 860px) {
   .chat-app {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chat-app .cl {
+    min-width: 0;
   }
 
   .chat-app.has-room .cl {

@@ -271,6 +271,11 @@ export const SETTINGS_GROUPS = [
         keywords: 'procurement purchase requests invoices payments suppliers закупки заявки счета оплаты реестр оплат поставщики снабжение',
       },
       {
+        id: 'warehouse',
+        defaultIcon: 'box',
+        keywords: 'warehouse stock inventory items tools barcode склад остатки номенклатура инструмент штрихкод кладовщик приход выдача списание',
+      },
+      {
         id: 'contracts',
         defaultIcon: 'clipboard',
         keywords: 'contracts agreements legal lawyer risks expiry prolongation numbering договоры юрист риски пролонгация окончание нумерация',

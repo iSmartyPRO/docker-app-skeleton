@@ -19,6 +19,7 @@ export const MODULE_LOOK = {
   tasks: { color: '#10B981', icon: 'tasks' },
   crm: { color: '#E03131', icon: 'target' },
   masterplan: { color: '#0F766E', icon: 'siteplan' },
+  warehouse: { color: '#0EA5E9', icon: 'box' },
   test: { color: '#64748B', icon: 'flask' },
 };
 

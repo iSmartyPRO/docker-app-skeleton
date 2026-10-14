@@ -145,6 +145,33 @@ export const NOTIFICATION_GROUPS = [
     ],
   },
   {
+    // Warehouse (docs/warehouse.md); approvals of write-offs use the approval.* kinds above.
+    key: 'warehouse',
+    module: 'warehouse',
+    events: [
+      // MOL of the destination: a transfer was shipped and waits for acceptance.
+      { kind: 'warehouse.transfer_incoming', defaults: on(true, true, true) },
+      // Storekeepers: a requisition was filed; the requester / recipient: it was issued.
+      { kind: 'warehouse.requested', defaults: on(true, false, true) },
+      { kind: 'warehouse.issued', defaults: on(true, false, false) },
+      // Accepted with a difference (the discrepancy act).
+      { kind: 'warehouse.discrepancy', defaults: on(true, true, true) },
+      // A colleague hands tools over to me / my hand-over was accepted or declined.
+      { kind: 'warehouse.handover', defaults: on(true, false, true) },
+      // Daily digest «below minimum» (MOL and buyers); batches expiring.
+      { kind: 'warehouse.stock_low', defaults: on(true, true, false) },
+      { kind: 'warehouse.expiring', defaults: on(true, true, false) },
+      // Tool service / calibration due; issued tools not returned on time.
+      { kind: 'warehouse.service', defaults: on(true, true, false) },
+      { kind: 'warehouse.tool_overdue', defaults: on(true, true, true) },
+      // An approved write-off could not be posted (the stock is gone).
+      { kind: 'warehouse.post_failed', defaults: on(true, true, false) },
+      // Inventory: I was asked to count (or recount) / a regular partial count is due.
+      { kind: 'warehouse.inventory_assigned', defaults: on(true, false, true) },
+      { kind: 'warehouse.inventory_due', defaults: on(true, true, false) },
+    ],
+  },
+  {
     key: 'system',
     module: null,
     events: [{ kind: 'system.test', defaults: on(true, true, true), urgent: true, hidden: true }],

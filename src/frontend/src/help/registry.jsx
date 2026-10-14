@@ -28,6 +28,7 @@ export const HELP_ORDER = [
   'crm',
   'masterplan',
   'procurement',
+  'warehouse',
   'resources',
   'admin',
   'api',

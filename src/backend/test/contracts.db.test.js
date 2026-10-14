@@ -21,6 +21,7 @@ const tag = `ctrt${Date.now().toString(36)}`;
 let db = null;
 const created = { users: [], roles: [], groups: [], contracts: [] };
 let savedRoute = null;
+let restoreModule = null;
 
 async function makeUser(name, roleIds = []) {
   const { rows } = await db.query(`INSERT INTO users (username, password_hash, display_name) VALUES ($1, '!', $2) RETURNING id`, [`${tag}.${name}`, `${name} ${tag}`]);
@@ -37,6 +38,7 @@ async function makeRole(key, permissions) {
 
 after(async () => {
   if (!db) return;
+  if (restoreModule) await restoreModule().catch(() => {});
   await new Promise((resolve) => setTimeout(resolve, 1200));
   if (created.contracts.length) {
     await db.query(`DELETE FROM approval_processes WHERE type = $1 AND doc_id = ANY($2)`, [TYPE, created.contracts.map(String)]);
@@ -75,6 +77,12 @@ test('database: contracts end to end', { skip }, async () => {
   const { MODULE_CATALOG } = await import('../modules/catalog.js');
   const { requestAs } = await import('../api/events.js');
   const { newStorageKey, storagePath } = await import('../modules/shared/storage.js');
+
+  // The engine refuses decisions while the module is off (review A12): switch it on for the test.
+  const settingsService = await import('../services/settings.js');
+  const moduleBefore = settingsService.parseSettings(await settingsService.getSettings({ fresh: true })).modules.contracts;
+  await settingsService.updateAdminSettings({ modules: { contracts: { enabled: true } } });
+  restoreModule = () => settingsService.updateAdminSettings({ modules: { contracts: { enabled: moduleBefore.enabled } } });
 
   savedRoute = (await db.query(`SELECT * FROM approval_routes WHERE type = $1`, [TYPE])).rows[0] || null;
 

@@ -171,6 +171,34 @@ export async function addDelivery(req, res, id) {
   return getRequest(req, row.id);
 }
 
+/**
+ * Delivery recorded by another module (the Warehouse receipt «from a purchase
+ * request», docs/warehouse.md#procurement): no files, no HTTP request. The
+ * request must be approved and not closed (DELIVERABLE); otherwise nothing is
+ * written and `{ skipped: status }` comes back. Status, history, notification
+ * and webhook follow exactly as for a delivery confirmed in the card.
+ */
+export async function recordExternalDelivery({ requestId, actorId, partial = false, note = null, deliveredOn = null, source = 'warehouse', reference = null }) {
+  const id = Number(requestId);
+  if (!Number.isInteger(id) || id < 1) return { skipped: 'NOT_FOUND' };
+  const day = deliveredOn || new Date().toISOString().slice(0, 10);
+  const result = await withTransaction(async (client) => {
+    const current = await lockRequest(client, id);
+    if (!current) return { skipped: 'NOT_FOUND' };
+    if (!['to_pay', 'partially_paid', 'paid'].includes(current.status)) return { skipped: current.status };
+    await client.query(`INSERT INTO proc_deliveries (request_id, delivered_on, partial, note, created_by) VALUES ($1, $2, $3, $4, $5)`, [id, day, Boolean(partial), text(note, 1000), actorId || null]);
+    const next = await recompute(client, id);
+    await logEvent(client, id, actorId, 'delivered', { partial: Boolean(partial), deliveredOn: day, status: next.status, source, reference });
+    return { status: next.status };
+  });
+  if (result.skipped) return result;
+  const fresh = (await query(`SELECT * FROM proc_requests WHERE id = $1`, [id])).rows[0];
+  const actor = actorId ? (await usersByIds([actorId])).get(actorId)?.name || '' : '';
+  notify({ userIds: [fresh.author_id, fresh.responsible_id], kind: 'procurement.delivered', module: 'procurement', link: requestUrl(id), actorId, render: procurementMessage('delivered', { doc: docOf(fresh), partial: Boolean(partial), actor }) }).catch(() => {});
+  webhook('procurement.delivered', fresh, actorId, { delivery: { deliveredOn: day, partial: Boolean(partial), note: text(note, 1000), source, reference } });
+  return result;
+}
+
 /** DELETE /deliveries/:id. */
 export async function deleteDelivery(req, deliveryId) {
   const n = Number(deliveryId);

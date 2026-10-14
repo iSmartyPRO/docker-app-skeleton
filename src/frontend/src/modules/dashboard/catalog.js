@@ -5,6 +5,7 @@ import { Companies, Drive, DriveActivity, KbRecent, Links, People, RecentFiles }
 import { getRegional } from '../../lib/datetime';
 import InboxWidget from '../approvals/InboxWidget';
 import ProcurementWidget from '../procurement/ProcurementWidget';
+import { IncomingWidget, LowStockWidget, MyToolsWidget } from '../warehouse/WarehouseWidgets';
 
 /*
  * Frontend widget catalog. Each entry: the component, where it sits in the
@@ -202,6 +203,39 @@ export const WIDGET_CATALOG = {
     color: '#F97316',
     link: '/app/procurement',
     size: { w: 4, h: 6, minW: 3, minH: 4 },
+    preview: 'list',
+    fields: [],
+  },
+  warehouseLow: {
+    Component: LowStockWidget,
+    module: 'warehouse',
+    category: 'business',
+    icon: 'box',
+    color: '#F59E0B',
+    link: '/app/warehouse/stock?chip=below_min',
+    size: { w: 4, h: 5, minW: 3, minH: 3 },
+    preview: 'list',
+    fields: [],
+  },
+  warehouseIncoming: {
+    Component: IncomingWidget,
+    module: 'warehouse',
+    category: 'business',
+    icon: 'send',
+    color: '#8B5CF6',
+    link: '/app/warehouse/documents?chip=awaiting_receipt',
+    size: { w: 4, h: 5, minW: 3, minH: 3 },
+    preview: 'list',
+    fields: [],
+  },
+  warehouseMyTools: {
+    Component: MyToolsWidget,
+    module: 'warehouse',
+    category: 'business',
+    icon: 'wrench',
+    color: '#D9480F',
+    link: '/app/warehouse/my-tools',
+    size: { w: 4, h: 5, minW: 3, minH: 3 },
     preview: 'list',
     fields: [],
   },

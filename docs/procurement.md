@@ -98,6 +98,8 @@ A link is not a dependency (spec §3): each field shows only while its module is
 
 The Contracts module lists requests linked to a contract with `GET /api/app/procurement/requests?contract=<id>` (same visibility).
 
+**Warehouse**: a receipt «from a purchase request» marks the delivery through `recordExternalDelivery({ requestId, actorId, partial, note, source, reference })` in `money.js` — the same transaction, status recomputation, history (`delivered` with `source: 'warehouse'`), notification and webhook as a delivery confirmed in the card; it is skipped (not an error) when the request is not waiting for goods. See [warehouse.md](warehouse.md#links-to-other-modules).
+
 ## Legal entities (shared directory)
 
 `src/backend/services/legalEntities.js` — a core service (table `legal_entities`, created before module schemas) used by Procurement and Contracts:

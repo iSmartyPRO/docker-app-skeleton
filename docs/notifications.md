@@ -103,6 +103,7 @@ registerJob({ name: 'tasks:reminders', everyMs: 5 * 60 * 1000, run: runReminders
 | `calendar:reminders` | 1 min |
 | `masterplan:bookings` | 1 min — booking warnings and automatic release ([Masterplan](masterplan.md)) |
 | `masterplan:daily` | 6 h — stale reports, delays, orphan uploads |
+| `warehouse:daily` | 30 min — expired reserves, «below minimum» digest, expiring batches, tool service, items not returned ([Warehouse](warehouse.md)) |
 | `calendar:cleanup` | 12 h |
 | `notifications:retention` | 6 h |
 

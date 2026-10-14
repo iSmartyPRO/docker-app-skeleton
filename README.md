@@ -339,6 +339,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Installable app (PWA)](docs/pwa.md) | Manifest, service worker, icons, install guide, deployment notes |
 | [Counterparties](docs/companies.md) | Companies, contacts, registers (Minjust KG, DaData, EGRUL), careers, history, ratings, API |
 | [Masterplan](docs/masterplan.md) | Development projects: site plan with contours, chessboard, registry, sales statuses and bookings, prices, construction journal, roles with zones, CRM link, API |
+| [Warehouse](docs/warehouse.md) | Stock accounting: items with units and barcodes, warehouses with bins, stock register with reserves and moving-average cost, receipts (also from Procurement), issues to people and Masterplan objects with signatures, two-step transfers with discrepancy acts, write-offs with approval above $500, storno, tools with «my tools» and hand-overs, reports, Excel import; off by default |
 | [Procurement](docs/procurement.md) | Purchase requests: line items, invoice by photo, approval via the approvals service, payments registry with partial payments, delivery, summary, webhooks; shared legal entities directory |
 | [Dashboard](docs/dashboard.md) | Personal widgets over the modules: catalog, customization, starting layout, API |
 | [Online resources](docs/resources.md) | Home page board, visibility, personal layouts, icons, API |

@@ -1,0 +1,250 @@
+/* Label preview and print dialog (components/ui/Labels.jsx). The label itself is
+   styled by labelCss() from lib/labels.js — the same CSS that is printed. */
+
+.label-preview-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.label-preview {
+  position: relative;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 10px 24px -12px rgba(15, 23, 42, 0.35), 0 2px 6px rgba(15, 23, 42, 0.08);
+  background: #fff;
+  overflow: hidden;
+}
+
+:root[data-theme='dark'] .label-preview {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 14px 30px -12px rgba(0, 0, 0, 0.8);
+}
+
+.label-preview__paper {
+  transform-origin: 0 0;
+}
+
+.label-preview__skeleton {
+  position: absolute;
+  inset: 10%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f1f3f6 25%, #e6e9ee 50%, #f1f3f6 75%);
+  background-size: 200% 100%;
+  animation: label-shimmer 1.2s linear infinite;
+}
+
+.label-preview__size {
+  color: var(--da-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes label-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Dialog ------------------------------------------------------------------ */
+
+.label-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.label-dialog__label {
+  color: var(--da-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.label-dialog > .label-dialog__label {
+  margin-bottom: -8px;
+}
+
+.label-format {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.label-format__option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--da-border);
+  border-radius: var(--da-radius);
+  background: var(--da-bg);
+  color: var(--da-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s var(--da-ease), box-shadow 0.2s var(--da-ease), background 0.2s var(--da-ease);
+}
+
+.label-format__option:hover {
+  border-color: color-mix(in srgb, var(--da-primary) 50%, var(--da-border));
+}
+
+.label-format__option.is-active {
+  border-color: var(--da-primary);
+  background: var(--da-tint);
+  box-shadow: 0 0 0 3px var(--da-tint-strong);
+}
+
+.label-format__glyph {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  margin-bottom: 6px;
+}
+
+.label-format__glyph i {
+  display: block;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.55;
+}
+
+.label-format__option.is-active .label-format__glyph i {
+  color: var(--da-primary);
+  opacity: 1;
+}
+
+.label-format__glyph--sheet {
+  display: grid;
+  grid-template-columns: repeat(3, 7px);
+  grid-auto-rows: 4px;
+  gap: 2px;
+  padding: 2px;
+  height: auto;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.55;
+}
+
+.label-format__glyph--sheet i {
+  border: 0;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.label-format__option.is-active .label-format__glyph--sheet {
+  color: var(--da-primary);
+  opacity: 1;
+}
+
+.label-format__name {
+  font-weight: 650;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.label-format__hint {
+  color: var(--da-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.label-dialog__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.label-dialog__preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.label-dialog__preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+}
+
+.label-dialog__pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--da-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.label-dialog__stage {
+  display: flex;
+  justify-content: center;
+  padding: 22px 16px 14px;
+  border-radius: var(--da-radius);
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--da-text) 10%, transparent) 1px, transparent 0) 0 0 / 14px 14px,
+    var(--da-layout);
+}
+
+.label-dialog__empty {
+  padding: 32px 0;
+  color: var(--da-muted);
+}
+
+.label-dialog__tip {
+  color: var(--da-faint);
+  font-size: 12.5px;
+}
+
+.label-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.label-dialog__total {
+  margin-right: auto;
+  color: var(--da-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 520px) {
+  .label-format {
+    grid-template-columns: 1fr;
+  }
+  .label-format__option {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    grid-template-areas: 'glyph name' 'glyph hint';
+    column-gap: 10px;
+    align-items: center;
+  }
+  .label-format__glyph {
+    grid-area: glyph;
+    margin: 0;
+    justify-content: center;
+  }
+  .label-format__name { grid-area: name; }
+  .label-format__hint { grid-area: hint; }
+  .label-dialog__total {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .label-preview__skeleton {
+    animation: none;
+  }
+}

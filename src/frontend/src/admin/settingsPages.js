@@ -39,6 +39,7 @@ export const SETTINGS_PAGES = {
   masterplan: lazy(() => import('../modules/masterplan/MasterplanSettings')),
   procurement: lazy(() => import('../modules/procurement/ProcurementSettings')),
   contracts: lazy(() => import('../modules/contracts/ContractsSettings')),
+  warehouse: lazy(() => import('../modules/warehouse/WarehouseSettings')),
   legalEntities: lazy(() => import('../pages/admin/settings/LegalEntities')),
   assistant: lazy(() => import('../modules/assistant/AssistantSettings')),
   calendar: lazy(() => import('../modules/calendar/CalendarSettings')),

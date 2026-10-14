@@ -5,6 +5,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Warehouse module
+
+Spec: [docs/specs/warehouse.ru.md](docs/specs/warehouse.ru.md) · docs: [docs/warehouse.md](docs/warehouse.md). Off by default.
+
+- **Items:** quantity, batch (expiry) and serial tracking, units with factors («уп. = 24 шт»), barcodes, categories, per-warehouse minimum and reorder point; import of items and opening balances.
+- **Warehouses** (main, site, transit, mobile) with a MOL and optional **bins**; per-warehouse rights; sums hidden on the server without `warehouse.cost`.
+- **Documents:** receipt (also from a purchase request — marks delivery), return to supplier, two-step transfer with a discrepancy act, issue to an employee or a Masterplan object with on-screen signature, return, write-off (approval above 500 USD), opening balances, correction, storno. No negative stock, atomic posting, reserves, moving-average cost, «Заказать недостающее» → procurement draft.
+- **Tools:** where each instance is, «Мой инструмент», hand-over with confirmation, maintenance reminders.
+- **Storekeeper mobile mode** (`/app/warehouse/m`): tiles, continuous camera/USB scanning, quantity sheet with pack ↔ base units, waybill photo, signature, accepting transfers, «Найти позицию», label printing.
+- **Inventory sessions:** blind mode, frozen scope, counters by bins in parallel from phones (offline queue), reconciliation, one act with approval.
+- **Reports:** stock, turnover statement, item movement, materials by object, tools by holder; dashboard widgets; «Ждёт меня» items for incoming transfers and hand-overs.
+- **Shared UI:** `BarcodeScanner` (camera + keyboard-wedge scanners), label printing (Code 128, EAN-13, QR; 58×40, 80×50, A4 3×8). nginx now allows the camera on the portal's own origin.
+- Chat list no longer scrolls sideways on phones.
+
 ### Code review fixes — business modules and Masterplan 1.1
 
 Review: [docs/reviews/2026-10-13-business-modules.md](docs/reviews/2026-10-13-business-modules.md) — 38 findings, all fixed.

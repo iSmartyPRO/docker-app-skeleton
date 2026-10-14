@@ -1,0 +1,1450 @@
+/* Storekeeper mobile mode (whm-*). Phone first, one hand: targets ≥ 48px, the main action at the bottom,
+   no sideways scrolling, theme tokens only (light and dark). */
+
+.whm-shell {
+  --whm-gap: 14px;
+  --whm-radius: 18px;
+  --whm-tap: 52px;
+  min-height: calc(100dvh - var(--da-header-h, 59px));
+  background: var(--da-layout, var(--da-bg));
+  overflow-x: hidden;
+}
+
+.whm-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 12px 16px calc(112px + var(--safe-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--whm-gap);
+  min-width: 0;
+}
+
+.whm-page .ant-select-single.ant-select-lg:not(.ant-select-customize-input) .ant-select-selector,
+.whm-page .ant-input-lg,
+.whm-page .ant-picker-large {
+  min-height: 48px;
+}
+
+.whm-page .ant-select-single:not(.ant-select-lg) .ant-select-selector {
+  min-height: 44px;
+  align-items: center;
+}
+
+.whm-muted {
+  color: var(--da-muted);
+  margin: 0;
+  font-size: 14px;
+}
+
+.whm-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--da-muted);
+}
+
+.whm-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--whm-gap);
+}
+
+.whm-card {
+  background: var(--da-surface);
+  border: 1px solid var(--da-hairline);
+  border-radius: var(--whm-radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--da-shadow-sm);
+  min-width: 0;
+}
+
+.whm-label {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--da-muted);
+}
+
+.whm-h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.whm-banner {
+  margin: 0;
+}
+
+.whm-link {
+  border: 0;
+  background: none;
+  color: var(--da-primary);
+  font: inherit;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+
+.whm-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -12px -16px 0;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--da-layout, var(--da-bg)) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(12px);
+  border-bottom: 1px solid var(--da-hairline);
+}
+
+.whm-top__back {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+  color: var(--da-text);
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.whm-top__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.whm-top__title h1 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whm-top__title span {
+  display: block;
+  font-size: 13px;
+  color: var(--da-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whm-top__right {
+  flex: none;
+  max-width: 48%;
+}
+
+/* ── Home ────────────────────────────────────────────────────────────────── */
+
+.whm-home__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+}
+
+.whm-home__head h1 {
+  margin: 2px 0 0;
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.whm-whchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+  color: var(--da-text);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: var(--da-shadow-sm);
+}
+
+.whm-whchip > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.whm-whchip svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.whm-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.whm-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 128px;
+  padding: 16px;
+  border-radius: 22px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 13%, var(--da-surface)) 0%, var(--da-surface) 70%);
+  border: 1px solid color-mix(in srgb, var(--c) 22%, var(--da-hairline));
+  color: var(--da-text);
+  text-decoration: none;
+  box-shadow: var(--da-shadow-sm);
+  transition: transform 0.15s var(--da-ease), box-shadow 0.15s var(--da-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.whm-tile:hover {
+  color: var(--da-text);
+  box-shadow: var(--da-shadow);
+}
+
+.whm-tile:active {
+  transform: scale(0.97);
+}
+
+.whm-tile__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: var(--c);
+  color: #fff;
+  box-shadow: 0 8px 18px -10px var(--c);
+  margin-bottom: 4px;
+}
+
+.whm-tile__icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.whm-tile strong {
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 750;
+}
+
+.whm-tile em {
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--da-muted);
+}
+
+.whm-tile__badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--da-error);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 750;
+  display: grid;
+  place-items: center;
+}
+
+.whm-tile.is-find {
+  grid-column: 1 / -1;
+  min-height: 96px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 2px;
+  align-items: center;
+  align-content: center;
+}
+
+.whm-tile.is-find .whm-tile__icon {
+  grid-row: span 2;
+  margin: 0;
+}
+
+.whm-home__foot {
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Steps, bottom bar ───────────────────────────────────────────────────── */
+
+.whm-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.whm-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--da-muted);
+}
+
+.whm-steps li span {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--da-tint);
+  color: var(--da-muted);
+}
+
+.whm-steps li em {
+  font-style: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whm-steps li.is-current {
+  color: var(--da-text);
+  font-weight: 700;
+}
+
+.whm-steps li.is-current span {
+  background: var(--da-primary);
+  color: #fff;
+}
+
+.whm-steps li.is-done span {
+  background: color-mix(in srgb, var(--da-success) 20%, transparent);
+  color: var(--da-success);
+}
+
+.whm-bottom {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px calc(12px + var(--safe-bottom, 0px));
+  background: color-mix(in srgb, var(--da-surface) 92%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  border-top: 1px solid var(--da-hairline);
+  box-shadow: 0 -12px 30px -24px rgba(15, 23, 42, 0.5);
+}
+
+.whm-bottom > * {
+  max-width: 608px;
+}
+
+.whm-bottom .ant-btn {
+  height: var(--whm-tap);
+  border-radius: 16px;
+  font-size: 17px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.whm-bottom__count {
+  flex: none;
+  font-weight: 650;
+  color: var(--da-muted);
+}
+
+@media (min-width: 680px) {
+  .whm-bottom {
+    left: 50%;
+    right: auto;
+    width: 640px;
+    transform: translateX(-50%);
+    border-radius: 20px 20px 0 0;
+    border-left: 1px solid var(--da-hairline);
+    border-right: 1px solid var(--da-hairline);
+  }
+}
+
+/* ── Scanning bar ────────────────────────────────────────────────────────── */
+
+.whm-scanbar {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.whm-scanbar__camera {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 92px;
+  min-height: 64px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--da-primary);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 22px -14px var(--da-primary);
+}
+
+.whm-scanbar__camera .anticon {
+  font-size: 24px;
+}
+
+.whm-scanbar__camera:disabled {
+  opacity: 0.5;
+}
+
+.whm-scanbar__field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.whm-scanbar__field .ant-input-affix-wrapper {
+  min-height: 64px;
+  border-radius: 18px;
+}
+
+.whm-suggest {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--da-surface);
+  border: 1px solid var(--da-hairline);
+  border-radius: 16px;
+  box-shadow: var(--da-shadow-lg);
+  overflow: hidden;
+}
+
+.whm-suggest button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--da-hairline);
+  background: none;
+  color: var(--da-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.whm-suggest button:last-child {
+  border-bottom: 0;
+}
+
+.whm-suggest em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--da-muted);
+}
+
+.whm-toolrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.whm-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.whm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-tint);
+  color: var(--da-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ── Lists, rows, lines ──────────────────────────────────────────────────── */
+
+.whm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.whm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+  color: var(--da-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.whm-row.is-big {
+  min-height: 76px;
+}
+
+.whm-row.is-active {
+  border-color: var(--da-primary);
+  background: var(--da-tint);
+}
+
+.whm-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.whm-row__main strong {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.whm-row__main em {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--da-muted);
+}
+
+.whm-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.whm-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+  color: var(--da-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: whm-in 0.22s var(--da-ease);
+}
+
+.whm-line.is-short {
+  border-color: color-mix(in srgb, var(--da-error) 55%, transparent);
+  background: color-mix(in srgb, var(--da-error) 8%, var(--da-surface));
+}
+
+.whm-line.is-zero {
+  opacity: 0.6;
+}
+
+.whm-line.is-pending {
+  border-style: dashed;
+}
+
+.whm-line__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.whm-line__main strong {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.whm-line__main em {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--da-muted);
+}
+
+.whm-line__qty {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.whm-line__qty strong {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.whm-line__qty small {
+  font-size: 13px;
+  color: var(--da-muted);
+}
+
+.whm-line__qty em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--da-muted);
+}
+
+.whm-hint {
+  font-size: 12px;
+  color: var(--da-muted);
+}
+
+.whm-hint.is-short {
+  color: var(--da-error);
+}
+
+.whm-pending {
+  color: var(--da-warning) !important;
+}
+
+@keyframes whm-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.whm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 32px 20px;
+  border-radius: var(--whm-radius);
+  border: 1px dashed var(--da-hairline);
+  color: var(--da-muted);
+}
+
+.whm-empty span {
+  font-size: 40px;
+}
+
+.whm-empty strong {
+  color: var(--da-text);
+  font-size: 16px;
+}
+
+.whm-empty p {
+  margin: 0;
+  max-width: 340px;
+}
+
+/* ── Bottom sheet and the quantity sheet ─────────────────────────────────── */
+
+.whm-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.whm-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.45);
+  animation: whm-fade 0.18s ease;
+  cursor: default;
+}
+
+.whm-sheet__panel {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--da-surface);
+  color: var(--da-text);
+  border-radius: 26px 26px 0 0;
+  box-shadow: var(--da-shadow-lg);
+  padding: 8px 18px calc(16px + var(--safe-bottom, 0px));
+  animation: whm-up 0.24s var(--da-ease);
+}
+
+@media (min-width: 680px) {
+  .whm-sheet {
+    align-items: center;
+  }
+  .whm-sheet__panel {
+    border-radius: 26px;
+  }
+}
+
+.whm-sheet__grip {
+  align-self: center;
+  width: 44px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--da-hairline);
+  margin: 4px 0 10px;
+}
+
+.whm-sheet__title {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.whm-sheet__body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.whm-sheet__footer {
+  padding-top: 14px;
+}
+
+@keyframes whm-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes whm-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.whm-qty__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.whm-qty__eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--da-success);
+}
+
+.whm-qty__item strong {
+  font-size: 19px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.whm-qty__item em {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--da-muted);
+}
+
+.whm-qty__stepper {
+  display: grid;
+  grid-template-columns: 72px 1fr 72px;
+  gap: 12px;
+  align-items: center;
+}
+
+.whm-qty__btn {
+  height: 72px;
+  border-radius: 22px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-tint);
+  color: var(--da-text);
+  font-size: 26px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.whm-qty__btn:active {
+  transform: scale(0.95);
+}
+
+.whm-qty__btn.is-plus {
+  background: var(--da-primary);
+  border-color: var(--da-primary);
+  color: #fff;
+}
+
+.whm-qty__btn:disabled {
+  opacity: 0.4;
+}
+
+.whm-qty__value {
+  width: 100%;
+  min-width: 0;
+  height: 72px;
+  border-radius: 22px;
+  border: 2px solid var(--da-hairline);
+  background: var(--da-bg);
+  color: var(--da-text);
+  text-align: center;
+  font: inherit;
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.whm-qty__value:focus {
+  outline: none;
+  border-color: var(--da-primary);
+}
+
+.whm-units {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.whm-units button {
+  flex: 1 1 0;
+  min-width: 90px;
+  min-height: 52px;
+  border-radius: 16px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+  color: var(--da-text);
+  font: inherit;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.whm-units button em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--da-muted);
+}
+
+.whm-units button.is-active {
+  border-color: var(--da-primary);
+  background: var(--da-tint-strong);
+  box-shadow: inset 0 0 0 1px var(--da-primary);
+}
+
+.whm-conv {
+  margin: 0;
+  text-align: center;
+  font-size: 18px;
+  padding: 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--da-success) 10%, transparent);
+}
+
+.whm-quick {
+  display: flex;
+  gap: 8px;
+}
+
+.whm-quick button {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--da-hairline);
+  background: none;
+  color: var(--da-text);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.whm-qty__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.whm-qty__actions .ant-btn {
+  height: var(--whm-tap);
+  border-radius: 16px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* ── Finish, photos, success ─────────────────────────────────────────────── */
+
+.whm-summary {
+  gap: 6px;
+}
+
+.whm-summary > strong {
+  font-size: 20px;
+}
+
+.whm-summary__list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.whm-summary__list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--da-hairline);
+  font-size: 14px;
+}
+
+.whm-summary__list li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.whm-summary__list li strong {
+  flex: none;
+}
+
+.whm-photo__btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 2px dashed color-mix(in srgb, var(--da-primary) 40%, var(--da-hairline));
+  background: var(--da-tint);
+  color: var(--da-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.whm-photo__btn .anticon {
+  font-size: 26px;
+  color: var(--da-primary);
+}
+
+.whm-photo__btn em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 13px;
+  color: var(--da-success);
+}
+
+.whm-photo__thumbs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.whm-photo__thumbs img,
+.whm-photo__thumbs span {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+  background: var(--da-tint);
+  border: 1px solid var(--da-hairline);
+}
+
+.whm-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 48px 8px 24px;
+}
+
+.whm-success__badge {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 54px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--da-success);
+  box-shadow: 0 18px 40px -18px var(--da-success);
+  animation: whm-pop 0.45s var(--da-ease);
+}
+
+.whm-success.is-amber .whm-success__badge {
+  background: var(--da-warning);
+  box-shadow: 0 18px 40px -18px var(--da-warning);
+}
+
+.whm-success h2 {
+  margin: 10px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.whm-success p {
+  margin: 0;
+  color: var(--da-muted);
+}
+
+.whm-success__actions {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.whm-success__actions .ant-btn-lg {
+  height: var(--whm-tap);
+  border-radius: 16px;
+  font-weight: 700;
+}
+
+@keyframes whm-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ── Accept a transfer ───────────────────────────────────────────────────── */
+
+.whm-accept {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+}
+
+.whm-accept.is-diff {
+  border-color: color-mix(in srgb, var(--da-warning) 60%, transparent);
+  background: color-mix(in srgb, var(--da-warning) 8%, var(--da-surface));
+}
+
+.whm-accept__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.whm-accept__head em {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--da-muted);
+}
+
+.whm-accept__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.whm-mini-stepper {
+  display: inline-grid;
+  grid-template-columns: 48px 76px 48px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.whm-mini-stepper button {
+  height: 48px;
+  border: 0;
+  background: var(--da-tint);
+  color: var(--da-text);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.whm-mini-stepper input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-left: 1px solid var(--da-hairline);
+  border-right: 1px solid var(--da-hairline);
+  background: var(--da-bg);
+  color: var(--da-text);
+  text-align: center;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.whm-diff {
+  font-weight: 700;
+  color: var(--da-warning);
+}
+
+.whm-comment {
+  border-radius: 14px;
+}
+
+/* ── Find ────────────────────────────────────────────────────────────────── */
+
+.whm-found h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.whm-found__kind {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--da-primary);
+}
+
+.whm-found__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--da-tint);
+}
+
+.whm-found__total strong {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.whm-found__tool {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--da-tint);
+}
+
+.whm-found__tool span {
+  font-size: 13px;
+  color: var(--da-muted);
+}
+
+.whm-found__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.whm-found__rows li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--da-hairline);
+  font-size: 14px;
+}
+
+.whm-found__rows li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.whm-found__rows li.is-here {
+  font-weight: 700;
+}
+
+.whm-found__rows li.is-held {
+  color: var(--da-muted);
+}
+
+.whm-found__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.whm-found .ant-btn-lg {
+  min-height: 48px;
+  border-radius: 14px;
+}
+
+.whm-recent {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.whm-recent h3 {
+  width: 100%;
+  margin: 0;
+  font-size: 13px;
+  color: var(--da-muted);
+}
+
+/* ── Inventory counting ──────────────────────────────────────────────────── */
+
+.whm-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--da-hairline);
+  background: color-mix(in srgb, var(--da-success) 12%, var(--da-surface));
+  color: var(--da-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.whm-sync.is-pending {
+  background: color-mix(in srgb, var(--da-warning) 16%, var(--da-surface));
+}
+
+.whm-sync.is-off {
+  background: color-mix(in srgb, var(--da-error) 14%, var(--da-surface));
+  cursor: default;
+}
+
+.whm-inv__progress {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.whm-inv__progress > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.whm-inv__progress span {
+  font-size: 13px;
+  color: var(--da-muted);
+}
+
+.whm-segment {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--da-tint);
+}
+
+.whm-segment button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 11px;
+  background: none;
+  color: var(--da-muted);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.whm-segment button.is-active {
+  background: var(--da-surface);
+  color: var(--da-text);
+  box-shadow: var(--da-shadow-sm);
+}
+
+.whm-areas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.whm-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 84px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--c) 40%, var(--da-hairline));
+  background: color-mix(in srgb, var(--c) 9%, var(--da-surface));
+  color: var(--da-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.whm-area strong {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.whm-area em {
+  font-style: normal;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--c) 70%, var(--da-text));
+  font-weight: 650;
+}
+
+.whm-area small {
+  font-size: 12px;
+  color: var(--da-muted);
+}
+
+.whm-area__check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: var(--c);
+  font-size: 18px;
+}
+
+.whm-expected {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.whm-expected li button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--da-hairline);
+  background: none;
+  color: var(--da-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.whm-expected li button > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.whm-expected li.is-counted button {
+  color: var(--da-muted);
+}
+
+.whm-expected li.is-counted .anticon {
+  color: var(--da-success);
+}
+
+@media (max-width: 360px) {
+  .whm-tiles {
+    gap: 10px;
+  }
+  .whm-tile {
+    padding: 14px;
+    min-height: 118px;
+  }
+  .whm-scanbar__camera {
+    width: 76px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whm-line,
+  .whm-sheet__panel,
+  .whm-sheet__backdrop,
+  .whm-success__badge {
+    animation: none;
+  }
+}

@@ -382,6 +382,72 @@ Avoid hard-coded colors in CSS. Use the tokens from `index.css` (`--da-primary`,
 
 ---
 
+## Scanning and labels
+
+Shared building blocks for barcodes (used by the Warehouse module; usable anywhere).
+
+| What | Where |
+|------|-------|
+| Camera scanner, keyboard-wedge hook, scan button | `components/ui/BarcodeScanner.jsx` |
+| Label preview and print dialog | `components/ui/Labels.jsx` |
+| Encoders (Code 128, EAN-13, QR → SVG), print document | `lib/labels.js` (pure, unit-tested) |
+| Wedge burst detection, repeat guard | `lib/scanBurst.js` (pure, unit-tested) |
+| Strings | `i18n/scan.js` (`scanner.*`, `labelPrint.*`) |
+
+**Camera scanner.** Full screen on phones, a dialog on larger screens. Uses the native `BarcodeDetector` where it exists and otherwise loads WebAssembly ZXing (`zxing-wasm`) on first use, as a separate chunk + `.wasm` served from our origin. It reads EAN-13/8, UPC-A/E, Code 128, Code 39, QR and DataMatrix.
+
+```jsx
+import BarcodeScanner, { ScanButton, useScannerInput } from '../components/ui/BarcodeScanner';
+
+// Receipt: keep scanning; the same code is ignored for 1.2 s, each hit beeps, vibrates and flashes.
+<BarcodeScanner
+  open={open}
+  continuous
+  title="Приход"
+  onScan={(code, { format }) => addLine(code)} // format: 'ean_13' | 'qr_code' | … | 'manual' | 'keyboard'
+  onClose={() => setOpen(false)}
+/>
+
+// A form field: the button opens the scanner, the first code fills the field and the dialog closes.
+<Input addonAfter={<ScanButton onScan={(code) => form.setFieldValue('barcode', code)} />} />
+
+// USB / Bluetooth scanners in keyboard mode: a fast burst of keys ending with Enter.
+useScannerInput((code) => addLine(code), { enabled: !drawerOpen, minLength: 4, maxInterval: 35 });
+```
+
+- Typing in ordinary inputs is never taken for a scan. To scan into a field, mark it `data-scan-target`: the code goes to `onScan` and the field is cleared (`data-scan-target="keep"` keeps the text).
+- Only the most recently enabled `useScannerInput` gets scans, so an open scanner dialog takes them from the page underneath.
+- The scanner explains each problem state: no HTTPS, permission denied (with how-to for Android, iPhone and desktop), no camera, camera busy. Manual entry is always available. The camera stops on close, on unmount and while the tab is hidden.
+- Production needs `Permissions-Policy: camera=(self)` (set in `nginx.conf`) and `'wasm-unsafe-eval'` in the CSP (already there).
+
+**Labels.** Formats: `58x40` and `80x50` (thermal, one label per page) and `a4-3x8` (A4 sheets of 24 labels, 63.5 × 33.9 mm). The preview renders the exact markup that is printed.
+
+```jsx
+import { LabelPreview, PrintLabelsDialog } from '../components/ui/Labels';
+import { printLabels, renderBarcodeSVG, loadQrEncoder } from '../lib/labels';
+
+const items = [
+  { code: 'WH-000123', title: 'Цемент М500', subtitle: 'Основной склад', kind: 'qr', extra: ['A-01-03', 'мешок'] },
+  { code: '4600000000008', title: 'Саморез 4,2×75', kind: 'ean13' },  // 12 digits get their check digit
+  { code: 'TOOL-0001', title: 'Перфоратор', kind: 'code128', copies: 2 }, // per-item copies
+];
+
+<LabelPreview item={items[0]} format="58x40" />
+<PrintLabelsDialog open={open} items={items} onClose={() => setOpen(false)} /> // remembers format and copies on the device
+
+await printLabels(items, { format: 'a4-3x8', copies: 1 }); // hidden iframe → print dialog
+
+const svg = renderBarcodeSVG('TOOL-0001', 'code128', { height: 60, moduleSize: 2 }); // SVG markup string
+await loadQrEncoder(); // QR needs the lazily loaded `qrcode` package first
+const qr = renderBarcodeSVG('https://…', 'qr', { moduleSize: 4 });
+```
+
+- An EAN-13 with a wrong check digit prints as Code 128, and Code 128 content that is not ASCII (Cyrillic) prints as QR. The dialog warns about both.
+- `renderBarcodeSVG` throws a `BarcodeError` with `code` set to `empty`, `charset`, `format`, `checksum`, `kind` or `qr-not-loaded`.
+- In the browser's print dialog choose the label printer, 100 % scale and no margins.
+
+---
+
 ## Write a backend test
 
 Tests use the built-in `node:test` runner and live in `src/backend/test/*.test.js`. Test pure functions — sanitizers, policy decisions, parsers — so the suite needs no database.

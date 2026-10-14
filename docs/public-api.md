@@ -189,6 +189,7 @@ Administrators create webhooks in the console. A webhook has:
 | `task.accepted` | The assignee accepted the task (button, start or completion); `acceptance: { acceptedAt, via, comment }` |
 | `chat.message` | A message in any conversation |
 | `deal.created`, `deal.updated`, `deal.stage_changed`, `deal.won`, `deal.lost`, `deal.deleted` | CRM deals (`deal.updated` carries `changes`, `deal.stage_changed` `from`/`to`); only deals the run-as person may see |
+| `warehouse.document.posted`, `.reversed`, `.requested`, `.deleted`, `warehouse.transfer.shipped`, `.received`, `warehouse.discrepancy`, `warehouse.stock.low`, `warehouse.tool.handover`, `.service_due` | Warehouse ([warehouse.md](warehouse.md#notifications-jobs-webhooks-inbox)); no sums in the payload; only documents the run-as person may see |
 | `contracts.created`, `.updated`, `.status_changed`, `.prolonged`, `.version_added`, `.risk_changed`, `.reminder`, `.deleted` | Contracts ([contracts.md](contracts.md#notifications-and-webhooks)); only contracts the run-as person may see |
 | `calendar.event.created`, `.updated`, `.deleted` | Calendar events |
 | `user.created`, `.updated`, `.deleted` | Accounts changed in the console or through the API (needs `users.view` for the run-as person) |

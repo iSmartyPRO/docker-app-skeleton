@@ -17,6 +17,7 @@ import assistant from './assistant/index.js';
 import approvals from './approvals/index.js';
 import contracts from './contracts/index.js';
 import procurement from './procurement/index.js';
+import warehouse from './warehouse/index.js';
 
 /*
  * Module platform.
@@ -37,8 +38,9 @@ import procurement from './procurement/index.js';
 // CRM after companies and chat: deals point at companies and people, and have conversations.
 // Masterplan after CRM: units point at CRM deals and Counterparties.
 // Procurement after the modules it links to (Counterparties, CRM, Masterplan, Files, Chat).
+// Warehouse after Procurement and Masterplan (receipts from purchase requests, issues to objects).
 // Approvals first: modules register their document types against it at import time and its tables must exist for theirs.
-export const MODULES = [approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, masterplan, procurement, dashboard, assistant, contracts];
+export const MODULES = [approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, masterplan, procurement, warehouse, dashboard, assistant, contracts];
 
 async function moduleState(id) {
   const parsed = parseSettings(await getSettings());
