@@ -3,6 +3,7 @@ import { onBeforeUserDelete } from '../../services/hooks.js';
 import { registerJob } from '../../services/scheduler.js';
 import { ensureAclTable } from '../shared/acl.js';
 import { prunePreviewCaches } from '../shared/storage.js';
+import { flushLinkNotices } from './linkWrites.js';
 import { beforeUserDelete, purgeTrash } from './trash.js';
 
 /*
@@ -88,8 +89,48 @@ export async function ensureFilesSchema() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS fs_links_node_idx ON fs_links (node_id)`);
+  // Fine-grained link permissions (see links.js). Existing links keep exactly
+  // what they did: view + download, or view only where downloads were off.
+  await query(`
+    ALTER TABLE fs_links
+      ADD COLUMN IF NOT EXISTS permissions TEXT[] NOT NULL DEFAULT '{view,download}',
+      ADD COLUMN IF NOT EXISTS title VARCHAR(120),
+      ADD COLUMN IF NOT EXISTS max_file_mb INTEGER,
+      ADD COLUMN IF NOT EXISTS extensions TEXT,
+      ADD COLUMN IF NOT EXISTS quota_mb INTEGER,
+      ADD COLUMN IF NOT EXISTS require_name BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS require_email BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS notify BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+  // allow_download is kept in step with permissions on every write, so this only ever touches old rows.
+  await query(`UPDATE fs_links SET permissions = array_remove(permissions, 'download') WHERE allow_download = FALSE AND 'download' = ANY(permissions)`);
+  // What visitors did through a link: the activity log, the per-link quota,
+  // "my uploads" of upload-only visitors and batched owner notices.
+  await query(`
+    CREATE TABLE IF NOT EXISTS fs_link_events (
+      id BIGSERIAL PRIMARY KEY,
+      link_id INTEGER REFERENCES fs_links(id) ON DELETE SET NULL,
+      link_title VARCHAR(255),
+      node_id INTEGER REFERENCES fs_nodes(id) ON DELETE SET NULL,
+      owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      action VARCHAR(12) NOT NULL,
+      name VARCHAR(255),
+      bytes BIGINT NOT NULL DEFAULT 0,
+      session_id VARCHAR(40),
+      visitor_name VARCHAR(120),
+      visitor_email VARCHAR(160),
+      ip VARCHAR(64),
+      notified BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS fs_link_events_link_idx ON fs_link_events (link_id, session_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS fs_link_events_node_idx ON fs_link_events (node_id) WHERE node_id IS NOT NULL`);
+  await query(`CREATE INDEX IF NOT EXISTS fs_link_events_pending_idx ON fs_link_events (created_at) WHERE notified = FALSE`);
 
   registerJob({ name: 'files:trash', everyMs: 6 * 60 * 60 * 1000, run: purgeTrash });
+  // One notice per visitor burst on links with "notify me" (see links.js).
+  registerJob({ name: 'files:link-notices', everyMs: 60 * 1000, run: () => flushLinkNotices() });
   // Cached PDF previews, drive thumbnails and drawings (Files, Knowledge base, Drive)
   // unused for 30 days; they are made again on the next view.
   registerJob({

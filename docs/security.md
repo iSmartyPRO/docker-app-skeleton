@@ -103,6 +103,7 @@ Assumptions:
 |-------|-----------|
 | CSRF | Mitigated by SameSite=Lax + no cookie auth on cross-site POST from typical attackers. Do not add state-changing GET. |
 | Helmet CSP | Disabled on Express (JSON API). nginx CSP covers the SPA. |
+| Public links that accept changes | Files links can allow anonymous upload / rename / replace / delete ([files.md](files.md#link-permissions)). Writes run as the link's author inside the link's subtree only, need a visitor token in `X-Link-Token` (bound to the link version: password change or revoke ends every session), pass the Origin check and dedicated rate limits, and keep deletes and replaced versions in the owner's trash. Admins can switch such links off or require a password for them. A visitor's upload into a folder with a same-named file gets `Name (2)`, which tells an upload-only visitor that the name exists. |
 | SVG logos | Best-effort sanitization, not a full SVG sanitizer. Prefer PNG/WebP in hostile-admin scenarios. |
 | IPv6 CIDR | Not implemented. |
 | Username lockout | An attacker can lock a known username by failing logins (availability, not takeover). |

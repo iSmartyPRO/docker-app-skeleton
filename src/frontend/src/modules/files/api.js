@@ -46,12 +46,45 @@ export const filesApi = {
   createLink: (id, payload) => api.post(`${base}/nodes/${id}/links`, payload),
   updateLink: (id, payload) => api.put(`${base}/links/${id}`, payload),
   deleteLink: (id) => api.delete(`${base}/links/${id}`),
+  linkActivity: (id) => api.get(`${base}/links/${id}/activity`),
 };
 
+const enc = encodeURIComponent;
+const visitorHeaders = (visitor) => (visitor ? { 'X-Link-Token': visitor } : {});
+
+/** /api/l/<token>: what visitors of a public link may read and (per its permissions) change. */
 export const linkApi = {
-  open: (token, { folder, visitor } = {}) =>
-    api.get(`/l/${encodeURIComponent(token)}`, { params: folder ? { folder } : {}, headers: visitor ? { 'X-Link-Token': visitor } : {} }),
-  unlock: (token, password) => api.post(`/l/${encodeURIComponent(token)}/unlock`, { password }),
+  open: (token, { folder, visitor, preview } = {}) =>
+    api.get(`/l/${enc(token)}`, { params: { ...(folder ? { folder } : {}), ...(preview ? { preview: 1 } : {}) }, headers: visitorHeaders(visitor) }),
+  unlock: (token, password) => api.post(`/l/${enc(token)}/unlock`, { password }),
+  session: (token, visitor, payload = {}) => api.post(`/l/${enc(token)}/session`, payload, { headers: visitorHeaders(visitor) }),
+  upload: (token, visitor, folder, files, onProgress, signal) => {
+    const form = new FormData();
+    files.forEach((file) => form.append('files', file, file.name));
+    return api.post(`/l/${enc(token)}/upload`, form, {
+      params: folder ? { folder } : {},
+      headers: visitorHeaders(visitor),
+      timeout: 0,
+      signal,
+      onUploadProgress: (event) => onProgress?.(event.total ? event.loaded / event.total : 0),
+    });
+  },
+  replace: (token, visitor, id, file, onProgress, signal) => {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return api.post(`/l/${enc(token)}/nodes/${id}/replace`, form, {
+      headers: visitorHeaders(visitor),
+      timeout: 0,
+      signal,
+      onUploadProgress: (event) => onProgress?.(event.total ? event.loaded / event.total : 0),
+    });
+  },
+  mkdir: (token, visitor, parentId, name) => api.post(`/l/${enc(token)}/folders`, { parentId, name }, { headers: visitorHeaders(visitor) }),
+  folderTree: (token, visitor, parentId, paths, bytes, signal) =>
+    api.post(`/l/${enc(token)}/folders/tree`, { parentId, paths, bytes }, { headers: visitorHeaders(visitor), timeout: 120000, signal }),
+  rename: (token, visitor, id, name) => api.put(`/l/${enc(token)}/nodes/${id}`, { name }, { headers: visitorHeaders(visitor) }),
+  move: (token, visitor, id, parentId) => api.put(`/l/${enc(token)}/nodes/${id}`, { move: { parentId } }, { headers: visitorHeaders(visitor) }),
+  remove: (token, visitor, id) => api.delete(`/l/${enc(token)}/nodes/${id}`, { headers: visitorHeaders(visitor) }),
 };
 
 /** Viewer sources (same shape as the knowledge base's) for Files nodes. */

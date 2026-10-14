@@ -91,6 +91,39 @@ export async function ensureDriveSchema() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS drive_links_owner_idx ON drive_links (created_by)`);
+  // What visitors may do (see linkPerms.js). Links made before this keep
+  // exactly what they had: view, plus download when it was allowed.
+  await query(`
+    ALTER TABLE drive_links
+      ADD COLUMN IF NOT EXISTS permissions TEXT[],
+      ADD COLUMN IF NOT EXISTS title VARCHAR(120),
+      ADD COLUMN IF NOT EXISTS note VARCHAR(500),
+      ADD COLUMN IF NOT EXISTS max_file_mb INTEGER,
+      ADD COLUMN IF NOT EXISTS allowed_exts TEXT[],
+      ADD COLUMN IF NOT EXISTS quota_mb INTEGER,
+      ADD COLUMN IF NOT EXISTS uploaded_bytes BIGINT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS require_name BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS require_email BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS notify BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+  await query(`UPDATE drive_links SET permissions = CASE WHEN allow_download THEN '{view,download}'::text[] ELSE '{view}'::text[] END WHERE permissions IS NULL`);
+  // Files visitors uploaded through a link: their "my uploads" list (per
+  // browser session) and the author's overview.
+  await query(`
+    CREATE TABLE IF NOT EXISTS drive_link_uploads (
+      id BIGSERIAL PRIMARY KEY,
+      link_id INTEGER NOT NULL REFERENCES drive_links(id) ON DELETE CASCADE,
+      session_id VARCHAR(40) NOT NULL,
+      path TEXT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      size BIGINT NOT NULL DEFAULT 0,
+      visitor_name VARCHAR(80),
+      visitor_email VARCHAR(254),
+      ip VARCHAR(64),
+      at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS drive_link_uploads_session_idx ON drive_link_uploads (link_id, session_id, at DESC)`);
   for (const table of ['drive_recent', 'drive_favorites']) {
     await query(`
       CREATE TABLE IF NOT EXISTS ${table} (

@@ -37,7 +37,7 @@ The module is **off by default**. Turn it on under *Settings → Modules → Fil
 
 - **Each file has its own page** (`/app/drive/v/<folder>/<path>`) by default. The page has the whole window for the viewer, ‹ › through the folder's files and a link back to the folder, and its address can be bookmarked or sent. The *Opening files* setting switches back to a modal over the folder.
 - **Favourites and recent files**, kept per person.
-- **Public links** (see below) and **My links** with the state of each one.
+- **Public links** (see below) and **My links** with the state and permissions of each one; links can be edited later.
 - **Connections**: which account opens each server, and a way to sign in or switch accounts.
 
 ## Uploading folders
@@ -87,6 +87,8 @@ The credential used for a person is chosen in this order:
 | Public links | on | |
 | Who may open links | Author decides | *Employees only* forces sign-in for every link |
 | Require password / maximum days | off / 0 | Same as in Files |
+| Links that allow changes | on | Off: links can only show and download; existing write links fall back to that (upload-only links close with *Uploads through links are turned off*) |
+| Password for such links | off | On: links that grant uploads or changes need a password; existing ones without one stop accepting changes |
 
 **A server:**
 
@@ -113,16 +115,45 @@ Permission: `drive.admin`. With it you manage servers and folders and see all li
 
 ## Public links (`/d/<token>`)
 
-**Share by link** on a file or folder:
+**Share by link** on a file or folder opens the link window: the item's links (state, permission chips, copy, QR code, *Open as the recipient*, edit, turn off, delete) and the editor for a new one.
 
-| Option | Notes |
-|--------|-------|
-| Who can open | *Anyone with the link*, or *Employees only* (sign-in required, then back to the link) |
-| Password | Optional, at least 4 characters; unlocking is rate-limited |
-| Expiry | 1 / 7 / 30 days or a date; capped by *maximum days* |
-| Downloads | Can be switched off |
+### What the recipient can do
 
-A link has **no access of its own**. It acts with its author's credentials, re-checked on every request. It stops working, and the page explains why, when:
+| Preset | Permissions | Notes |
+|--------|-------------|-------|
+| View only | `view` | Open and preview, no downloads |
+| **View and download** (default) | `view`, `download` | Exactly what links did before permissions existed |
+| Upload only | `upload` | A file request: the visitor sends files and never sees the folder, only what they uploaded in this browser tab |
+| View and upload | `view`, `download`, `upload` | |
+| Full access | all seven | |
+| Customize… | any combination | |
+
+The seven permissions: `view` (list and open), `download` (files and ZIPs), `upload` (new files), `mkdir` (new folders, also needed to upload whole folders), `rename`, `replace` (a new version of an existing file), `delete`. Everything except `upload` needs `view`. A **file** link can only grant `view`, `download` and `replace`.
+
+**Upload rules** (shown when the link accepts files): maximum file size (within the module's limit), allowed file types (`.pdf, .jpg`), a total for the link (quota), *Ask the visitor's name* (and e-mail), *Notify me*. A **title** and a **message** for the recipient are optional; the editor shows a live preview of the page the recipient will see.
+
+Existing links were migrated to `view` + `download` (or `view` only where downloads were off), so they behave exactly as before.
+
+### Whose rights a link uses
+
+A link has **no access of its own**. Reading and every change act with the **author's file-server account** — the one the drive picks for the author on that server: their saved *Connect as…* account, else their AD sign-in, else the server's service account. So:
+
+- a link can never grant more than its author can do. When write permissions are granted (on creation or later), the author's rights on the folder are checked through the gateway: the server's *maximal access* answer, confirmed by creating and removing a hidden marker file (`~$portal-….probe`) because some servers (Samba) report file-system rights and ignore a share's read-only rules. Missing rights are refused with `GRANT_EXCEEDS` (and the editor locks those presets);
+- at action time the file server decides as for the author; a refusal is shown to the visitor as *The file server did not allow this change* (`WRITE_DENIED`), the page stays;
+- when the author's password expires or is revoked, visitors see *Changes are not possible right now* (`UNAVAILABLE`, `info.reason = credentials`) and the author's credential is parked like any other.
+
+### Visitors who change files
+
+- **Visitor session.** Changes need a visitor session: a signed token (12 h) bound to the link and its version, with a random session id and the name and e-mail the visitor gave. A new password, or turning the link off or on, ends every session. The token travels only in the `X-Link-Token` header — never in the address — which a page on another site cannot set; with the portal's Origin check this keeps forged cross-site requests out.
+- **Name and e-mail.** With *Ask the visitor's name* the page asks once before the first change; the name appears next to each change in the activity log and in notifications.
+- **Clashes never overwrite silently.** Upload-only visitors always get a free name (`report (1).pdf`). Visitors who see the folder are asked *Replace / Keep both / Skip*; *Replace* is offered only with the `replace` permission.
+- **Deleting is final.** File servers have no recycle bin, so `delete` must be granted explicitly; the editor warns the author and visitors confirm with a check box (*I understand, delete for good*).
+- **Paths stay inside the link** (no `..`, backslashes, `:` or Windows-forbidden characters, checked in Node and the gateway). The link's own root cannot be renamed or deleted. Hidden and system items (and names starting with `.` or `~$`) are never listed, cannot be changed and cannot be created by visitors.
+- **Limits.** Per file: the link's maximum within the module's *Maximum upload size*; file types; the link's total (reserved atomically before each upload, so parallel uploads cannot overshoot it, and given back when an upload fails). Rate limits per visitor address and link: 600 uploads and 120 other changes per 15 minutes, and 3,000 changes per hour per link; wrong passwords: 10 per 15 minutes.
+- **Uploads stream** through the gateway exactly like signed-in uploads (temporary file, rename at the end, dropped when the browser goes away).
+- **Notifications.** With *Notify me*, the author gets one notification per visitor burst (after 2 quiet minutes, at most 10 minutes after the first change): *Ivan uploaded 5 files via your link "Documents"*, with the names. Kind `drive.linkActivity` (*Activity on my links* in notification settings). Bursts are kept in memory; a restart in the middle of one loses that digest, never a file.
+
+### When a link stops working
 
 | Situation | Visitor sees |
 |-----------|--------------|
@@ -131,8 +162,15 @@ A link has **no access of its own**. It acts with its author's credentials, re-c
 | The author turned the link off / it expired | *This link has been turned off* / *This link has expired* |
 | The file was moved or deleted on the server | *This file was moved or deleted* |
 | The server is unreachable or the author's password must be renewed | *The files are temporarily unavailable* |
+| An upload-only link while administrators turned write links off | *Uploads through links are turned off* |
 
 Reactivating the author's account makes their links work again. Deleting the account deletes their links. A folder link never reaches outside its folder, because paths are confined to the link's root.
+
+| Option | Notes |
+|--------|-------|
+| Who can open | *Anyone with the link*, or *Employees only* (sign-in required, then back to the link) |
+| Password | Optional, at least 4 characters; unlocking is rate-limited |
+| Expiry | 1 / 7 / 30 days or a date; capped by *maximum days* |
 
 ## Security
 
@@ -187,19 +225,29 @@ All under `/api/app/drive`, signed-in users only (`:id` = folder id, `path` = pa
 | GET / POST / DELETE | `/recent`, `/favorites` | Shortcuts |
 | GET / PUT / DELETE | `/connections[/:serverId]` | The person's credentials (checked before saving, rate-limited) |
 | GET | `/links[?shareId&path]` | My links |
-| POST | `/shares/:id/links` | `{ path, audience, password?, expiresAt?, allowDownload }` |
-| PUT / DELETE | `/links/:id` | Edit, revoke (`{ revoked }`) or delete |
+| POST | `/shares/:id/links` | `{ path, audience, password?, expiresAt?, permissions?, title?, note?, maxFileMb?, allowedExts?, quotaMb?, requireName?, requireEmail?, notify? }` (`allowDownload` still accepted) |
+| PUT / DELETE | `/links/:id` | Edit (same fields), revoke (`{ revoked }`) or delete |
 | `*` | `/admin/…` | Servers, folders, order, test, all links (`drive.admin`) |
 
 Public (`X-Link-Token` header or `?t=` after unlocking; the session cookie counts for *Employees only*):
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/api/d/:token/unlock` | `{ password }` → `{ token }` |
-| GET | `/api/d/:token[?path=]` | The item, or a folder's contents inside the link |
-| GET | `/api/d/:token/file` · `/thumb` · `/preview.pdf` · `/cad` · `/zip` | Content (downloads only if allowed) |
+| POST | `/api/d/:token/unlock` | Visitor session: `{ password?, name?, email? }` → `{ token, visitor }`; with a current token in `X-Link-Token` it keeps the session and adds the name |
+| GET | `/api/d/:token[?path=]` | The item, or a folder's contents inside the link; `link.permissions`, `link.limits`, `visitor`; `uploadOnly: true` and no entries for file requests |
+| GET | `/api/d/:token/mine` | What this visitor session uploaded |
+| GET | `/api/d/:token/file` · `/thumb` · `/preview.pdf` · `/cad` · `/zip` | Content (`view`; downloads need `download`) |
+| PUT | `/api/d/:token/upload?path=&name=&conflict=fail\|rename\|replace` | Raw body; `upload` (`replace` for overwriting); upload-only visitors always get `rename` into the link root |
+| PUT | `/api/d/:token/replace?path=` | New version of an existing file (`replace`; the file itself for a file link) |
+| POST | `/api/d/:token/folders` · `/folders/tree` | `{ path, name }` · `{ path, paths }` (`mkdir`; the tree also `upload`) |
+| PUT | `/api/d/:token/rename` | `{ path, name }` (`rename`) |
+| POST | `/api/d/:token/delete` | `{ paths }`, up to 100 (`delete`) |
 
-Visitor error codes: `NOT_FOUND`, `REVOKED`, `EXPIRED`, `OWNER_INACTIVE`, `OWNER_NO_ACCESS`, `GONE`, `UNAVAILABLE`, `LINKS_DISABLED`, `SIGN_IN_REQUIRED`, `PASSWORD_REQUIRED`, `WRONG_PASSWORD`, `NO_DOWNLOAD`.
+All changes need the visitor session in the `X-Link-Token` header. The bundled `nginx.conf` streams `/api/d/<token>/upload` and `/replace` like signed-in Drive uploads (10 GB, no buffering).
+
+Visitor error codes: `NOT_FOUND`, `REVOKED`, `EXPIRED`, `OWNER_INACTIVE`, `OWNER_NO_ACCESS`, `GONE`, `UNAVAILABLE` (`info.reason`: `credentials` or `server`), `LINKS_DISABLED`, `UPLOADS_DISABLED`, `SIGN_IN_REQUIRED`, `PASSWORD_REQUIRED`, `WRONG_PASSWORD`, `NO_DOWNLOAD`, `NO_PERMISSION`, `SESSION_REQUIRED`, `VISITOR_REQUIRED`, `NAME_REQUIRED`, `EMAIL_REQUIRED`, `EMAIL_INVALID`, `FILE_TOO_LARGE` (`info.maxMb`), `EXT_NOT_ALLOWED`, `LINK_QUOTA_EXCEEDED`, `WRITE_DENIED`, `ITEM_GONE`, `EXISTS`, `INVALID_NAME`, `INVALID_PATH`, `RATE_LIMITED`.
+
+Author error codes when saving a link: `GRANT_EXCEEDS` (`info.missing`), `WRITE_LINKS_DISABLED`, `WRITE_PASSWORD_REQUIRED`, `PASSWORD_REQUIRED`, `PASSWORD_SHORT`.
 
 File server error codes:
 
@@ -214,7 +262,7 @@ File server error codes:
 
 Permission: `drive.audit` (*File server activity log*). Super administrators always have it; it can be given to other roles in the role editor. The log is at **File server → Activity log** (`/app/drive/activity`), and *Activity history* in a file's or folder's menu opens it filtered to that item.
 
-What is recorded, with time, person (or link visitor and IP), folder, path, size, result and browser:
+What is recorded, with time, person (or link visitor and IP — with the name and e-mail the visitor gave, and the link's title), folder, path, size, result and browser:
 
 | Group | Actions |
 |-------|---------|

@@ -283,6 +283,8 @@ export async function home(ctx) {
       publicLinks: settings.publicLinks,
       linkAudience: settings.linkAudience,
       requireLinkPassword: settings.requireLinkPassword,
+      linkWrite: settings.linkWrite !== false,
+      requireWritePassword: Boolean(settings.requireWritePassword),
       maxLinkDays: settings.maxLinkDays,
       openMode: settings.openMode === 'modal' ? 'modal' : 'page',
       conversion: await conversionEnabled(),
@@ -376,6 +378,15 @@ export async function ensureFolders(target, rel, paths) {
   };
 }
 
+/**
+ * The account's rights to add and remove items in a folder (or, for a file,
+ * its folder): { write, delete, known }. Asks the server for the caller's
+ * maximal access; when it does not say, a hidden marker is made and removed.
+ */
+export async function checkWrite(target, rel) {
+  return call(target, 'checkwrite', { path: fullPath(target, rel) });
+}
+
 export async function renameEntry(target, rel, name) {
   const path = cleanPath(rel);
   if (!path) throw httpError(400, 'The root cannot be renamed', 'INVALID_PATH');
@@ -430,7 +441,7 @@ export async function saveText(target, rel, text, expectedMtime) {
 }
 
 /** Streams an upload (raw request body) into a folder. */
-export async function uploadInto(target, rel, name, req, { conflict = 'rename', maxBytes }) {
+export async function uploadInto(target, rel, name, req, { conflict = 'rename', maxBytes, renameFrom }) {
   const path = cleanPath(rel);
   const fileName = cleanName(name);
   // Body parsers (JSON, forms) would already have consumed the stream.
@@ -439,7 +450,9 @@ export async function uploadInto(target, rel, name, req, { conflict = 'rename', 
   if (!Number.isFinite(length) || length < 0) throw httpError(411, 'Content-Length is required', 'LENGTH_REQUIRED');
   if (maxBytes && length > maxBytes) throw httpError(413, 'The file is too large', 'FILE_TOO_LARGE');
   const mode = ['rename', 'replace', 'fail'].includes(conflict) ? conflict : 'rename';
-  const res = await stream(target, 'write', { path: fullPath(target, path), name: fileName, conflict: mode }, { body: req, length });
+  const extra = { path: fullPath(target, path), name: fileName, conflict: mode };
+  if (renameFrom === 1) extra.renameFrom = 1;
+  const res = await stream(target, 'write', extra, { body: req, length });
   const chunks = [];
   for await (const chunk of res) chunks.push(chunk);
   const result = JSON.parse(Buffer.concat(chunks).toString('utf8'));

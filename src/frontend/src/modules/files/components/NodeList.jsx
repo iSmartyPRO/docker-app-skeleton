@@ -46,6 +46,24 @@ function SharedMark({ node }) {
   );
 }
 
+/** Added or last changed through a public link: who and through which link. */
+function ViaMark({ node, full = false }) {
+  const { t, locale } = useLocale();
+  if (!node.via) return null;
+  const who = node.via.name || t('files.links.visitor');
+  const tip = t('files.via.tip', { action: t(`files.links.action.${node.via.action}`), title: node.via.title || '—', who, when: formatRelative(node.via.at, locale) });
+  return (
+    <Tooltip title={tip}>
+      <span className="fs-via" aria-label={tip}>
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+        </svg>
+        <span>{full ? t('files.via.short', { who }) : who}</span>
+      </span>
+    </Tooltip>
+  );
+}
+
 /**
  * Files and folders as a grid of cards or a table. Clicking opens; the ⋯ menu
  * (and right-click) offers the actions `menu(node)` returns.
@@ -114,6 +132,7 @@ export default function NodeList({ nodes, view = 'grid', selected, onToggle, onO
                   <strong>{nodeLabel(node, t)}</strong>
                   {showPath && node.path?.length > 0 && <em>{node.path.join(' / ')}</em>}
                 </span>
+                <ViaMark node={node} full />
                 <SharedMark node={node} />
               </span>
               <span className="fs-row__meta">
@@ -154,6 +173,7 @@ export default function NodeList({ nodes, view = 'grid', selected, onToggle, onO
                 {showOwner && node.owner ? ` · ${node.owner.name}` : ''}
                 {showPath && node.path?.length ? ` · ${node.path[node.path.length - 1]}` : ''}
               </span>
+              <ViaMark node={node} />
               <SharedMark node={node} />
             </div>
           </div>

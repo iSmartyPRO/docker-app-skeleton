@@ -1,22 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App, Button, Input, Modal, Popconfirm, Select, Skeleton, Switch, Tabs, Tag, Tooltip } from 'antd';
+import { App, Button, Modal, Select, Skeleton, Tabs, Tag } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
-import { formatDateTime } from '../../../lib/format';
-import { nowInZone, todayISO } from '../../../lib/datetime';
-import { DateTimeField } from '../../../components/ui/DateTimeField';
 import { Person, UserAvatar } from '../../shared/People';
 import { filesApi } from '../api';
-import { Hint, HintLabel } from '../../../help/Hint';
-
-/*
- * Link expiry in the person's zone: the picker shows their wall-clock time,
- * whole days (disabled dates, max days) are their calendar days.
- */
-const expiryDisabled = (maxDays) => (day) => {
-  const value = day.format('YYYY-MM-DD');
-  return value < todayISO() || Boolean(maxDays && value > nowInZone().add(maxDays, 'day').format('YYYY-MM-DD'));
-};
+import { HintLabel } from '../../../help/Hint';
+import ShareLinks from './ShareLinks';
 
 function People({ node, onChanged }) {
   const { t } = useLocale();
@@ -142,129 +131,20 @@ function People({ node, onChanged }) {
   );
 }
 
-function LinkForm({ config, onCreate }) {
-  const { t } = useLocale();
-  const [password, setPassword] = useState('');
-  const [expires, setExpires] = useState(null);
-  const [download, setDownload] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const presets = [1, 7, 30].filter((days) => !config.maxLinkDays || days <= config.maxLinkDays);
-  return (
-    <div className="fs-linkform">
-      <div className="fs-linkform__row">
-        <span>{t('files.linkPassword')} <Hint id="files.linkPassword" /></span>
-        <Input.Password value={password} onChange={(event) => setPassword(event.target.value)} placeholder={config.requireLinkPassword ? t('files.passwordRequired') : t('files.passwordOptional')} autoComplete="new-password" />
-      </div>
-      <div className="fs-linkform__row">
-        <span>{t('files.linkExpires')} <Hint id="files.linkExpires" /></span>
-        <div className="fs-linkform__expiry">
-          <DateTimeField
-            value={expires}
-            onChange={setExpires}
-            placeholder={config.maxLinkDays ? t('files.maxDays', { n: config.maxLinkDays }) : t('files.noExpiry')}
-            disabledDate={expiryDisabled(config.maxLinkDays)}
-          />
-          {presets.map((days) => (
-            <Button key={days} size="small" onClick={() => setExpires(nowInZone().add(days, 'day').second(0).millisecond(0).toISOString())}>{t('files.days', { n: days })}</Button>
-          ))}
-        </div>
-      </div>
-      <div className="fs-linkform__row">
-        <span>{t('files.allowDownload')} <Hint id="files.allowDownload" /></span>
-        <Switch checked={download} onChange={setDownload} />
-      </div>
-      <Button
-        type="primary"
-        block
-        loading={busy}
-        disabled={config.requireLinkPassword && !password}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            await onCreate({ password: password || undefined, expiresAt: expires || null, allowDownload: download });
-            setPassword('');
-            setExpires(null);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        + {t('files.createLink')}
-      </Button>
-    </div>
-  );
-}
-
-function Links({ node, config, onChanged }) {
-  const { t, locale } = useLocale();
-  const { message } = App.useApp();
-  const [links, setLinks] = useState(null);
-  const load = () => filesApi.links(node.id).then((res) => setLinks(res.data.links)).catch((err) => message.error(errorMessage(err)));
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node.id]);
-
-  if (!config.publicLinks) return <div className="fs-share__empty">{t('files.linksDisabled')}</div>;
-  if (!links) return <Skeleton active paragraph={{ rows: 3 }} />;
-  const url = (link) => `${window.location.origin}/l/${link.token}`;
-  const run = async (action) => {
-    try {
-      await action();
-      await load();
-      onChanged?.();
-    } catch (err) {
-      message.error(errorMessage(err));
-    }
-  };
-
-  return (
-    <div className="fs-links">
-      {links.map((link) => {
-        const state = link.revoked ? 'revoked' : link.expired ? 'expired' : 'active';
-        return (
-          <div key={link.id} className={`fs-link is-${state}`}>
-            <div className="fs-link__url">
-              <code>{url(link)}</code>
-              <Tooltip title={t('common.copy')}>
-                <Button size="small" disabled={state !== 'active'} onClick={() => navigator.clipboard?.writeText(url(link)).then(() => message.success(t('common.copied')))}>⧉</Button>
-              </Tooltip>
-            </div>
-            <div className="fs-link__meta">
-              <Tag color={state === 'active' ? 'green' : 'default'} bordered={false}>{t(`files.linkState.${state}`)}</Tag>
-              {link.hasPassword && <Tag bordered={false}>🔒 {t('files.withPassword')}</Tag>}
-              {!link.allowDownload && <Tag bordered={false}>{t('files.viewOnly')}</Tag>}
-              <span>{link.expiresAt ? t('files.until', { date: formatDateTime(link.expiresAt, locale) }) : t('files.noExpiry')}</span>
-              <span>· {t('files.viewsN', { n: link.views })}</span>
-            </div>
-            <div className="fs-link__actions">
-              <Button size="small" type="text" onClick={() => run(() => filesApi.updateLink(link.id, { revoked: !link.revoked }))}>
-                {link.revoked ? t('files.restoreLink') : t('files.revokeLink')}
-              </Button>
-              <Popconfirm title={t('files.deleteLinkConfirm')} onConfirm={() => run(() => filesApi.deleteLink(link.id))}>
-                <Button size="small" type="text" danger>{t('common.delete')}</Button>
-              </Popconfirm>
-            </div>
-          </div>
-        );
-      })}
-      <LinkForm config={config} onCreate={(payload) => run(() => filesApi.createLink(node.id, payload))} />
-    </div>
-  );
-}
-
 /** Share a file or folder with people and by public link. */
 export default function ShareDialog({ open, node, config, onClose }) {
   const { t } = useLocale();
   const [changed, setChanged] = useState(false);
   if (!node) return null;
   const owner = node.level === 'manage';
+  // Owners always publish links; with "anyone with access" others may too, within their own rights.
+  const canLink = owner || config?.linkSharing === 'members';
   return (
-    <Modal open={open} title={t('files.shareTitle', { name: node.name })} onCancel={() => onClose(changed)} footer={null} width={640} destroyOnHidden>
+    <Modal open={open} title={t('files.shareTitle', { name: node.name })} onCancel={() => onClose(changed)} footer={null} width={720} destroyOnHidden>
       <Tabs
         items={[
           { key: 'people', label: <HintLabel id="files.sharePeople">{t('files.people')}</HintLabel>, children: <People node={node} onChanged={() => setChanged(true)} /> },
-          ...(owner ? [{ key: 'links', label: t('files.publicLinks'), children: <Links node={node} config={config} onChanged={() => setChanged(true)} /> }] : []),
+          ...(canLink ? [{ key: 'links', label: t('files.publicLinks'), children: <ShareLinks node={node} config={config} onChanged={() => setChanged(true)} /> }] : []),
         ]}
       />
     </Modal>

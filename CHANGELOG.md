@@ -5,6 +5,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### File server — public link permissions
+
+- Drive links get the same per-action permissions as Files (view, download, upload, folders, rename/move, replace, delete) with presets and «Настроить…», per-link size/type/total limits, visitor name/e-mail and batched notifications; existing links keep view + download.
+- Writes run as the link creator's file-server account; rights are probed through the gateway when the link is saved (`GRANT_EXCEEDS`), name clashes never overwrite silently («file (1).pdf» for upload-only, Replace / Keep both / Skip otherwise), deletes need explicit permission and a confirmation (no recycle bin on SMB) and are logged with the visitor's name.
+- Visitor sessions bound to the link version, per-link and per-IP rate limits, path confinement, admin switches for write links and required passwords; premium visitor page with drag-and-drop/folder upload and an upload-only drop box.
+
+### Files — public link permissions
+
+Docs: [docs/files.md](docs/files.md#link-permissions).
+
+- **Per-link permissions:** view, download, upload, create folders, rename/move, replace, delete. Presets «Только просмотр», «Просмотр и скачивание» (default; existing links keep exactly what they had), «Только загрузка», «Просмотр и загрузка», «Полный доступ» and «Настроить…».
+- **Upload rules per link:** maximum file size, allowed extensions, total quota, ask the visitor's name (and e-mail), notify me (one notice per visit).
+- **Visitor page:** owner and link name, «Вы можете: …», drag & drop and folder uploads with per-file progress and cancel, new folder, rename, replace, delete with confirmation; a «Отправьте файлы для …» drop-box page for upload-only links that shows only the visitor's own uploads.
+- **Share dialog:** link cards with permission chips, edit, QR code, «как это увидит получатель», activity log; files added through a link show «через ссылку · имя».
+- **Security:** a link grants at most its author's rights (checked on every request); admins can switch off links that allow changes, require a password for them and choose who publishes links; changes run inside the link's subtree only, need a visitor token bound to the link version, are rate-limited and go to the owner's trash (replaced versions too). nginx accepts large bodies on the two public upload routes only.
+- **Shared UI:** `components/ui/LinkPermissions.jsx` permission picker (also for Drive).
+
 ### Warehouse module
 
 Spec: [docs/specs/warehouse.ru.md](docs/specs/warehouse.ru.md) · docs: [docs/warehouse.md](docs/warehouse.md). Off by default.

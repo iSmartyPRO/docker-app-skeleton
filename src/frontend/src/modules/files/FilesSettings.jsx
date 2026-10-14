@@ -21,6 +21,7 @@ function FilesForm({ settings, save }) {
   );
   const allowAny = Form.useWatch('allowAny', form);
   const links = Form.useWatch('publicLinks', form);
+  const writeLinks = Form.useWatch('writeLinks', form);
   return (
     <Form {...formProps}>
       <SettingsSection>
@@ -98,6 +99,28 @@ function FilesForm({ settings, save }) {
         <SettingRow label={t('filesSettings.maxDays')} description={t('filesSettings.maxDaysDesc')}>
           <Form.Item name="maxLinkDays" noStyle>
             <InputNumber min={0} max={3650} disabled={!links} addonAfter={t('settings.login.days')} style={{ width: 160 }} />
+          </Form.Item>
+        </SettingRow>
+        <SettingRow label={t('filesSettings.linkSharing')} description={t('filesSettings.linkSharingDesc')}>
+          <Form.Item name="linkSharing" noStyle>
+            <Radio.Group
+              optionType="button"
+              disabled={!links}
+              options={[
+                { value: 'owners', label: t('filesSettings.linkSharing_owners') },
+                { value: 'members', label: t('filesSettings.linkSharing_members') },
+              ]}
+            />
+          </Form.Item>
+        </SettingRow>
+        <SettingRow label={t('filesSettings.writeLinks')} description={t('filesSettings.writeLinksDesc')}>
+          <Form.Item name="writeLinks" valuePropName="checked" noStyle>
+            <Switch disabled={!links} />
+          </Form.Item>
+        </SettingRow>
+        <SettingRow label={t('filesSettings.writeLinkPassword')} description={t('filesSettings.writeLinkPasswordDesc')}>
+          <Form.Item name="requireWriteLinkPassword" valuePropName="checked" noStyle>
+            <Switch disabled={!links || writeLinks === false} />
           </Form.Item>
         </SettingRow>
       </SettingsSection>

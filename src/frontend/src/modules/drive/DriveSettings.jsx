@@ -24,6 +24,7 @@ function GeneralForm({ settings, save }) {
     save({ modules: { drive: { enabled, settings: rest } } })
   );
   const links = Form.useWatch('publicLinks', form);
+  const writeLinks = Form.useWatch('linkWrite', form);
   const logging = Form.useWatch('activityLog', form);
   return (
     <Form {...formProps}>
@@ -98,6 +99,16 @@ function GeneralForm({ settings, save }) {
         <SettingRow label={t('filesSettings.maxDays')} description={t('filesSettings.maxDaysDesc')}>
           <Form.Item name="maxLinkDays" noStyle>
             <InputNumber min={0} max={3650} disabled={!links} addonAfter={t('settings.login.days')} style={{ width: 160 }} />
+          </Form.Item>
+        </SettingRow>
+        <SettingRow label={<HintLabel id="drive.linkWrite">{t('driveSettings.linkWrite')}</HintLabel>} description={t('driveSettings.linkWriteDesc')}>
+          <Form.Item name="linkWrite" valuePropName="checked" noStyle>
+            <Switch disabled={!links} />
+          </Form.Item>
+        </SettingRow>
+        <SettingRow label={t('driveSettings.requireWritePassword')} description={t('driveSettings.requireWritePasswordDesc')}>
+          <Form.Item name="requireWritePassword" valuePropName="checked" noStyle>
+            <Switch disabled={!links || writeLinks === false} />
           </Form.Item>
         </SettingRow>
       </SettingsSection>
@@ -553,7 +564,7 @@ function LinksAudit() {
   if (!links) return <Skeleton active paragraph={{ rows: 3 }} />;
   if (!links.length) return <div className="fs-share__empty">{t('drive.noLinks')}</div>;
   return (
-    <div className="fs-links">
+    <div className="dv-linklist">
       {links.map((link) => <LinkRow key={link.id} link={link} onChange={load} showItem showOwner />)}
     </div>
   );

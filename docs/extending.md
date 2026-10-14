@@ -448,6 +448,33 @@ const qr = renderBarcodeSVG('https://…', 'qr', { moduleSize: 4 });
 
 ---
 
+## Public link permissions
+
+`components/ui/LinkPermissions.jsx` is the shared picker for what a public share link allows (used by Files, reusable by Drive). It is presentational: the server must enforce every key on every route. Strings live in `i18n/linkPerms.js` (`linkPerms.*`).
+
+Keys: `view` (list + preview), `download`, `upload` (new files), `mkdir`, `rename` (rename and move), `replace` (new version of a file), `delete` (to the trash). Everything except `upload` needs `view`; `upload` without `view` is an upload-only drop box. File links support `view`, `download` and `replace` only.
+
+```jsx
+import { LinkPermissionsPicker, PERMISSION_PRESETS, PermissionChips, permissionChips, normalizePermissions } from '../components/ui/LinkPermissions';
+
+<LinkPermissionsPicker
+  value={perms}                 // ['view', 'download']
+  onChange={setPerms}
+  allowed={grantable}           // keys this person may grant; others are shown locked
+  isFolder={node.kind === 'folder'}
+  extras={{ maxSize: null, extensions: '', quota: null, requireName: false, requireEmail: false, notify: true }} // only keys present are rendered
+  onExtrasChange={setExtras}
+  maxUploadMb={config.maxUploadMb}
+/>
+
+<PermissionChips perms={link.permissions} />              // pills for a link list (compact = icons with tooltips)
+permissionChips(perms) // [{ key, labelKey, icon, write }] — translate labelKey with t()
+```
+
+`PERMISSION_PRESETS`: `view`, `viewDownload` (default), `uploadOnly` and `viewUpload` (folders only), `full`, `custom`. `presetOf(perms, isFolder)` names the preset of a list, `permissionSentence(perms, t)` gives “view, download, upload” for visitor pages. The extras are shown only when the selection includes `upload` or `replace`.
+
+---
+
 ## Write a backend test
 
 Tests use the built-in `node:test` runner and live in `src/backend/test/*.test.js`. Test pure functions — sanitizers, policy decisions, parsers — so the suite needs no database.

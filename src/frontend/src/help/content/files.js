@@ -29,7 +29,7 @@ export default {
     {
       icon: '🔗',
       title: { ru: 'Публичные ссылки', en: 'Public links' },
-      text: { ru: 'Ссылка для партнёров без входа в портал — с паролем, сроком и запретом скачивания.', en: 'A link for partners without a portal account, with a password, expiry and no-download option.' },
+      text: { ru: 'Ссылка для партнёров без входа в портал: только просмотр, приём файлов или полный доступ — с паролем и сроком.', en: 'A link for partners without a portal account: view only, a file drop box or full access, with a password and expiry.' },
     },
     {
       icon: '👁',
@@ -144,27 +144,46 @@ export default {
     },
     {
       id: 'links',
-      title: { ru: 'Публичные ссылки: пароль и срок', en: 'Public links: password and expiry' },
+      title: { ru: 'Публичные ссылки: права, пароль и срок', en: 'Public links: permissions, password and expiry' },
       body: {
-        ru: 'Публичная ссылка открывает файл или папку **без входа в портал** — например, для клиента или подрядчика. Ссылка на папку показывает только её содержимое, выйти за её пределы нельзя.\n\nВ меню «Поделиться…» → вкладка **«Публичные ссылки»** задайте:\n\n- **Пароль** — не короче 4 символов; посетитель вводит его один раз;\n- **Действует до** — 1, 7 или 30 дней либо конкретная дата;\n- **Разрешить скачивание** — выключите, чтобы файл можно было только посмотреть.\n\nУ каждой ссылки видно число просмотров. Её можно скопировать, **отозвать** (и потом вернуть) или удалить. После смены пароля или отзыва все, кто уже открывал ссылку, потеряют доступ.',
-        en: 'A public link opens a file or folder **without signing in**, for a client or a contractor say. A folder link shows only what is inside; visitors cannot go above it.\n\nIn Share… → the **Public links** tab, set:\n\n- **Password**: at least 4 characters; the visitor enters it once;\n- **Expires**: 1, 7 or 30 days, or a specific date;\n- **Allow download**: switch off to allow viewing only.\n\nEach link shows its view count. Copy it, **revoke** it (and restore later) or delete it. Revoking or changing the password cuts off everyone who already opened it.',
+        ru: 'Публичная ссылка открывает файл или папку **без входа в портал** — например, для клиента или подрядчика. Ссылка на папку показывает только её содержимое, выйти за её пределы нельзя.\n\nВ меню «Поделиться…» → вкладка **«Публичные ссылки»** задайте:\n\n- **Пароль** — не короче 4 символов; посетитель вводит его один раз;\n- **Действует до** — 1, 7 или 30 дней либо конкретная дата;\n- **Что может получатель** — готовый набор прав или свои галочки (см. [Права ссылки](#link-permissions)).\n\nУ каждой ссылки видно права, число просмотров и загрузок. Её можно скопировать, показать QR-кодом, открыть «как увидит получатель», изменить, **отозвать** (и потом вернуть) или удалить. После смены пароля или отзыва все, кто уже открывал ссылку, потеряют доступ.',
+        en: 'A public link opens a file or folder **without signing in**, for a client or a contractor say. A folder link shows only what is inside; visitors cannot go above it.\n\nIn Share… → the **Public links** tab, set:\n\n- **Password**: at least 4 characters; the visitor enters it once;\n- **Expires**: 1, 7 or 30 days, or a specific date;\n- **What the recipient can do**: a ready preset or your own ticks (see [Link permissions](#link-permissions)).\n\nEach link shows its permissions, views and uploads. Copy it, show it as a QR code, open it “as the recipient”, edit it, **revoke** it (and restore later) or delete it. Revoking or changing the password cuts off everyone who already opened it.',
       },
       steps: [
         { ru: 'Меню файла → «Поделиться…» → «Публичные ссылки».', en: 'File menu → Share… → Public links.' },
-        { ru: 'Укажите пароль и срок, при необходимости выключите скачивание.', en: 'Set a password and expiry; switch off downloads if needed.' },
-        { ru: 'Нажмите «Создать ссылку» и скопируйте её кнопкой ⧉.', en: 'Press Create link and copy it with ⧉.' },
+        { ru: 'Выберите, что может получатель, укажите пароль и срок.', en: 'Choose what the recipient can do, set a password and expiry.' },
+        { ru: 'Нажмите «Создать ссылку» — она сразу скопируется.', en: 'Press Create link: it is copied at once.' },
         { ru: 'Отправьте ссылку и пароль получателю разными каналами.', en: 'Send the link and the password through different channels.' },
       ],
       example: {
         title: { ru: 'Договор для клиента на неделю', en: 'A contract for a client, for a week' },
         body: {
-          ru: 'Создайте ссылку на PDF договора с паролем и сроком «7 дн.», выключите скачивание. Ссылку отправьте по почте, а пароль — в мессенджере. Через неделю ссылка перестанет работать сама.',
-          en: 'Create a link to the contract PDF with a password and “7 d”, downloads off. Email the link and send the password by messenger. After a week the link stops working by itself.',
+          ru: 'Создайте ссылку на PDF договора с правами «Только просмотр», паролем и сроком «7 дн.». Ссылку отправьте по почте, а пароль — в мессенджере. Через неделю ссылка перестанет работать сама.',
+          en: 'Create a link to the contract PDF with “View only”, a password and “7 d”. Email the link and send the password by messenger. After a week the link stops working by itself.',
         },
       },
       note: {
         ru: 'Администратор может выключить публичные ссылки, сделать пароль обязательным или ограничить срок. Ссылки на файлы в корзине не работают.',
         en: 'The administrator can turn public links off, make a password mandatory or cap their lifetime. Links to items in the trash do not work.',
+      },
+    },
+    {
+      id: 'link-permissions',
+      title: { ru: 'Права ссылки: смотреть, загружать, менять', en: 'Link permissions: view, upload, change' },
+      body: {
+        ru: 'Для каждой ссылки выберите, что может получатель:\n\n- **Только просмотр** — открывать файлы в браузере, без скачивания;\n- **Просмотр и скачивание** — как раньше, по умолчанию;\n- **Только загрузка** — «приём файлов»: получатель видит красивую страницу «Отправьте файлы для …», может отправить файлы, но не видит, что лежит в папке (только то, что отправил сам);\n- **Просмотр и загрузка** — видеть, скачивать и добавлять новые файлы;\n- **Полный доступ** — ещё и папки, переименование, замена новой версией и удаление;\n- **Настроить…** — отдельные переключатели: просмотр, скачивание, загрузка, создание папок, переименование и перемещение, замена, удаление.\n\nДля ссылок с загрузкой есть **правила**: максимальный размер файла, разрешённые типы (например `.pdf, .jpg`), общий лимит на ссылку, **спрашивать имя** (и e-mail) посетителя и **уведомлять меня** — одно уведомление за визит.\n\nЗагруженное по ссылке лежит у вас и учитывается в вашей квоте. Рядом с файлом видно «через ссылку · Имя», а в меню ссылки → **Действия** — кто что сделал. Удалённое посетителем попадает в вашу корзину; при замене предыдущая версия тоже остаётся в корзине.',
+        en: 'For every link choose what the recipient can do:\n\n- **View only**: open files in the browser, no downloads;\n- **View and download**: as before, the default;\n- **Upload only**: a drop box. The recipient sees a “Send files to …” page and can send files but never sees what is in the folder (only what they sent);\n- **View and upload**: see, download and add new files;\n- **Full access**: also folders, renaming, replacing with a new version and deleting;\n- **Customize…**: separate switches for view, download, upload, create folders, rename and move, replace, delete.\n\nLinks with uploads have **rules**: maximum file size, allowed types (e.g. `.pdf, .jpg`), a total limit for the link, **ask the visitor’s name** (and e-mail) and **notify me**, one notice per visit.\n\nWhat arrives through a link is yours and counts against your quota. Files show “via link · Name”, and the link menu → **Activity** lists who did what. Items a visitor deletes go to your trash; on replace the previous version stays in the trash too.',
+      },
+      example: {
+        title: { ru: 'Сбор документов от клиента', en: 'Collecting documents from a client' },
+        body: {
+          ru: 'Создайте папку «Документы клиента», ссылку «Только загрузка» с правилами «.pdf, .jpg», «до 20 МБ» и «Спрашивать имя», включите «Уведомлять меня». Клиент перетащит сканы на страницу, а вы получите одно уведомление и увидите файлы с его именем.',
+          en: 'Make a folder “Client documents”, an “Upload only” link with “.pdf, .jpg”, “up to 20 MB” and “Ask the visitor’s name”, and turn on “Notify me”. The client drops the scans on the page; you get one notice and see the files with their name.',
+        },
+      },
+      note: {
+        ru: 'Выдать по ссылке можно только то, что можете сами: для загрузки и изменений нужны права на редактирование. Администратор может выключить ссылки с изменениями или требовать для них пароль.',
+        en: 'You can only grant what you can do yourself: uploads and changes need edit rights. The administrator can turn off links that allow changes or require a password for them.',
       },
     },
     {
@@ -199,8 +218,8 @@ export default {
       id: 'settings',
       title: { ru: 'Настройки модуля (для администратора)', en: 'Module settings (administrators)' },
       body: {
-        ru: 'Раздел **Настройки → Модули → Файлы**:\n\n- **Максимальный размер файла** — по умолчанию 200 МБ;\n- **Личное хранилище пользователя** — квота на «Мои файлы», 0 — без ограничений;\n- **Хранить удалённые файлы** — срок корзины, по умолчанию 30 дней;\n- **Разрешить любые типы файлов** или только выбранные группы (картинки, PDF, офис, текст, медиа, архивы);\n- **Кто создаёт общие пространства** — все или только администраторы;\n- **Публичные ссылки**, **Требовать пароль для каждой ссылки**, **Максимальный срок ссылки**;\n- **Открытие файлов** — отдельная страница или модальное окно.\n\nПраво «Администратор файлов» даёт управление всеми общими пространствами. Личные файлы сотрудников остаются личными и для администратора.',
-        en: '**Settings → Modules → Files**:\n\n- **Maximum file size**: 200 MB by default;\n- **Personal storage per user**: the My files quota, 0 means unlimited;\n- **Keep deleted files**: the trash period, 30 days by default;\n- **Allow any file type**, or only chosen groups (images, PDF, office, text, media, archives);\n- **Who creates shared spaces**: everyone or administrators only;\n- **Public links**, **Require a password on every link**, **Maximum link lifetime**;\n- **Opening files**: own page or modal window.\n\nThe Files admin permission manages every shared space. Employees’ personal files stay private even from administrators.',
+        ru: 'Раздел **Настройки → Модули → Файлы**:\n\n- **Максимальный размер файла** — по умолчанию 200 МБ;\n- **Личное хранилище пользователя** — квота на «Мои файлы», 0 — без ограничений;\n- **Хранить удалённые файлы** — срок корзины, по умолчанию 30 дней;\n- **Разрешить любые типы файлов** или только выбранные группы (картинки, PDF, офис, текст, медиа, архивы);\n- **Кто создаёт общие пространства** — все или только администраторы;\n- **Публичные ссылки**, **Требовать пароль для каждой ссылки**, **Максимальный срок ссылки**;\n- **Кто публикует ссылки** — только владельцы или все, у кого есть доступ (не больше своих прав);\n- **Ссылки с правом изменений** и **Пароль для ссылок с изменениями**;\n- **Открытие файлов** — отдельная страница или модальное окно.\n\nПраво «Администратор файлов» даёт управление всеми общими пространствами. Личные файлы сотрудников остаются личными и для администратора.',
+        en: '**Settings → Modules → Files**:\n\n- **Maximum file size**: 200 MB by default;\n- **Personal storage per user**: the My files quota, 0 means unlimited;\n- **Keep deleted files**: the trash period, 30 days by default;\n- **Allow any file type**, or only chosen groups (images, PDF, office, text, media, archives);\n- **Who creates shared spaces**: everyone or administrators only;\n- **Public links**, **Require a password on every link**, **Maximum link lifetime**;\n- **Who publishes links**: owners only or anyone with access (within their own rights);\n- **Links that allow changes** and **Password for links that allow changes**;\n- **Opening files**: own page or modal window.\n\nThe Files admin permission manages every shared space. Employees’ personal files stay private even from administrators.',
       },
     },
   ],
@@ -249,6 +268,11 @@ export default {
       title: { ru: 'Срок действия', en: 'Expiry' },
       text: { ru: 'После этой даты ссылка перестанет открываться сама. Пусто — бессрочно (если администратор не ограничил срок).', en: 'After this date the link stops working by itself. Empty means no expiry, unless the administrator capped it.' },
       more: 'links',
+    },
+    linkPermissions: {
+      title: { ru: 'Что может получатель', en: 'What the recipient can do' },
+      text: { ru: 'Выберите готовый набор или «Настроить…». «Только загрузка» — приём файлов: получатель отправляет файлы, но не видит содержимое папки.', en: 'Pick a preset or Customize…. Upload only is a drop box: the recipient sends files but never sees what is in the folder.' },
+      more: 'link-permissions',
     },
     allowDownload: {
       title: { ru: 'Разрешить скачивание', en: 'Allow download' },

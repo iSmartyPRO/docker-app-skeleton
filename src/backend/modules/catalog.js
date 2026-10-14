@@ -503,6 +503,12 @@ export const MODULE_CATALOG = [
       publicLinks: true,
       requireLinkPassword: false,
       maxLinkDays: 0,
+      // Public links that let visitors upload, rename, replace or delete.
+      writeLinks: true,
+      requireWriteLinkPassword: false,
+      // Who publishes links: 'owners' (owners and space managers) or 'members'
+      // (anyone with access, granting at most their own rights).
+      linkSharing: 'owners',
       // Who creates shared spaces: 'everyone' or 'admins' (files.admin).
       spaceCreation: 'admins',
       trashDays: 30,
@@ -514,10 +520,11 @@ export const MODULE_CATALOG = [
       if (incoming.maxUploadMb !== undefined) next.maxUploadMb = clampInt(incoming.maxUploadMb, 1, 4096, 200);
       if (incoming.quotaMb !== undefined) next.quotaMb = clampInt(incoming.quotaMb, 0, 10_000_000, 0);
       if (Array.isArray(incoming.fileGroups)) next.fileGroups = incoming.fileGroups.filter((group) => KB_FILE_GROUPS[group]);
-      for (const flag of ['allowAny', 'publicLinks', 'requireLinkPassword']) {
+      for (const flag of ['allowAny', 'publicLinks', 'requireLinkPassword', 'writeLinks', 'requireWriteLinkPassword']) {
         if (typeof incoming[flag] === 'boolean') next[flag] = incoming[flag];
       }
       if (incoming.maxLinkDays !== undefined) next.maxLinkDays = clampInt(incoming.maxLinkDays, 0, 3650, 0);
+      if (['owners', 'members'].includes(incoming.linkSharing)) next.linkSharing = incoming.linkSharing;
       if (incoming.trashDays !== undefined) next.trashDays = clampInt(incoming.trashDays, 1, 365, 30);
       if (['everyone', 'admins'].includes(incoming.spaceCreation)) next.spaceCreation = incoming.spaceCreation;
       if (['page', 'modal'].includes(incoming.openMode)) next.openMode = incoming.openMode;
@@ -703,6 +710,10 @@ export const MODULE_CATALOG = [
       linkAudience: 'any',
       requireLinkPassword: false,
       maxLinkDays: 0,
+      // Links that let visitors upload, rename or delete (with the author's rights).
+      linkWrite: true,
+      // Such links need a password.
+      requireWritePassword: false,
       // How a file opens: 'page' (its own page with an address) or 'modal' (over the folder).
       openMode: 'page',
       // Activity log (drive.audit): on/off, folder listings too, days to keep (0 = forever).
@@ -715,7 +726,7 @@ export const MODULE_CATALOG = [
       for (const key of ['title', 'tagline']) {
         if (typeof incoming[key] === 'string') next[key] = incoming[key].replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, key === 'title' ? 40 : 160);
       }
-      for (const flag of ['rememberLogin', 'hideDenied', 'publicLinks', 'requireLinkPassword', 'activityLog', 'logBrowsing']) {
+      for (const flag of ['rememberLogin', 'hideDenied', 'publicLinks', 'requireLinkPassword', 'linkWrite', 'requireWritePassword', 'activityLog', 'logBrowsing']) {
         if (typeof incoming[flag] === 'boolean') next[flag] = incoming[flag];
       }
       if (incoming.maxUploadMb !== undefined) next.maxUploadMb = clampInt(incoming.maxUploadMb, 1, 10240, 2048);

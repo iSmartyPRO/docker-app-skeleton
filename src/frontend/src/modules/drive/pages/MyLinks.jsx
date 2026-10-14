@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { Segmented, Skeleton } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { driveApi } from '../api';
-import { LinkRow } from '../components/LinkDialog';
+import { LinkEditModal, LinkRow } from '../components/LinkDialog';
+import { useDrive } from '../DriveContext';
 
 /** Every public link the person created, with their state. */
 export default function MyLinks() {
   const { t } = useLocale();
   const [links, setLinks] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [editing, setEditing] = useState(null);
+  const { config } = useDrive() || {};
   const load = () => driveApi.links().then((res) => setLinks(res.data.links)).catch(() => setLinks([]));
   useEffect(() => {
     load();
@@ -36,10 +39,11 @@ export default function MyLinks() {
       ) : !shown.length ? (
         <div className="fs-empty"><span>{t('drive.noLinks')}</span></div>
       ) : (
-        <div className="fs-links dv-links-page">
-          {shown.map((link) => <LinkRow key={link.id} link={link} onChange={load} showItem />)}
+        <div className="dv-linklist dv-links-page">
+          {shown.map((link) => <LinkRow key={link.id} link={link} onChange={load} onEdit={config ? setEditing : undefined} showItem />)}
         </div>
       )}
+      <LinkEditModal link={editing} config={config} onClose={() => setEditing(null)} onSaved={load} />
     </div>
   );
 }

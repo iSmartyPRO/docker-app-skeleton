@@ -5,7 +5,8 @@ import { getSettings, parseSettings } from '../../services/settings.js';
 import { LEVEL, contextFromRequest, httpError, intId, listSubjects, wrap } from '../shared/acl.js';
 import { officePreview, sendBlob, sendPdf, storagePath } from '../shared/storage.js';
 import { requireNode } from './access.js';
-import { countView, createLink, deleteLink, listLinks, nodeInLink, resolveLink, unlockLink, updateLink } from './links.js';
+import { countView, createLink, deleteLink, linkActivity, listLinks, nodeInLink, resolveLink, startSession, unlockLink, updateLink, visitorLinkShape } from './links.js';
+import { sessionUploads, visitorDelete, visitorFolderTree, visitorMkdir, visitorReplace, visitorUpdate, visitorUpload } from './linkWrites.js';
 import {
   createFolder,
   createSpace,
@@ -72,6 +73,9 @@ export function privateRoutes() {
         publicLinks: settings.publicLinks,
         requireLinkPassword: settings.requireLinkPassword,
         maxLinkDays: settings.maxLinkDays,
+        writeLinks: settings.writeLinks !== false,
+        requireWriteLinkPassword: Boolean(settings.requireWriteLinkPassword),
+        linkSharing: settings.linkSharing === 'members' ? 'members' : 'owners',
         trashDays: settings.trashDays,
         openMode: settings.openMode === 'modal' ? 'modal' : 'page',
         canCreateSpaces: settings.spaceCreation !== 'admins' || req.fs.isAdmin,
@@ -151,9 +155,10 @@ export function privateRoutes() {
   // Sharing
   router.get('/nodes/:id/shares', wrap(async (req, res) => res.json({ success: true, ...(await getShares(req.fs, intId(req.params.id))) })));
   router.put('/nodes/:id/shares', wrap(async (req, res) => res.json({ success: true, ...(await setShares(req.fs, intId(req.params.id), req.body?.entries)) })));
-  router.get('/nodes/:id/links', wrap(async (req, res) => res.json({ success: true, links: await listLinks(req.fs, intId(req.params.id)) })));
+  router.get('/nodes/:id/links', wrap(async (req, res) => res.json({ success: true, ...(await listLinks(req.fs, intId(req.params.id))) })));
   router.post('/nodes/:id/links', wrap(async (req, res) => res.status(201).json({ success: true, link: await createLink(req.fs, intId(req.params.id), req.body || {}) })));
   router.put('/links/:id', wrap(async (req, res) => res.json({ success: true, link: await updateLink(req.fs, intId(req.params.id), req.body || {}) })));
+  router.get('/links/:id/activity', wrap(async (req, res) => res.json({ success: true, events: await linkActivity(req.fs, intId(req.params.id)) })));
   router.delete('/links/:id', wrap(async (req, res) => {
     await deleteLink(req.fs, intId(req.params.id));
     res.json({ success: true });
@@ -173,11 +178,33 @@ const unlockLimiter = rateLimit({
   handler: (req, res) => res.status(429).json({ success: false, error: 'Too many attempts. Try again later.', code: 'RATE_LIMITED' }),
 });
 
-const visitorToken = (req) => req.get('x-link-token') || req.query.t || '';
+/*
+ * Visitor writes (upload, folders, rename/move, replace, delete) are limited
+ * per IP and link and per link overall, on top of the general guest budget.
+ * Anonymous POSTs pass the same Origin check as every other API write
+ * (server.js): a page on another site cannot drive a visitor's browser.
+ */
+const writeLimiter = (windowMs, max, key) =>
+  rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: key,
+    handler: (req, res) => res.status(429).json({ success: false, error: 'Too many changes through this link. Try again later.', code: 'RATE_LIMITED' }),
+  });
+const visitorWrites = [
+  writeLimiter(10 * 60 * 1000, 300, (req) => `fs-w:${req.ip}:${req.params.token}`),
+  writeLimiter(10 * 60 * 1000, 1500, (req) => `fs-w:${req.params.token}`),
+];
+const sessionLimiter = writeLimiter(15 * 60 * 1000, 30, (req) => `fs-s:${req.ip}:${req.params.token}`);
 
-async function openLink(req, res) {
+// Reads accept ?t= (file URLs in <img>/<video>); writes take the header only, so tokens stay out of URLs and logs.
+const visitorToken = (req) => req.get('x-link-token') || req.query.t || '';
+const writeToken = (req) => req.get('x-link-token') || '';
+async function openLink(req, res, { write = false } = {}) {
   try {
-    return await resolveLink(req.params.token, visitorToken(req));
+    return await resolveLink(req.params.token, write ? writeToken(req) : visitorToken(req));
   } catch (err) {
     if (err.code === 'PASSWORD_REQUIRED') {
       res.status(401).json({ success: false, code: err.code, error: err.message, info: err.details });
@@ -197,7 +224,15 @@ export function publicRoutes() {
   router.get('/:token', wrap(async (req, res) => {
     const link = await openLink(req, res);
     if (!link) return;
-    if (!req.query.folder) await countView(link);
+    if (!req.query.folder && req.query.preview !== '1') await countView(link);
+    const conversion = parseSettings(await getSettings()).integrations.documents;
+    const common = { link: visitorLinkShape(link), conversion: Boolean(conversion?.enabled && conversion?.serverUrl) };
+    // Upload-only: the folder's name and the visitor's own uploads, never its contents.
+    if (!link.perms.includes('view')) {
+      const { node } = await nodeInLink(link, link.node_id);
+      res.json({ success: true, ...common, node: { id: node.id, kind: node.kind, name: node.name }, crumbs: [], items: [], mine: await sessionUploads(link) });
+      return;
+    }
     const { node, crumbs } = await nodeInLink(link, req.query.folder || link.node_id);
     const items =
       node.kind === 'folder'
@@ -209,21 +244,58 @@ export function publicRoutes() {
             )
           ).rows.map((row) => nodeShape(row, LEVEL.view))
         : [];
-    const conversion = parseSettings(await getSettings()).integrations.documents;
-    res.json({
-      success: true,
-      link: { allowDownload: link.allow_download, expiresAt: link.expires_at, rootId: link.node_id, kind: link.kind },
-      node: nodeShape(node, LEVEL.view),
-      crumbs,
-      items,
-      conversion: Boolean(conversion?.enabled && conversion?.serverUrl),
-    });
+    res.json({ success: true, ...common, node: nodeShape(node, LEVEL.view), crumbs, items });
+  }));
+
+  // A visitor session (needed before any change): { name, email } when the link asks for them.
+  router.post('/:token/session', sessionLimiter, wrap(async (req, res) => {
+    const link = await openLink(req, res, { write: true });
+    if (!link) return;
+    res.json({ success: true, ...startSession(link, req.body || {}) });
+  }));
+
+  router.post('/:token/upload', visitorWrites, wrap(async (req, res) => {
+    const link = await openLink(req, res, { write: true });
+    if (!link) return;
+    res.status(201).json({ success: true, items: await visitorUpload(link, req, res) });
+  }));
+
+  router.post('/:token/folders', visitorWrites, wrap(async (req, res) => {
+    const link = await openLink(req, res, { write: true });
+    if (!link) return;
+    res.status(201).json({ success: true, node: await visitorMkdir(link, req.body || {}, req.ip) });
+  }));
+
+  router.post('/:token/folders/tree', visitorWrites, wrap(async (req, res) => {
+    const link = await openLink(req, res, { write: true });
+    if (!link) return;
+    res.json({ success: true, ...(await visitorFolderTree(link, req.body || {}, req.ip)) });
+  }));
+
+  router.put('/:token/nodes/:id', visitorWrites, wrap(async (req, res) => {
+    const link = await openLink(req, res, { write: true });
+    if (!link) return;
+    res.json({ success: true, node: await visitorUpdate(link, intId(req.params.id), req.body || {}, req.ip) });
+  }));
+
+  router.post('/:token/nodes/:id/replace', visitorWrites, wrap(async (req, res) => {
+    const link = await openLink(req, res, { write: true });
+    if (!link) return;
+    res.json({ success: true, node: await visitorReplace(link, intId(req.params.id), req, res) });
+  }));
+
+  router.delete('/:token/nodes/:id', visitorWrites, wrap(async (req, res) => {
+    const link = await openLink(req, res, { write: true });
+    if (!link) return;
+    await visitorDelete(link, intId(req.params.id), req.ip);
+    res.json({ success: true });
   }));
 
   router.get('/:token/nodes/:id/file', wrap(async (req, res) => {
     const link = await openLink(req, res);
     if (!link) return;
-    if (req.query.download === '1' && !link.allow_download) throw httpError(403, 'Downloads are disabled for this link', 'NO_DOWNLOAD');
+    if (!link.perms.includes('view')) throw httpError(403, 'This link only accepts files', 'LINK_FORBIDDEN');
+    if (req.query.download === '1' && !link.perms.includes('download')) throw httpError(403, 'Downloads are disabled for this link', 'NO_DOWNLOAD');
     const { node } = await nodeInLink(link, intId(req.params.id));
     await sendNodeFile(res, node, req.query.download === '1');
   }));
@@ -231,6 +303,7 @@ export function publicRoutes() {
   router.get('/:token/nodes/:id/preview.pdf', wrap(async (req, res) => {
     const link = await openLink(req, res);
     if (!link) return;
+    if (!link.perms.includes('view')) throw httpError(403, 'This link only accepts files', 'LINK_FORBIDDEN');
     const { node } = await nodeInLink(link, intId(req.params.id));
     await sendNodePreview(res, node);
   }));

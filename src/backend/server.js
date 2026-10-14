@@ -193,6 +193,7 @@ async function start() {
   // The tab icon and the manifest are fetched by the browser on every page load.
   const FREE_READS = new Set(['/setup/status', '/settings', '/status', '/apps', '/notifications/unread', '/pwa/icon', '/pwa/manifest.webmanifest']);
   const STREAM = /\/(app\/chat\/(stream|files\/\d+)|items\/\d+\/(file|preview\.pdf|attachments\/\d+(\/preview\.pdf)?)|nodes\/\d+\/(file|preview\.pdf)|shares\/\d+\/(file|thumb|preview\.pdf|cad)|d\/[\w-]+\/(file|thumb|preview\.pdf|cad)|res\/icons\/[\w.]+)$/;
+  const LINK_UPLOAD = /^\/d\/[\w-]+\/(upload|replace)$/;
   // API tokens are checked before the general limiter; they have their own per-token limit.
   app.use('/api', tokenGate);
   app.use(
@@ -212,7 +213,8 @@ async function start() {
       standardHeaders: 'draft-7',
       legacyHeaders: false,
       // Sign-in has its own brute-force limiters; a busy guest IP must never block signing in.
-      skip: (req) => Boolean(req.apiToken) || req.path.startsWith('/auth/') || (req.method === 'GET' && (FREE_READS.has(req.path) || STREAM.test(req.path))),
+      // Uploads through drive links have their own per-link limits (modules/drive/routes.js).
+      skip: (req) => Boolean(req.apiToken) || req.path.startsWith('/auth/') || (req.method === 'GET' && (FREE_READS.has(req.path) || STREAM.test(req.path))) || (req.method === 'PUT' && LINK_UPLOAD.test(req.path)),
       handler: (req, res, next, options) => {
         res.status(options.statusCode).json({
           success: false,

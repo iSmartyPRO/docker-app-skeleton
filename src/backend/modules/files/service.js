@@ -15,7 +15,7 @@ export async function filesSettings() {
   return parseSettings(await getSettings()).modules.files.settings;
 }
 
-function safeName(value) {
+export function safeName(value) {
   const name = String(value ?? '')
     .replace(/[\\/\u0000-\u001f]/g, ' ')
     .replace(/\s+/g, ' ')
@@ -44,6 +44,8 @@ export function nodeShape(row, level, extra = {}) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at || null,
+    // The last change made through a public link: { title, name, action, at }.
+    via: row.via_link || null,
     ...extra,
   };
 }
@@ -52,6 +54,8 @@ const NODE_SELECT = `
   SELECT n.*, COALESCE(u.display_name, u.username) AS owner_name, u.avatar_path AS owner_avatar,
          (SELECT COUNT(*) FROM fs_shares s WHERE s.node_id = n.id)::int AS share_count,
          (SELECT COUNT(*) FROM fs_links l WHERE l.node_id = n.id AND l.revoked_at IS NULL)::int AS link_count,
+         (SELECT json_build_object('title', e.link_title, 'name', e.visitor_name, 'action', e.action, 'at', e.created_at)
+            FROM fs_link_events e WHERE e.node_id = n.id ORDER BY e.id DESC LIMIT 1) AS via_link,
          CASE WHEN n.kind = 'folder'
               THEN (SELECT COUNT(*) FROM fs_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL)::int END AS child_count
   FROM fs_nodes n LEFT JOIN users u ON u.id = n.owner_id
@@ -254,7 +258,7 @@ export async function getNode(ctx, id) {
 // ── Writing ─────────────────────────────────────────────────────────────────
 
 /** Where new nodes go: inside a folder, the root of my files, or a space root. */
-async function resolveTarget(ctx, { parentId, spaceId }) {
+export async function resolveTarget(ctx, { parentId, spaceId }) {
   if (parentId) {
     const access = await requireNode(ctx, parentId, LEVEL.edit);
     if (access.node.kind !== 'folder' || access.trashed) throw httpError(400, 'Choose a folder', 'NOT_FOLDER');
@@ -387,7 +391,7 @@ export async function lockQuota(client, ownerId) {
   await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`fs-quota:${ownerId}`]);
 }
 
-async function usedBytes(client, ownerId) {
+export async function usedBytes(client, ownerId) {
   const { rows } = await client.query(
     `SELECT COALESCE(SUM(size), 0)::bigint AS used FROM fs_nodes WHERE owner_id = $1 AND space_id IS NULL AND kind = 'file'`,
     [ownerId]
@@ -395,13 +399,18 @@ async function usedBytes(client, ownerId) {
   return Number(rows[0].used);
 }
 
-function allowedExt(settings, ext) {
+export function allowedExt(settings, ext) {
   if (settings.allowAny) return true;
   return settings.fileGroups.some((group) => (KB_FILE_GROUPS[group] || []).includes(ext));
 }
 
-/** Multer storing straight into the dated storage folders, with the live limits. */
-export async function fileUploader(settings, field = 'files') {
+/**
+ * Multer storing straight into the dated storage folders, with the live
+ * limits. Public links narrow them further: `maxBytes`, an extra extension
+ * check (`allow`) and fewer files per request.
+ */
+export async function fileUploader(settings, field = 'files', { maxBytes = 0, allow = null, maxFiles = 100 } = {}) {
+  const cap = settings.maxUploadMb * 1024 * 1024;
   return multer({
     storage: multer.diskStorage({
       destination: async (_req, file, cb) => {
@@ -414,16 +423,16 @@ export async function fileUploader(settings, field = 'files') {
       },
       filename: (_req, file, cb) => cb(null, file.storageKey.split('/').pop()),
     }),
-    limits: { fileSize: settings.maxUploadMb * 1024 * 1024, files: 100 },
+    limits: { fileSize: maxBytes ? Math.min(cap, maxBytes) : cap, files: maxFiles },
     fileFilter: (_req, file, cb) => {
       const ext = extOf(originalName(file));
-      if (!allowedExt(settings, ext)) {
+      if (!allowedExt(settings, ext) || (allow && !allow(ext))) {
         cb(httpError(400, `Files of type .${ext || '?'} are not allowed`, 'FILE_TYPE'));
         return;
       }
       cb(null, true);
     },
-  }).array(field, 100);
+  }).array(field, maxFiles);
 }
 
 export function runUpload(upload, req, res) {
@@ -437,8 +446,13 @@ export function runUpload(upload, req, res) {
   });
 }
 
-/** Turns uploaded multer files into nodes under `target`; cleans up on failure. */
-export async function storeUploads(ctx, target, files) {
+/**
+ * Turns uploaded multer files into nodes under `target`; cleans up on failure.
+ * `hooks.before(client, file)` runs inside each file's transaction before the
+ * insert (extra limits, e.g. a link's quota); `hooks.after(client, row, file)`
+ * right after it (e.g. the link activity log), so both commit with the file.
+ */
+export async function storeUploads(ctx, target, files, hooks = {}) {
   const created = [];
   try {
     let quota = 0;
@@ -458,12 +472,14 @@ export async function storeUploads(ctx, target, files) {
           await lockQuota(client, target.ownerId);
           if ((await usedBytes(client, target.ownerId)) + file.size > quota) throw httpError(413, 'Your storage is full', 'QUOTA_EXCEEDED');
         }
+        if (hooks.before) await hooks.before(client, file);
         const free = await freeName(client, target, name, 'file');
         const { rows } = await client.query(
           `INSERT INTO fs_nodes (kind, name, parent_id, owner_id, space_id, storage_key, mime, size, ext, created_by, updated_by)
            VALUES ('file', $1, $2, $3, $4, $5, $6, $7, $8, $9, $9) RETURNING *`,
           [free, target.parentId, target.ownerId, target.spaceId, file.storageKey, mimeOf(ext), file.size, ext, ctx.userId]
         );
+        if (hooks.after) await hooks.after(client, rows[0], file);
         return rows[0];
       });
       created.push(row);
@@ -482,6 +498,47 @@ export async function uploadTo(ctx, req, res, place) {
   await runUpload(await fileUploader(settings), req, res);
   const rows = await storeUploads(ctx, target, req.files || []);
   return rows.map((row) => nodeShape(row, LEVEL.edit));
+}
+
+/**
+ * Replaces a file's content with an uploaded file (multer `file`) of the same
+ * type. Files has no version history, so the previous content is kept as a
+ * copy in the trash, where the owner can restore it. Same checks as an
+ * upload: edit access, magic bytes, personal quota under the owner's lock.
+ */
+export async function replaceContent(ctx, id, file, hooks = {}) {
+  try {
+    const access = await requireNode(ctx, id, LEVEL.edit);
+    const node = access.node;
+    if (node.kind !== 'file' || access.trashed) throw httpError(404, 'Not found', 'NOT_FOUND');
+    const ext = extOf(originalName(file));
+    if ((ext || '') !== (node.ext || '')) throw httpError(400, `Choose a .${node.ext || '?'} file`, 'EXT_MISMATCH');
+    await verifyContent(file.path, ext);
+    const quota = node.space_id ? 0 : (await usageOf(node.owner_id)).quota;
+    return await withTransaction(async (client) => {
+      if (quota) {
+        await lockQuota(client, node.owner_id);
+        if ((await usedBytes(client, node.owner_id)) + file.size > quota) throw httpError(413, 'Your storage is full', 'QUOTA_EXCEEDED');
+      }
+      if (hooks.before) await hooks.before(client, file);
+      // The old content stays restorable from the trash.
+      await client.query(
+        `INSERT INTO fs_nodes (kind, name, parent_id, owner_id, space_id, storage_key, mime, size, ext, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by)
+         SELECT kind, name, parent_id, owner_id, space_id, storage_key, mime, size, ext, created_by, updated_by, created_at, updated_at, NOW(), $2
+         FROM fs_nodes WHERE id = $1`,
+        [node.id, ctx.userId]
+      );
+      const { rows } = await client.query(
+        `UPDATE fs_nodes SET storage_key = $2, size = $3, mime = $4, updated_by = $5, updated_at = NOW() WHERE id = $1 RETURNING *`,
+        [node.id, file.storageKey, file.size, mimeOf(ext), ctx.userId]
+      );
+      if (hooks.after) await hooks.after(client, rows[0], file);
+      return rows[0];
+    });
+  } catch (err) {
+    await unlink(file.path).catch(() => {});
+    throw err;
+  }
 }
 
 export async function renameNode(ctx, id, name) {

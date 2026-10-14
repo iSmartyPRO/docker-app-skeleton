@@ -87,7 +87,17 @@ export const NOTIFICATION_GROUPS = [
   {
     key: 'files',
     module: 'files',
-    events: [{ kind: 'files.shared', defaults: on(true, true, false) }],
+    events: [
+      { kind: 'files.shared', defaults: on(true, true, false) },
+      // Visitors uploaded or changed files through a public link with "notify me" (one notice per visit).
+      { kind: 'files.linkActivity', defaults: on(true, true, false) },
+    ],
+  },
+  {
+    // File server: visitors of my public links uploaded, changed or deleted files (one digest per visit).
+    key: 'drive',
+    module: 'drive',
+    events: [{ kind: 'drive.linkActivity', defaults: on(true, true, false) }],
   },
   {
     // Approvals (docs/approvals.md): a core service, so the group is always shown.

@@ -65,10 +65,39 @@ export const driveApi = {
   activityExportUrl: (params) => `/api${base}/admin/activity/export.csv${qs(params)}`,
 };
 
+const linkHeaders = (visitor) => (visitor ? { 'X-Link-Token': visitor } : {});
+const linkBase = (token) => `/d/${encodeURIComponent(token)}`;
+
+/**
+ * Visitors of a public link. Changes carry the visitor session in the
+ * X-Link-Token header (never in the address): `visitor` is the token from
+ * unlock().
+ */
 export const publicDriveApi = {
-  open: (token, { path, visitor } = {}) =>
-    api.get(`/d/${encodeURIComponent(token)}`, { params: path ? { path } : {}, headers: visitor ? { 'X-Link-Token': visitor } : {} }),
-  unlock: (token, password) => api.post(`/d/${encodeURIComponent(token)}/unlock`, { password }),
+  open: (token, { path, visitor } = {}) => api.get(linkBase(token), { params: path ? { path } : {}, headers: linkHeaders(visitor) }),
+  /** Opens a visitor session: { password?, name?, email? } → { token, visitor }. */
+  unlock: (token, body = {}, visitor) => api.post(`${linkBase(token)}/unlock`, body, { headers: linkHeaders(visitor) }),
+  mine: (token, visitor) => api.get(`${linkBase(token)}/mine`, { headers: linkHeaders(visitor) }),
+  upload: (token, visitor, path, file, { conflict = 'fail', onProgress, signal } = {}) =>
+    api.put(`${linkBase(token)}/upload`, file, {
+      params: { path, name: file.name, conflict },
+      headers: { 'Content-Type': 'application/octet-stream', ...linkHeaders(visitor) },
+      timeout: 0,
+      signal,
+      onUploadProgress: (event) => onProgress?.(event.total ? event.loaded / event.total : 0),
+    }),
+  replace: (token, visitor, path, file, { onProgress, signal } = {}) =>
+    api.put(`${linkBase(token)}/replace`, file, {
+      params: { path },
+      headers: { 'Content-Type': 'application/octet-stream', ...linkHeaders(visitor) },
+      timeout: 0,
+      signal,
+      onUploadProgress: (event) => onProgress?.(event.total ? event.loaded / event.total : 0),
+    }),
+  mkdir: (token, visitor, path, name) => api.post(`${linkBase(token)}/folders`, { path, name }, { headers: linkHeaders(visitor) }),
+  folderTree: (token, visitor, path, paths, signal) => api.post(`${linkBase(token)}/folders/tree`, { path, paths }, { headers: linkHeaders(visitor), timeout: 120000, signal }),
+  rename: (token, visitor, path, name) => api.put(`${linkBase(token)}/rename`, { path, name }, { headers: linkHeaders(visitor) }),
+  remove: (token, visitor, paths) => api.post(`${linkBase(token)}/delete`, { paths }, { headers: linkHeaders(visitor), timeout: 0 }),
 };
 
 /**

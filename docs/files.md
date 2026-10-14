@@ -1,6 +1,6 @@
 # Files (`/app/files`)
 
-A [module](modules.md) for personal and shared files. Every user has **My files**; teams work in **shared spaces**. Any file or folder can be shared with people and groups or published as a public link (open or password-protected, with an optional expiry). The [Knowledge Base](knowledge-base.md) keeps its files here too, so one file can appear in Files and in any number of articles.
+A [module](modules.md) for personal and shared files. Every user has **My files**; teams work in **shared spaces**. Any file or folder can be shared with people and groups or published as a public link (open or password-protected, with an optional expiry) that allows exactly what you choose: viewing, downloading, uploading, or full changes. The [Knowledge Base](knowledge-base.md) keeps its files here too, so one file can appear in Files and in any number of articles.
 
 ## What's inside
 
@@ -58,17 +58,56 @@ The *Who can create spaces* setting chooses between administrators only (`files.
 
 ## Public links (`/l/<token>`)
 
-**Share → Links** creates a link that works without signing in. A folder link opens the folder and everything inside it, and visitors cannot reach anything outside it.
+**Share → Public links** creates a link that works without signing in. A folder link opens the folder and everything inside it, and visitors cannot reach anything outside it.
 
 | Option | Notes |
 |--------|-------|
+| Name | Optional; the visitor sees it as the page title (e.g. *Documents for the contract*) |
+| Permissions | What the visitor may do, see [Link permissions](#link-permissions) |
 | Password | Optional, at least 4 characters. Visitors enter it once per browser tab. Unlocking is rate-limited (10 attempts per 15 minutes per IP and link) |
 | Expiry | Presets (1 day, 7 days, 30 days) or a date. Expired links show *This link has expired* |
-| Downloads | Can be disabled, which leaves viewing only |
+| Upload rules | For links with upload or replace: maximum file size, allowed extensions, total quota of the link, ask the visitor's name (and e-mail), notify me |
 
-One item can have several links. Each link shows its view count and can be copied, revoked, restored or deleted. Changing the password or revoking a link invalidates every visitor token that was already issued. Links to items in the trash stop working.
+One item can have several links. Each link card shows its permissions as chips, views, uploads and the quota used, and has *Copy*, *QR code*, *See as the recipient* (opens the page with `?preview=1`, which does not count a view), *Edit*, *Activity*, *Revoke / Restore* and *Delete*. A new link is copied to the clipboard at once. Changing the password or revoking a link invalidates every visitor token (and so every visitor session) already issued. Links to items in the trash stop working.
 
-The module settings can switch public links off, require a password on every link, and cap the lifetime (*maximum days*).
+### Link permissions
+
+| Key | Allows | Applies to |
+|-----|--------|-----------|
+| `view` | list the folder, preview files | files, folders |
+| `download` | download files (needs `view`) | files, folders |
+| `upload` | add new files; without `view` the link is an upload-only drop box | folders |
+| `mkdir` | create folders (needs `view`); with `upload` also folder uploads | folders |
+| `rename` | rename and move inside the link (needs `view`) | folders |
+| `replace` | upload a new version over a file (needs `view`) | files, folders |
+| `delete` | move to the owner's trash (needs `view`) | folders |
+
+Presets in the share dialog (shared picker `components/ui/LinkPermissions.jsx`, see [extending](extending.md#public-link-permissions)):
+
+| Preset | Keys |
+|--------|------|
+| View only | `view` |
+| View and download (default) | `view`, `download` |
+| Upload only (folders) | `upload` |
+| View and upload (folders) | `view`, `download`, `upload` |
+| Full access | all keys the item supports |
+| Customize… | individual switches |
+
+Links created before permissions existed keep exactly what they did: `view` + `download`, or `view` where downloads were off (a startup migration fills `fs_links.permissions` from `allow_download`; the old `allowDownload` field is still accepted by the API and kept in step).
+
+**Upload only.** The visitor sees a *Send files to …* page with the owner's name, a drop zone, the link's rules and the files they sent from this browser tab. They never see the folder's contents or other visitors' uploads: the listing answers only uploads of their own visitor session, files land in the shared folder itself, and file and preview routes refuse upload-only links.
+
+**Visitor page.** The header shows the owner, the link name and *You can: view, download, upload*. Depending on the permissions there are an upload button (files, or a folder where the browser can pick one and `mkdir` is allowed), drag & drop onto the folder, *New folder*, and per item *Download*, *Rename*, *Replace with a new version* and *Delete* (with a confirmation). Every upload shows its own progress and can be cancelled. A link that asks for the name shows a short *Introduce yourself* dialog before the first change; the name (and e-mail) is kept in the visitor session for the tab.
+
+**Who may grant what.** By default only owners and space managers publish links (as before). With *Who publishes links → Anyone with access* others may publish too, but a link grants at most its author's own rights: view access gives `view` / `download`, edit access also the write keys. They see and manage only their own links; owners see all. The effective permissions are computed on every request (link permissions ∩ what the author may still grant ∩ module settings), so an author who loses edit access silently takes the write keys away, and one who loses all access takes the link down (`OWNER_NO_ACCESS`).
+
+**Where changes go.** Every visitor change runs as the link's author through the usual Files code: edit access on the target, the owner's personal quota (with its lock), allowed types, magic bytes, the knowledge-base guard on deletes. Uploaded files belong to the folder's owner (or space) and count toward their quota, plus the link's own quota. Deletes go to the owner's trash. Files has no version history, so *Replace* keeps the previous content as a copy in the owner's trash (restorable; it counts toward the quota until the trash is emptied) and requires the same extension (`EXT_MISMATCH`).
+
+**Activity.** `fs_link_events` records each visitor change (upload, replace, mkdir, rename, move, delete) with the link name, the visitor's name / e-mail, IP, bytes and session. Owners see it in the link's *Activity*, and files added or changed through a link carry a *via link · Name* mark in the lists. The per-link quota is the sum of bytes uploaded or replaced through the link (deleting does not give it back).
+
+**Notifications.** With *Notify me*, the `files:link-notices` job (every minute) sends the author one notice (`files.linkActivity`) per visitor burst: once the session has been quiet for 45 seconds (or after 10 minutes at most), e.g. *Anna — link "Contracts": 3 uploaded, 1 changed* with the first file names.
+
+The module settings can switch public links off, require a password on every link, cap the lifetime (*maximum days*), switch off links that allow changes (existing ones fall back to view / download), require a password for links that allow changes (such links without one work read-only) and choose who publishes links.
 
 ## Files in the Knowledge Base
 
@@ -96,6 +135,8 @@ Existing Knowledge Base files are moved into Files once, on the first start afte
 | Allowed file types | images, PDF, office, text, media, archives |
 | Any other type | on (unknown types can be stored but are only downloaded, never shown inline) |
 | Public links / require password / maximum days | on / off / 0 (unlimited) |
+| Links that allow changes / password for them | on / off |
+| Who publishes links | owners (`owners`; or `members`: anyone with access, within their rights) |
 | Who can create spaces | administrators (`files.admin`) |
 | Days in the trash | 30 (1–365) |
 
@@ -108,7 +149,9 @@ The Knowledge Base still applies its own size limit and file types to uploads ma
 - PDF and image uploads must match their magic bytes.
 - Files are served only by access-checked API routes, with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Only safe types are shown inline; everything else is an attachment.
 - Hidden items return `404`, so their existence does not leak. Trashed items are visible only to their owner or a space manager.
-- Link passwords are bcrypt-hashed. Visitor tokens are JWTs bound to the link and its version.
+- Link passwords are bcrypt-hashed. Visitor tokens are JWTs bound to the link and its version, carrying a random session id (and the visitor's name). Writes take the token from the `X-Link-Token` header only, never from the URL.
+- Visitor writes are confined to the link's subtree with the same ancestor-chain check as reads; the shared item itself cannot be renamed, moved or deleted (`LINK_ROOT`).
+- Public write routes are rate-limited (300 per 10 minutes per IP and link, 1500 per link; 30 session starts per 15 minutes per IP and link) on top of the general guest budget, and pass the same Origin check as every API write. nginx allows 1024 MB bodies only on `/api/l/<token>/upload` and `/api/l/<token>/nodes/<id>/replace` (streamed, not buffered); the app applies the module and link limits.
 - The `files:trash` scheduler job deletes expired trash every 6 hours, rows and blobs both. The daily `storage:previews` job removes cached previews (Files, Knowledge Base, Drive) nobody opened for 30 days; they are made again on the next view.
 - The personal quota is checked again for every file under a per-owner lock (`pg_advisory_xact_lock`), so two parallel uploads cannot both slip past it.
 - Search, *Shared with me* and *Recent* check access for all candidates in a few batched queries (same rules as opening a single item).
@@ -137,18 +180,26 @@ All under `/api/app/files`, signed-in users only:
 | DELETE | `/nodes/:id/forever` | Delete permanently |
 | GET | `/nodes/:id/file[?download=1]`, `/nodes/:id/preview.pdf` | Content, Office preview |
 | GET / PUT | `/nodes/:id/shares` | `{ shares: [{ subjectType: 'user' | 'group', subjectId, level: 'view' | 'edit' }] }` |
-| GET / POST | `/nodes/:id/links` | Public links |
-| PUT / DELETE | `/links/:id` | Edit, revoke (`{ revoked: true }`) or delete |
+| GET / POST | `/nodes/:id/links` | `{ links, grantable, isFolder }` / create `{ permissions, title, password, expiresAt, maxFileMb, extensions, quotaMb, requireName, requireEmail, notify }` |
+| PUT / DELETE | `/links/:id` | Edit (same fields), revoke (`{ revoked: true }`) or delete |
+| GET | `/links/:id/activity` | What visitors did through the link |
 
 Public API, no session (`X-Link-Token` header or `?t=`):
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | POST | `/api/l/:token/unlock` | `{ password }` → `{ token }` |
-| GET | `/api/l/:token[?folder=]` | The shared node, or a folder's contents inside it |
-| GET | `/api/l/:token/nodes/:id/file` | File (downloads only if allowed) |
-| GET | `/api/l/:token/nodes/:id/preview.pdf` | Office preview |
+| GET | `/api/l/:token[?folder=][&preview=1]` | `link` (permissions, owner, rules, visitor), the node and a folder's contents; upload-only links answer `mine` (the session's own uploads) and no items |
+| POST | `/api/l/:token/session` | `{ name?, email? }` → `{ token, visitor }`: starts or names the visitor session (needed before any change) |
+| POST | `/api/l/:token/upload[?folder=]` | Multipart `files[]` (≤ 20 per request), needs `upload` |
+| POST | `/api/l/:token/folders` | `{ parentId, name }`, needs `mkdir` |
+| POST | `/api/l/:token/folders/tree` | Folder uploads (as the private route), needs `upload` + `mkdir` |
+| PUT | `/api/l/:token/nodes/:id` | `{ name }` or `{ move: { parentId } }`, needs `rename` |
+| POST | `/api/l/:token/nodes/:id/replace` | Multipart `file`, needs `replace` |
+| DELETE | `/api/l/:token/nodes/:id` | To the owner's trash, needs `delete` |
+| GET | `/api/l/:token/nodes/:id/file` | File (needs `view`; `?download=1` needs `download`) |
+| GET | `/api/l/:token/nodes/:id/preview.pdf` | Office preview (needs `view`) |
 
 Knowledge Base additions: `POST /api/app/kb/folders/:id/from-files` (`{ nodeIds }`), `GET /api/app/kb/items/:id/attachments/:nodeId[/preview.pdf]`, and the same routes under `/api/s/:slug/items/:id/attachments/…`. Article payloads accept `attachments: [nodeId…]`.
 
-Error codes: `NOT_FOUND`, `FORBIDDEN`, `NAME_REQUIRED`, `MOVE_CYCLE`, `TRASHED`, `FILE_IN_USE`, `QUOTA_EXCEEDED`, `FILE_TYPE`, `FILE_CONTENT`, `FILE_TOO_LARGE`, `FILE_MISSING`, `PASSWORD_REQUIRED` (401), `WRONG_PASSWORD`, `RATE_LIMITED`, `EXPIRED` (410), `NO_DOWNLOAD`, `LINKS_DISABLED`, `PASSWORD_SHORT`, `EXPIRY_LIMIT`, `INVALID_DATE`, `SYSTEM_FOLDER`, `NOT_TRASHED`.
+Error codes: `NOT_FOUND`, `FORBIDDEN`, `NAME_REQUIRED`, `MOVE_CYCLE`, `TRASHED`, `FILE_IN_USE`, `QUOTA_EXCEEDED`, `FILE_TYPE`, `FILE_CONTENT`, `FILE_TOO_LARGE`, `FILE_MISSING`, `PASSWORD_REQUIRED` (401), `WRONG_PASSWORD`, `RATE_LIMITED`, `EXPIRED` (410), `NO_DOWNLOAD`, `LINKS_DISABLED`, `PASSWORD_SHORT`, `EXPIRY_LIMIT`, `INVALID_DATE`, `SYSTEM_FOLDER`, `NOT_TRASHED`; links: `GRANT_EXCEEDED`, `WRITE_LINKS_DISABLED`, `LINK_FORBIDDEN`, `LINK_ROOT`, `LINK_QUOTA`, `LINK_DISABLED`, `OWNER_NO_ACCESS`, `VISITOR_SESSION`, `VISITOR_NAME`, `VISITOR_EMAIL`, `EXT_MISMATCH`.

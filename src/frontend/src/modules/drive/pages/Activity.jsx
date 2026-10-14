@@ -104,10 +104,10 @@ function Who({ row, onPick }) {
   if (!row.user) {
     return (
       <span className="dva-who is-guest">
-        <Avatar size={30}>?</Avatar>
+        <Avatar size={30}>{row.details?.visitor ? row.details.visitor.slice(0, 1).toUpperCase() : '?'}</Avatar>
         <span>
-          <strong>{t('driveActivity.visitor')}</strong>
-          <em>{row.ip || '—'}</em>
+          <strong>{row.details?.visitor ? t('driveActivity.visitorNamed', { name: row.details.visitor }) : t('driveActivity.visitor')}</strong>
+          <em>{[row.details?.visitorEmail, row.ip].filter(Boolean).join(' · ') || '—'}</em>
         </span>
       </span>
     );
@@ -183,7 +183,8 @@ function Details({ row }) {
   const details = row.details || {};
   const items = [
     [t('driveActivity.when'), formatDateTime(row.at, locale, { dateStyle: 'full', timeStyle: 'medium' })],
-    row.via === 'link' && [t('driveActivity.viaLink'), row.linkId ? `#${row.linkId}` : details.token ? `${details.token}…` : '—'],
+    row.via === 'link' && [t('driveActivity.viaLink'), [details.link ? `«${details.link}»` : '', row.linkId ? `#${row.linkId}` : details.token ? `${details.token}…` : ''].filter(Boolean).join(' ') || '—'],
+    details.visitor && [t('driveActivity.visitorName'), [details.visitor, details.visitorEmail].filter(Boolean).join(' · ')],
     details.q && [t('driveActivity.query'), details.q],
     details.error && [t('driveActivity.error'), details.error],
     details.items && [t('driveActivity.items'), details.items.join(', ')],
@@ -192,7 +193,7 @@ function Details({ row }) {
     row.ip && ['IP', row.ip],
     row.userAgent && [t('driveActivity.browser'), row.userAgent],
   ].filter(Boolean);
-  const rest = Object.fromEntries(Object.entries(details).filter(([key, value]) => !['q', 'error', 'items', 'account', 'replaced', 'token'].includes(key) && value !== undefined && value !== null));
+  const rest = Object.fromEntries(Object.entries(details).filter(([key, value]) => !['q', 'error', 'items', 'account', 'replaced', 'token', 'link', 'visitor', 'visitorEmail'].includes(key) && value !== undefined && value !== null));
   return (
     <dl className="dva-details">
       {items.map(([label, value]) => (

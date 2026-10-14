@@ -1,5 +1,6 @@
 import { extraEn, extraRu } from './extra.js';
 import { filesEn, filesRu } from './files.js';
+import { linkPermsEn, linkPermsRu } from './linkPerms.js';
 import { driveEn, driveRu } from './drive.js';
 import { resourcesEn, resourcesRu } from './resources.js';
 import { companiesEn, companiesRu } from './companies.js';
@@ -1963,6 +1964,8 @@ mergeDeep(en, extraEn);
 mergeDeep(ru, extraRu);
 mergeDeep(en, filesEn);
 mergeDeep(ru, filesRu);
+mergeDeep(en, linkPermsEn);
+mergeDeep(ru, linkPermsRu);
 mergeDeep(en, driveEn);
 mergeDeep(ru, driveRu);
 mergeDeep(en, dashboardEn);

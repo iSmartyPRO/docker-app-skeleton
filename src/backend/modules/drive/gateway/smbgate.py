@@ -393,7 +393,7 @@ def swap_into(temp, target, folder, kwargs):
         pass
 
 
-def free_name(folder_unc, name, kwargs):
+def free_name(folder_unc, name, kwargs, first=2):
     stem, dot, ext = name.rpartition(".")
     if not dot or not stem:
         stem, ext = name, ""
@@ -403,7 +403,7 @@ def free_name(folder_unc, name, kwargs):
         taken = set()
     if name.lower() not in taken:
         return name
-    for index in range(2, 1000):
+    for index in range(first, 1000):
         candidate = f"{stem} ({index}).{ext}" if ext else f"{stem} ({index})"
         if candidate.lower() not in taken:
             return candidate
@@ -738,6 +738,38 @@ def op_search(req, _body):
     return {"entries": results, "truncated": truncated}
 
 
+def op_checkwrite(req, _body):
+    """
+    Can this account add and remove items in a folder? Used before a public
+    link is allowed to grant uploads or changes. The server's "maximal
+    access" answer is not enough on its own (Samba, for one, reports the
+    file-system rights and ignores a share's read-only / write-list rules),
+    so a hidden marker file is created and removed again whenever the answer
+    does not already rule writing out. Returns {read, write, delete, known}.
+    """
+    kwargs = session_kwargs(req)
+    folder = unc(req)
+    mask = maximal_access(folder, kwargs)
+    reported = rights(mask)
+    if mask is not None and not reported["write"]:
+        return reported
+    marker = unc(req, extra=f"{TEMP_PREFIX}{uuid.uuid4().hex[:12]}.probe")
+    try:
+        with smbclient.open_file(marker, mode="xb", **kwargs) as handle:
+            handle.write(b"")
+    except Exception as exc:  # noqa: BLE001
+        mapped = translate(exc)
+        if mapped.code == "ACCESS_DENIED" or mapped.ntstatus == 0xC00000A2:  # denied, or a write-protected share
+            return {"read": True, "write": False, "delete": bool(reported["delete"]) if mask is not None else False, "known": True}
+        raise mapped from exc
+    try:
+        smbclient.remove(marker, **kwargs)
+        removable = True
+    except Exception:  # noqa: BLE001 - a hidden leftover is harmless
+        removable = False
+    return {"read": True, "write": True, "delete": removable and bool(reported["delete"]), "known": True}
+
+
 def op_volume(req, _body):
     kwargs = session_kwargs(req)
     volume = smbclient.stat_volume(unc(req), **kwargs)
@@ -758,6 +790,7 @@ JSON_OPS = {
     "mkdir": op_mkdir,
     "rename": op_rename,
     "move": op_move,
+    "checkwrite": op_checkwrite,
     "delete": op_delete,
     "search": op_search,
     "volume": op_volume,
@@ -891,7 +924,8 @@ class Handler(BaseHTTPRequestHandler):
             if conflict == "fail":
                 raise GateError(409, "EXISTS", "Exists")
             if conflict == "rename":
-                target_name = free_name(folder, name, kwargs)
+                # Public-link visitors get "name (1).ext"; the drive itself keeps "name (2).ext".
+                target_name = free_name(folder, name, kwargs, 1 if req.get("renameFrom") == 1 else 2)
         temp = unc(req, extra=f"{TEMP_PREFIX}{uuid.uuid4().hex[:12]}.tmp")
         written = 0
         try:
