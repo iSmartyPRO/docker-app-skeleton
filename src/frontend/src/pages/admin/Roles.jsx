@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { App, Button, Checkbox, Drawer, Form, Input, Popconfirm, Tag, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/ui/PageHeader';
 import LoadState from '../../components/ui/LoadState';
 import { useAuth } from '../../context/AuthContext';
@@ -169,8 +170,8 @@ export default function AdminRoles() {
         description={t('roles.lead')}
         extra={
           can('roles.manage') && (
-            <Button type="primary" onClick={() => setEditing({})}>
-              + {t('roles.create')}
+            <Button type="primary" onClick={() => setEditing({})} icon={<PlusOutlined />}>
+              {t('roles.create')}
             </Button>
           )
         }

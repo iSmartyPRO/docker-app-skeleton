@@ -203,10 +203,21 @@
 .te-editor__bar {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 2px;
   padding: 5px 6px;
   border-bottom: 1px solid var(--da-hairline);
+  /* Narrow panels scroll the formatting buttons instead of leaving one on a second row. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.te-editor__bar::-webkit-scrollbar {
+  display: none;
+}
+
+.te-editor__bar > * {
+  flex: none;
 }
 
 .te-editor__sep {

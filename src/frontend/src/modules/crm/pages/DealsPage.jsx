@@ -121,11 +121,13 @@ export default function DealsPage() {
         </div>
       </header>
 
-      <div className="mod-toolbar crm-toolbar">
-        {pipelines.length > 0 && <PipelineSwitcher value={pipeline.id} onChange={setPipeline} />}
-        <FilterBar value={filterState} onChange={setFilterState} pipeline={pipeline} />
-        <span className="mod-toolbar__grow" />
-        <ViewSwitch value={view} onChange={go} />
+      <div className="crm-toolbar-wrap">
+        <div className="mod-toolbar crm-toolbar">
+          {pipelines.length > 0 && <PipelineSwitcher value={pipeline.id} onChange={setPipeline} />}
+          <FilterBar value={filterState} onChange={setFilterState} pipeline={pipeline} />
+          <span className="mod-toolbar__grow" />
+          <ViewSwitch value={view} onChange={go} />
+        </div>
       </div>
       <div className="crm-subbar">
         <CounterChips counters={counters} value={filter.activity} onChange={(activity) => setFilterState({ ...filterState, filter: { ...filter, activity } })} />

@@ -113,9 +113,14 @@ Folders can be reordered.
 
 Permission: `drive.admin`. With it you manage servers and folders and see all links, and you see every folder regardless of portal groups. What you can open inside a folder is still decided by the file server.
 
-## Public links (`/d/<token>`)
+## Public links (`/d/<token>` or `/d/<slug>`)
 
-**Share by link** on a file or folder opens the link window: the item's links (state, permission chips, copy, QR code, *Open as the recipient*, edit, turn off, delete) and the editor for a new one.
+**Share by link** on a file or folder opens the link window: a compact list of the item's links (address with the custom part highlighted, permission icons, expiry, password lock, views, state; *Copy* and *Edit* at hand, ⋯ for QR code, *Open as recipient*, turn off / on and delete) and the same form as in Files ([files.md](files.md#public-links-ltoken-or-lslug)):
+
+- **Simple card**: what the recipient can do (*View*, *View and download*; *More…* for folders), expiry chips (*No expiry* / *1 day* / *7 days* / *30 days* / *Date…*, end of that day in the person's zone), password (off by default, *Generate*) and the **link address** `portal…/d/<slug>` with a live availability check. *Create and copy* copies the link and shows it with the password reminder, a QR code and *Open as recipient*.
+- **Advanced settings** (collapsed, with a summary; open by themselves for links that use them): every permission preset and switch (deleting is labelled *Delete permanently* — file servers have no recycle bin), upload rules, title and message for the recipient, **who can open** (*Anyone with the link* / *Employees only*) and the recipient-page preview. When a link is for employees only, the simple card says so.
+
+Custom addresses follow the Files rules (3–64 characters, `a–z`, `0–9`, single hyphens, reserved words, Cyrillic transliterated, case-insensitive) in their own namespace: the same slug may exist once in Files and once in Drive. Revoked and expired links keep their slug; a changed or deleted slug stops at once and is held 90 days for its author. The random token address keeps working. An unknown address answers `404 NOT_FOUND` (*no such link*).
 
 ### What the recipient can do
 
@@ -225,11 +230,12 @@ All under `/api/app/drive`, signed-in users only (`:id` = folder id, `path` = pa
 | GET / POST / DELETE | `/recent`, `/favorites` | Shortcuts |
 | GET / PUT / DELETE | `/connections[/:serverId]` | The person's credentials (checked before saving, rate-limited) |
 | GET | `/links[?shareId&path]` | My links |
-| POST | `/shares/:id/links` | `{ path, audience, password?, expiresAt?, permissions?, title?, note?, maxFileMb?, allowedExts?, quotaMb?, requireName?, requireEmail?, notify? }` (`allowDownload` still accepted) |
-| PUT / DELETE | `/links/:id` | Edit (same fields), revoke (`{ revoked }`) or delete |
+| POST | `/shares/:id/links` | `{ path, audience, password?, expiresAt?, slug?, permissions?, title?, note?, maxFileMb?, allowedExts?, quotaMb?, requireName?, requireEmail?, notify? }` (`allowDownload` still accepted; `400 SLUG_INVALID`, `409 SLUG_TAKEN`) |
+| PUT / DELETE | `/links/:id` | Edit (same fields; `slug: ''` removes the custom address), revoke (`{ revoked }`) or delete |
+| GET | `/link-slugs/check?slug=[&linkId=]` | `{ slug, available, reason, suggestions }` (as in Files; 60 checks per minute per person) |
 | `*` | `/admin/…` | Servers, folders, order, test, all links (`drive.admin`) |
 
-Public (`X-Link-Token` header or `?t=` after unlocking; the session cookie counts for *Employees only*):
+Public (`X-Link-Token` header or `?t=` after unlocking; the session cookie counts for *Employees only*). `:token` is the token or the custom address, in any case:
 
 | Method | Path | Purpose |
 |--------|------|---------|

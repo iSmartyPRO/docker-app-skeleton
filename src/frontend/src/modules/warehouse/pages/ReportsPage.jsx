@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { App, Button, DatePicker, Skeleton, Table, Tabs, TreeSelect } from 'antd';
-import { DownloadOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, DownloadOutlined, FileExcelOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useLocale } from '../../../context/LocaleContext';
 import { HelpButton } from '../../../help/Hint';
@@ -240,7 +240,7 @@ export default function ReportsPage() {
     <div className="wh-page">
       <Hero icon="chart" title={t('wh.nav.reports')} lead={t('wh.reports.lead')}>
         <HelpButton id="warehouse" section="reports" />
-        <Button onClick={() => navigate('/app/warehouse/stock')}>{t('wh.reports.stock')}</Button>
+        <Button icon={<DatabaseOutlined />} onClick={() => navigate('/app/warehouse/stock')} aria-label={t('wh.reports.stock')} title={t('wh.reports.stock')}><span>{t('wh.reports.stock')}</span></Button>
       </Hero>
       <Tabs
         activeKey={tab}

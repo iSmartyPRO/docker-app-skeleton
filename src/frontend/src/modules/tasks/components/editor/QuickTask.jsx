@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App, Button, Dropdown, Input, Modal, Progress } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../../context/AuthContext';
 import { useLocale } from '../../../../context/LocaleContext';
 import { errorMessage } from '../../../../lib/errors';
@@ -146,7 +147,7 @@ export default function QuickTask({ open, initial, onClose, onCreated, onFull })
                 <button type="button" onClick={() => { set({ files: draft.files.filter((entry) => entry.id !== file.id) }); tasksApi.removeFile(file.id).catch(() => {}); }}>✕</button>
               </span>
             ))}
-            <Button size="small" onClick={() => fileInput.current?.click()}>＋ {t('tasks.v2.files.fromComputer')}</Button>
+            <Button size="small" onClick={() => fileInput.current?.click()} icon={<PlusOutlined />}>{t('tasks.v2.files.fromComputer')}</Button>
             {uploading > 0 && <Progress percent={Math.round(uploading * 100)} size="small" style={{ width: 120 }} />}
           </div>
           <input ref={fileInput} type="file" multiple hidden onChange={(event) => { upload([...event.target.files]); event.target.value = ''; }} />
@@ -232,7 +233,7 @@ export function CreateButton({ onQuick, onFull, onTemplate, size = 'middle', blo
         ],
       }}
     >
-      ＋ {t('common.create')}
+      <PlusOutlined /> {t('common.create')}
     </Dropdown.Button>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Segmented, Skeleton, Space } from 'antd';
+import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { intlOptions, todayISO } from '../../../lib/datetime';
@@ -81,8 +82,8 @@ export default function CalendarPage() {
 
   return (
     <div className="ctr-page">
-      <header className="ctr-page__head">
-        <div>
+      <header className="ctr-page__head is-stack">
+        <div className="ctr-page__title">
           <h1>
             {t('contracts.calendar.title')} <HelpButton id="contracts" section="calendar" />
           </h1>
@@ -98,9 +99,9 @@ export default function CalendarPage() {
             ]}
           />
           <Space.Compact>
-            <Button onClick={() => setFrom(addMonths(from, -12))} aria-label={t('contracts.calendar.prev')}>‹</Button>
+            <Button icon={<LeftOutlined />} onClick={() => setFrom(addMonths(from, -12))} aria-label={t('contracts.calendar.prev')} title={t('contracts.calendar.prev')} />
             <Button onClick={() => setFrom(today.slice(0, 7))}>{t('contracts.calendar.now')}</Button>
-            <Button onClick={() => setFrom(addMonths(from, 12))} aria-label={t('contracts.calendar.next')}>›</Button>
+            <Button icon={<RightOutlined />} onClick={() => setFrom(addMonths(from, 12))} aria-label={t('contracts.calendar.next')} title={t('contracts.calendar.next')} />
           </Space.Compact>
         </div>
       </header>

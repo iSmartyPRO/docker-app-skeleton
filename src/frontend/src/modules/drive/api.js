@@ -48,6 +48,7 @@ export const driveApi = {
   createLink: (shareId, payload) => api.post(`${base}/shares/${shareId}/links`, payload),
   updateLink: (id, payload) => api.put(`${base}/links/${id}`, payload),
   deleteLink: (id) => api.delete(`${base}/links/${id}`),
+  checkSlug: (slug, linkId) => api.get(`${base}/link-slugs/check`, { params: { slug, ...(linkId ? { linkId } : {}) } }),
 
   admin: () => api.get(`${base}/admin`),
   adminLinks: () => api.get(`${base}/admin/links`),

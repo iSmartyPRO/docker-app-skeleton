@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, App, Button, Dropdown, Input, Result, Segmented, Select, Skeleton, Switch } from 'antd';
+import { MoreOutlined, TeamOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -190,21 +191,25 @@ export default function ProjectPage({ projectKey, taskRef }) {
 
   return (
     <div className="tasks-page">
-      <header className="mod-hero" style={{ '--c': project.color }}>
+      <header className="mod-hero tasks-hero" style={{ '--c': project.color }}>
         <span className="mod-hero__badge">{project.key}</span>
         <div className="mod-hero__text">
           <h1>
-            {project.name}
+            <span className="tasks-hero__title" title={project.name}>{project.name}</span>
             {project.archived && <span className="mod-pill">{t('tasks.archived')}</span>}
           </h1>
           <p>{project.description || t('tasks.projectStats', { open, total: tasks.length, members: members.length })}</p>
         </div>
         <div className="mod-hero__actions">
           {!project.personal && <FollowButton projectId={project.id} />}
-          {canManage && <Button onClick={() => setDialog('access')}>{t('kb.accessMenu')}</Button>}
+          {canManage && (
+            <Button className="mod-act" icon={<TeamOutlined />} onClick={() => setDialog('access')} aria-label={t('kb.accessMenu')} title={t('kb.accessMenu')}>
+              <span>{t('kb.accessMenu')}</span>
+            </Button>
+          )}
           {menu.length > 0 && (
             <Dropdown trigger={['click']} menu={{ items: menu, onClick: onMenu }}>
-              <Button>⋯</Button>
+              <Button icon={<MoreOutlined />} aria-label={t('common.moreActions')} title={t('common.moreActions')} />
             </Dropdown>
           )}
           {canEdit && !project.archived && (
@@ -218,22 +223,15 @@ export default function ProjectPage({ projectKey, taskRef }) {
       </header>
       {truncated && <Alert type="warning" showIcon message={t('tasks.v2.boardTruncated', { n: truncated })} style={{ marginBottom: 12 }} />}
 
-      <div className="mod-toolbar">
-        <Segmented
-          value={view}
-          onChange={setView}
-          options={[
-            { value: 'board', label: t('tasks.board') },
-            { value: 'list', label: t('tasks.list') },
-          ]}
-        />
-        <Input.Search allowClear placeholder={t('tasks.search')} value={q} onChange={(event) => setQ(event.target.value)} style={{ width: 220 }} />
+      <div className="tasks-toolbar-wrap">
+      <div className="mod-toolbar tasks-toolbar">
+        <Input.Search className="tasks-toolbar__search" allowClear placeholder={t('tasks.search')} value={q} onChange={(event) => setQ(event.target.value)} />
         <Select
+          className="tasks-toolbar__filter"
           allowClear
           placeholder={t('tasks.fields.assignee')}
           value={assignee}
           onChange={setAssignee}
-          style={{ minWidth: 170 }}
           options={[
             { value: 'me', label: t('tasks.assignedToMe') },
             { value: 'none', label: t('tasks.unassigned') },
@@ -242,14 +240,24 @@ export default function ProjectPage({ projectKey, taskRef }) {
           showSearch
           filterOption={(input, option) => String(option.search || option.label).toLowerCase().includes(input.toLowerCase())}
         />
-        <Select allowClear placeholder={t('tasks.fields.priority')} value={priority} onChange={setPriority} options={priorityOptions(t)} style={{ minWidth: 150 }} />
-        {labels.length > 0 && <Select allowClear placeholder={t('tasks.fields.labels')} value={label} onChange={setLabel} options={labels.map((value) => ({ value, label: value }))} style={{ minWidth: 140 }} />}
-        <span className="mod-toolbar__grow" />
-        {view === 'list' && (
-          <label className="toolbar-switch">
-            <Switch size="small" checked={showDone} onChange={setShowDone} /> {t('tasks.showDone')}
-          </label>
-        )}
+        <Select className="tasks-toolbar__filter" allowClear placeholder={t('tasks.fields.priority')} value={priority} onChange={setPriority} options={priorityOptions(t)} />
+        {labels.length > 0 && <Select className="tasks-toolbar__filter" allowClear placeholder={t('tasks.fields.labels')} value={label} onChange={setLabel} options={labels.map((value) => ({ value, label: value }))} />}
+        <div className="tasks-toolbar__end">
+          {view === 'list' && (
+            <label className="toolbar-switch">
+              <Switch size="small" checked={showDone} onChange={setShowDone} /> {t('tasks.showDone')}
+            </label>
+          )}
+          <Segmented
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'board', label: t('tasks.board') },
+              { value: 'list', label: t('tasks.list') },
+            ]}
+          />
+        </div>
+      </div>
       </div>
 
       <FilterChips tasks={narrowed} value={chip} onChange={setChip} />

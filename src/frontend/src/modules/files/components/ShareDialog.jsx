@@ -140,7 +140,7 @@ export default function ShareDialog({ open, node, config, onClose }) {
   // Owners always publish links; with "anyone with access" others may too, within their own rights.
   const canLink = owner || config?.linkSharing === 'members';
   return (
-    <Modal open={open} title={t('files.shareTitle', { name: node.name })} onCancel={() => onClose(changed)} footer={null} width={720} destroyOnHidden>
+    <Modal open={open} title={t('files.shareTitle', { name: node.name })} onCancel={() => onClose(changed)} footer={null} width={680} destroyOnHidden className="sl-modal">
       <Tabs
         items={[
           { key: 'people', label: <HintLabel id="files.sharePeople">{t('files.people')}</HintLabel>, children: <People node={node} onChanged={() => setChanged(true)} /> },

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { Button, Drawer, Result, Spin } from 'antd';
+import { MenuOutlined } from '@ant-design/icons';
 import Chrome from '../../components/Chrome';
 import PageTransition from '../../components/ui/PageTransition';
 import { MenuIcon } from '../../components/icons/menuIcons';
@@ -62,7 +63,7 @@ function Shell() {
         <Sidebar onNavigate={() => setDrawer(false)} />
       </Drawer>
       <main className="mod-shell__main">
-        <Button className="mod-shell__menu" onClick={() => setDrawer(true)} icon={<span>☰</span>}>{t('apps.companies.name')}</Button>
+        <Button className="mod-shell__menu" onClick={() => setDrawer(true)} icon={<MenuOutlined />}>{t('apps.companies.name')}</Button>
         <PageTransition>
           <Routes>
             <Route index element={<CompanyList />} />

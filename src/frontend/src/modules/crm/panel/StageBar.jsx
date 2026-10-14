@@ -1,4 +1,5 @@
 import { Button, Dropdown, Tooltip } from 'antd';
+import { DownOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatDay, inkOn } from '../lib';
 import { Glyph } from '../components/bits';
@@ -34,7 +35,7 @@ export default function StageBar({ deal, pipeline, disabled, onMove, onFinish })
             trigger={['click']}
             menu={{ items: open.map((stage) => ({ key: String(stage.id), label: <span className="status-option"><span className="status-pip" style={{ '--c': stage.color }} />{stage.name}</span>, onClick: () => onMove(stage) })) }}
           >
-            <Button>{t('crm.stage.reopen')} ▾</Button>
+            <Button icon={<DownOutlined />} iconPosition="end">{t('crm.stage.reopen')}</Button>
           </Dropdown>
         )}
       </div>
@@ -74,7 +75,7 @@ export default function StageBar({ deal, pipeline, disabled, onMove, onFinish })
             ],
           }}
         >
-          <Button className="dp-stages__finish">{t('crm.stage.finish')} ▾</Button>
+          <Button className="dp-stages__finish" icon={<DownOutlined />} iconPosition="end">{t('crm.stage.finish')}</Button>
         </Dropdown>
       )}
     </div>

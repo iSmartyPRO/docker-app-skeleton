@@ -131,6 +131,8 @@ export default function StockPage() {
     {
       key: 'item',
       title: t('wh.fields.item'),
+      // Keeps the name readable when the page is narrow: the table scrolls instead.
+      width: 240,
       render: (_, row) => (
         <span className="wh-item-cell">
           <strong>{row.item.name}</strong>
@@ -168,8 +170,8 @@ export default function StockPage() {
       <Hero icon="archive" title={t('wh.nav.stock')} lead={t('wh.stock.lead')}>
         <HelpButton id="warehouse" />
         <ScanButton onScan={onScan} type="default" tooltip={t('wh.scan.find')} title={t('wh.scan.find')} />
-        <Button icon={<DownloadOutlined />} href={csvUrl('stock', { chip, warehouse: warehouse || undefined, q: search.get('q') || undefined, category: category || undefined, lang: locale })}>
-          {screens.md ? t('wh.export') : null}
+        <Button icon={<DownloadOutlined />} href={csvUrl('stock', { chip, warehouse: warehouse || undefined, q: search.get('q') || undefined, category: category || undefined, lang: locale })} aria-label={t('wh.export')} title={t('wh.export')}>
+          {screens.md ? <span>{t('wh.export')}</span> : null}
         </Button>
       </Hero>
 
@@ -226,7 +228,7 @@ export default function StockPage() {
             </header>
             {screens.md ? (
               <div className="panel wh-table">
-                <Table rowKey="key" size="middle" columns={columns} dataSource={g.rows} pagination={g.rows.length > 50 ? { pageSize: 50, showSizeChanger: false } : false} onRow={(row) => ({ onClick: () => openItem(row.item.id) })} rowClassName={(row) => `${row.flags?.belowMin ? 'is-amber' : ''}${row.flags?.out ? ' is-red' : ''}${row.item.id === itemId ? ' is-open' : ''}`} />
+                <Table rowKey="key" size="middle" columns={columns} dataSource={g.rows} scroll={{ x: 'max-content' }} pagination={g.rows.length > 50 ? { pageSize: 50, showSizeChanger: false } : false} onRow={(row) => ({ onClick: () => openItem(row.item.id) })} rowClassName={(row) => `${row.flags?.belowMin ? 'is-amber' : ''}${row.flags?.out ? ' is-red' : ''}${row.item.id === itemId ? ' is-open' : ''}`} />
               </div>
             ) : (
               <div className="wh-cards">

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { fmtDate, fmtDateTime } from '../../../lib/datetime';
 import { useContracts } from '../ContractsContext';
@@ -30,8 +31,8 @@ export default function Overview({ data, onEdit, onChanged, onDiscuss, highlight
           <h3>{t('contracts.card.about')}</h3>
           <span className="ctr-grow" />
           {can.edit && (
-            <Button size="small" onClick={onEdit}>
-              ✎ {t('common.edit')}
+            <Button size="small" onClick={onEdit} icon={<EditOutlined />}>
+              {t('common.edit')}
             </Button>
           )}
         </header>

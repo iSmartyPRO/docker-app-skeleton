@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alert, App, Button, Dropdown, Input, Modal, Result, Skeleton, Tabs, Tag, Tooltip, Upload } from 'antd';
+import { EditOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatRelative } from '../../../lib/format';
@@ -26,7 +27,7 @@ function Staff({ company, onChange }) {
   return (
     <div className="cmp-staff">
       <div className="cmp-staff__actions">
-        <Button type="primary" onClick={() => setAdding('new')}>+ {t('companies.addEmployee')}</Button>
+        <Button type="primary" onClick={() => setAdding('new')} icon={<PlusOutlined />}>{t('companies.addEmployee')}</Button>
         <Button onClick={() => setAdding('existing')}>{t('companies.addExisting')}</Button>
       </div>
       {!current.length && <div className="cmp-muted cmp-staff__empty">{t('companies.noEmployees')}</div>}
@@ -106,7 +107,7 @@ function Documents({ company, onChange }) {
             }
           }}
         >
-          <Button>⤒ {t('companies.uploadDoc')}</Button>
+          <Button icon={<UploadOutlined />}>{t('companies.uploadDoc')}</Button>
         </Upload>
       )}
       {!company.files.length && <div className="cmp-muted">{t('companies.noDocs')}</div>}
@@ -242,7 +243,7 @@ export default function CompanyCard() {
           {profile?.registry && company.canEdit && primary && company.ids[primary.key] && (
             <Button onClick={() => setDialog('verify')}>🏛 {t('companies.verify')}</Button>
           )}
-          {company.canEdit && <Button type="primary" onClick={() => setDialog('edit')}>✎ {t('common.edit')}</Button>}
+          {company.canEdit && <Button type="primary" onClick={() => setDialog('edit')} icon={<EditOutlined />}>{t('common.edit')}</Button>}
           {company.canEdit && (
             <Dropdown trigger={['click']} menu={{ items: menu }}>
               <Button aria-label={t('companies.more')}>⋯</Button>

@@ -319,8 +319,9 @@
 }
 
 .task-group__caret {
+  display: inline-flex;
   color: var(--da-faint);
-  font-size: 11px;
+  font-size: 10px;
   transition: transform 0.2s var(--da-ease-out);
 }
 
@@ -1109,5 +1110,196 @@
   .task-row__title > span:first-child {
     flex: 1 1 auto;
     min-width: 64px;
+  }
+}
+
+/* ── Page header & toolbar: one consistent, width-aware layout ─────────────
+ * Header = title block (shrinks, ellipsis) + one action cluster that never
+ * wraps. The header is its own size container, so the layout follows the
+ * space it really has (sidebar open, collapsed to a rail, or a phone):
+ *   < 760px  secondary actions (.mod-act) become icon buttons (label → tooltip)
+ *   < 520px  badge and lead line go, the title takes the room
+ */
+.tasks-hero {
+  flex-wrap: wrap;
+  container-type: inline-size;
+}
+
+.tasks-hero .mod-hero__badge,
+.tasks-hero .mod-hero__actions > * {
+  flex: none;
+}
+
+/* The split "Create" button is a block-level Space.Compact: size it by content here. */
+.tasks-hero .mod-hero__actions > .ant-space-compact-block {
+  width: auto;
+}
+
+.tasks-hero .mod-hero__text {
+  flex: 1 1 0;
+  min-width: min(220px, 100%);
+}
+
+.tasks-hero .mod-hero__text h1 {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.tasks-hero__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tasks-hero .mod-hero__text h1 .mod-pill {
+  flex: none;
+}
+
+.tasks-hero .mod-hero__actions {
+  flex: none;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+@container (max-width: 760px) {
+  .tasks-hero .mod-act.ant-btn {
+    width: 32px;
+    padding-inline: 0;
+    flex: none;
+  }
+
+  .tasks-hero .mod-act.ant-btn > span:not(.ant-btn-icon) {
+    display: none;
+  }
+
+  .tasks-hero .mod-hero__text p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@container (max-width: 520px) {
+  .tasks-hero .mod-hero__badge,
+  .tasks-hero .mod-hero__text p {
+    display: none;
+  }
+
+  .tasks-hero .mod-hero__text h1 {
+    font-size: 20px;
+  }
+}
+
+/* My tasks: the stats move to their own full-width row when the header is narrow. */
+.tasks-hero--my {
+  flex-wrap: wrap;
+}
+
+.tasks-hero--my .mod-hero__actions {
+  order: 2;
+}
+
+.tasks-hero--my .my-stats {
+  order: 3;
+}
+
+@container (max-width: 760px) {
+  .tasks-hero--my .my-stats {
+    flex: 1 0 100%;
+    width: 100%;
+  }
+
+  .tasks-hero--my .my-stats > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+@container (max-width: 520px) {
+  .tasks-hero--my .mod-hero__actions .ant-btn-lg {
+    height: 36px;
+    font-size: 14px;
+  }
+}
+
+/* Toolbar: the search grows, filters keep a steady width, the view switch sits
+   on the right. Narrow: the search takes a row, filters share the next one. */
+.tasks-toolbar-wrap {
+  container-type: inline-size;
+}
+
+.tasks-toolbar {
+  flex-wrap: nowrap;
+}
+
+.tasks-toolbar__search.ant-input-search {
+  flex: 1 1 220px;
+  min-width: 160px;
+  max-width: 360px;
+}
+
+.tasks-toolbar__filter.ant-select {
+  flex: 0 1 170px;
+  min-width: 120px;
+}
+
+.tasks-toolbar__end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+@container (max-width: 860px) {
+  .tasks-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .tasks-toolbar__search.ant-input-search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .tasks-toolbar__filter.ant-select {
+    flex: 1 1 140px;
+  }
+
+  .tasks-toolbar__end {
+    flex: 1 1 100%;
+  }
+
+  .tasks-toolbar__end .ant-segmented {
+    margin-left: auto;
+  }
+
+  /* Alone on its row, the view switch spans it (equal halves). */
+  .tasks-toolbar__end .ant-segmented:only-child {
+    flex: 1;
+    margin-left: 0;
+  }
+
+  .tasks-toolbar__end .ant-segmented:only-child .ant-segmented-item {
+    flex: 1;
+    text-align: center;
+  }
+}
+
+/* Phones (< 520px of header): the title keeps the first row, the actions take
+   the second one — the primary action stretches, icon buttons sit to the right. */
+@container (max-width: 520px) {
+  .tasks-hero .mod-hero__actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  .tasks-hero .mod-hero__actions > .ant-btn-primary,
+  .tasks-hero .mod-hero__actions > .ant-space-compact {
+    flex: 1 1 auto;
+  }
+
+  .tasks-hero .mod-hero__actions > .ant-space-compact > .ant-btn:first-child {
+    flex: 1 1 auto;
   }
 }

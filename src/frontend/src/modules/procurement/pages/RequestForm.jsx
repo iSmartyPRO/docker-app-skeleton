@@ -408,8 +408,8 @@ export default function RequestForm() {
       </Section>
 
       {!more ? (
-        <Button type="dashed" block onClick={() => setMore(true)} className="prc-more-btn">
-          ＋ {t('procurement.form.more')}
+        <Button type="dashed" block onClick={() => setMore(true)} className="prc-more-btn" icon={<PlusOutlined />}>
+          {t('procurement.form.more')}
         </Button>
       ) : (
         <>

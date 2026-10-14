@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { App, Button, Input, Segmented, Select } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { formatDateTime } from '../../lib/format';
@@ -128,7 +129,7 @@ export default function RequestLog({ meta }) {
         <Select allowClear placeholder={t('api.log.area')} value={filters.area} onChange={(area) => set({ area })} style={{ minWidth: 170 }} options={(meta?.areas || []).map((area) => ({ value: area.key, label: areaTitle(t, area.key) }))} />
         <Input allowClear placeholder={t('api.log.path')} value={filters.q} onChange={(event) => set({ q: event.target.value })} style={{ width: 220 }} className="ax-mono" />
         <span className="ax-grow" />
-        <Button onClick={load}>↻ {t('api.log.refresh')}</Button>
+        <Button onClick={load} icon={<ReloadOutlined />}>{t('api.log.refresh')}</Button>
       </div>
       {rows === null ? (
         <div className="ax-skeleton" />

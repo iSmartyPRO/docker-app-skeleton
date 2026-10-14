@@ -564,7 +564,7 @@ function LinksAudit() {
   if (!links) return <Skeleton active paragraph={{ rows: 3 }} />;
   if (!links.length) return <div className="fs-share__empty">{t('drive.noLinks')}</div>;
   return (
-    <div className="dv-linklist">
+    <div className="sl-list">
       {links.map((link) => <LinkRow key={link.id} link={link} onChange={load} showItem showOwner />)}
     </div>
   );

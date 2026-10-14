@@ -825,6 +825,14 @@ button.mp-chip:hover {
   font-size: 13.5px;
 }
 
+/* Long type names stay inside the tile (full name in the tooltip). */
+.mp-tile > * {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mp-tile span {
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
@@ -2966,4 +2974,76 @@ button.mp-chip:hover {
 .mp-warn-text {
   color: var(--da-error);
   font-size: 13px;
+}
+
+/* ── Chess toolbar: follows its own width ───────────────────────────────────
+ * Wide: [house · price/area switch] [search (grows) · filters · pick] in one
+ * row. Narrow: the two groups take a row each, filled edge to edge.
+ */
+.mp-chess-toolbar-wrap {
+  container-type: inline-size;
+  margin-bottom: 16px;
+}
+
+.mp-chess-toolbar.mod-toolbar {
+  flex-wrap: nowrap;
+  margin-bottom: 0;
+}
+
+.mp-chess-toolbar__group {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mp-chess-toolbar__group.is-grow {
+  flex: 1 1 auto;
+}
+
+.mp-chess-toolbar__house.ant-select {
+  flex: 0 1 240px;
+  min-width: 150px;
+}
+
+.mp-chess-toolbar__show,
+.mp-chess-toolbar .mp-filter-btn {
+  flex: none;
+}
+
+.mp-chess-toolbar .mp-search {
+  flex: 0 1 260px;
+  width: auto;
+  min-width: 140px;
+}
+
+.mp-chess-toolbar__pick {
+  flex: none;
+  margin-left: auto;
+}
+
+@container (max-width: 820px) {
+  .mp-chess-toolbar.mod-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .mp-chess-toolbar__group {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+
+  .mp-chess-toolbar__show {
+    flex: 1 1 auto;
+  }
+
+  .mp-chess-toolbar__show .ant-segmented-item {
+    flex: 1;
+    text-align: center;
+  }
+
+  .mp-chess-toolbar__house.ant-select,
+  .mp-chess-toolbar .mp-search {
+    flex: 1 1 140px;
+  }
 }

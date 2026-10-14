@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Checkbox, Dropdown, Input, Modal, Popover, Progress, Skeleton } from 'antd';
+import { DownOutlined, PlusOutlined } from '@ant-design/icons';
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -255,7 +256,7 @@ function ChecklistCard({ list, lists, ops, disabled }) {
               trigger={['click']}
               menu={{ items: lists.filter((other) => other.key !== list.key).map((other) => ({ key: other.key, label: other.title, onClick: () => ops.bulk(list, ids, 'move', other).then(() => setSelected(new Set())) })) }}
             >
-              <Button size="small" disabled={!ids.length}>{t('tasks.v2.cl.move')} ▾</Button>
+              <Button size="small" disabled={!ids.length} icon={<DownOutlined />} iconPosition="end">{t('tasks.v2.cl.move')}</Button>
             </Dropdown>
           )}
           <Button size="small" danger disabled={!ids.length} onClick={() => ops.bulk(list, ids, 'delete').then(() => setSelected(new Set()))}>
@@ -333,16 +334,16 @@ export function ChecklistsBlock({ lists, ops, disabled, onRemove }) {
       onRemove={onRemove}
       extra={
         !disabled && (
-          <Button size="small" type="text" onClick={() => ops.addList(t('tasks.v2.cl.defaultTitle', { n: lists.length + 1 }))}>
-            ＋ {t('tasks.v2.cl.newList')}
+          <Button size="small" type="text" onClick={() => ops.addList(t('tasks.v2.cl.defaultTitle', { n: lists.length + 1 }))} icon={<PlusOutlined />}>
+            {t('tasks.v2.cl.newList')}
           </Button>
         )
       }
     >
       {lists.length ? lists.map((list) => <ChecklistCard key={list.key} list={list} lists={lists} ops={ops} disabled={disabled} />) : (
         !disabled && (
-          <Button block type="dashed" onClick={() => ops.addList(t('tasks.v2.cl.defaultTitle', { n: 1 }))}>
-            ＋ {t('tasks.v2.cl.newList')}
+          <Button block type="dashed" onClick={() => ops.addList(t('tasks.v2.cl.defaultTitle', { n: 1 }))} icon={<PlusOutlined />}>
+            {t('tasks.v2.cl.newList')}
           </Button>
         )
       )}
@@ -527,8 +528,7 @@ export function FilesBlock({ files, taskRef, disabled, onChanged, onRemove, file
       extra={
         !disabled && (
           <Dropdown menu={menu} trigger={['click']}>
-            <Button size="small" type="text" loading={busy}>
-              ＋ {t('tasks.v2.files.add')}
+            <Button size="small" type="text" loading={busy} icon={<PlusOutlined />}>{t('tasks.v2.files.add')}
             </Button>
           </Dropdown>
         )

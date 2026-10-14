@@ -1713,3 +1713,114 @@
     flex: 1 1 auto;
   }
 }
+
+/* ── Page header & toolbar: width-aware layout ──────────────────────────────
+ * Header: the title block shrinks (ellipsis), the action cluster stays on one
+ * line. Toolbar (its own size container): search grows, the view controls sit
+ * on the right; narrow — the search takes a row, the rest fill the next ones
+ * edge to edge.
+ */
+.prc-hero {
+  flex-wrap: wrap;
+  container-type: inline-size;
+}
+
+.prc-hero .mod-hero__badge,
+.prc-hero .mod-hero__actions > * {
+  flex: none;
+}
+
+.prc-hero .mod-hero__text {
+  flex: 1 1 0;
+  min-width: min(220px, 100%);
+}
+
+.prc-hero .mod-hero__text h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prc-hero .mod-hero__actions {
+  flex: none;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+@container (max-width: 520px) {
+  .prc-hero .mod-hero__badge,
+  .prc-hero .mod-hero__text p {
+    display: none;
+  }
+}
+
+.prc-toolbar-wrap {
+  container-type: inline-size;
+  margin-bottom: 16px;
+}
+
+.prc-toolbar-wrap .prc-toolbar {
+  flex-wrap: nowrap;
+  margin-bottom: 0;
+}
+
+.prc-toolbar-wrap .prc-toolbar .prc-search {
+  flex: 1 1 240px;
+  width: auto;
+  min-width: 160px;
+  max-width: 360px;
+}
+
+.prc-toolbar > .ant-btn,
+.prc-toolbar > .prc-view-switch {
+  flex: none;
+}
+
+@container (max-width: 760px) {
+  .prc-toolbar-wrap .prc-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .prc-toolbar-wrap .prc-toolbar .prc-search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}
+
+@container (max-width: 520px) {
+  .prc-toolbar .mod-toolbar__grow {
+    display: none;
+  }
+
+  .prc-toolbar > .prc-filter-btn,
+  .prc-toolbar > .prc-views-btn {
+    flex: 1 1 120px;
+  }
+
+  .prc-toolbar > .prc-view-switch {
+    flex: 1 1 160px;
+  }
+
+  .prc-toolbar > .prc-view-switch .ant-segmented-item {
+    flex: 1;
+    text-align: center;
+  }
+}
+
+/* Phones (< 520px of header): the title keeps the first row, the actions take
+   the second one — the primary action stretches, icon buttons sit to the right. */
+@container (max-width: 520px) {
+  .prc-hero .mod-hero__actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  .prc-hero .mod-hero__actions > .ant-btn-primary,
+  .prc-hero .mod-hero__actions > .ant-space-compact {
+    flex: 1 1 auto;
+  }
+
+  .prc-hero .mod-hero__actions > .ant-space-compact > .ant-btn:first-child {
+    flex: 1 1 auto;
+  }
+}

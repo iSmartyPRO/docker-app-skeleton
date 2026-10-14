@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App, Button, Checkbox, Drawer, Dropdown, Input, Select, Switch } from 'antd';
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
@@ -199,8 +200,8 @@ function Deliveries({ webhookId }) {
                 {item.nextAttemptAt && <span>{t('api.webhooks.nextAttempt', { time: formatRelative(item.nextAttemptAt, locale) })}</span>}
                 {item.error && <span className="is-bad">{item.error}</span>}
                 <span className="ax-grow" />
-                <Button size="small" onClick={() => again(item.id)}>
-                  ↻ {t('api.webhooks.redeliver')}
+                <Button size="small" onClick={() => again(item.id)} icon={<ReloadOutlined />}>
+                  {t('api.webhooks.redeliver')}
                 </Button>
               </div>
               <div className="ax-split">
@@ -295,8 +296,8 @@ export default function Webhooks({ meta, overview, reload }) {
       <div className="ax-toolbar">
         <p className="ax-muted ax-toolbar__lead">{t('api.webhooks.lead')}</p>
         <span className="ax-grow" />
-        <Button type="primary" onClick={() => setEditor({ open: true, webhook: null })} disabled={overview?.config?.webhooks === false}>
-          ＋ {t('api.newWebhook')}
+        <Button type="primary" onClick={() => setEditor({ open: true, webhook: null })} disabled={overview?.config?.webhooks === false} icon={<PlusOutlined />}>
+          {t('api.newWebhook')}
         </Button>
       </div>
       {hooks.length === 0 ? (
@@ -305,8 +306,8 @@ export default function Webhooks({ meta, overview, reload }) {
           title={t('api.webhooks.noWebhooks')}
           text={t('api.webhooks.noWebhooksText')}
           action={
-            <Button type="primary" size="large" onClick={() => setEditor({ open: true, webhook: null })}>
-              ＋ {t('api.newWebhook')}
+            <Button type="primary" size="large" onClick={() => setEditor({ open: true, webhook: null })} icon={<PlusOutlined />}>
+              {t('api.newWebhook')}
             </Button>
           }
         />

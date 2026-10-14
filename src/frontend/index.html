@@ -1,23 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="description" content="Application console" />
     <!-- Tab icon: the API redirects to the app icon from settings (or /favicon.svg),
          and the app swaps in the direct URL once settings load (pwa/appIcon.js). -->
     <link rel="icon" href="/api/pwa/icon" />
     <!-- Installable app (PWA): manifest is built from settings by the API. -->
     <link rel="manifest" href="/api/pwa/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/pwa/apple-touch-icon.png" />
-    <meta name="theme-color" content="#1E3A6E" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Portal" />
     <meta name="format-detection" content="telephone=no" />
-    <title>docker-app-skeleton</title>
+    <!-- Title, description, icon and link-preview tags (Open Graph, Twitter).
+         The app server replaces everything between the markers per request
+         with the portal's settings and, for public links, the resource itself
+         (src/backend/services/linkPreview). These neutral defaults are only
+         seen while it is unavailable; %PORTAL_…% values come from the build. -->
+    <!-- link-preview:start -->
+    <title>%PORTAL_NAME%</title>
+    <meta name="description" content="%PORTAL_DESCRIPTION%" />
+    <meta name="theme-color" content="#1E3A6E" />
+    <meta name="apple-mobile-web-app-title" content="%PORTAL_NAME%" />
+    <link rel="apple-touch-icon" href="/pwa/apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="%PORTAL_NAME%" />
+    <meta property="og:title" content="%PORTAL_NAME%" />
+    <meta property="og:description" content="%PORTAL_DESCRIPTION%" />
+    <meta name="twitter:card" content="summary" />
+    <!-- link-preview:end -->
     <!-- The selected typeface is injected at runtime by FontLoader. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

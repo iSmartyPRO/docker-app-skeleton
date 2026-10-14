@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { App, Button, Input, Result, Spin, Tabs, Tree } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { HelpButton } from '../../../help/Hint';
@@ -121,7 +122,7 @@ export default function StructurePage() {
         <div className="mp-structure">
           <aside className="mp-structure__tree">
             <div className="mp-structure__tools">
-              <Button type="primary" onClick={() => setCreate({ parentId: selected && selected.kind !== 'unit' ? selected.id : null })}>＋ {t('mp.st.add')}</Button>
+              <Button type="primary" onClick={() => setCreate({ parentId: selected && selected.kind !== 'unit' ? selected.id : null })} icon={<PlusOutlined />}>{t('mp.st.add')}</Button>
               <Button onClick={() => setBulk({ parentId: selected && selected.kind !== 'unit' ? selected.id : null })}>{t('mp.st.bulk')}</Button>
               <Button onClick={() => setImporting(true)}>{t('mp.reg.import')}</Button>
             </div>

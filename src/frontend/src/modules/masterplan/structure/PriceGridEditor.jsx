@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App, Button, Input, InputNumber, Popconfirm, Select, Skeleton, Tag } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { fmtDate, fmtDateTime, todayISO } from '../../../lib/datetime';
@@ -114,7 +115,7 @@ export default function PriceGridEditor() {
       <p className="dialog-lead">{t('mp.grid.lead')}</p>
       {!draft && (
         <div>
-          <Button type="primary" onClick={startDraft}>＋ {t('mp.grid.newVersion')}</Button>
+          <Button type="primary" onClick={startDraft} icon={<PlusOutlined />}>{t('mp.grid.newVersion')}</Button>
         </div>
       )}
       {draft && (
@@ -159,7 +160,7 @@ export default function PriceGridEditor() {
             ))}
             {draft.plans.length < 8 && (
               <div>
-                <Button onClick={() => setDraft({ ...draft, plans: [...draft.plans, { name: '', mode: 'ppm', ppm: null, firstPct: 50, months: 12 }] })}>＋ {t('mp.grid.addPlan')}</Button>
+                <Button onClick={() => setDraft({ ...draft, plans: [...draft.plans, { name: '', mode: 'ppm', ppm: null, firstPct: 50, months: 12 }] })} icon={<PlusOutlined />}>{t('mp.grid.addPlan')}</Button>
               </div>
             )}
           </div>

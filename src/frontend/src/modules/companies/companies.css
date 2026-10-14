@@ -195,16 +195,91 @@
   color: var(--da-muted);
 }
 
-.cmp-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
+/* Filters: the search grows, the country switch becomes a list when the row
+   is narrow, the selects share the remaining room. Follows its own width. */
+.cmp-filters-wrap {
+  container-type: inline-size;
   margin-bottom: 14px;
 }
 
-.cmp-filters__search {
-  width: min(420px, 100%);
+.cmp-filters {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.cmp-filters__search.ant-input-search {
+  flex: 1 1 240px;
+  min-width: 180px;
+  max-width: 420px;
+}
+
+.cmp-filters__countries,
+.cmp-filters__scope {
+  flex: none;
+}
+
+.cmp-filters__countries-select {
+  display: none !important;
+}
+
+.cmp-filters__select.ant-select {
+  flex: 0 1 170px;
+  min-width: 130px;
+}
+
+@container (max-width: 1000px) {
+  .cmp-filters .cmp-filters__countries {
+    display: none;
+  }
+
+  .cmp-filters__countries-select {
+    display: inline-flex !important;
+    flex: 0 1 140px;
+    min-width: 110px;
+  }
+}
+
+@container (max-width: 640px) {
+  .cmp-filters {
+    flex-wrap: wrap;
+  }
+
+  .cmp-filters__search.ant-input-search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .cmp-filters__countries-select,
+  .cmp-filters__select.ant-select {
+    flex: 1 1 110px !important;
+  }
+
+  .cmp-filters__scope {
+    flex: 1 1 100%;
+  }
+
+  .cmp-filters__scope .ant-segmented-item {
+    flex: 1;
+    text-align: center;
+  }
+}
+
+/* Header: the title shrinks, the create button keeps one line (icon-only on phones). */
+.cmp-list__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cmp-list__title h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cmp-list__create {
+  flex: none;
 }
 
 .cmp-table .ant-table {
@@ -1420,7 +1495,21 @@
   }
 
   .cmp-list__head {
-    flex-wrap: wrap;
+    align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .cmp-list__create.ant-btn {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    padding-inline: 0;
+    border-radius: 12px;
+  }
+
+  .cmp-list__create.ant-btn > span:not(.ant-btn-icon) {
+    display: none;
   }
 }
 

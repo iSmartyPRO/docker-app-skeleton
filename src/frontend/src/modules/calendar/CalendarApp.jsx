@@ -8,7 +8,8 @@ import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import luxonPlugin from '@fullcalendar/luxon3';
 import ruLocale from '@fullcalendar/core/locales/ru';
-import { App, Button, Calendar as MiniCalendar, Drawer, Dropdown, Modal, Result, Segmented, Spin } from 'antd';
+import { App, Button, Calendar as MiniCalendar, Drawer, Dropdown, Modal, Result, Segmented, Select, Spin } from 'antd';
+import { CheckSquareOutlined, LeftOutlined, MenuOutlined, PlusOutlined, RightOutlined, SettingOutlined } from '@ant-design/icons';
 import Chrome from '../../components/Chrome';
 import { MenuIcon } from '../../components/icons/menuIcons';
 import { IconGoogle } from '../../components/icons/AdminIcons';
@@ -503,23 +504,25 @@ function Shell() {
         <Button
           type="primary"
           size="large"
+          icon={<PlusOutlined />}
           onClick={() => {
             onNavigate?.();
             const start = nowInZone().add(1, 'hour').startOf('hour');
             newEvent({ start: start.toDate(), end: start.add(30, 'minute').toDate(), allDay: false });
           }}
         >
-          + {t('calendarTasks.newEvent')}
+          {t('calendarTasks.newEvent')}
         </Button>
         {config.showTasks && (
           <Button
             size="large"
+            icon={<CheckSquareOutlined />}
             onClick={() => {
               onNavigate?.();
               setQuickTask({ start: tomorrowAt19(), allDay: false });
             }}
           >
-            ☐ {t('calendarTasks.newTask')}
+            {t('calendarTasks.newTask')}
           </Button>
         )}
       </div>
@@ -602,22 +605,32 @@ function Shell() {
         {sidebar(() => setDrawer(false))}
       </Drawer>
       <main className="mod-shell__main cal-main">
-        <div className="cal-toolbar">
-          <Button className="mod-shell__menu" onClick={() => setDrawer(true)} icon={<span>☰</span>} />
-          <Button onClick={() => go('today')}>{t('calendar.today')}</Button>
-          <div className="cal-toolbar__nav">
-            <Button type="text" onClick={() => go('prev')} aria-label="prev">‹</Button>
-            <Button type="text" onClick={() => go('next')} aria-label="next">›</Button>
+        <div className="cal-toolbar-wrap">
+          <div className="cal-toolbar">
+            <Button className="mod-shell__menu" onClick={() => setDrawer(true)} icon={<MenuOutlined />} aria-label={t('common.menu')} />
+            <Button onClick={() => go('today')}>{t('calendar.today')}</Button>
+            <div className="cal-toolbar__nav">
+              <Button type="text" icon={<LeftOutlined />} onClick={() => go('prev')} aria-label={t('calendar.prev')} title={t('calendar.prev')} />
+              <Button type="text" icon={<RightOutlined />} onClick={() => go('next')} aria-label={t('calendar.next')} title={t('calendar.next')} />
+            </div>
+            <h1 className="cal-toolbar__title" title={title}>{title}</h1>
+            <Segmented
+              className="cal-views"
+              value={view}
+              onChange={changeView}
+              options={Object.entries(VIEWS).map(([key, value]) => ({ value, label: t(`calendar.view.${key}`) }))}
+            />
+            {/* The same switch as a list when the toolbar is narrow (CSS picks one). */}
+            <Select
+              className="cal-views-select"
+              value={view}
+              onChange={changeView}
+              popupMatchSelectWidth={false}
+              aria-label={t('calendar.viewLabel')}
+              options={Object.entries(VIEWS).map(([key, value]) => ({ value, label: t(`calendar.view.${key}`) }))}
+            />
+            <Button className="cal-gear" icon={<SettingOutlined />} onClick={() => setPrefsOpen(true)} aria-label={t('calendarPrefs.title')} title={t('calendarPrefs.title')} />
           </div>
-          <h1 className="cal-toolbar__title">{title}</h1>
-          <Segmented
-            value={view}
-            onChange={changeView}
-            options={Object.entries(VIEWS).map(([key, value]) => ({ value, label: t(`calendar.view.${key}`) }))}
-          />
-          <Button className="cal-gear" onClick={() => setPrefsOpen(true)} aria-label={t('calendarPrefs.title')} title={t('calendarPrefs.title')}>
-            ⚙
-          </Button>
         </div>
         <div className={`cal-view is-${view}`}>
           <FullCalendar

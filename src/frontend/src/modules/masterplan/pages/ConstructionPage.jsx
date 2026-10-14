@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { App, Badge, Button, Segmented, Skeleton, Table, Tabs } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { fmtDate } from '../../../lib/datetime';
@@ -91,7 +92,7 @@ export default function ConstructionPage() {
       key: 'act',
       title: '',
       align: 'right',
-      render: (_, item) => item.canReport && <Button size="small" onClick={() => setReportOpen({ projectId: project.id, nodeIds: [item.id] })}>＋ {t('mp.report.short')}</Button>,
+      render: (_, item) => item.canReport && <Button size="small" onClick={() => setReportOpen({ projectId: project.id, nodeIds: [item.id] })} icon={<PlusOutlined />}>{t('mp.report.short')}</Button>,
     },
   ].filter(Boolean);
 
@@ -122,7 +123,7 @@ export default function ConstructionPage() {
         </div>
         <div className="mp-head__actions">
           <HelpButton id="masterplan" section="construction" />
-          {canReport && <Button type="primary" onClick={() => setReportOpen({ projectId: project.id })}>＋ {t('mp.report.short')}</Button>}
+          {canReport && <Button type="primary" onClick={() => setReportOpen({ projectId: project.id })} icon={<PlusOutlined />}>{t('mp.report.short')}</Button>}
         </div>
       </header>
       <Tabs
@@ -161,7 +162,7 @@ export default function ConstructionPage() {
                     <Readiness value={item.readiness} compact />
                     <ScheduleBadge schedule={item.schedule} alertDays={settings.delayAlertDays} />
                     {item.stale && <span className="mp-stale">⚠ {item.lastReportAt ? fmtDate(item.lastReportAt) : t('mp.con.never')}</span>}
-                    {item.canReport && <Button type="primary" ghost size="small" onClick={() => setReportOpen({ projectId: project.id, nodeIds: [item.id] })}>＋ {t('mp.report.short')}</Button>}
+                    {item.canReport && <Button type="primary" ghost size="small" onClick={() => setReportOpen({ projectId: project.id, nodeIds: [item.id] })} icon={<PlusOutlined />}>{t('mp.report.short')}</Button>}
                   </li>
                 ))}
               </ul>

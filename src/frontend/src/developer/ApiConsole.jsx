@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { App, Button, Switch } from 'antd';
+import { PlusOutlined, ReadOutlined } from '@ant-design/icons';
 import { useLocale } from '../context/LocaleContext';
 import { errorMessage } from '../lib/errors';
 import { consoleApi } from './client';
@@ -80,11 +81,13 @@ export default function ApiConsole() {
                 <span>{config.enabled ? t('api.on') : t('api.off')}</span>
               </label>
             )}
-            <Link to="/developers" target="_blank" rel="noreferrer">
-              <Button>{t('api.docs')} ↗</Button>
+            <Link to="/developers" target="_blank" rel="noreferrer" tabIndex={-1}>
+              <Button className="mod-act" icon={<ReadOutlined />} aria-label={t('api.docs')} title={t('api.docs')}>
+                <span>{t('api.docs')}</span>
+              </Button>
             </Link>
-            <Button type="primary" onClick={() => openEditor()} disabled={!meta}>
-              ＋ {t('api.newToken')}
+            <Button type="primary" onClick={() => openEditor()} disabled={!meta} icon={<PlusOutlined />}>
+              {t('api.newToken')}
             </Button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { App, Button, Dropdown, Input, Modal, Segmented, Space } from 'antd';
+import { DownOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { fmtDateTime } from '../../lib/datetime';
@@ -141,7 +142,7 @@ export default function ApprovalActions({ type, docId, process, onChange, allowS
             </Button>
           </QuestionPopover>
           <Dropdown menu={{ items, onClick: ({ key }) => setModal(key) }} trigger={['click']}>
-            <Button size={size}>{t('approvals.actions.more')} ▾</Button>
+            <Button size={size} icon={<DownOutlined />} iconPosition="end">{t('approvals.actions.more')}</Button>
           </Dropdown>
         </Space>
       )}
@@ -176,8 +177,8 @@ export default function ApprovalActions({ type, docId, process, onChange, allowS
       {(my.canRestart || my.canWithdraw || (allowStart && my.canStart)) && (
         <Space wrap size={8} className="apr-actions__author">
           {my.canRestart && (
-            <Button type="primary" size={size} loading={busy === 'restart'} onClick={() => run('restart', () => approvalsApi.restart(type || process.type, docId ?? process.docId), t('approvals.done.restart'))}>
-              ↻ {t('approvals.actions.restart')}
+            <Button type="primary" size={size} loading={busy === 'restart'} onClick={() => run('restart', () => approvalsApi.restart(type || process.type, docId ?? process.docId), t('approvals.done.restart'))} icon={<ReloadOutlined />}>
+              {t('approvals.actions.restart')}
             </Button>
           )}
           {allowStart && my.canStart && (

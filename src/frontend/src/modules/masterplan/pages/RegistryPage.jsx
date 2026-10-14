@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { App, Button, Checkbox, Dropdown, Popover, Table } from 'antd';
+import { DownOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -154,7 +155,7 @@ export default function RegistryPage() {
               ],
             }}
           >
-            <Button>{t('mp.reg.export')} ▾</Button>
+            <Button icon={<DownOutlined />} iconPosition="end">{t('mp.reg.export')}</Button>
           </Dropdown>
         </div>
       </header>

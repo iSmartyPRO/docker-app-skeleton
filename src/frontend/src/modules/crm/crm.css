@@ -1472,23 +1472,64 @@
 
 /* Calendar */
 
+.crm-cal__barwrap {
+  container-type: inline-size;
+  margin-bottom: 10px;
+}
+
 .crm-cal__bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+}
+
+.crm-cal__field.ant-select {
+  flex: 0 1 190px;
+  min-width: 120px;
+}
+
+.crm-cal__bar > :not(.crm-cal__title):not(.crm-cal__field) {
+  flex: none;
+}
+
+/* Narrow: the title takes the first row, the controls share the second. */
+@container (max-width: 640px) {
+  .crm-cal__bar {
+    flex-wrap: wrap;
+  }
+
+  .crm-cal__bar .crm-cal__title {
+    order: -1;
+    flex: 1 0 100%;
+    margin: 0;
+  }
+
+  .crm-cal__bar .crm-cal__views {
+    flex: 1 1 auto;
+  }
+
+  .crm-cal__bar .crm-cal__views .ant-segmented-item {
+    flex: 1;
+    text-align: center;
+  }
+
+  .crm-cal__bar .crm-cal__field.ant-select {
+    order: 5;
+    flex: 1 1 100%;
+  }
 }
 
 .crm-cal__nav {
   display: flex;
 }
 
-.crm-cal__nav .ant-btn {
-  font-size: 18px;
-}
-
 .crm-cal__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin: 0 6px;
   font-size: 18px;
   font-weight: 700;
@@ -1908,6 +1949,10 @@
   gap: 8px;
 }
 
+.cs-row > .ant-btn {
+  flex: none;
+}
+
 .cs-lock {
   display: inline-grid;
   place-items: center;
@@ -2141,5 +2186,121 @@
 
   .crm-my__row {
     flex-wrap: wrap;
+  }
+}
+
+/* ── Page header & toolbar: width-aware layout ──────────────────────────────
+ * The action cluster never wraps (help + create stay on one line); the title
+ * block shrinks with an ellipsis. The toolbar follows its own width: below
+ * 900px the view switch shows icons only (names in tooltips), below 560px the
+ * filter bar takes a row of its own under the pipeline + views row.
+ */
+.crm-hero {
+  flex-wrap: wrap;
+  container-type: inline-size;
+}
+
+.crm-hero .mod-hero__badge,
+.crm-hero .mod-hero__actions > * {
+  flex: none;
+}
+
+/* The split "Create" button is a block-level Space.Compact: size it by content here. */
+.crm-hero .mod-hero__actions > .ant-space-compact-block {
+  width: auto;
+}
+
+.crm-hero .mod-hero__text {
+  flex: 1 1 0;
+  min-width: min(220px, 100%);
+}
+
+.crm-hero .mod-hero__text h1 {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.crm-hero .mod-hero__text h1 .mod-pill {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.crm-hero .mod-hero__actions {
+  flex: none;
+  flex-wrap: nowrap;
+}
+
+@container (max-width: 520px) {
+  .crm-hero .mod-hero__badge,
+  .crm-hero .mod-hero__text p {
+    display: none;
+  }
+}
+
+.crm-toolbar-wrap {
+  container-type: inline-size;
+  margin-bottom: 10px;
+}
+
+.crm-toolbar-wrap .crm-toolbar {
+  flex-wrap: nowrap;
+  margin-bottom: 0;
+}
+
+.crm-toolbar .crm-views {
+  flex: none;
+}
+
+@container (max-width: 900px) {
+  .crm-toolbar .crm-views .crm-views__text {
+    display: none;
+  }
+
+  .crm-toolbar .crm-pipeline-select {
+    min-width: 150px;
+  }
+}
+
+@container (max-width: 560px) {
+  .crm-toolbar-wrap .crm-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .crm-toolbar .crm-pipeline-select {
+    flex: 1 1 140px;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .crm-toolbar .crm-filterbar {
+    order: 3;
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .crm-toolbar .mod-toolbar__grow {
+    display: none;
+  }
+}
+
+/* Phones (< 520px of header): the title keeps the first row, the actions take
+   the second one — the primary action stretches, icon buttons sit to the right. */
+@container (max-width: 520px) {
+  .crm-hero .mod-hero__actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  .crm-hero .mod-hero__actions > .ant-btn-primary,
+  .crm-hero .mod-hero__actions > .ant-space-compact {
+    flex: 1 1 auto;
+  }
+
+  .crm-hero .mod-hero__actions > .ant-space-compact > .ant-btn:first-child {
+    flex: 1 1 auto;
   }
 }

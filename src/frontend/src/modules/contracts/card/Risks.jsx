@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { App, Button, Dropdown, Input, Segmented, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { HintLabel } from '../../../help/Hint';
@@ -69,8 +70,8 @@ export default function Risks({ contract, risks, canEdit, onChanged, onDiscuss, 
         {open.length > 0 && <span className="ctr-count">{t('contracts.risks.openCount', { n: open.length })}</span>}
         <span className="ctr-grow" />
         {canEdit && !adding && (
-          <Button size="small" onClick={() => setAdding(true)}>
-            + {t('contracts.risks.add')}
+          <Button size="small" onClick={() => setAdding(true)} icon={<PlusOutlined />}>
+            {t('contracts.risks.add')}
           </Button>
         )}
       </header>

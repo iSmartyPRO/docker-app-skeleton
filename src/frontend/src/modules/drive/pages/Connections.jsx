@@ -4,6 +4,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { formatRelative } from '../../../lib/format';
 import { useDrive } from '../DriveContext';
 import ConnectDialog from '../components/ConnectDialog';
+import ModuleHeader from '../../shared/ModuleHeader';
 
 /** How each file server is opened for the person, and a way to change it. */
 export default function Connections() {
@@ -12,12 +13,7 @@ export default function Connections() {
   const [editing, setEditing] = useState(null);
   return (
     <div className="fs-page">
-      <header className="fs-head">
-        <div className="fs-head__text">
-          <h1>{t('drive.connections')}</h1>
-          <p>{t('drive.connectionsLead')}</p>
-        </div>
-      </header>
+      <ModuleHeader title={t('drive.connections')} description={t('drive.connectionsLead')} />
       <div className="dv-conns">
         {(connections || []).map((item) => {
           const ok = item.status === 'ok';

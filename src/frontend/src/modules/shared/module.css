@@ -170,8 +170,8 @@
 }
 
 .mod-hero__text {
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 0;
+  min-width: min(220px, 100%);
 }
 
 .mod-hero__text h1 {
@@ -187,8 +187,21 @@
 
 .mod-hero__actions {
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
+  flex-wrap: nowrap;
   gap: 8px;
+}
+
+.mod-hero__actions > * {
+  flex: none;
+}
+
+/* Phones: actions get their own row instead of squeezing the title. */
+@media (max-width: 520px) {
+  .mod-hero__actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
 }
 
 .mod-toolbar {
@@ -583,4 +596,476 @@
     opacity: 0;
     transform: translate(-4px, -50%);
   }
+}
+
+/* ── Module page header (ModuleHeader.jsx) ──────────────────────────────────
+   Rows: crumbs · title block + action cluster · toolbar. Modes come from the
+   header's own width (data-size = wide | compact | phone), so the layout is
+   the same with the sidebar open, collapsed or hidden. Controls are 32px. */
+
+.mh {
+  --mh-gap: 8px;
+  --mh-h: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  margin-bottom: 18px;
+}
+
+/* Crumbs: one line, every item may shrink (the current one last). */
+.mh-crumbs ol {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--da-muted);
+  white-space: nowrap;
+}
+
+.mh-crumbs li {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.mh-crumbs li.is-current {
+  flex-shrink: 0.4;
+}
+
+.mh-crumbs li.is-more {
+  flex: none;
+}
+
+.mh-crumbs__item {
+  min-width: 2.5em;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--da-muted);
+}
+
+a.mh-crumbs__item:hover {
+  color: var(--da-primary);
+}
+
+.is-current .mh-crumbs__item {
+  color: var(--da-text);
+  font-weight: 600;
+}
+
+.mh-crumbs__sep {
+  flex: none;
+  margin: 0 7px;
+  color: var(--da-faint);
+}
+
+.mh-crumbs__more {
+  height: 22px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--da-tint);
+  color: var(--da-muted);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mh-crumbs__more:hover {
+  color: var(--da-primary);
+}
+
+/* Title block (shrinks, ellipsis) and the action cluster (never wraps). */
+.mh-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 20px;
+}
+
+.mh-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 38px;
+  margin: 0;
+  font-size: clamp(22px, 2.2vw, 28px);
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+.mh-title__icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.mh-title__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-title__extra {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+/* Meta and lead span the whole width under the title and the actions. */
+.mh-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-top: -2px;
+}
+
+.mh-lead {
+  grid-column: 1 / -1;
+  max-width: 760px;
+  margin: -4px 0 0;
+  color: var(--da-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mh-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--mh-gap);
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.mh-actions .ant-btn,
+.mh-dock .ant-btn,
+.mh-toolbar .ant-btn:not(.ant-btn-sm) {
+  height: var(--mh-h);
+}
+
+.mh-actions .ant-btn-icon-only,
+.mh-toolbar .ant-btn-icon-only:not(.ant-btn-sm) {
+  width: var(--mh-h);
+}
+
+.mh-split {
+  flex: none;
+}
+
+.mh-split__arrow.ant-btn {
+  width: 30px;
+  padding-inline: 0;
+}
+
+.mh-split .ant-btn-primary + .ant-dropdown-trigger.ant-btn-primary,
+.mh-split .ant-btn-primary + .mh-split__arrow {
+  border-inline-start-color: color-mix(in srgb, #fff 35%, transparent);
+}
+
+.mh-tipwrap {
+  display: inline-flex;
+}
+
+.mh-btn__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Toolbar: growing search on the left, sort / view on the right. A bar of its
+   own when it has something on the left; a plain row with only view tools. */
+.mh-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 32px;
+}
+
+.mh-toolbar.has-start {
+  min-height: 42px;
+  padding: 4px;
+  border-radius: var(--da-radius);
+  border: 1px solid var(--da-hairline);
+  background: color-mix(in srgb, var(--da-surface) 72%, transparent);
+  box-shadow: var(--da-shadow-sm);
+}
+
+.mh-toolbar.has-start .mh-status:first-child {
+  padding-left: 8px;
+}
+
+.mh-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.mh-toolbar__start {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mh-toolbar__end {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-left: auto;
+}
+
+.mh-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 380px;
+  min-width: 160px;
+}
+
+.mh-search .ant-input-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.mh-status {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--da-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-sort.ant-btn {
+  gap: 6px;
+  padding-inline: 10px;
+  color: var(--da-muted);
+}
+
+.mh-sort.ant-btn:hover {
+  color: var(--da-text);
+}
+
+.mh-sort .anticon {
+  font-size: 12px;
+}
+
+.mh-view.ant-segmented .ant-segmented-item-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 15px;
+}
+
+/* Selection replaces the search while items are selected. */
+.mh-selection {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  height: var(--mh-h);
+  padding: 0 4px 0 12px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--da-primary) 10%, transparent);
+  animation: da-rise 0.25s var(--da-ease-out) backwards;
+}
+
+.mh-selection strong {
+  flex: none;
+  margin-right: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.mh-selection__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mh-selection .ant-btn {
+  flex: none;
+}
+
+.mh-selection__clear.ant-btn {
+  flex: none;
+  color: var(--da-muted);
+}
+
+/* Middle-truncated path chip: root … last folder. */
+.mh-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: min(520px, 100%);
+  height: 26px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--da-text) 3%, transparent);
+  color: var(--da-muted);
+  font: inherit;
+  cursor: copy;
+  transition: color 0.15s var(--da-ease), border-color 0.15s var(--da-ease);
+}
+
+.mh-path:hover,
+.mh-path:focus-visible {
+  color: var(--da-text);
+  border-color: color-mix(in srgb, var(--c, var(--da-primary)) 45%, var(--da-hairline));
+}
+
+.mh-path code {
+  display: flex;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.mh-path__head {
+  min-width: 1.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mh-path__tail {
+  flex: none;
+}
+
+.mh-path__icon {
+  flex: none;
+  font-size: 12px;
+}
+
+.mh-path__tip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  word-break: break-all;
+}
+
+.mh-path__tip em {
+  opacity: 0.7;
+  font-size: 12px;
+  font-style: normal;
+}
+
+/* Compact: tighter gaps. */
+.mh[data-size='compact'] .mh-main {
+  column-gap: 14px;
+}
+
+/* Phone: actions live in the bottom dock, the search is an icon. */
+.mh[data-size='phone'] {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mh[data-size='phone'] .mh-title {
+  min-height: 32px;
+  font-size: 22px;
+}
+
+.mh[data-size='phone'] .mh-crumbs__item {
+  max-width: 140px;
+}
+
+.mh[data-size='phone'] .mh-toolbar {
+  gap: 8px;
+}
+
+.mh[data-size='phone'] .mh-search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mh[data-size='phone'] .mh-path {
+  max-width: 100%;
+}
+
+.mh-dock {
+  position: fixed;
+  z-index: 40;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + var(--safe-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid var(--da-hairline);
+  background: color-mix(in srgb, var(--da-surface) 90%, transparent);
+  backdrop-filter: saturate(1.4) blur(12px);
+  box-shadow: var(--da-shadow-lg);
+  animation: da-rise 0.3s var(--da-ease-out) backwards;
+}
+
+.mh-dock .ant-btn {
+  height: 40px;
+}
+
+.mh-dock .ant-btn-icon-only {
+  width: 40px;
+  flex: none;
+}
+
+.mh-dock > .ant-btn-block,
+.mh-dock > .mh-split.is-block,
+.mh-dock > .mh-tipwrap.is-block {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mh-tipwrap.is-block > .mh-split {
+  width: 100%;
+}
+
+.mh-split.is-block > .ant-btn:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mh-dock .mh-split__arrow.ant-btn {
+  width: 40px;
+}
+
+/* Leave room for the dock: upload progress sits above it. */
+body:has(.mh-dock) .upload-panel {
+  bottom: calc(76px + var(--safe-bottom, 0px));
+}
+
+.mh[data-size='phone'] .mh-toolbar.is-searching .mh-toolbar__start {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.mh[data-size='phone'] .mh-toolbar.is-searching .mh-status {
+  flex-basis: 100%;
+  padding: 0 8px 4px;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { App, Button, Empty, Input, InputNumber, Popconfirm, Segmented, Select, Skeleton, Tag, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -149,8 +150,8 @@ function StageCard({ stage, index, fields, options, onChange, onRemove }) {
             />
           ))}
           {fields.length > 0 && stage.conditions.length < 6 && (
-            <Button size="small" type="dashed" onClick={() => onChange({ ...stage, conditions: [...stage.conditions, { field: fields[0].key, op: (OPS[fields[0].type] || OPS.text)[0] }] })}>
-              + {t('approvals.routes.addCondition')}
+            <Button size="small" type="dashed" onClick={() => onChange({ ...stage, conditions: [...stage.conditions, { field: fields[0].key, op: (OPS[fields[0].type] || OPS.text)[0] }] })} icon={<PlusOutlined />}>
+              {t('approvals.routes.addCondition')}
             </Button>
           )}
         </div>
@@ -350,8 +351,8 @@ function RouteEditor({ type, onSaved }) {
           </SortableContext>
         </DndContext>
         {route.stages.length < 12 && (
-          <Button type="dashed" block className="apr-add-stage" onClick={() => setRoute((prev) => ({ ...prev, stages: [...prev.stages, { id: newId(), name: '', mode: 'all', approvers: [], conditions: [] }] }))}>
-            + {t('approvals.routes.addStage')}
+          <Button type="dashed" block className="apr-add-stage" onClick={() => setRoute((prev) => ({ ...prev, stages: [...prev.stages, { id: newId(), name: '', mode: 'all', approvers: [], conditions: [] }] }))} icon={<PlusOutlined />}>
+            {t('approvals.routes.addStage')}
           </Button>
         )}
         <div className="apr-editor__extra">

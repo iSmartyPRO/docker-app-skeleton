@@ -2,6 +2,7 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button, Checkbox, Input, Select, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { Glyph } from '../components/bits';
 
@@ -70,8 +71,8 @@ export function SectionsEditor({ value, onChange }) {
         </SortableContext>
       </DndContext>
       {list.length < 12 && (
-        <Button type="dashed" size="small" onClick={() => onChange([...list, { _id: uid(), title: '' }])}>
-          + {t('crmSettings.addSection')}
+        <Button type="dashed" size="small" onClick={() => onChange([...list, { _id: uid(), title: '' }])} icon={<PlusOutlined />}>
+          {t('crmSettings.addSection')}
         </Button>
       )}
     </div>
@@ -129,8 +130,8 @@ export function FieldsEditor({ value, onChange, sections }) {
         </SortableContext>
       </DndContext>
       {list.length < 80 && (
-        <Button type="dashed" size="small" onClick={() => onChange([...list, { _id: uid(), label: '', type: 'text', section: 'about', options: [], listColumn: false, required: false }])}>
-          + {t('crmSettings.addField')}
+        <Button type="dashed" size="small" onClick={() => onChange([...list, { _id: uid(), label: '', type: 'text', section: 'about', options: [], listColumn: false, required: false }])} icon={<PlusOutlined />}>
+          {t('crmSettings.addField')}
         </Button>
       )}
     </div>

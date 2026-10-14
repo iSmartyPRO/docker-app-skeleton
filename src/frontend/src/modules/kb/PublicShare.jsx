@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { Button, Input, Skeleton } from 'antd';
+import { AppstoreOutlined, DownloadOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import BrandMark from '../../components/BrandMark';
 import LanguageSwitch from '../../components/LanguageSwitch';
 import ThemeSwitch from '../../components/ThemeSwitch';
@@ -146,7 +147,7 @@ function SharedFolder({ slug, token, onLocked }) {
         </nav>
       )}
       <div className="kb-toolbar">
-        <button type="button" className="kb-view-toggle" onClick={() => setView(view === 'grid' ? 'list' : 'grid')}>{view === 'grid' ? '☰' : '▦'}</button>
+        <button type="button" className="kb-view-toggle" onClick={() => setView(view === 'grid' ? 'list' : 'grid')} aria-label={t(view === 'grid' ? 'kb.viewList' : 'kb.viewGrid')} title={t(view === 'grid' ? 'kb.viewList' : 'kb.viewGrid')}>{view === 'grid' ? <UnorderedListOutlined /> : <AppstoreOutlined />}</button>
       </div>
       <FolderContent
         folders={data.folders}
@@ -200,7 +201,7 @@ function SharedItem({ slug, token, onLocked }) {
         </div>
         {item.kind === 'file' && src.canDownload && (
           <div className="kb-head__actions">
-            <Button href={src.file(item, { download: true })}>⤓ {t('kb.download')}</Button>
+            <Button href={src.file(item, { download: true })} icon={<DownloadOutlined />}>{t('kb.download')}</Button>
           </div>
         )}
       </header>

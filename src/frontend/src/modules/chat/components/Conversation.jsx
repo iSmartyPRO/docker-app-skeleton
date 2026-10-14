@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { App, Avatar, Button, Dropdown, Input, Modal, Select, Skeleton, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -106,8 +107,8 @@ function SidePanel({ room, tab, setTab, members, reloadMembers, onJump, onClose 
         {tab === 'members' && (
           <>
             {room.can?.manage && (
-              <Button block onClick={() => { setAdding(true); chatApi.directory('').then((res) => setPeople(res.data.people)); }} style={{ marginBottom: 10 }}>
-                ＋ {t('chat.addMembers')}
+              <Button block onClick={() => { setAdding(true); chatApi.directory('').then((res) => setPeople(res.data.people)); }} style={{ marginBottom: 10 }} icon={<PlusOutlined />}>
+                {t('chat.addMembers')}
               </Button>
             )}
             <ul className="cc-people">

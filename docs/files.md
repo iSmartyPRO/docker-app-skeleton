@@ -56,19 +56,34 @@ Rules can name everyone signed in, users, groups or roles, using the same editor
 
 The *Who can create spaces* setting chooses between administrators only (`files.admin`, the default) and everyone.
 
-## Public links (`/l/<token>`)
+## Public links (`/l/<token>` or `/l/<slug>`)
 
 **Share → Public links** creates a link that works without signing in. A folder link opens the folder and everything inside it, and visitors cannot reach anything outside it.
 
-| Option | Notes |
-|--------|-------|
-| Name | Optional; the visitor sees it as the page title (e.g. *Documents for the contract*) |
-| Permissions | What the visitor may do, see [Link permissions](#link-permissions) |
-| Password | Optional, at least 4 characters. Visitors enter it once per browser tab. Unlocking is rate-limited (10 attempts per 15 minutes per IP and link) |
-| Expiry | Presets (1 day, 7 days, 30 days) or a date. Expired links show *This link has expired* |
-| Upload rules | For links with upload or replace: maximum file size, allowed extensions, total quota of the link, ask the visitor's name (and e-mail), notify me |
+The dialog is **simple by default**: one card with the four things most people need, and a big *Create and copy* button.
 
-One item can have several links. Each link card shows its permissions as chips, views, uploads and the quota used, and has *Copy*, *QR code*, *See as the recipient* (opens the page with `?preview=1`, which does not count a view), *Edit*, *Activity*, *Revoke / Restore* and *Delete*. A new link is copied to the clipboard at once. Changing the password or revoking a link invalidates every visitor token (and so every visitor session) already issued. Links to items in the trash stop working.
+| Simple field | Notes |
+|--------|-------|
+| What the recipient can do | *View* or *View and download* (the default). Folders also show *More…*, which opens the advanced part with every preset (upload only, view and upload, full access, custom). A link that uses anything else shows *Special rights: …* here |
+| Expires | *No expiry* (or *Maximum (N d)* when the administrator caps the lifetime), *1 day*, *7 days*, *30 days* or *Date…* (a calendar day; the link works until the end of that day in the person's time zone) |
+| Password | Off by default; on: at least 4 characters, *Generate* makes an easy-to-dictate one (`k7mq-29xp-w4ta`). Visitors enter it once per browser tab. Unlocking is rate-limited (10 attempts per 15 minutes per IP and link). Forced on when the administrator requires passwords (for all links, or for links that allow changes) |
+| Link address | `portal…/l/` + an optional custom address, see [Custom addresses](#custom-addresses-slugs). Empty means a random, unguessable address |
+
+**Advanced settings** (collapsed; opens by itself when the link already uses any of it, and shows a one-line summary of what is customised while collapsed): the full permission picker (presets and per-action switches, see [Link permissions](#link-permissions)), upload rules (maximum file size, allowed extensions, total quota of the link, ask the visitor's name and e-mail, notify me) and the link's name (the visitor sees it as the page title).
+
+After *Create and copy* the dialog shows the link (already on the clipboard), the password with a reminder to send it separately, a QR code and *Open as recipient*.
+
+One item can have several links. The list shows one compact row per link: the address (custom part highlighted), permission icons, expiry (*until 21.10*), a lock when it has a password, views and uploads; *Copy* and *Edit* at hand, and under ⋯ *QR code*, *Open as recipient* (opens the page with `?preview=1`, which does not count a view), *Activity*, *Revoke / Restore* and *Delete*. With no links yet the tab opens the form directly. On phones the dialog is a full-screen sheet with large touch targets. Changing the password or revoking a link invalidates every visitor token (and so every visitor session) already issued. Links to items in the trash stop working.
+
+### Custom addresses (slugs)
+
+A link can have a readable address such as `/l/dogovor-keykompani` next to its random token (the token address keeps working).
+
+- **Rules:** lowercase latin letters, digits and single hyphens inside; 3–64 characters; not a reserved word (`api`, `admin`, `login`, `s`, `l`, `d`, `assets`, `static`, `uploads`, `new`, `edit`, … — the list is in `modules/shared/linkSlug.js`). Typed Cyrillic is transliterated (*Договор КейКомпани* → `dogovor-keykompani`); *From the name* fills it from the file name.
+- **Availability** is checked while typing (300 ms after the last key): *Available*, *Taken* (with clickable alternatives such as `-2`, `-2026` or a short random suffix) or the reason it is invalid. The server checks again on save; a UNIQUE index on `LOWER(slug)` makes it race-safe (`409 SLUG_TAKEN`). Uniqueness ignores case. Files links and Drive links are separate namespaces.
+- **Revoked and expired links keep their slug**, so an address that was shared never opens something else.
+- **Changing** a slug (the dialog asks first) or **deleting** the link makes the old address stop at once. The old slug is then held for 90 days: only the same author can take it again, nobody else. Clearing the field leaves the random token address only.
+- A readable address is easier to guess: the form suggests a password when a custom address is set without one.
 
 ### Link permissions
 
@@ -180,11 +195,12 @@ All under `/api/app/files`, signed-in users only:
 | DELETE | `/nodes/:id/forever` | Delete permanently |
 | GET | `/nodes/:id/file[?download=1]`, `/nodes/:id/preview.pdf` | Content, Office preview |
 | GET / PUT | `/nodes/:id/shares` | `{ shares: [{ subjectType: 'user' | 'group', subjectId, level: 'view' | 'edit' }] }` |
-| GET / POST | `/nodes/:id/links` | `{ links, grantable, isFolder }` / create `{ permissions, title, password, expiresAt, maxFileMb, extensions, quotaMb, requireName, requireEmail, notify }` |
-| PUT / DELETE | `/links/:id` | Edit (same fields), revoke (`{ revoked: true }`) or delete |
+| GET / POST | `/nodes/:id/links` | `{ links, grantable, isFolder }` / create `{ permissions, title, password, expiresAt, slug, maxFileMb, extensions, quotaMb, requireName, requireEmail, notify }` (`400 SLUG_INVALID`, `409 SLUG_TAKEN` with `info.suggestions`) |
+| PUT / DELETE | `/links/:id` | Edit (same fields; `slug: ''` removes the custom address), revoke (`{ revoked: true }`) or delete |
+| GET | `/link-slugs/check?slug=[&linkId=]` | `{ slug, available, reason, suggestions }`; `slug` is normalized (transliterated, lowercase); `reason`: `SHORT`, `LONG`, `CHARS`, `HYPHEN`, `RESERVED`, `TAKEN`, `RECENT`; `linkId` (a link the person manages) treats its own address as free. 60 checks per minute per person (`429 RATE_LIMITED`) |
 | GET | `/links/:id/activity` | What visitors did through the link |
 
-Public API, no session (`X-Link-Token` header or `?t=`):
+Public API, no session (`X-Link-Token` header or `?t=`). `:token` is the link's token or its custom address in any case (the token is tried first):
 
 | Method | Path | Purpose |
 |--------|------|---------|

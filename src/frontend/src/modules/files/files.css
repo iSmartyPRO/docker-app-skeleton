@@ -6,47 +6,6 @@
   min-height: 60vh;
 }
 
-.fs-crumbs {
-  margin-bottom: 10px;
-}
-
-.fs-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-
-.fs-head__text h1 {
-  margin: 0;
-  font-size: clamp(22px, 2.6vw, 30px);
-  line-height: 1.2;
-}
-
-.fs-head[style] .fs-head__text h1::before {
-  content: '';
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-right: 10px;
-  border-radius: 4px;
-  background: var(--c);
-  vertical-align: middle;
-}
-
-.fs-head__text p {
-  margin: 6px 0 0;
-  color: var(--da-muted);
-}
-
-.fs-head__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .fs-usage-bar {
   display: flex;
   align-items: center;
@@ -60,16 +19,6 @@
 .fs-usage-bar .ant-progress {
   width: 140px;
   margin: 0;
-}
-
-.fs-selection {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px 4px 12px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--da-primary) 10%, transparent);
-  animation: da-rise 0.25s var(--da-ease-out) backwards;
 }
 
 /* Icons */
@@ -1117,4 +1066,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.fs-head__dot.mod-dot {
+  width: 12px;
+  height: 12px;
+}
+
+.mh-meta .fs-usage-bar {
+  margin-top: 0;
 }

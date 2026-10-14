@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { App, Button, Skeleton } from 'antd';
+import { App, Button, Skeleton, Tooltip } from 'antd';
+import { CloseOutlined, StarFilled } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatRelative } from '../../../lib/format';
 import { driveApi, driveError, fileUrl, folderUrl, formatBytes } from '../api';
 import { EntryIcon } from '../components/EntryList';
 import { useDrive } from '../DriveContext';
+import ModuleHeader from '../../shared/ModuleHeader';
 
 /** Recent files or favourites across all drive folders. */
 export default function Shortcuts({ kind }) {
@@ -38,12 +40,11 @@ export default function Shortcuts({ kind }) {
 
   return (
     <div className="fs-page">
-      <header className="fs-head">
-        <div className="fs-head__text">
-          <h1>{kind === 'recent' ? t('drive.recent') : `★ ${t('drive.favorites')}`}</h1>
-          <p>{kind === 'recent' ? t('drive.recentLead') : t('drive.favoritesLead')}</p>
-        </div>
-      </header>
+      <ModuleHeader
+        icon={kind === 'recent' ? null : <StarFilled className="dv-head__star" />}
+        title={kind === 'recent' ? t('drive.recent') : t('drive.favorites')}
+        description={kind === 'recent' ? t('drive.recentLead') : t('drive.favoritesLead')}
+      />
       {!items ? (
         <Skeleton active paragraph={{ rows: 6 }} />
       ) : !items.length ? (
@@ -61,17 +62,19 @@ export default function Shortcuts({ kind }) {
               </span>
               <span className="dv-recent__when">{item.dir ? t('drive.folder') : formatBytes(item.size)} · {formatRelative(item.at, locale)}</span>
               {kind === 'favorites' && (
-                <Button
-                  size="small"
-                  type="text"
-                  onClick={async (event) => {
-                    event.stopPropagation();
-                    await driveApi.removeFavorite(item.shareId, item.path);
-                    load();
-                  }}
-                >
-                  ✕
-                </Button>
+                <Tooltip title={t('drive.unpin')}>
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<CloseOutlined />}
+                    aria-label={t('drive.unpin')}
+                    onClick={async (event) => {
+                      event.stopPropagation();
+                      await driveApi.removeFavorite(item.shareId, item.path);
+                      load();
+                    }}
+                  />
+                </Tooltip>
               )}
             </div>
           ))}

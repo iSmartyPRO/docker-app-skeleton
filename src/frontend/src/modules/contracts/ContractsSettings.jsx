@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Button, Form, Input, InputNumber, Select, Switch } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import SaveBar from '../../components/ui/SaveBar';
 import LoadState from '../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
@@ -43,7 +44,7 @@ function TypesEditor({ value = [], onChange }) {
           </Button>
         </div>
       ))}
-      <Button onClick={() => onChange([...value, { key: `c${Date.now().toString(36)}`, label: '' }])}>+ {t('contracts.settings.addType')}</Button>
+      <Button onClick={() => onChange([...value, { key: `c${Date.now().toString(36)}`, label: '' }])} icon={<PlusOutlined />}>{t('contracts.settings.addType')}</Button>
     </div>
   );
 }

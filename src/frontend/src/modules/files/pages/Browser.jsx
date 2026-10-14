@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { App, Button, Dropdown, Modal, Progress, Segmented, Skeleton } from 'antd';
+import { App, Button, Modal, Progress, Skeleton } from 'antd';
+import { DeleteOutlined, EditOutlined, ExportOutlined, FolderAddOutlined, TeamOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import AccessDialog from '../../shared/AccessDialog';
@@ -12,7 +13,8 @@ import ShareDialog from '../components/ShareDialog';
 import { MoveDialog, NameDialog } from '../components/dialogs';
 import SpaceDialog from '../components/SpaceDialog';
 import TransferPanel from '../components/TransferPanel';
-import UploadButton from '../components/UploadButton';
+import { useUploadActions } from '../components/UploadButton';
+import ModuleHeader, { SelectionBar, ViewToggle } from '../../shared/ModuleHeader';
 import { FolderUploadError, batchLabel, collectDrop, collectPicked, useFolderUploads } from '../folderUpload';
 
 const VIEW_KEY = 'files_view';
@@ -320,13 +322,14 @@ export default function Browser({ place }) {
   const rootCrumb =
     place.type === 'folder' && data
       ? data.root.type === 'space'
-        ? { label: data.root.space.name, to: `/app/files/space/${data.root.space.id}` }
+        ? { key: 'root', label: data.root.space.name, to: `/app/files/space/${data.root.space.id}` }
         : data.root.type === 'shared'
-          ? { label: t('files.sharedWithMe'), to: '/app/files/shared' }
-          : { label: t('files.myFiles'), to: '/app/files' }
+          ? { key: 'root', label: t('files.sharedWithMe'), to: '/app/files/shared' }
+          : { key: 'root', label: t('files.myFiles'), to: '/app/files' }
       : null;
 
   const usage = data?.usage;
+  const uploadActions = useUploadActions({ onPickFiles: () => fileInput.current?.click(), onFolder: onPickFolder, tooltip: t('moduleHeader.dropTip') });
 
   if (error) {
     return (
@@ -356,21 +359,13 @@ export default function Browser({ place }) {
         onDropItems(event.dataTransfer);
       }}
     >
-      {rootCrumb && (
-        <nav className="kb-crumbs fs-crumbs">
-          <Link to={rootCrumb.to}>{rootCrumb.label}</Link>
-          {(data.crumbs || []).map((crumb) => (
-            <span key={crumb.id}>
-              <span className="kb-crumbs__sep">/</span>
-              <Link to={`/app/files/f/${crumb.id}`}>{nodeLabel(crumb, t)}</Link>
-            </span>
-          ))}
-        </nav>
-      )}
-      <header className="fs-head" style={space ? { '--c': space.color } : undefined}>
-        <div className="fs-head__text">
-          <h1>{title || <Skeleton.Input active size="small" />}</h1>
-          {place.type === 'my' && usage && (
+      <ModuleHeader
+        crumbs={rootCrumb ? [rootCrumb, ...(data.crumbs || []).map((crumb) => ({ key: crumb.id, label: nodeLabel(crumb, t), to: `/app/files/f/${crumb.id}` })), { key: 'current', label: title }] : null}
+        style={space ? { '--c': space.color } : undefined}
+        icon={space ? <span className="mod-dot fs-head__dot" /> : null}
+        title={title || null}
+        meta={
+          place.type === 'my' && usage ? (
             <div className="fs-usage-bar">
               {usage.quota ? (
                 <>
@@ -381,97 +376,81 @@ export default function Browser({ place }) {
                 <span>{t('files.usage', { used: formatBytes(usage.used) })}</span>
               )}
             </div>
-          )}
-          {place.type === 'trash' && <p>{t('files.trashLead', { days: config?.trashDays || 30 })}</p>}
-          {place.type === 'shared' && <p>{t('files.sharedLead')}</p>}
-          {space?.description && <p>{space.description}</p>}
-        </div>
-        <div className="fs-head__actions">
-          {space && space.level === 'manage' && (
-            <Dropdown
-              trigger={['click']}
-              menu={{
-                items: [
-                  { key: 'edit', label: t('files.editSpace'), onClick: () => setDialog({ type: 'space', space }) },
-                  { key: 'access', label: t('kb.accessMenu'), onClick: () => setDialog({ type: 'access', space }) },
-                  { type: 'divider' },
-                  {
-                    key: 'delete',
-                    danger: true,
-                    label: t('files.deleteSpace'),
-                    onClick: () =>
-                      modal.confirm({
-                        title: t('files.deleteSpaceConfirm', { name: space.name }),
-                        content: t('files.deleteSpaceText'),
-                        okText: t('common.delete'),
-                        okButtonProps: { danger: true },
-                        cancelText: t('common.cancel'),
-                        onOk: async () => {
-                          try {
-                            await filesApi.deleteSpace(space.id);
-                            await refreshHome();
-                            navigate('/app/files');
-                          } catch (err) {
-                            message.error(errorMessage(err));
-                          }
-                        },
-                      }),
-                  },
-                ],
-              }}
-            >
-              <Button>⋯</Button>
-            </Dropdown>
-          )}
-          {trash && items.length > 0 && (
-            <Button
-              danger
-              onClick={() =>
-                modal.confirm({
-                  title: t('files.emptyTrashConfirm'),
-                  okText: t('files.emptyTrash'),
-                  okButtonProps: { danger: true },
-                  cancelText: t('common.cancel'),
-                  onOk: async () => {
-                    await filesApi.emptyTrash();
-                    reload();
-                  },
-                })
+          ) : null
+        }
+        description={place.type === 'trash' ? t('files.trashLead', { days: config?.trashDays || 30 }) : place.type === 'shared' ? t('files.sharedLead') : space?.description || null}
+        actions={[
+          ...(canEdit ? uploadActions : []),
+          canEdit && { key: 'folder', icon: <FolderAddOutlined />, label: t('files.newFolder'), onClick: () => setDialog({ type: 'folder' }) },
+          trash && items.length > 0 && {
+            key: 'empty-trash',
+            danger: true,
+            icon: <DeleteOutlined />,
+            label: t('files.emptyTrash'),
+            onClick: () =>
+              modal.confirm({
+                title: t('files.emptyTrashConfirm'),
+                okText: t('files.emptyTrash'),
+                okButtonProps: { danger: true },
+                cancelText: t('common.cancel'),
+                onOk: async () => {
+                  await filesApi.emptyTrash();
+                  reload();
+                },
+              }),
+          },
+        ]}
+        more={
+          space && space.level === 'manage'
+            ? [
+                { key: 'edit', icon: <EditOutlined />, label: t('files.editSpace'), onClick: () => setDialog({ type: 'space', space }) },
+                { key: 'access', icon: <TeamOutlined />, label: t('kb.accessMenu'), onClick: () => setDialog({ type: 'access', space }) },
+                { type: 'divider' },
+                {
+                  key: 'delete',
+                  danger: true,
+                  icon: <DeleteOutlined />,
+                  label: t('files.deleteSpace'),
+                  onClick: () =>
+                    modal.confirm({
+                      title: t('files.deleteSpaceConfirm', { name: space.name }),
+                      content: t('files.deleteSpaceText'),
+                      okText: t('common.delete'),
+                      okButtonProps: { danger: true },
+                      cancelText: t('common.cancel'),
+                      onOk: async () => {
+                        try {
+                          await filesApi.deleteSpace(space.id);
+                          await refreshHome();
+                          navigate('/app/files');
+                        } catch (err) {
+                          message.error(errorMessage(err));
+                        }
+                      },
+                    }),
+                },
+              ]
+            : null
+        }
+        selection={
+          selectedNodes.length > 0 && (
+            <SelectionBar
+              label={t('files.selectedN', { n: selectedNodes.length })}
+              onClear={() => setSelected(new Set())}
+              actions={
+                selectedNodes.every((node) => atLeast(node.level, 'edit') && !node.systemTag) && !trash
+                  ? [
+                      { key: 'move', icon: <ExportOutlined />, label: t('files.move'), onClick: () => setDialog({ type: 'move', nodes: selectedNodes }) },
+                      { key: 'trash', icon: <DeleteOutlined />, danger: true, label: t('files.toTrash'), onClick: () => remove(selectedNodes) },
+                    ]
+                  : []
               }
-            >
-              {t('files.emptyTrash')}
-            </Button>
-          )}
-          {canEdit && <Button onClick={() => setDialog({ type: 'folder' })}>+ {t('files.newFolder')}</Button>}
-          {canEdit && <UploadButton onPickFiles={() => fileInput.current?.click()} onFolder={onPickFolder} />}
-        </div>
-      </header>
-
-      <div className="mod-toolbar">
-        {selectedNodes.length > 0 ? (
-          <div className="fs-selection">
-            <strong>{t('files.selectedN', { n: selectedNodes.length })}</strong>
-            {selectedNodes.every((node) => atLeast(node.level, 'edit') && !node.systemTag) && !trash && (
-              <>
-                <Button size="small" onClick={() => setDialog({ type: 'move', nodes: selectedNodes })}>{t('files.move')}</Button>
-                <Button size="small" danger onClick={() => remove(selectedNodes)}>{t('files.toTrash')}</Button>
-              </>
-            )}
-            <Button size="small" type="text" onClick={() => setSelected(new Set())}>{t('common.cancel')}</Button>
-          </div>
-        ) : (
-          canEdit && <span className="kb-toolbar__hint">{t('files.dropHint')}</span>
-        )}
-        <span className="mod-toolbar__grow" />
-        <Segmented
-          value={view}
-          onChange={setView}
-          options={[
-            { value: 'grid', label: '▦' },
-            { value: 'list', label: '☰' },
-          ]}
-        />
-      </div>
+            />
+          )
+        }
+        status={data && items.length > 0 && !selectedNodes.length ? t('files.itemsN', { n: items.length }) : null}
+        tools={<ViewToggle value={view} onChange={setView} />}
+      />
 
       {!data ? (
         <Skeleton active paragraph={{ rows: 6 }} />

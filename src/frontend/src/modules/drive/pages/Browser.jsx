@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { App, Button, Checkbox, Dropdown, Input, Modal, Radio, Segmented, Skeleton, Tooltip } from 'antd';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { App, Button, Checkbox, Modal, Radio, Skeleton, Tooltip } from 'antd';
+import { CopyOutlined, DeleteOutlined, DownloadOutlined, ExportOutlined, FolderAddOutlined, HistoryOutlined, LinkOutlined, ReloadOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { NameDialog } from '../../files/components/dialogs';
 import TransferPanel from '../../files/components/TransferPanel';
-import UploadButton from '../../files/components/UploadButton';
+import { useUploadActions } from '../../files/components/UploadButton';
+import ModuleHeader, { PathChip, SelectionBar, SortButton, ViewToggle } from '../../shared/ModuleHeader';
 import { FolderUploadError, batchLabel, collectDrop, collectPicked, useFolderUploads } from '../../files/folderUpload';
 import { copyText, driveApi, driveError, fileUrl, folderUrl, shareSource } from '../api';
 import { useDrive } from '../DriveContext';
@@ -375,6 +377,7 @@ export default function Browser() {
     }
   };
 
+  const uploadActions = useUploadActions({ onPickFiles: () => fileInput.current?.click(), onFolder: onPickFolder, tooltip: t('moduleHeader.dropTip') });
   const crumbs = data?.crumbs || [];
   const title = path ? path.split('/').pop() : share?.title;
   const errorCode = error?.response?.data?.code;
@@ -418,113 +421,83 @@ export default function Browser() {
         onDropItems(event.dataTransfer);
       }}
     >
-      <nav className="kb-crumbs fs-crumbs dv-crumbs">
-        <Link to="/app/drive">{driveTitle}</Link>
-        <span className="kb-crumbs__sep">/</span>
-        {path ? <Link to={folderUrl(shareId)}>{share?.title}</Link> : <strong>{share?.title}</strong>}
-        {crumbs.map((crumb, index) => (
-          <span key={crumb.path}>
-            <span className="kb-crumbs__sep">/</span>
-            {index === crumbs.length - 1 ? <strong>{crumb.name}</strong> : <Link to={folderUrl(shareId, crumb.path)}>{crumb.name}</Link>}
-          </span>
-        ))}
-      </nav>
-
-      <header className="fs-head dv-head">
-        <div className="fs-head__text">
-          <h1>
-            <span className="dv-head__dot" />
-            {title || <Skeleton.Input active size="small" />}
-            <Tooltip title={favorite ? t('drive.unpin') : t('drive.pin')}>
-              <button type="button" className={`dv-star${favorite ? ' is-on' : ''}`} onClick={() => toggleFavorite({ path, dir: true, name: title }, favorite)}>
-                {favorite ? '★' : '☆'}
-              </button>
-            </Tooltip>
-          </h1>
-          <div className="dv-head__meta">
-            {data && (
-              <span className={`dv-chip ${canWrite ? 'is-rw' : 'is-ro'}`}>{canWrite ? t('drive.access.rw') : t('drive.access.ro')}</span>
-            )}
-            {data?.unc && (
-              <Tooltip title={t('drive.copyPath')}>
-                <button type="button" className="dv-unc" onClick={() => copyPath(null)}>
-                  <code>{data.unc}</code>
-                  <span>⧉</span>
-                </button>
+      <ModuleHeader
+        className="dv-head"
+        crumbs={[
+          { key: 'drive', label: driveTitle, to: '/app/drive' },
+          { key: 'share', label: share?.title || '…', to: path ? folderUrl(shareId) : undefined },
+          ...crumbs.map((crumb) => ({ key: crumb.path, label: crumb.name, to: folderUrl(shareId, crumb.path) })),
+        ]}
+        icon={<span className="dv-head__dot" />}
+        title={title || null}
+        titleExtra={
+          <Tooltip title={favorite ? t('drive.unpin') : t('drive.pin')}>
+            <button type="button" className={`dv-star${favorite ? ' is-on' : ''}`} aria-pressed={favorite} aria-label={favorite ? t('drive.unpin') : t('drive.pin')} onClick={() => toggleFavorite({ path, dir: true, name: title }, favorite)}>
+              {favorite ? <StarFilled /> : <StarOutlined />}
+            </button>
+          </Tooltip>
+        }
+        meta={
+          data && (
+            <>
+              <Tooltip title={canWrite ? null : t('drive.readOnlyHint')}>
+                <span className={`dv-chip ${canWrite ? 'is-rw' : 'is-ro'}`}>{canWrite ? t('drive.access.rw') : t('drive.access.ro')}</span>
               </Tooltip>
-            )}
-          </div>
-          {!path && share?.description && <p>{share.description}</p>}
-        </div>
-        <div className="fs-head__actions">
-          <Input.Search
-            className="dv-search"
-            placeholder={t('drive.searchHere')}
-            allowClear
-            value={query}
-            loading={searching}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              if (!event.target.value) setResults(null);
-            }}
-            onSearch={runSearch}
-          />
-          {canWrite && <Button onClick={() => setDialog({ type: 'folder' })}>+ {t('files.newFolder')}</Button>}
-          {canWrite && <UploadButton onPickFiles={() => fileInput.current?.click()} onFolder={onPickFolder} />}
-          <Dropdown
-            trigger={['click']}
-            menu={{
-              items: [
-                { key: 'zip', label: <a href={src.zip([path])}>{t('drive.downloadFolderZip')}</a> },
-                config?.publicLinks && share?.allowLinks && { key: 'link', label: t('drive.shareFolderLink'), onClick: () => setDialog({ type: 'link', entry: { path, name: title, dir: true } }) },
-                { key: 'path', label: t('drive.copyPath'), onClick: () => copyPath(null) },
-                config?.canAudit && { key: 'activity', label: t('driveActivity.folderHistory'), onClick: () => navigate(`/app/drive/activity?shares=${shareId}${path ? `&path=${encodeURIComponent(path)}` : ''}&period=30`) },
-                { type: 'divider' },
-                { key: 'hidden', label: <Checkbox checked={prefs.hidden}>{t('drive.showHidden')}</Checkbox>, onClick: () => setPrefs({ hidden: !prefs.hidden }) },
-                { key: 'refresh', label: t('drive.refresh'), onClick: reload },
-              ].filter(Boolean),
-            }}
-          >
-            <Button aria-label={t('drive.actions')}>⋯</Button>
-          </Dropdown>
-        </div>
-      </header>
-
-      <div className="mod-toolbar">
-        {selectedEntries.length > 0 ? (
-          <div className="fs-selection">
-            <strong>{t('files.selectedN', { n: selectedEntries.length })}</strong>
-            <Button size="small" href={src.zip(selectedEntries.map((entry) => entry.path))}>⤓ ZIP</Button>
-            {canWrite && <Button size="small" onClick={() => setDialog({ type: 'move', paths: selectedEntries.map((entry) => entry.path) })}>{t('drive.moveCopy')}</Button>}
-            {canDelete && <Button size="small" danger onClick={() => remove(selectedEntries)}>{t('common.delete')}</Button>}
-            <Button size="small" type="text" onClick={() => setSelected(new Set())}>{t('common.cancel')}</Button>
-          </div>
-        ) : results ? (
-          <span className="kb-toolbar__hint">{t('drive.searchResults', { n: results.length, q: query })}</span>
-        ) : (
-          <span className="kb-toolbar__hint">{canWrite ? t('files.dropHint') : t('drive.readOnlyHint')}</span>
-        )}
-        <span className="mod-toolbar__grow" />
-        <Dropdown
-          trigger={['click']}
-          menu={{
-            selectable: true,
-            selectedKeys: [prefs.sort],
-            items: ['name', 'mtime', 'size', 'type'].map((key) => ({ key, label: t(`drive.sort.${key}`) })),
-            onClick: ({ key }) => setPrefs(key === prefs.sort ? { desc: !prefs.desc } : { sort: key, desc: key === 'mtime' }),
-          }}
-        >
-          <Button size="small" type="text">{t(`drive.sort.${prefs.sort}`)} {prefs.desc ? '↓' : '↑'}</Button>
-        </Dropdown>
-        <Segmented
-          value={prefs.view}
-          onChange={(view) => setPrefs({ view })}
-          options={[
-            { value: 'grid', label: '▦' },
-            { value: 'list', label: '☰' },
-          ]}
-        />
-      </div>
+              <PathChip value={data.unc} onCopy={() => copyPath(null)} />
+            </>
+          )
+        }
+        description={!path && share?.description ? share.description : null}
+        actions={[
+          ...(canWrite ? uploadActions : []),
+          canWrite && { key: 'folder', icon: <FolderAddOutlined />, label: t('files.newFolder'), onClick: () => setDialog({ type: 'folder' }) },
+        ]}
+        more={[
+          { key: 'zip', icon: <DownloadOutlined />, label: <a href={src.zip([path])}>{t('drive.downloadFolderZip')}</a> },
+          config?.publicLinks && share?.allowLinks && { key: 'link', icon: <LinkOutlined />, label: t('drive.shareFolderLink'), onClick: () => setDialog({ type: 'link', entry: { path, name: title, dir: true } }) },
+          { key: 'path', icon: <CopyOutlined />, label: t('drive.copyPath'), onClick: () => copyPath(null) },
+          config?.canAudit && { key: 'activity', icon: <HistoryOutlined />, label: t('driveActivity.folderHistory'), onClick: () => navigate(`/app/drive/activity?shares=${shareId}${path ? `&path=${encodeURIComponent(path)}` : ''}&period=30`) },
+          { type: 'divider' },
+          { key: 'hidden', label: <Checkbox checked={prefs.hidden}>{t('drive.showHidden')}</Checkbox>, onClick: () => setPrefs({ hidden: !prefs.hidden }) },
+          { key: 'refresh', icon: <ReloadOutlined />, label: t('drive.refresh'), onClick: reload },
+        ].filter(Boolean)}
+        moreLabel={t('drive.actions')}
+        search={{
+          value: query,
+          placeholder: t('drive.searchHere'),
+          loading: searching,
+          onChange: (value) => {
+            setQuery(value);
+            if (!value) setResults(null);
+          },
+          onSearch: runSearch,
+        }}
+        status={results ? t('drive.searchResults', { n: results.length, q: query }) : data?.entries?.length ? t('files.itemsN', { n: data.entries.length }) : null}
+        selection={
+          selectedEntries.length > 0 && (
+            <SelectionBar
+              label={t('files.selectedN', { n: selectedEntries.length })}
+              onClear={() => setSelected(new Set())}
+              actions={[
+                { key: 'zip', icon: <DownloadOutlined />, label: t('drive.downloadZip'), href: src.zip(selectedEntries.map((entry) => entry.path)) },
+                canWrite && { key: 'move', icon: <ExportOutlined />, label: t('drive.moveCopy'), onClick: () => setDialog({ type: 'move', paths: selectedEntries.map((entry) => entry.path) }) },
+                canDelete && { key: 'delete', icon: <DeleteOutlined />, danger: true, label: t('common.delete'), onClick: () => remove(selectedEntries) },
+              ]}
+            />
+          )
+        }
+        tools={
+          <>
+            <SortButton
+              options={['name', 'mtime', 'size', 'type'].map((key) => ({ key, label: t(`drive.sort.${key}`) }))}
+              value={prefs.sort}
+              desc={prefs.desc}
+              onChange={(key) => setPrefs(key === prefs.sort ? { desc: !prefs.desc } : { sort: key, desc: key === 'mtime' })}
+            />
+            <ViewToggle value={prefs.view} onChange={(view) => setPrefs({ view })} />
+          </>
+        }
+      />
 
       {!data ? (
         <Skeleton active paragraph={{ rows: 6 }} />

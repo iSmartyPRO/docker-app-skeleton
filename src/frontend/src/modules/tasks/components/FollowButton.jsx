@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { App, Button, Tooltip } from 'antd';
+import { BellFilled, BellOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import api from '../../../services/api';
@@ -30,8 +31,16 @@ export default function FollowButton({ projectId }) {
   };
   return (
     <Tooltip title={t(on ? 'tasks.v2.follow.hintOn' : 'tasks.v2.follow.hintOff')}>
-      <Button onClick={toggle} loading={busy} type={on ? 'primary' : 'default'} ghost={on}>
-        {on ? '🔔' : '🔕'} {t(on ? 'tasks.v2.follow.following' : 'tasks.v2.follow.follow')}
+      <Button
+        className="mod-act"
+        onClick={toggle}
+        loading={busy}
+        type={on ? 'primary' : 'default'}
+        ghost={on}
+        icon={on ? <BellFilled /> : <BellOutlined />}
+        aria-label={t(on ? 'tasks.v2.follow.following' : 'tasks.v2.follow.follow')}
+      >
+        <span>{t(on ? 'tasks.v2.follow.following' : 'tasks.v2.follow.follow')}</span>
       </Button>
     </Tooltip>
   );

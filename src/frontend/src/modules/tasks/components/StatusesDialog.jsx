@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { App, Button, Input, Modal, Popover, Select } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { ColorSwatches } from '../../shared/People';
@@ -77,8 +78,8 @@ export default function StatusesDialog({ open, project, statuses, onClose }) {
           </div>
         ))}
       </div>
-      <Button onClick={() => setList((prev) => [...prev, { name: '', color: '#94A3B8', category: 'active' }])} disabled={list.length >= 12}>
-        + {t('tasks.addStatus')}
+      <Button onClick={() => setList((prev) => [...prev, { name: '', color: '#94A3B8', category: 'active' }])} disabled={list.length >= 12} icon={<PlusOutlined />}>
+        {t('tasks.addStatus')}
       </Button>
       <p className="dialog-note">{t('tasks.workflowNote')}</p>
     </Modal>

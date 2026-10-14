@@ -596,11 +596,20 @@ async function assertReadable(target, path, entry) {
 
 /** Image thumbnail (JPEG), cached by path + version; read access is checked before a cached one is served. */
 export async function sendThumb(res, target, rel, size = 320) {
+  const file = await thumbFile(target, rel, size);
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  res.sendFile(file);
+}
+
+/** Path of the cached JPEG thumbnail of an image (made when missing); `entry` skips the stat when known. */
+export async function thumbFile(target, rel, size = 320, known = null) {
   const path = cleanPath(rel);
-  const { entry } = await statEntry(target, path);
+  const entry = known || (await statEntry(target, path)).entry;
   const key = cacheKey(target, path, entry);
   const dim = [160, 320, 640].includes(Number(size)) ? Number(size) : 320;
-  const file = await cached(
+  return cached(
     'thumbs',
     `${key.id}-${key.version}-${dim}.jpg`,
     async () => {
@@ -611,10 +620,6 @@ export async function sendThumb(res, target, rel, size = 320) {
     },
     () => assertReadable(target, path, entry)
   );
-  res.setHeader('Content-Type', 'image/jpeg');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Cache-Control', 'private, max-age=3600');
-  res.sendFile(file);
 }
 
 /** Office document → PDF via the document conversion integration. */

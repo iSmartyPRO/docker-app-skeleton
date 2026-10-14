@@ -80,19 +80,24 @@ export default function ChessPage() {
         <Empty icon="🏢" title={t('mp.chess.empty')} text={t('mp.chess.emptyText')} />
       ) : (
         <>
-          <div className="mod-toolbar">
-            <Select value={house?.node.id} onChange={(id) => setParam('house', id)} options={houses.map((item) => ({ value: item.node.id, label: `${shortLabel(item.node)}${item.node.name && item.node.code ? ` · ${item.node.name}` : ''} (${item.units.length})` }))} style={{ minWidth: 220 }} aria-label={t('mp.chess.house')} />
-            {can(caps, 'price.view') && (
-              <Segmented value={show} onChange={setShow} options={[{ value: 'price', label: t('mp.chess.price') }, { value: 'ppm', label: t('mp.chess.ppm') }, { value: 'area', label: t('mp.chess.area') }]} />
-            )}
-            <SearchBox value={filter.q} onChange={(q) => setFilter({ ...filter, q })} />
-            <FilterButton value={filter} onChange={setFilter} caps={caps} />
-            <span className="mod-toolbar__grow" />
-            {!presentation && (can(caps, 'price.edit') || can(caps, 'status.not_for_sale')) && (
-              <Button type={picking ? 'primary' : 'default'} onClick={() => { setPicking(!picking); setPicked(new Set()); }}>
-                {picking ? t('mp.chess.pickDone') : t('mp.chess.pick')}
-              </Button>
-            )}
+          <div className="mp-chess-toolbar-wrap">
+            <div className="mod-toolbar mp-chess-toolbar">
+              <div className="mp-chess-toolbar__group">
+                <Select className="mp-chess-toolbar__house" value={house?.node.id} onChange={(id) => setParam('house', id)} options={houses.map((item) => ({ value: item.node.id, label: `${shortLabel(item.node)}${item.node.name && item.node.code ? ` · ${item.node.name}` : ''} (${item.units.length})` }))} popupMatchSelectWidth={false} aria-label={t('mp.chess.house')} />
+                {can(caps, 'price.view') && (
+                  <Segmented className="mp-chess-toolbar__show" value={show} onChange={setShow} options={[{ value: 'price', label: t('mp.chess.price') }, { value: 'ppm', label: t('mp.chess.ppm') }, { value: 'area', label: t('mp.chess.area') }]} />
+                )}
+              </div>
+              <div className="mp-chess-toolbar__group is-grow">
+                <SearchBox value={filter.q} onChange={(q) => setFilter({ ...filter, q })} />
+                <FilterButton value={filter} onChange={setFilter} caps={caps} />
+                {!presentation && (can(caps, 'price.edit') || can(caps, 'status.not_for_sale')) && (
+                  <Button className="mp-chess-toolbar__pick" type={picking ? 'primary' : 'default'} onClick={() => { setPicking(!picking); setPicked(new Set()); }}>
+                    {picking ? t('mp.chess.pickDone') : t('mp.chess.pick')}
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
           <Legend units={house.units} filter={filter} onChange={setFilter} caps={caps} />
           <div className="mp-chess" role="grid" aria-label={t('mp.nav.chess')}>

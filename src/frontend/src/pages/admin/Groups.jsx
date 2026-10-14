@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { App, Avatar, Button, Checkbox, Drawer, Empty, Form, Input, Popconfirm, Select, Switch, Tag } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/ui/PageHeader';
 import LoadState from '../../components/ui/LoadState';
 import { useAuth } from '../../context/AuthContext';
@@ -172,8 +173,8 @@ export default function AdminGroups() {
         description={t('groups.lead')}
         extra={
           can('groups.manage') && (
-            <Button type="primary" onClick={() => setEditing({})}>
-              + {t('groups.create')}
+            <Button type="primary" onClick={() => setEditing({})} icon={<PlusOutlined />}>
+              {t('groups.create')}
             </Button>
           )
         }

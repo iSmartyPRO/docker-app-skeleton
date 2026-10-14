@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Empty, Progress, Switch } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { tasksApi } from '../api';
 import { useTasks } from '../TasksContext';
@@ -25,22 +26,24 @@ export default function ProjectsPage() {
 
   return (
     <div className="tasks-page">
-      <header className="mod-hero">
+      <header className="mod-hero tasks-hero">
         <div className="mod-hero__text">
           <h1>{t('tasks.projects')}</h1>
           <p>{t('tasks.projectsLead')}</p>
         </div>
-        <div className="mod-hero__actions">
-          <label className="toolbar-switch">
-            <Switch size="small" checked={archived} onChange={setArchived} /> {t('tasks.showArchived')}
-          </label>
-          {config?.canCreateProjects && (
-            <Button type="primary" onClick={() => setCreating(true)}>
-              + {t('tasks.newProject')}
+        {config?.canCreateProjects && (
+          <div className="mod-hero__actions">
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)}>
+              {t('tasks.newProject')}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </header>
+      <div className="mod-toolbar">
+        <label className="toolbar-switch">
+          <Switch size="small" checked={archived} onChange={setArchived} /> {t('tasks.showArchived')}
+        </label>
+      </div>
       {list.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('tasks.noProjects')} />
       ) : (

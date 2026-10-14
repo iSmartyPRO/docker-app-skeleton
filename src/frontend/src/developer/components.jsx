@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { App, Button, DatePicker, Drawer, Input, InputNumber, Modal, Select, Switch, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
 import { MenuIcon } from '../components/icons/menuIcons';
@@ -390,8 +391,8 @@ export function RulesEditor({ value = [], onChange }) {
         </div>
       ))}
       <div className="ax-rules__foot">
-        <Button size="small" onClick={() => onChange([...value, { effect: 'deny', methods: [], path: '', note: '' }])}>
-          ＋ {t('api.rules.add')}
+        <Button size="small" onClick={() => onChange([...value, { effect: 'deny', methods: [], path: '', note: '' }])} icon={<PlusOutlined />}>
+          {t('api.rules.add')}
         </Button>
         <span className="ax-muted">{t('api.rules.syntax')}</span>
       </div>

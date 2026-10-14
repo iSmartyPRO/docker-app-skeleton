@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button, Drawer, Input, Segmented, Switch } from 'antd';
+import { DownloadOutlined, MenuOutlined } from '@ant-design/icons';
 import BrandMark from '../components/BrandMark';
 import LanguageSwitch from '../components/LanguageSwitch';
 import ThemeSwitch from '../components/ThemeSwitch';
@@ -351,8 +352,8 @@ export default function Developers() {
   return (
     <div className="dv">
       <header className="dv-top">
-        <button type="button" className="dv-burger" onClick={() => setNavOpen(true)} aria-label="Menu">
-          ☰
+        <button type="button" className="dv-burger" onClick={() => setNavOpen(true)} aria-label={t('common.menu')}>
+          <MenuOutlined />
         </button>
         <Link to="/" className="dv-top__brand">
           <BrandMark />
@@ -366,7 +367,7 @@ export default function Developers() {
         </div>
         <span className="dv-grow" />
         <a className="dv-top__link" href={`/api/developer/openapi.json?lang=${locale}&download=1`}>
-          {t('dev.openapi')} ↓
+          {t('dev.openapi')} <DownloadOutlined />
         </a>
         {viewer?.isAdmin && (
           <Link className="dv-top__link" to="/admin/api">

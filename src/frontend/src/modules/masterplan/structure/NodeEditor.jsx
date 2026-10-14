@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { App, Button, Checkbox, Collapse, Form, Input, InputNumber, Popconfirm, Select } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { DateField } from '../../../components/ui/DateTimeField';
@@ -165,7 +166,7 @@ export default function NodeEditor({ node, project, onSaved, onDeleted, onAddChi
         </div>
         {node.unit?.status && <StatusTag status={node.unit.status} />}
         <span className="mod-toolbar__grow" />
-        {node.kind !== 'unit' && <Button size="small" onClick={onAddChild}>＋ {t('mp.st.child')}</Button>}
+        {node.kind !== 'unit' && <Button size="small" onClick={onAddChild} icon={<PlusOutlined />}>{t('mp.st.child')}</Button>}
         {node.kind !== 'unit' && <Button size="small" onClick={onBulk}>{t('mp.st.bulk')}</Button>}
         <Popconfirm title={t('mp.st.deleteConfirm', { name: node.code || node.name })} description={t('mp.st.deleteText')} onConfirm={remove} okText={t('common.delete')} okButtonProps={{ danger: true }} cancelText={t('common.cancel')}>
           <Button size="small" danger>{t('common.delete')}</Button>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { App, Button, Select, Skeleton, TreeSelect } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { DateField } from '../../../components/ui/DateTimeField';
@@ -70,7 +71,7 @@ export default function TeamEditor() {
         ))}
       </div>
       <div className="mp-team__foot">
-        <Button onClick={() => { setRows((prev) => [...prev, { key: Date.now(), subjectType: 'user', subjectId: null, role: 'sales', nodeId: null, until: null }]); setDirty(true); }}>＋ {t('mp.team.add')}</Button>
+        <Button onClick={() => { setRows((prev) => [...prev, { key: Date.now(), subjectType: 'user', subjectId: null, role: 'sales', nodeId: null, until: null }]); setDirty(true); }} icon={<PlusOutlined />}>{t('mp.team.add')}</Button>
         <Button type="primary" disabled={!dirty} onClick={save}>{t('common.save')}</Button>
       </div>
       <details className="mp-team__help">

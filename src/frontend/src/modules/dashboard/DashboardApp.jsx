@@ -1,5 +1,6 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Dropdown, Skeleton } from 'antd';
+import { CheckOutlined, DownOutlined, EditOutlined, PlusOutlined, UndoOutlined } from '@ant-design/icons';
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import Chrome from '../../components/Chrome';
@@ -296,7 +297,7 @@ function Dashboard() {
   return (
     <div className={`dash${editing ? ' is-editing' : ''}`}>
       <header className="dash-head">
-        <div>
+        <div className="dash-head__title">
           <h1>{title}</h1>
           <p>{cap(new Date().toLocaleDateString(localeTag(locale), intlOptions({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })))}</p>
         </div>
@@ -305,22 +306,28 @@ function Dashboard() {
             {editing ? (
               <>
                 <span className={`dash-status is-${status}`}>{status === 'idle' ? t('dashboard.editHint') : t(`dashboard.saveStatus.${status}`)}</span>
-                <Button onClick={resetMine}>↺ {t('dashboard.reset')}</Button>
+                <Button className="mod-act" onClick={resetMine} icon={<UndoOutlined />} aria-label={t('dashboard.reset')} title={t('dashboard.reset')}>
+                  <span>{t('dashboard.reset')}</span>
+                </Button>
                 {adminMenu && (
                   <Dropdown menu={adminMenu} trigger={['click']}>
-                    <Button>{t('dashboard.admin.menu')} ▾</Button>
+                    <Button icon={<DownOutlined />} iconPosition="end">{t('dashboard.admin.menu')}</Button>
                   </Dropdown>
                 )}
-                <Button onClick={() => setGallery(true)}>＋ {t('dashboard.addWidget')}</Button>
-                <Button type="primary" onClick={() => setEditing(false)}>
-                  ✓ {t('dashboard.done')}
+                <Button className="mod-act" onClick={() => setGallery(true)} icon={<PlusOutlined />} aria-label={t('dashboard.addWidget')} title={t('dashboard.addWidget')}>
+                  <span>{t('dashboard.addWidget')}</span>
+                </Button>
+                <Button type="primary" onClick={() => setEditing(false)} icon={<CheckOutlined />}>
+                  {t('dashboard.done')}
                 </Button>
               </>
             ) : (
               <>
-                <Button onClick={() => setGallery(true)}>＋ {t('dashboard.addWidget')}</Button>
-                <Button type="primary" onClick={() => setEditing(true)}>
-                  ✎ {t('dashboard.customize')}
+                <Button className="mod-act" onClick={() => setGallery(true)} icon={<PlusOutlined />} aria-label={t('dashboard.addWidget')} title={t('dashboard.addWidget')}>
+                  <span>{t('dashboard.addWidget')}</span>
+                </Button>
+                <Button type="primary" onClick={() => setEditing(true)} icon={<EditOutlined />}>
+                  {t('dashboard.customize')}
                 </Button>
               </>
             )}
@@ -347,7 +354,7 @@ function Dashboard() {
           <p>{t('dashboard.emptyText')}</p>
           {canEdit && (
             <div className="dash-empty__actions">
-              <Button type="primary" size="large" onClick={() => setGallery(true)}>＋ {t('dashboard.addWidget')}</Button>
+              <Button type="primary" size="large" onClick={() => setGallery(true)} icon={<PlusOutlined />}>{t('dashboard.addWidget')}</Button>
               <Button size="large" onClick={resetMine}>{t('dashboard.restore')}</Button>
             </div>
           )}

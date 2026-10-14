@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Skeleton } from 'antd';
+import { AppstoreOutlined, PlusOutlined, TeamOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { kbApi, privateSource } from '../api';
@@ -37,11 +38,13 @@ export default function KbHome() {
         </div>
         <div className="kb-head__actions">
           {atLeast(rootLevel, 'manage') && (
-            <Button onClick={() => setDialog({ type: 'access' })}>{t('kb.access.rootButton')}</Button>
+            <Button className="mod-act" icon={<TeamOutlined />} onClick={() => setDialog({ type: 'access' })} aria-label={t('kb.access.rootButton')} title={t('kb.access.rootButton')}>
+              <span>{t('kb.access.rootButton')}</span>
+            </Button>
           )}
           {atLeast(rootLevel, 'edit') && (
-            <Button type="primary" onClick={() => setDialog({ type: 'folder' })}>
-              + {t('kb.newFolder')}
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setDialog({ type: 'folder' })}>
+              {t('kb.newFolder')}
             </Button>
           )}
         </div>
@@ -49,8 +52,8 @@ export default function KbHome() {
 
       <div className="kb-section">
         <h2>{t('kb.folders')}</h2>
-        <button type="button" className="kb-view-toggle" onClick={() => setView(view === 'grid' ? 'list' : 'grid')}>
-          {view === 'grid' ? '☰' : '▦'}
+        <button type="button" className="kb-view-toggle" onClick={() => setView(view === 'grid' ? 'list' : 'grid')} aria-label={t(view === 'grid' ? 'kb.viewList' : 'kb.viewGrid')} title={t(view === 'grid' ? 'kb.viewList' : 'kb.viewGrid')}>
+          {view === 'grid' ? <UnorderedListOutlined /> : <AppstoreOutlined />}
         </button>
       </div>
       <FolderContent

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button, Grid, Input, Pagination, Skeleton, Table, Tooltip } from 'antd';
+import { DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { HelpButton } from '../../../help/Hint';
@@ -242,35 +243,37 @@ export default function RegistryPage({ onCreate }) {
   return (
     <div className="ctr-page">
       <header className="ctr-page__head">
-        <div>
+        <div className="ctr-page__title">
           <h1>
-            {t('apps.contracts.name')} <HelpButton id="contracts" />
+            <span className="ctr-page__name">{t('apps.contracts.name')}</span> <HelpButton id="contracts" />
           </h1>
           <p>{t('contracts.registry.subtitle')}</p>
         </div>
         <div className="ctr-page__actions">
-          <Input.Search
-            ref={searchRef}
-            allowClear
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onSearch={(value) => setParam({ q: value.trim(), page: 1 })}
-            placeholder={t('contracts.registry.search')}
-            className="ctr-search"
-            aria-label={t('contracts.registry.search')}
-          />
           <Tooltip title={t('contracts.registry.export')}>
-            <Button href={contractsApi.exportUrl({ view, search, sort, order, lang: document.documentElement.lang })} aria-label={t('contracts.registry.export')}>
-              ⤓ CSV
+            <Button href={contractsApi.exportUrl({ view, search, sort, order, lang: document.documentElement.lang })} icon={<DownloadOutlined />} aria-label={t('contracts.registry.export')}>
+              CSV
             </Button>
           </Tooltip>
           {me.canCreate && (
-            <Button type="primary" onClick={onCreate}>
-              + {t('contracts.create')}
+            <Button type="primary" className="ctr-page__create" onClick={onCreate} icon={<PlusOutlined />} aria-label={t('contracts.create')}>
+              <span>{t('contracts.create')}</span>
             </Button>
           )}
         </div>
       </header>
+      <div className="ctr-toolbar">
+        <Input.Search
+          ref={searchRef}
+          allowClear
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onSearch={(value) => setParam({ q: value.trim(), page: 1 })}
+          placeholder={t('contracts.registry.search')}
+          className="ctr-search"
+          aria-label={t('contracts.registry.search')}
+        />
+      </div>
 
       <Chips view={view} counts={counts || globalCounts} onPick={(key) => setParam({ view: key, page: 1 })} expiringDays={settings.expiringDays || 30} />
 
@@ -285,7 +288,7 @@ export default function RegistryPage({ onCreate }) {
           icon={view === 'waiting' ? '✅' : view === 'archive' ? '🗄' : '📄'}
           title={emptyText}
           text={!search && view === 'all' && me.canCreate ? t('contracts.registry.emptyHint') : null}
-          action={!search && view === 'all' && me.canCreate ? <Button type="primary" onClick={onCreate}>+ {t('contracts.create')}</Button> : null}
+          action={!search && view === 'all' && me.canCreate ? <Button type="primary" onClick={onCreate} icon={<PlusOutlined />}>{t('contracts.create')}</Button> : null}
         />
       ) : mobile ? (
         <div className="ctr-mlist">

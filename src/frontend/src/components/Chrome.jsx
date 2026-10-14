@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { App, Avatar, Dropdown, Tooltip } from 'antd';
+import { DownOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
@@ -116,7 +117,7 @@ function UserMenu({ user }) {
         </Avatar>
         <span className="chrome__user-name">{name}</span>
         <span className="chrome__caret" aria-hidden="true">
-          ▾
+          <DownOutlined />
         </span>
       </button>
     </Dropdown>

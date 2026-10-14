@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { App, Button, Form, Input, Modal, Segmented, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import VisualEditor from './VisualEditor';
 import { htmlToMarkdown, markdownToHtml } from './articleHtml';
 import { useLocale } from '../../../context/LocaleContext';
@@ -231,7 +232,7 @@ export default function ItemDialog({ open, kind, item, folderId, onClose, onSave
           <div className="kb-attach-edit">
             <div className="kb-attach-edit__head">
               <strong>{t('kb.attachmentsTitle')} <Hint id="kb.attachments" /></strong>
-              <Button size="small" onClick={() => setPicker({ mode: 'attach' })}>+ {t('kb.attachFiles')}</Button>
+              <Button size="small" onClick={() => setPicker({ mode: 'attach' })} icon={<PlusOutlined />}>{t('kb.attachFiles')}</Button>
             </div>
             {attachments.length === 0 ? (
               <span className="kb-attach-edit__empty">{t('kb.attachHint')}</span>

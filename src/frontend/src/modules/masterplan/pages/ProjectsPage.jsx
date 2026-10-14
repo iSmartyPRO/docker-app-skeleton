@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { App, Button, Form, Input, Modal, Select } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { HelpButton } from '../../../help/Hint';
@@ -43,7 +44,7 @@ export default function ProjectsPage() {
         </div>
         <div className="mod-hero__actions">
           <HelpButton id="masterplan" />
-          {isAdmin && <Button type="primary" onClick={() => { form.resetFields(); setCreating(true); }}>＋ {t('mp.projects.create')}</Button>}
+          {isAdmin && <Button type="primary" onClick={() => { form.resetFields(); setCreating(true); }} icon={<PlusOutlined />}>{t('mp.projects.create')}</Button>}
         </div>
       </header>
       {!projects.length ? (

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Form, Input, Select, Switch } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import SaveBar from '../../../components/ui/SaveBar';
 import LoadState from '../../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../../components/ui/SettingsSection';
@@ -160,8 +161,8 @@ function SignInForm({ settings, save, groups }) {
                         <Button type="text" danger onClick={() => remove(field.name)}>×</Button>
                       </div>
                     ))}
-                    <Button onClick={() => add({ adGroup: '', groupId: undefined })}>
-                      + {t('signinSettings.addMapping')}
+                    <Button onClick={() => add({ adGroup: '', groupId: undefined })} icon={<PlusOutlined />}>
+                      {t('signinSettings.addMapping')}
                     </Button>
                   </div>
                 )}

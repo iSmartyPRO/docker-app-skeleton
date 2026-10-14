@@ -217,10 +217,18 @@
   background: color-mix(in srgb, var(--da-text) 6%, transparent);
 }
 
+.kb-head__actions > *,
+.kb-head > .kb-ficon,
+.kb-item__head > :first-child {
+  flex: none;
+}
+
 .kb-head__actions {
   display: flex;
+  flex: none;
+  align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .kb-toolbar,
@@ -568,8 +576,8 @@
 }
 
 .kb-item__title {
-  flex: 1;
-  min-width: 220px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .kb-item__title h1 {
@@ -1456,9 +1464,6 @@
     border-radius: 18px;
   }
 
-  .kb-head__actions {
-    width: 100%;
-  }
 
   .kb-viewer--file {
     height: calc(100vh - 200px);
@@ -2568,4 +2573,66 @@
   .ve-scroll {
     height: 55vh;
   }
+}
+
+/* ── Headers: one line of actions, the title block shrinks ─────────────────
+ * Folder / home / document headers are their own size containers: below
+ * 640px the secondary actions (.mod-act) turn into icon buttons (label in the
+ * tooltip), below 460px the folder icon and the lead line step aside.
+ */
+.kb-head,
+.kb-hero,
+.kb-item__head {
+  flex-wrap: wrap;
+  container-type: inline-size;
+}
+
+.kb-head__text,
+.kb-hero > div:first-child {
+  flex: 1 1 0;
+  min-width: min(220px, 100%);
+}
+
+.kb-item__title {
+  min-width: min(200px, 100%);
+}
+
+.kb-head h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container (max-width: 640px) {
+  .kb-head__actions .mod-act.ant-btn {
+    width: 32px;
+    padding-inline: 0;
+    flex: none;
+  }
+
+  .kb-head__actions .mod-act.ant-btn > span:not(.ant-btn-icon) {
+    display: none;
+  }
+}
+
+@container (max-width: 460px) {
+  .kb-head > .kb-ficon,
+  .kb-hero p {
+    display: none;
+  }
+
+  /* Phones: actions take the second row; the primary one stretches. */
+  .kb-head__actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  .kb-head__actions > .ant-btn-primary {
+    flex: 1 1 auto;
+  }
+}
+
+.kb-view-toggle {
+  display: inline-grid;
+  place-items: center;
 }

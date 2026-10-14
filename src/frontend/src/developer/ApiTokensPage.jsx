@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { App, Button } from 'antd';
+import { PlusOutlined, ReadOutlined } from '@ant-design/icons';
 import PageHeader from '../components/ui/PageHeader';
 import { useLocale } from '../context/LocaleContext';
 import { errorMessage } from '../lib/errors';
@@ -60,11 +61,13 @@ export default function ApiTokensPage() {
         description={t('api.personal.lead')}
         extra={
           <>
-            <Link to="/developers" target="_blank" rel="noreferrer">
-              <Button>{t('api.docs')} ↗</Button>
+            <Link to="/developers" target="_blank" rel="noreferrer" tabIndex={-1}>
+              <Button className="mod-act" icon={<ReadOutlined />} aria-label={t('api.docs')} title={t('api.docs')}>
+                <span>{t('api.docs')}</span>
+              </Button>
             </Link>
-            <Button type="primary" onClick={() => openEditor()} disabled={!data}>
-              ＋ {t('api.newToken')}
+            <Button type="primary" onClick={() => openEditor()} disabled={!data} icon={<PlusOutlined />}>
+              {t('api.newToken')}
             </Button>
           </>
         }
@@ -78,8 +81,8 @@ export default function ApiTokensPage() {
           title={t('api.noTokens')}
           text={t('api.noTokensText')}
           action={
-            <Button type="primary" size="large" onClick={() => openEditor()}>
-              ＋ {t('api.newToken')}
+            <Button type="primary" size="large" onClick={() => openEditor()} icon={<PlusOutlined />}>
+              {t('api.newToken')}
             </Button>
           }
         />

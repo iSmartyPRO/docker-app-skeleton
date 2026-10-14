@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App, Button, Form, Input, Popconfirm, Radio, Select, Switch } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { DateField } from '../../../components/ui/DateTimeField';
@@ -89,7 +90,7 @@ export default function ProjectForm() {
                 <Button type="text" onClick={() => remove(field.name)} aria-label={t('common.delete')}>✕</Button>
               </div>
             ))}
-            <Button size="small" onClick={() => add({ key: '', name: '' })}>＋ {t('mp.projects.addLevel')}</Button>
+            <Button size="small" onClick={() => add({ key: '', name: '' })} icon={<PlusOutlined />}>{t('mp.projects.addLevel')}</Button>
           </div>
         )}
       </Form.List>

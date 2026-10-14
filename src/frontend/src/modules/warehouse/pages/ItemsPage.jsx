@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Grid, Input, Pagination, Segmented, Skeleton, Table, TreeSelect } from 'antd';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, PlusOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { HelpButton } from '../../../help/Hint';
 import { whApi } from '../api';
@@ -56,8 +56,8 @@ export default function ItemsPage() {
     <div className="wh-page">
       <Hero icon="tag" title={t('wh.nav.items')} lead={t('wh.items.lead')}>
         <HelpButton id="warehouse" section="items" />
-        {meta.rights.canAdminAny && <Button onClick={() => setCategories(true)}>{t('wh.items.categories')}</Button>}
-        {meta.rights.canAdminAny && <Button onClick={() => navigate('/app/warehouse/import')}>{t('wh.nav.import')}</Button>}
+        {meta.rights.canAdminAny && <Button icon={<ApartmentOutlined />} onClick={() => setCategories(true)} aria-label={t('wh.items.categories')} title={t('wh.items.categories')}><span>{t('wh.items.categories')}</span></Button>}
+        {meta.rights.canAdminAny && <Button icon={<UploadOutlined />} onClick={() => navigate('/app/warehouse/import')} aria-label={t('wh.nav.import')} title={t('wh.nav.import')}><span>{t('wh.nav.import')}</span></Button>}
         {meta.rights.canEditItems && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)}>{t('wh.items.create')}</Button>}
       </Hero>
       <div className="mod-toolbar wh-toolbar">

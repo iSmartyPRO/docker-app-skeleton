@@ -1,11 +1,13 @@
 import { Router } from 'express';
+import { countsAsView } from '../../services/linkPreview/meta.js';
 import rateLimit from 'express-rate-limit';
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { LEVEL, contextFromRequest, httpError, intId, listSubjects, wrap } from '../shared/acl.js';
 import { officePreview, sendBlob, sendPdf, storagePath } from '../shared/storage.js';
 import { requireNode } from './access.js';
-import { countView, createLink, deleteLink, linkActivity, listLinks, nodeInLink, resolveLink, startSession, unlockLink, updateLink, visitorLinkShape } from './links.js';
+import { slugCheckLimiter } from '../shared/linkSlug.js';
+import { checkLinkSlug, countView, createLink, deleteLink, linkActivity, listLinks, nodeInLink, resolveLink, startSession, unlockLink, updateLink, visitorLinkShape } from './links.js';
 import { sessionUploads, visitorDelete, visitorFolderTree, visitorMkdir, visitorReplace, visitorUpdate, visitorUpload } from './linkWrites.js';
 import {
   createFolder,
@@ -157,6 +159,10 @@ export function privateRoutes() {
   router.put('/nodes/:id/shares', wrap(async (req, res) => res.json({ success: true, ...(await setShares(req.fs, intId(req.params.id), req.body?.entries)) })));
   router.get('/nodes/:id/links', wrap(async (req, res) => res.json({ success: true, ...(await listLinks(req.fs, intId(req.params.id))) })));
   router.post('/nodes/:id/links', wrap(async (req, res) => res.status(201).json({ success: true, link: await createLink(req.fs, intId(req.params.id), req.body || {}) })));
+  // Is a custom address free? Signed-in people only, limited per person (no enumeration).
+  router.get('/link-slugs/check', slugCheckLimiter('files'), wrap(async (req, res) => {
+    res.json({ success: true, ...(await checkLinkSlug(req.fs, { slug: req.query.slug, linkId: req.query.linkId ? intId(req.query.linkId) : null })) });
+  }));
   router.put('/links/:id', wrap(async (req, res) => res.json({ success: true, link: await updateLink(req.fs, intId(req.params.id), req.body || {}) })));
   router.get('/links/:id/activity', wrap(async (req, res) => res.json({ success: true, events: await linkActivity(req.fs, intId(req.params.id)) })));
   router.delete('/links/:id', wrap(async (req, res) => {
@@ -167,14 +173,14 @@ export function privateRoutes() {
   return router;
 }
 
-// ── Public links: /api/l/<token> ────────────────────────────────────────────
+// ── Public links: /api/l/<token or slug> ────────────────────────────────────
 
 const unlockLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${req.ip}:${req.params.token}`,
+  keyGenerator: (req) => `${req.ip}:${String(req.params.token).toLowerCase()}`,
   handler: (req, res) => res.status(429).json({ success: false, error: 'Too many attempts. Try again later.', code: 'RATE_LIMITED' }),
 });
 
@@ -224,7 +230,7 @@ export function publicRoutes() {
   router.get('/:token', wrap(async (req, res) => {
     const link = await openLink(req, res);
     if (!link) return;
-    if (!req.query.folder && req.query.preview !== '1') await countView(link);
+    if (!req.query.folder && req.query.preview !== '1' && countsAsView(req)) await countView(link);
     const conversion = parseSettings(await getSettings()).integrations.documents;
     const common = { link: visitorLinkShape(link), conversion: Boolean(conversion?.enabled && conversion?.serverUrl) };
     // Upload-only: the folder's name and the visitor's own uploads, never its contents.

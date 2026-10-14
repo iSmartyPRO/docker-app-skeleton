@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { App, Button, Input, Modal, Segmented, Select, Skeleton, Spin } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import Chrome from '../../components/Chrome';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
@@ -298,8 +299,8 @@ function Messenger() {
             </div>
             <h2>{t('chat.welcomeTitle')}</h2>
             <p>{t('chat.welcomeText')}</p>
-            <Button type="primary" size="large" onClick={() => setCreating(true)}>
-              ✎ {t('chat.newChat')}
+            <Button type="primary" size="large" onClick={() => setCreating(true)} icon={<EditOutlined />}>
+              {t('chat.newChat')}
             </Button>
           </div>
         )}

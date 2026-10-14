@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Drawer, Input, Result, Spin } from 'antd';
+import { MenuOutlined } from '@ant-design/icons';
 import Chrome from '../../components/Chrome';
 import { MenuIcon } from '../../components/icons/menuIcons';
 import { useLocale } from '../../context/LocaleContext';
@@ -102,7 +103,7 @@ function Shell() {
         <Sidebar onNavigate={() => setDrawer(false)} />
       </Drawer>
       <main className="kb-shell__main">
-        <Button className="kb-shell__menu" onClick={() => setDrawer(true)} icon={<span>☰</span>}>
+        <Button className="kb-shell__menu" onClick={() => setDrawer(true)} icon={<MenuOutlined />}>
           {t('kb.folders')}
         </Button>
         <Suspense

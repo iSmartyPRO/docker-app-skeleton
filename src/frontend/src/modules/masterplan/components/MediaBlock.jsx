@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { App, Button, Image, Popconfirm, Upload } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { mpApi } from '../api';
@@ -52,10 +53,10 @@ export default function MediaBlock({ title, name, hint, items, target, canEdit, 
         {canEdit && (
           <span className="mp-media__add">
             <Upload accept=".png,.jpg,.jpeg,.webp,.pdf" showUploadList={false} beforeUpload={upload('layout')}>
-              <Button size="small" loading={busy === 'layout'}>＋ {t('mp.series.layout')}</Button>
+              <Button size="small" loading={busy === 'layout'} icon={<PlusOutlined />}>{t('mp.series.layout')}</Button>
             </Upload>
             <Upload accept=".png,.jpg,.jpeg,.webp" showUploadList={false} beforeUpload={upload('render')}>
-              <Button size="small" loading={busy === 'render'}>＋ {t('mp.series.render')}</Button>
+              <Button size="small" loading={busy === 'render'} icon={<PlusOutlined />}>{t('mp.series.render')}</Button>
             </Upload>
           </span>
         )}

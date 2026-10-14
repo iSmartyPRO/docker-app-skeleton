@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { App, Button, ColorPicker, Input, InputNumber, Radio, Select, Switch } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { SettingRow, SettingsSection } from '../../../components/ui/SettingsSection';
@@ -94,8 +95,8 @@ export default function UrgencyEditor({ readOnly = false }) {
             </div>
           ))}
           {!readOnly && value.urgencies.length < 8 && (
-            <Button type="dashed" onClick={() => setValue((prev) => ({ ...prev, urgencies: [...prev.urgencies, { key: `u${Date.now().toString(36).slice(-4)}`, label: t('approvals.urgencyEditor.newLevel'), color: '#64748B', hours: 48, icon: 'flag' }] }))}>
-              + {t('approvals.urgencyEditor.add')}
+            <Button type="dashed" onClick={() => setValue((prev) => ({ ...prev, urgencies: [...prev.urgencies, { key: `u${Date.now().toString(36).slice(-4)}`, label: t('approvals.urgencyEditor.newLevel'), color: '#64748B', hours: 48, icon: 'flag' }] }))} icon={<PlusOutlined />}>
+              {t('approvals.urgencyEditor.add')}
             </Button>
           )}
         </div>

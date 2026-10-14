@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { App, Button, Checkbox, Dropdown, Skeleton, Switch, Tooltip } from 'antd';
+import { DownOutlined, SendOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/ui/PageHeader';
 import { IconBell, IconMail, IconMattermost, IconTelegram, IconWhatsapp } from '../../components/icons/AdminIcons';
 import { MenuIcon } from '../../components/icons/menuIcons';
@@ -269,8 +270,8 @@ export default function AccountNotifications() {
             </h3>
             <p>{t('notifyPrefs.whereLead')}</p>
           </div>
-          <Button type="primary" ghost loading={testing} onClick={runTest}>
-            ✉ {t('notifyPrefs.test')}
+          <Button type="primary" ghost loading={testing} onClick={runTest} icon={<SendOutlined />}>
+            {t('notifyPrefs.test')}
           </Button>
         </header>
         <div className="np-channels">
@@ -371,7 +372,7 @@ export default function AccountNotifications() {
               })),
             }}
           >
-            <Button>{t('notifyPrefs.presetsButton')} ▾</Button>
+            <Button icon={<DownOutlined />} iconPosition="end">{t('notifyPrefs.presetsButton')}</Button>
           </Dropdown>
         </header>
         <div className="np-matrix" style={{ '--np-cols': columns.length }}>

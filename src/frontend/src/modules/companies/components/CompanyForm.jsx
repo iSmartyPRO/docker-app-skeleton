@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, App, AutoComplete, Button, Collapse, Drawer, Form, Input, InputNumber, Select, Tag } from 'antd';
+import { DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { DateField } from '../../../components/ui/DateTimeField';
 import { errorMessage } from '../../../lib/errors';
@@ -168,8 +169,8 @@ export default function CompanyForm({ open, company, onClose }) {
               </Form.Item>
             )}
             {profile?.registry && (
-              <Button type="primary" size="large" className="cmp-lookup__btn" loading={looking} onClick={lookup}>
-                ⤓ {t('companies.fillFromRegistry')}
+              <Button type="primary" size="large" className="cmp-lookup__btn" loading={looking} onClick={lookup} icon={<DownloadOutlined />}>
+                {t('companies.fillFromRegistry')}
               </Button>
             )}
           </div>
@@ -398,7 +399,7 @@ export default function CompanyForm({ open, company, onClose }) {
                           <Button type="text" danger size="small" onClick={() => remove(field.name)}>{t('common.delete')}</Button>
                         </div>
                       ))}
-                      <Button type="dashed" onClick={() => add({ currency: { KG: 'KGS', RU: 'RUB', KZ: 'KZT', UZ: 'UZS', CN: 'CNY' }[country] || 'USD' })}>+ {t('companies.addBank')}</Button>
+                      <Button type="dashed" onClick={() => add({ currency: { KG: 'KGS', RU: 'RUB', KZ: 'KZT', UZ: 'UZS', CN: 'CNY' }[country] || 'USD' })} icon={<PlusOutlined />}>{t('companies.addBank')}</Button>
                     </div>
                   )}
                 </Form.List>

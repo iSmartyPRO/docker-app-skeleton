@@ -1,4 +1,5 @@
 import { Dropdown, Segmented, Select } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useLocale } from '../../../context/LocaleContext';
 import { useCrm } from '../CrmContext';
@@ -50,6 +51,7 @@ export function ViewSwitch({ value, onChange }) {
       aria-label={t('crm.views.label')}
       options={['kanban', 'list', 'activities', 'calendar'].map((view) => ({
         value: view,
+        title: t(`crm.views.${view}`),
         label: (
           <span className="crm-views__opt">
             <span className="crm-views__icon" aria-hidden="true">{view === 'list' ? <ListIcon /> : view === 'calendar' ? <CalIcon /> : <Glyph name={VIEW_ICONS[view]} size={14} />}</span>
@@ -125,7 +127,7 @@ export function CreateButton({ onFull, onQuick, block }) {
         ],
       }}
     >
-      ＋ {t('common.create')}
+      <PlusOutlined /> {t('common.create')}
     </Dropdown.Button>
   );
 }

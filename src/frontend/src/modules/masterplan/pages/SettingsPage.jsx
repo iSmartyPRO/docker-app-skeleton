@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { App, Button, ColorPicker, Input, InputNumber, Select, Switch, Table, Tabs } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -60,7 +61,7 @@ function TypesEditor() {
         ]}
       />
       <div className="mp-team__foot">
-        <Button onClick={() => { setRows((prev) => [...prev, { key: `n${Date.now()}`, name: '', nodeKind: 'object', category: 'residential', sellable: true, stageSet: 'lowrise', icon: 'house', color: '#3B82F6', used: 0 }]); setDirty(true); }}>＋ {t('mpSettings.t.add')}</Button>
+        <Button onClick={() => { setRows((prev) => [...prev, { key: `n${Date.now()}`, name: '', nodeKind: 'object', category: 'residential', sellable: true, stageSet: 'lowrise', icon: 'house', color: '#3B82F6', used: 0 }]); setDirty(true); }} icon={<PlusOutlined />}>{t('mpSettings.t.add')}</Button>
         <Button type="primary" disabled={!dirty} onClick={save}>{t('common.save')}</Button>
       </div>
     </div>
@@ -111,7 +112,7 @@ function StagesEditor() {
         ))}
       </ol>
       <div className="mp-team__foot">
-        <Button onClick={() => { setRows((prev) => [...prev, { key: `n${Date.now()}`, name: '', weight: 1 }]); setDirty(true); }}>＋ {t('mpSettings.s.add')}</Button>
+        <Button onClick={() => { setRows((prev) => [...prev, { key: `n${Date.now()}`, name: '', weight: 1 }]); setDirty(true); }} icon={<PlusOutlined />}>{t('mpSettings.s.add')}</Button>
         <Button
           type="primary"
           disabled={!dirty}

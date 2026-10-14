@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { App, Button, ColorPicker, Input, Modal, Popconfirm, Skeleton, Switch, Tag, Tooltip } from 'antd';
+import { AppstoreAddOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -161,9 +162,15 @@ export default function Manage() {
           <p>{t('resources.manageLead')}</p>
         </div>
         <div className="rs-head__actions">
-          <Link to="/admin/settings/resources"><Button>{t('resources.settings')}</Button></Link>
-          <Button onClick={() => setDialog({ type: 'modules' })}>⊞ {t('resources.addModules')}</Button>
-          <Button type="primary" onClick={() => setDialog({ type: 'item' })}>+ {t('resources.add')}</Button>
+          <Link to="/admin/settings/resources" tabIndex={-1}>
+            <Button className="mod-act" icon={<SettingOutlined />} aria-label={t('resources.settings')} title={t('resources.settings')}>
+              <span>{t('resources.settings')}</span>
+            </Button>
+          </Link>
+          <Button className="mod-act" icon={<AppstoreAddOutlined />} onClick={() => setDialog({ type: 'modules' })} aria-label={t('resources.addModules')} title={t('resources.addModules')}>
+            <span>{t('resources.addModules')}</span>
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setDialog({ type: 'item' })}>{t('resources.add')}</Button>
         </div>
       </header>
 
@@ -179,7 +186,7 @@ export default function Manage() {
             </Popconfirm>
           </span>
         ))}
-        <button type="button" className="rs-cat is-add" onClick={() => setDialog({ type: 'category' })}>+ {t('resources.addCategory')}</button>
+        <button type="button" className="rs-cat is-add" onClick={() => setDialog({ type: 'category' })}><PlusOutlined /> {t('resources.addCategory')}</button>
       </section>
 
       {items.length > 6 && (
@@ -189,7 +196,7 @@ export default function Manage() {
       {!items.length ? (
         <div className="rs-empty">
           <strong>{t('resources.emptyAdmin')}</strong>
-          <Button type="primary" onClick={() => setDialog({ type: 'item' })}>+ {t('resources.add')}</Button>
+          <Button type="primary" onClick={() => setDialog({ type: 'item' })} icon={<PlusOutlined />}>{t('resources.add')}</Button>
         </div>
       ) : (
         <>

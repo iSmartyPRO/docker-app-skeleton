@@ -146,13 +146,13 @@ export default {
       id: 'links',
       title: { ru: 'Публичные ссылки: права, пароль и срок', en: 'Public links: permissions, password and expiry' },
       body: {
-        ru: 'Публичная ссылка открывает файл или папку **без входа в портал** — например, для клиента или подрядчика. Ссылка на папку показывает только её содержимое, выйти за её пределы нельзя.\n\nВ меню «Поделиться…» → вкладка **«Публичные ссылки»** задайте:\n\n- **Пароль** — не короче 4 символов; посетитель вводит его один раз;\n- **Действует до** — 1, 7 или 30 дней либо конкретная дата;\n- **Что может получатель** — готовый набор прав или свои галочки (см. [Права ссылки](#link-permissions)).\n\nУ каждой ссылки видно права, число просмотров и загрузок. Её можно скопировать, показать QR-кодом, открыть «как увидит получатель», изменить, **отозвать** (и потом вернуть) или удалить. После смены пароля или отзыва все, кто уже открывал ссылку, потеряют доступ.',
-        en: 'A public link opens a file or folder **without signing in**, for a client or a contractor say. A folder link shows only what is inside; visitors cannot go above it.\n\nIn Share… → the **Public links** tab, set:\n\n- **Password**: at least 4 characters; the visitor enters it once;\n- **Expires**: 1, 7 or 30 days, or a specific date;\n- **What the recipient can do**: a ready preset or your own ticks (see [Link permissions](#link-permissions)).\n\nEach link shows its permissions, views and uploads. Copy it, show it as a QR code, open it “as the recipient”, edit it, **revoke** it (and restore later) or delete it. Revoking or changing the password cuts off everyone who already opened it.',
+        ru: 'Публичная ссылка открывает файл или папку **без входа в портал** — например, для клиента или подрядчика. Ссылка на папку показывает только её содержимое, выйти за её пределы нельзя.\n\nВ меню «Поделиться…» → вкладка **«Публичные ссылки»** сразу видны главные настройки:\n\n- **Что может получатель** — «Просмотр» или «Просмотр и скачивание»; для папок «Ещё…» открывает остальные варианты (см. [Права ссылки](#link-permissions));\n- **Срок действия** — без срока, 1, 7 или 30 дней либо дата (ссылка действует до конца этого дня);\n- **Пароль** — по желанию, не короче 4 символов; кнопка «Сгенерировать» придумает удобный пароль;\n- **Адрес ссылки** — можно задать понятный адрес вроде `/l/dogovor-keykompani` (см. [Свой адрес ссылки](#link-address)).\n\nВсё остальное — правила загрузки, имя посетителя, уведомления, название ссылки — в свёрнутом блоке **«Расширенные настройки»**.\n\nУ каждой ссылки в списке видно адрес, права, срок, замок пароля и число просмотров. Её можно скопировать, изменить, а в меню «⋯» — показать QR-кодом, открыть «как получатель», посмотреть действия, **отозвать** (и потом вернуть) или удалить. После смены пароля или отзыва все, кто уже открывал ссылку, потеряют доступ.',
+        en: 'A public link opens a file or folder **without signing in**, for a client or a contractor say. A folder link shows only what is inside; visitors cannot go above it.\n\nIn Share… → the **Public links** tab the main settings are right there:\n\n- **What the recipient can do**: View or View and download; for folders More… opens the other options (see [Link permissions](#link-permissions));\n- **Expires**: no expiry, 1, 7 or 30 days, or a date (the link works until the end of that day);\n- **Password**: optional, at least 4 characters; Generate makes an easy one;\n- **Link address**: a readable address such as `/l/dogovor-keykompani` (see [Your own link address](#link-address)).\n\nEverything else (upload rules, the visitor’s name, notifications, the link’s name) is in the collapsed **Advanced settings**.\n\nEach link in the list shows its address, permissions, expiry, a password lock and views. Copy or edit it; the ⋯ menu shows a QR code, opens it “as the recipient”, lists the activity, **revokes** it (and restores later) or deletes it. Revoking or changing the password cuts off everyone who already opened it.',
       },
       steps: [
         { ru: 'Меню файла → «Поделиться…» → «Публичные ссылки».', en: 'File menu → Share… → Public links.' },
-        { ru: 'Выберите, что может получатель, укажите пароль и срок.', en: 'Choose what the recipient can do, set a password and expiry.' },
-        { ru: 'Нажмите «Создать ссылку» — она сразу скопируется.', en: 'Press Create link: it is copied at once.' },
+        { ru: 'Выберите, что может получатель, срок и при желании пароль и свой адрес.', en: 'Choose what the recipient can do, the expiry and, if you like, a password and your own address.' },
+        { ru: 'Нажмите «Создать и скопировать» — ссылка уже в буфере обмена.', en: 'Press Create and copy: the link is on the clipboard.' },
         { ru: 'Отправьте ссылку и пароль получателю разными каналами.', en: 'Send the link and the password through different channels.' },
       ],
       example: {
@@ -165,6 +165,18 @@ export default {
       note: {
         ru: 'Администратор может выключить публичные ссылки, сделать пароль обязательным или ограничить срок. Ссылки на файлы в корзине не работают.',
         en: 'The administrator can turn public links off, make a password mandatory or cap their lifetime. Links to items in the trash do not work.',
+      },
+    },
+    {
+      id: 'link-address',
+      title: { ru: 'Свой адрес ссылки', en: 'Your own link address' },
+      body: {
+        ru: 'Вместо случайного адреса можно задать понятный: `portal…/l/dogovor-keykompani`. Пишите хоть по-русски — портал сам переведёт в латиницу; кнопка «Из названия» подставит имя файла.\n\n- Только латиница, цифры и дефис, от 3 до 64 символов; служебные слова (`admin`, `login`, `api`…) заняты;\n- адрес проверяется прямо при вводе: **«Свободно»** или **«Занято»** — тогда портал предложит варианты (`-2`, `-2026`…);\n- случайный адрес ссылки тоже продолжает работать;\n- если сменить адрес или удалить ссылку, старый адрес **сразу перестанет открываться**; 90 дней занять его сможете только вы.\n\nОтозванная или истёкшая ссылка сохраняет свой адрес — так отправленная кому-то ссылка никогда не откроет чужой файл.',
+        en: 'Instead of a random address you can set a readable one: `portal…/l/dogovor-keykompani`. Type in any language: the portal turns it into latin letters; From the name fills in the file name.\n\n- Latin letters, digits and hyphens only, 3 to 64 characters; service words (`admin`, `login`, `api`…) are taken;\n- the address is checked as you type: **Available** or **Taken**, with alternatives (`-2`, `-2026`…);\n- the random address keeps working too;\n- change the address or delete the link and the old address **stops opening at once**; for 90 days only you can take it again.\n\nA revoked or expired link keeps its address, so a link you sent never opens someone else’s file.',
+      },
+      note: {
+        ru: 'Понятный адрес легче угадать. Для важных файлов включите пароль.',
+        en: 'A readable address is easier to guess. Turn on a password for important files.',
       },
     },
     {
@@ -268,6 +280,11 @@ export default {
       title: { ru: 'Срок действия', en: 'Expiry' },
       text: { ru: 'После этой даты ссылка перестанет открываться сама. Пусто — бессрочно (если администратор не ограничил срок).', en: 'After this date the link stops working by itself. Empty means no expiry, unless the administrator capped it.' },
       more: 'links',
+    },
+    linkSlug: {
+      title: { ru: 'Адрес ссылки', en: 'Link address' },
+      text: { ru: 'Понятный адрес вместо случайного: латиница, цифры и дефис, 3–64 символа. Пусто — случайный адрес, который невозможно угадать.', en: 'A readable address instead of a random one: latin letters, digits and hyphens, 3–64 characters. Empty means a random address nobody can guess.' },
+      more: 'link-address',
     },
     linkPermissions: {
       title: { ru: 'Что может получатель', en: 'What the recipient can do' },

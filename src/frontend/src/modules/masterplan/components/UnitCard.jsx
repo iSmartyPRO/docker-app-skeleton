@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { App, Button, InputNumber, Input, Modal, Popover, Skeleton, Tabs, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { fmtDate, fmtDateTime } from '../../../lib/datetime';
@@ -269,7 +270,7 @@ export default function UnitCard({ nodeId: openId, version, onClose, onChanged, 
               <Link className="ant-btn ant-btn-default mp-linkbtn" to={`/app/crm/deals/${unit.deal.id}`}>{t('mp.card.openDeal')} ↗</Link>
             )}
             {actions.closeAll && unitIds.length > 0 && <Button onClick={() => setCloseAll({ ids: unitIds, to: 'not_for_sale' })}>{t('mp.bld.closeAll')}</Button>}
-            {actions.report && <Button onClick={() => setReport({ projectId: node.projectId, nodeIds: [node.id] })}>＋ {t('mp.report.short')}</Button>}
+            {actions.report && <Button onClick={() => setReport({ projectId: node.projectId, nodeIds: [node.id] })} icon={<PlusOutlined />}>{t('mp.report.short')}</Button>}
             {actions.migrate && <Button onClick={() => setMigrate({ node })}>{t('mp.migrate.action')}…</Button>}
           </div>
         )}

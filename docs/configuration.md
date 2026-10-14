@@ -24,7 +24,8 @@ Created by `make env` from `.env.example`. **Never commit it.**
 | `SETUP_LOCKED` | written by the app | Set to `true` once setup finishes; keeps `/api/setup` closed even during a DB outage |
 | `SEED_LOCALE` | first user's language | Language for default groups created on upgrade (`en` / `ru`) |
 | `TRUST_PROXY_HOPS` | `1` | Proxies in front of Express (bundled nginx = 1). Behind Traefik / NPM / Cloudflare use `2` |
-| `PUBLIC_URL` | `FRONTEND_URL` | Public origin for links in emails/push and the Google redirect URI |
+| `PUBLIC_URL` | `FRONTEND_URL` | Public origin for links in emails/push, the Google redirect URI and link previews (`og:url`, `og:image`; without it the request host is used) |
+| `FRONTEND_DIST` | `../frontend/dist` | Built frontend whose `index.html` the app serves with link-preview tags ([link-previews.md](link-previews.md)) |
 | `ENCRYPTION_KEY` | derived from `JWT_SECRET` | Key for sealed secrets (Google tokens, VAPID private key) |
 | `DISABLE_SCHEDULER` | `false` | `true` stops background jobs (reminders) on this instance |
 | `PUSH_CONTACT` | — | Contact email for VAPID when `PUBLIC_URL` is not HTTPS |

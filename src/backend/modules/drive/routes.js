@@ -1,11 +1,14 @@
 import express, { Router } from 'express';
+import { countsAsView } from '../../services/linkPreview/meta.js';
 import { requestRegional } from '../../services/regional.js';
 import rateLimit from 'express-rate-limit';
 import { optionalAuth } from '../../middleware/auth.js';
 import { httpError, intId, listSubjects, wrap } from '../shared/acl.js';
 import { connectionStatus, driveSettings, forgetCredential, saveCredential } from './credentials.js';
+import { slugCheckLimiter } from '../shared/linkSlug.js';
 import {
   allLinks,
+  checkLinkSlug,
   countView,
   createLink,
   deleteLink,
@@ -240,8 +243,13 @@ export function privateRoutes() {
       allowDownload: req.body?.allowDownload,
       permissions: Array.isArray(req.body?.permissions) ? req.body.permissions.slice(0, 10) : undefined,
       revoked: req.body?.revoked,
+      slug: req.body?.slug !== undefined ? String(req.body.slug || '').slice(0, 64) : undefined,
     },
   });
+  // Is a custom address free? Signed-in people only, limited per person (no enumeration).
+  router.get('/link-slugs/check', slugCheckLimiter('drive'), wrap(async (req, res) => {
+    res.json({ success: true, ...(await checkLinkSlug(req.drive, { slug: req.query.slug, linkId: req.query.linkId ? intId(req.query.linkId) : null })) });
+  }));
   router.post('/shares/:id/links', audited('link_create', linkEvent, async (req, res) => {
     const link = await createLink(req.drive, req.params.id, req.body?.path, req.body || {});
     res.json({ success: true, link });
@@ -336,7 +344,7 @@ export function privateRoutes() {
   return router;
 }
 
-// ── Public links: /api/d/<token> ────────────────────────────────────────────
+// ── Public links: /api/d/<token or slug> ────────────────────────────────────────────
 
 const limitAnswer = (req, res) => res.status(429).json({ success: false, error: 'Too many attempts. Try again later.', code: 'RATE_LIMITED' });
 
@@ -347,7 +355,7 @@ const unlockLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
-  keyGenerator: (req) => `${req.ip}:${req.params.token}`,
+  keyGenerator: (req) => `${req.ip}:${String(req.params.token).toLowerCase()}`,
   handler: limitAnswer,
 });
 
@@ -433,7 +441,8 @@ function visit(handler, audit, { write = false } = {}) {
     } catch (raw) {
       if (clientLeft(req, res, raw)) log(null);
       else if (!LINK_FLOW.has(raw?.code)) log(null, { ok: false, code: raw?.code || 'ERROR', details: { error: String(raw?.message || '').slice(0, 300) } });
-      const smb = raw.smb || SMB_CODES.includes(raw.code);
+      // File-server codes only once the link opened: an unknown address stays NOT_FOUND ("no such link").
+      const smb = raw.smb || (opened && SMB_CODES.includes(raw.code));
       const err = smb ? (write ? visitorWriteError(raw) : visitorError(raw)) : raw;
       if (res.headersSent) {
         res.destroy();
@@ -538,7 +547,7 @@ export function publicRoutes() {
   router.get('/:token', visit(async (req, res, { link, target, audience, perms, visitor, settings }) => {
     const canView = perms.includes('view');
     const sub = canView ? cleanPath(req.query.path) : '';
-    if (!sub) await countView(link);
+    if (!sub && countsAsView(req)) await countView(link);
     const quota = quotaBytes(link);
     const base = {
       link: {

@@ -208,7 +208,7 @@ h4,
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 38px;
+  height: 36px;
   padding: 3px 10px 3px 3px;
   border-radius: 999px;
   border: 1px solid var(--da-hairline);
@@ -269,7 +269,7 @@ h4,
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 3px;
+  padding: 2px;
   border-radius: 999px;
   border: 1px solid var(--da-hairline);
 }
@@ -701,8 +701,23 @@ h4,
 
 .page-header__extra {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  max-width: 100%;
+}
+
+/* Phones: secondary header actions (.mod-act) keep only their icon. */
+@media (max-width: 560px) {
+  .page-header__extra .mod-act.ant-btn {
+    width: 32px;
+    padding-inline: 0;
+    flex: none;
+  }
+
+  .page-header__extra .mod-act.ant-btn > span:not(.ant-btn-icon) {
+    display: none;
+  }
 }
 
 .page-alert {
@@ -727,10 +742,22 @@ h4,
 
 .settings-section__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px 16px;
   padding: 20px 24px 0;
+}
+
+.settings-section__head > :first-child {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.settings-section__extra {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .settings-section__title {
@@ -1514,14 +1541,48 @@ h4,
   font-weight: 600;
 }
 
+.panel__head > * {
+  min-width: 0;
+}
+
+.panel__head > .ant-btn,
+.panel__head > .ant-space {
+  flex: none;
+}
+
+/* Filter row: the search grows, selects share the rest; a wrapped row is
+   filled edge to edge (the count right-aligns on its own line). */
 .panel__head--filters {
   justify-content: flex-start;
   flex-wrap: wrap;
 }
 
+.panel__head--filters .panel__search {
+  flex: 2 1 220px;
+  max-width: 360px;
+}
+
+.panel__head--filters .panel__filter.ant-select {
+  flex: 1 1 150px;
+  max-width: 220px;
+}
+
 .panel__count {
+  flex: 1 0 auto;
   margin-left: auto;
   font-size: 13px;
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .panel__head--filters .panel__search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .panel__head--filters .panel__filter.ant-select {
+    max-width: none;
+  }
 }
 
 .panel__body {
@@ -1756,8 +1817,16 @@ h4,
 }
 
 .profile-hero__text {
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.profile-hero {
+  flex-wrap: nowrap;
+}
+
+.profile-hero__actions {
+  margin-top: 10px;
 }
 
 .profile-hero__name {
@@ -2333,7 +2402,7 @@ h4,
 .role-grid,
 .group-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 12px;
 }
 
@@ -2387,8 +2456,9 @@ h4,
 
 .role-card__title {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   font-weight: 700;
 }
 

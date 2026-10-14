@@ -47,6 +47,7 @@ export const filesApi = {
   updateLink: (id, payload) => api.put(`${base}/links/${id}`, payload),
   deleteLink: (id) => api.delete(`${base}/links/${id}`),
   linkActivity: (id) => api.get(`${base}/links/${id}/activity`),
+  checkSlug: (slug, linkId) => api.get(`${base}/link-slugs/check`, { params: { slug, ...(linkId ? { linkId } : {}) } }),
 };
 
 const enc = encodeURIComponent;

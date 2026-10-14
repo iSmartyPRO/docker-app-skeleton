@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Checkbox } from 'antd';
+import { RightOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { Person } from '../../shared/People';
 import { ChecklistBadge, CommentBadge, DueChip, LabelTag, PriorityIcon } from './bits';
@@ -60,7 +61,7 @@ export default function TaskList({ groups, onOpen, onToggle, showProject, canEdi
         group.tasks.length || group.alwaysShow ? (
           <section key={group.key} className={`task-group${group.tone ? ` is-${group.tone}` : ''}`} style={{ '--c': group.color }}>
             <button type="button" className="task-group__head" onClick={() => toggle(group.key)}>
-              <span className={`task-group__caret${collapsed.has(group.key) ? '' : ' is-open'}`}>▸</span>
+              <span className={`task-group__caret${collapsed.has(group.key) ? '' : ' is-open'}`} aria-hidden="true"><RightOutlined /></span>
               {group.color && <span className="status-pip" />}
               <strong>{group.label}</strong>
               <span className="task-group__count">{group.tasks.length}</span>

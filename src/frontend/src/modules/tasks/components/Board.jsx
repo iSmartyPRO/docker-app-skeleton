@@ -13,6 +13,7 @@ import {
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Input } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import TaskCard from './TaskCard';
 
@@ -56,7 +57,7 @@ function QuickAdd({ onCreate }) {
   if (!open) {
     return (
       <button type="button" className="board-col__add" onClick={() => setOpen(true)}>
-        + {t('tasks.addTask')}
+        <PlusOutlined /> {t('tasks.addTask')}
       </button>
     );
   }

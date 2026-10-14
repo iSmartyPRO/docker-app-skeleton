@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { countsAsView } from '../../services/linkPreview/meta.js';
 import rateLimit from 'express-rate-limit';
 import { query } from '../../config/database.js';
 import { LEVEL, contextFromRequest, httpError, loadAccess, requireLevel } from './access.js';
@@ -301,7 +302,7 @@ export function publicRoutes() {
       }
       throw err;
     }
-    if (!req.query.folder) await countView(share);
+    if (!req.query.folder && countsAsView(req)) await countView(share);
     const { module, conversion } = await kbSettings();
     const { access, target } = await sharedFolder(share, req.query.folder ? id(req.query.folder) : null);
     const [folder, children, items, root] = await Promise.all([

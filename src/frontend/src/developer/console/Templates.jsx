@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { App, Button, Drawer, Input } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { consoleApi } from '../client';
@@ -145,8 +146,8 @@ export default function Templates({ templates, meta, setTemplates, reload }) {
       <div className="ax-toolbar">
         <p className="ax-muted ax-toolbar__lead">{t('api.editor.templateHint')}</p>
         <span className="ax-grow" />
-        <Button type="primary" onClick={() => setEditor({ open: true, template: null })}>
-          ＋ {t('api.newTemplate')}
+        <Button type="primary" onClick={() => setEditor({ open: true, template: null })} icon={<PlusOutlined />}>
+          {t('api.newTemplate')}
         </Button>
       </div>
       <div className="ax-tplgrid">

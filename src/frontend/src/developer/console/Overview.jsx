@@ -1,3 +1,4 @@
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../context/LocaleContext';
 import { formatDateTime } from '../../lib/format';
 import { Bars, Donut, Legend, TimeChart } from '../../modules/dashboard/charts';
@@ -79,7 +80,7 @@ export default function Overview({ overview, go, openEditor }) {
             <div className="ax-chart-empty">
               <p>{t('api.chart.empty')}</p>
               <button type="button" className="ax-linkbtn" onClick={() => openEditor()}>
-                ＋ {t('api.newToken')}
+                <PlusOutlined /> {t('api.newToken')}
               </button>
             </div>
           )}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { App, Button, Checkbox, Input, InputNumber, Modal, Radio, Segmented, Select, Switch, Tag } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../../context/LocaleContext';
 import { errorMessage } from '../../../../lib/errors';
 import { getRegional, todayISO, nowInZone } from '../../../../lib/datetime';
@@ -222,7 +223,7 @@ export function RemindersBlock({ reminders, onAdd, onDelete, onRemove, hasDeadli
       icon="⏰"
       title={<HintLabel id="tasks.reminders">{t('tasks.v2.chips.reminders')}</HintLabel>}
       onRemove={onRemove}
-      extra={!disabled && <Button size="small" type="text" onClick={() => setOpen(true)}>＋ {t('tasks.v2.rem.add')}</Button>}
+      extra={!disabled && <Button size="small" type="text" onClick={() => setOpen(true)} icon={<PlusOutlined />}>{t('tasks.v2.rem.add')}</Button>}
     >
       {reminders.length ? (
         <ul className="te-list">
@@ -276,7 +277,7 @@ export function ParentBlock({ parent, onChange, onRemove, disabled, exclude }) {
 export function SubtasksBlock({ subtasks, onCreate, onRemove, mode }) {
   const { t } = useLocale();
   return (
-    <Block icon="⤵" title={t('tasks.v2.chips.subtasks')} onRemove={onRemove} extra={mode === 'task' && <Button size="small" type="text" onClick={onCreate}>＋ {t('tasks.v2.subtask')}</Button>}>
+    <Block icon="⤵" title={t('tasks.v2.chips.subtasks')} onRemove={onRemove} extra={mode === 'task' && <Button size="small" type="text" onClick={onCreate} icon={<PlusOutlined />}>{t('tasks.v2.subtask')}</Button>}>
       {mode !== 'task' ? (
         <div className="te-muted">{t('tasks.v2.subtasksLater')}</div>
       ) : subtasks.length ? (
@@ -428,7 +429,7 @@ export function FieldsBlock({ value, onChange, onRemove, disabled }) {
   }, []);
   const set = (id, next) => onChange({ ...(value || {}), [id]: next });
   return (
-    <Block icon="✚" title={t('tasks.v2.chips.fields')} onRemove={onRemove} extra={!disabled && <Button size="small" type="text" onClick={() => setAdding(!adding)}>＋ {t('tasks.v2.fields.add')}</Button>}>
+    <Block icon="✚" title={t('tasks.v2.chips.fields')} onRemove={onRemove} extra={!disabled && <Button size="small" type="text" onClick={() => setAdding(!adding)} icon={<PlusOutlined />}>{t('tasks.v2.fields.add')}</Button>}>
       {adding && (
         <div className="te-inline te-inline--wrap te-fieldadd">
           <Input placeholder={t('tasks.v2.fields.name')} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} style={{ flex: 1, minWidth: 180 }} />

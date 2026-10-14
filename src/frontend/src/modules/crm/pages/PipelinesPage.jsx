@@ -4,6 +4,7 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { App, Button, Input, Modal, Popover, Select, Skeleton, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { ColorSwatches, PALETTE } from '../../shared/People';
@@ -178,8 +179,8 @@ function PipelineEditor({ pipeline, onSaved, onDeleted, canDelete, others }) {
           </div>
         </SortableContext>
       </DndContext>
-      <Button type="dashed" block className="pl-add" onClick={() => setStages([...open, { key: tempKey(), name: '', color: PALETTE[(open.length + 2) % PALETTE.length], kind: 'open' }, ...closed])}>
-        + {t('crm.pipelines.addStage')}
+      <Button type="dashed" block className="pl-add" onClick={() => setStages([...open, { key: tempKey(), name: '', color: PALETTE[(open.length + 2) % PALETTE.length], kind: 'open' }, ...closed])} icon={<PlusOutlined />}>
+        {t('crm.pipelines.addStage')}
       </Button>
       <div className="pl-label">{t('crm.pipelines.final')}</div>
       <div className="pl-stages">
@@ -286,7 +287,7 @@ export default function PipelinesPage() {
           <h1>{t('crm.pipelines.title')}</h1>
           <p>{t('crm.pipelines.lead')}</p>
         </div>
-        <Button type="primary" onClick={() => setCreating('')}>＋ {t('crm.pipelines.new')}</Button>
+        <Button type="primary" onClick={() => setCreating('')} icon={<PlusOutlined />}>{t('crm.pipelines.new')}</Button>
       </header>
       <div className="pl-layout">
         <aside className="pl-list">

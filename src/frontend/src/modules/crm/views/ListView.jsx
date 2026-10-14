@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Checkbox, Popover, Select, Table, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -229,7 +230,7 @@ export default function ListView({ pipeline, params, version, onOpen, onChanged,
         showSorterTooltip={false}
         locale={{
           emptyText: data ? (
-            <Empty icon="filter" title={t('crm.list.empty')} text={t('crm.list.emptyText')} action={<Button type="primary" onClick={onCreate}>＋ {t('crm.create.full')}</Button>} />
+            <Empty icon="filter" title={t('crm.list.empty')} text={t('crm.list.emptyText')} action={<Button type="primary" onClick={onCreate} icon={<PlusOutlined />}>{t('crm.create.full')}</Button>} />
           ) : (
             <div className="crm-table-skel">{[0, 1, 2, 3, 4, 5].map((n) => <div key={n} />)}</div>
           ),

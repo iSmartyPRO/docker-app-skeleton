@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button, Dropdown, Result, Skeleton } from 'antd';
+import { DownloadOutlined, MoreOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
@@ -78,11 +79,13 @@ export default function KbItem() {
         </div>
         <div className="kb-head__actions">
           {item.kind === 'file' && (
-            <Button href={src.file(item, { download: true })}>⤓ {t('kb.download')}</Button>
+            <Button className="mod-act" icon={<DownloadOutlined />} href={src.file(item, { download: true })} aria-label={t('kb.download')} title={t('kb.download')}>
+              <span>{t('kb.download')}</span>
+            </Button>
           )}
           {menu.length > 0 && (
             <Dropdown menu={{ items: menu }} trigger={['click']}>
-              <Button>⋯</Button>
+              <Button icon={<MoreOutlined />} aria-label={t('common.moreActions')} title={t('common.moreActions')} />
             </Dropdown>
           )}
         </div>

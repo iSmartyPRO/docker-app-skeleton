@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { App, Button, Dropdown, Result, Segmented, Skeleton, Tooltip } from 'antd';
+import { AppstoreOutlined, MoreOutlined, PlusOutlined, ShareAltOutlined, TeamOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { kbApi, privateSource } from '../api';
@@ -224,7 +225,7 @@ export default function KbFolder() {
       <header className="kb-head" style={{ '--c': folder.color || config.defaultColor }}>
         <FolderIcon folder={folder} config={config} size={56} />
         <div className="kb-head__text">
-          <h1>{folder.name}</h1>
+          <h1 title={folder.name}>{folder.name}</h1>
           {folder.description && <p>{folder.description}</p>}
           <div className="kb-head__meta">
             {t('kb.counts', { folders: data.folders.length, items: data.items.length })}
@@ -234,19 +235,23 @@ export default function KbFolder() {
         </div>
         <div className="kb-head__actions">
           {canManage && config.publicLinks && (
-            <Button onClick={() => setDialog({ type: 'share', folder })}>{t('kb.share.button')}</Button>
+            <Button className="mod-act" icon={<ShareAltOutlined />} onClick={() => setDialog({ type: 'share', folder })} aria-label={t('kb.share.button')} title={t('kb.share.button')}>
+              <span>{t('kb.share.button')}</span>
+            </Button>
           )}
           {canManage && (
-            <Button onClick={() => setDialog({ type: 'access', resource: 'folder', id: folder.id, title: folder.name })}>{t('kb.access.button')}</Button>
+            <Button className="mod-act" icon={<TeamOutlined />} onClick={() => setDialog({ type: 'access', resource: 'folder', id: folder.id, title: folder.name })} aria-label={t('kb.access.button')} title={t('kb.access.button')}>
+              <span>{t('kb.access.button')}</span>
+            </Button>
           )}
           {folderActions(folder, { current: true }).length > 0 && (
             <Dropdown menu={{ items: folderActions(folder, { current: true }).filter((entry) => !['share', 'access'].includes(entry.key)) }} trigger={['click']}>
-              <Button>⋯</Button>
+              <Button icon={<MoreOutlined />} aria-label={t('common.moreActions')} title={t('common.moreActions')} />
             </Dropdown>
           )}
           {canEdit && (
             <Dropdown menu={{ items: createMenu }} trigger={['click']}>
-              <Button type="primary">+ {t('kb.add')}</Button>
+              <Button type="primary" icon={<PlusOutlined />}>{t('kb.add')}</Button>
             </Dropdown>
           )}
         </div>
@@ -257,8 +262,8 @@ export default function KbFolder() {
           value={view}
           onChange={setView}
           options={[
-            { value: 'grid', label: <Tooltip title={t('kb.viewGrid')}>▦</Tooltip> },
-            { value: 'list', label: <Tooltip title={t('kb.viewList')}>☰</Tooltip> },
+            { value: 'grid', label: <Tooltip title={t('kb.viewGrid')}><AppstoreOutlined aria-label={t('kb.viewGrid')} /></Tooltip> },
+            { value: 'list', label: <Tooltip title={t('kb.viewList')}><UnorderedListOutlined aria-label={t('kb.viewList')} /></Tooltip> },
           ]}
         />
         {canEdit && <span className="kb-toolbar__hint">{t('kb.dropHint')}</span>}

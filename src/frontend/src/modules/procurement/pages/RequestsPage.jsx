@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { App, Button, Checkbox, Dropdown, Grid, Input, Pagination, Popover, Segmented, Select, Skeleton, Table } from 'antd';
-import { DownloadOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { DownOutlined, DownloadOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { HelpButton } from '../../../help/Hint';
@@ -157,11 +157,11 @@ function ViewsMenu({ filter, onApply }) {
       onClick: () => onApply(view.filter),
     })),
     ...(views.length ? [{ type: 'divider' }] : []),
-    { key: 'save', label: `＋ ${t('procurement.views.save')}`, onClick: save },
+    { key: 'save', icon: <PlusOutlined />, label: t('procurement.views.save'), onClick: save },
   ];
   return (
     <Dropdown menu={{ items }} trigger={['click']}>
-      <Button>{t('procurement.views.title')} ▾</Button>
+      <Button className="prc-views-btn" icon={<DownOutlined />} iconPosition="end">{t('procurement.views.title')}</Button>
     </Dropdown>
   );
 }
@@ -358,12 +358,14 @@ export default function RequestsPage() {
 
       <Chips counters={counters} value={filter.chip} onChange={(chip) => setFilter({ chip })} />
 
+      <div className="prc-toolbar-wrap">
       <div className="mod-toolbar prc-toolbar">
         <Input allowClear prefix={<SearchOutlined />} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('procurement.searchPlaceholder')} className="prc-search" />
         <FilterPopover filter={filter} onChange={setFilter} />
         <ViewsMenu filter={filter} onApply={(saved) => setFilter({ ...Object.fromEntries(['chip', 'q', 'sort', 'order', ...FILTER_KEYS].map((key) => [key, undefined])), ...saved }, false)} />
         <span className="mod-toolbar__grow" />
         <Segmented
+          className="prc-view-switch"
           value={view}
           onChange={(next) => setFilter({ view: next === 'table' ? undefined : next })}
           options={[
@@ -372,9 +374,10 @@ export default function RequestsPage() {
           ]}
         />
         {view === 'table' && screens.md && <ColumnsMenu value={columns} onChange={setCols} />}
-        <Button icon={<DownloadOutlined />} href={exportHref} aria-label={t('procurement.export')} title={t('procurement.export')}>
-          {screens.md ? t('procurement.exportShort') : null}
+        <Button className="prc-export" icon={<DownloadOutlined />} href={exportHref} aria-label={t('procurement.export')} title={t('procurement.export')}>
+          {screens.md ? <span>{t('procurement.exportShort')}</span> : null}
         </Button>
+      </div>
       </div>
 
       {view === 'kanban' ? (

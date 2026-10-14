@@ -3,6 +3,7 @@ import { registerJob } from '../../services/scheduler.js';
 import { onDirectoryCredential, onDirectorySignIn } from '../../services/hooks.js';
 import { cleanupCredentials, rememberLoginCredential, storeDirectoryCredential } from './credentials.js';
 import { pruneActivity } from './activity.js';
+import { ensureSlugSchema } from '../shared/linkSlug.js';
 
 /*
  * Drive: the company's file servers (SMB) as one network drive.
@@ -106,6 +107,8 @@ export async function ensureDriveSchema() {
       ADD COLUMN IF NOT EXISTS require_email BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS notify BOOLEAN NOT NULL DEFAULT FALSE
   `);
+  // Custom addresses /d/<slug> (shared/linkSlug.js).
+  await ensureSlugSchema('drive');
   await query(`UPDATE drive_links SET permissions = CASE WHEN allow_download THEN '{view,download}'::text[] ELSE '{view}'::text[] END WHERE permissions IS NULL`);
   // Files visitors uploaded through a link: their "my uploads" list (per
   // browser session) and the author's overview.

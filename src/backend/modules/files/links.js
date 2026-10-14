@@ -5,12 +5,15 @@ import config from '../../config/app.js';
 import { query } from '../../config/database.js';
 import { requestAs } from '../../api/events.js';
 import { LEVEL, avatarOf, contextFromRequest, httpError } from '../shared/acl.js';
+import { addressMatch, addressOrder, checkSlug, claimSlug, clearHold, freshToken, releaseSlug, rethrowSlugConflict } from '../shared/linkSlug.js';
 import { chainOf, nodeAccess, requireNode } from './access.js';
 import { filesSettings } from './service.js';
 
 /*
  * Public links: /l/<token> opens a file or a folder (and everything inside it)
- * to anyone with the link. Optional password and expiry.
+ * to anyone with the link. Optional password and expiry. A link may also have
+ * a custom address, /l/<slug> (shared/linkSlug.js): the token keeps working,
+ * a changed or deleted slug stops at once and is held for its author.
  *
  * Each link carries a set of permissions (the same keys as the shared picker
  * components/ui/LinkPermissions.jsx):
@@ -96,6 +99,7 @@ function linkShape(row, viewerId = null) {
   return {
     id: row.id,
     token: row.token,
+    slug: row.slug || null,
     title: row.title || '',
     hasPassword: Boolean(row.password_hash),
     expiresAt: row.expires_at,
@@ -216,15 +220,17 @@ export async function createLink(ctx, nodeId, input = {}) {
   const permissions = permissionsFromInput(input, scope.isFolder);
   checkGrant(permissions, scope, Boolean(password));
   const options = optionsFrom(input, settings);
+  const expiresAt = parseExpiry(input.expiresAt, settings.maxLinkDays);
+  const slug = await claimSlug('files', input.slug, { authorId: ctx.userId });
   const { rows } = await query(
     `INSERT INTO fs_links (node_id, token, password_hash, expires_at, allow_download, permissions, title, max_file_mb, extensions, quota_mb,
-                           require_name, require_email, notify, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+                           require_name, require_email, notify, created_by, slug)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
     [
       scope.access.node.id,
-      randomBytes(9).toString('base64url'),
+      await freshToken('files', 9),
       password ? await bcrypt.hash(password.slice(0, 200), 10) : null,
-      parseExpiry(input.expiresAt, settings.maxLinkDays),
+      expiresAt,
       permissions.includes('download'),
       permissions,
       options.title ?? null,
@@ -235,8 +241,10 @@ export async function createLink(ctx, nodeId, input = {}) {
       options.require_email ?? false,
       options.notify ?? false,
       ctx.userId,
+      slug,
     ]
-  );
+  ).catch((err) => rethrowSlugConflict('files', err, slug));
+  if (slug) await clearHold('files', slug);
   return linkById(rows[0].id, ctx.userId);
 }
 
@@ -285,14 +293,37 @@ export async function updateLink(ctx, id, input = {}) {
     set('revoked_at = ?', input.revoked ? new Date() : null);
     bump = true;
   }
+  // A new address: the old one stops working at once (and is held for the author).
+  let slug = link.slug || null;
+  if (input.slug !== undefined) {
+    slug = await claimSlug('files', input.slug, { linkId: link.id, authorId: link.created_by });
+    if (slug !== (link.slug || null)) set('slug = ?', slug);
+  }
   if (bump) sets.push('version = version + 1');
-  if (sets.length) await query(`UPDATE fs_links SET ${sets.join(', ')} WHERE id = $1`, values);
+  if (sets.length) await query(`UPDATE fs_links SET ${sets.join(', ')} WHERE id = $1`, values).catch((err) => rethrowSlugConflict('files', err, slug));
+  if (slug !== (link.slug || null)) {
+    await releaseSlug('files', link.slug, link.created_by);
+    await clearHold('files', slug);
+  }
   return linkById(link.id, ctx.userId);
 }
 
 export async function deleteLink(ctx, id) {
   const { link } = await ownLink(ctx, id);
   await query(`DELETE FROM fs_links WHERE id = $1`, [link.id]);
+  await releaseSlug('files', link.slug, link.created_by);
+}
+
+/** Is this custom address free for the person (for their link `linkId` when editing)? */
+export async function checkLinkSlug(ctx, input = {}) {
+  let authorId = ctx.userId;
+  let linkId = null;
+  if (input.linkId) {
+    const { link } = await ownLink(ctx, input.linkId);
+    linkId = link.id;
+    authorId = link.created_by;
+  }
+  return checkSlug('files', input.slug, { linkId, authorId });
 }
 
 /** What visitors did through a link, newest first (owners and the link's author). */
@@ -355,8 +386,8 @@ export async function resolveLink(token, visitorToken) {
     `SELECT l.*, n.kind, n.name, u.is_active AS author_active, u.is_blocked AS author_blocked,
             COALESCE(u.display_name, u.username) AS author_name, u.avatar_path AS author_avatar
      FROM fs_links l JOIN fs_nodes n ON n.id = l.node_id LEFT JOIN users u ON u.id = l.created_by
-     WHERE l.token = $1`,
-    [String(token || '')]
+     WHERE ${addressMatch('l', 1)} ${addressOrder('l', 1)}`,
+    [String(token || '').slice(0, 64)]
   );
   const link = rows[0];
   if (!link || link.revoked_at || !settings.publicLinks) throw httpError(404, 'This link does not exist', 'NOT_FOUND');
@@ -389,7 +420,7 @@ export async function resolveLink(token, visitorToken) {
 }
 
 export async function unlockLink(token, password) {
-  const { rows } = await query(`SELECT * FROM fs_links WHERE token = $1 AND revoked_at IS NULL`, [String(token || '')]);
+  const { rows } = await query(`SELECT * FROM fs_links l WHERE ${addressMatch('l', 1)} AND revoked_at IS NULL ${addressOrder('l', 1)}`, [String(token || '').slice(0, 64)]);
   const link = rows[0];
   if (!link || !link.created_by) throw httpError(404, 'This link does not exist', 'NOT_FOUND');
   if (!link.password_hash) return { token: null };

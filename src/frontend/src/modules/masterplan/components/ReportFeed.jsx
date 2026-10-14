@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Dropdown, Input, Modal, Skeleton } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -287,7 +288,7 @@ export default function ReportFeed({ reports, compact, onChanged, onOpenNode, cu
         </span>
         <strong>{emptyTitle || (compact ? t('mp.rep.emptyCard') : t('mp.rep.emptyTitle'))}</strong>
         {(emptyText !== undefined ? emptyText : !compact && t('mp.rep.emptyText')) && <p>{emptyText !== undefined ? emptyText : t('mp.rep.emptyText')}</p>}
-        {onCreate && <Button type="primary" onClick={onCreate}>＋ {t('mp.rep.add')}</Button>}
+        {onCreate && <Button type="primary" onClick={onCreate} icon={<PlusOutlined />}>{t('mp.rep.add')}</Button>}
       </div>
     );
   }

@@ -1,56 +1,24 @@
-import { useEffect, useState } from 'react';
-import { App, Alert, Button, Checkbox, Dropdown, Empty, Input, Popover, Skeleton, Tag, Tooltip } from 'antd';
-import {
-  CopyOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  EyeOutlined,
-  HistoryOutlined,
-  LinkOutlined,
-  LockOutlined,
-  MoreOutlined,
-  PlusOutlined,
-  QrcodeOutlined,
-  StopOutlined,
-  UndoOutlined,
-} from '@ant-design/icons';
+import { useCallback, useEffect, useState } from 'react';
+import { App, Button, Input, Skeleton } from 'antd';
+import { ArrowLeftOutlined, DeleteOutlined, HistoryOutlined, LinkOutlined, PlusOutlined, StopOutlined, UndoOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
-import { nowInZone, todayISO } from '../../../lib/datetime';
-import { DateTimeField } from '../../../components/ui/DateTimeField';
-import { LinkPermissionsPicker, PermissionChips, isWriteLink } from '../../../components/ui/LinkPermissions';
+import { LinkPermissionsPicker, isWriteLink } from '../../../components/ui/LinkPermissions';
+import LinkSimpleForm, { LinkCreated, copyToClipboard } from '../../../components/ui/LinkSimpleForm';
+import LinkListRow from '../../../components/ui/LinkListRow';
 import { Hint } from '../../../help/Hint';
 import { filesApi, formatBytes } from '../api';
 
 /*
- * Public links of a file or folder: a list of link cards (permissions as
- * chips, copy, QR code, "see as recipient", activity) and an editor used both
- * to create and to change a link. The server decides what may be granted
+ * The "Public links" tab of the share dialog: a compact list of links and
+ * the shared simple/advanced form (components/ui/LinkSimpleForm.jsx) to
+ * create or change one. The server decides what may be granted
  * (`grantable`) and enforces it again on every visitor request.
  */
 
-const expiryDisabled = (maxDays) => (day) => {
-  const value = day.format('YYYY-MM-DD');
-  return value < todayISO() || Boolean(maxDays && value > nowInZone().add(maxDays, 'day').format('YYYY-MM-DD'));
-};
-
-const linkUrl = (link) => `${window.location.origin}/l/${link.token}`;
-
-function QrCode({ url }) {
-  const [src, setSrc] = useState('');
-  useEffect(() => {
-    let alive = true;
-    import('qrcode')
-      .then((qr) => qr.toDataURL(url, { margin: 1, width: 240, color: { dark: '#0F172A', light: '#FFFFFF' } }))
-      .then((data) => alive && setSrc(data))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [url]);
-  return src ? <img className="fs-qr" src={src} alt="QR" width={200} height={200} /> : <div className="fs-qr" />;
-}
+const PATH = '/l/';
+const linkUrl = (link) => `${window.location.origin}${PATH}${link.slug || link.token}`;
 
 function extrasOf(link, isFolder) {
   const extras = {
@@ -64,104 +32,81 @@ function extrasOf(link, isFolder) {
   return extras;
 }
 
+/** What an advanced setting changes, in a few words (shown while "Advanced" is collapsed). */
+function summaryOf({ perms, extras, title }, t) {
+  const list = [];
+  if (title.trim()) list.push(t('linkShare.sum.title', { v: title.trim() }));
+  if (isWriteLink(perms)) {
+    if (extras.maxSize) list.push(t('linkShare.sum.maxSize', { n: extras.maxSize }));
+    if (extras.extensions) list.push(t('linkShare.sum.types', { v: extras.extensions }));
+    if (extras.quota) list.push(t('linkShare.sum.quota', { n: extras.quota }));
+    if (extras.requireName) list.push(t(extras.requireEmail ? 'linkShare.sum.askEmail' : 'linkShare.sum.askName'));
+    if (extras.notify) list.push(t('linkShare.sum.notify'));
+  }
+  return list;
+}
+
 /** Create or change a link. */
 function LinkEditor({ node, config, grantable, isFolder, link, onSubmit, onCancel }) {
   const { t } = useLocale();
   const [title, setTitle] = useState(link?.title || '');
   const [perms, setPerms] = useState(link?.permissions || ['view', 'download']);
   const [extras, setExtras] = useState(() => extrasOf(link, isFolder));
-  const [password, setPassword] = useState('');
-  const [dropPassword, setDropPassword] = useState(false);
-  const [expires, setExpires] = useState(link?.expiresAt || null);
-  const [busy, setBusy] = useState(false);
-  const presets = [1, 7, 30].filter((days) => !config.maxLinkDays || days <= config.maxLinkDays);
+  const checkSlug = useCallback((slug) => filesApi.checkSlug(slug, link?.id).then((res) => res.data), [link?.id]);
   const writes = isWriteLink(perms);
-  const willHavePassword = Boolean(password) || (link?.hasPassword && !dropPassword);
-  const needsPassword = (config.requireLinkPassword || (writes && config.requireWriteLinkPassword)) && !willHavePassword;
+  // Only what the person actually customised counts (a new link's "notify" default does not).
+  const summary = summaryOf({ perms, extras, title }, t);
 
-  const submit = async () => {
-    setBusy(true);
-    try {
-      const payload = {
-        title,
-        permissions: perms,
-        expiresAt: expires || null,
-        maxFileMb: extras.maxSize || null,
-        quotaMb: extras.quota || null,
-        requireName: extras.requireName,
-        requireEmail: extras.requireName && extras.requireEmail,
-        notify: extras.notify,
-      };
-      if (isFolder) payload.extensions = extras.extensions || '';
-      if (!link) payload.password = password || undefined;
-      else if (password) payload.password = password;
-      else if (dropPassword) payload.password = '';
-      if (link && (link.expiresAt || null) === (expires || null)) delete payload.expiresAt;
-      await onSubmit(payload);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="fs-linkedit">
-      <div className="fs-linkedit__field">
-        <label className="fs-linkedit__label" htmlFor="fs-link-title">{t('files.links.title')}</label>
-        <Input id="fs-link-title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder={node.name} allowClear />
-      </div>
-      <div className="fs-linkedit__field">
-        <span className="fs-linkedit__label">
+  const advanced = (
+    <>
+      <div className="sl-adv__section">
+        <span className="sl-adv__label">
           {t('linkPerms.title')} <Hint id="files.linkPermissions" />
         </span>
         <LinkPermissionsPicker value={perms} onChange={setPerms} allowed={grantable} isFolder={isFolder} extras={extras} onExtrasChange={setExtras} maxUploadMb={config.maxUploadMb} />
-        {!config.writeLinks && isFolder && <div className="fs-linkedit__note">{t('files.links.writeOff')}</div>}
+        {!config.writeLinks && isFolder && <p className="sl-adv__note">🔒 {t('files.links.writeOff')}</p>}
       </div>
-      <div className="fs-linkedit__grid">
-        <div className="fs-linkedit__field">
-          <span className="fs-linkedit__label">
-            {t('files.linkPassword')} <Hint id="files.linkPassword" />
-          </span>
-          <Input.Password
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder={link?.hasPassword ? t('files.links.keepPassword') : needsPassword ? t('files.passwordRequired') : t('files.passwordOptional')}
-            autoComplete="new-password"
-            disabled={dropPassword}
-            status={needsPassword ? 'warning' : undefined}
-          />
-          {link?.hasPassword && (
-            <Checkbox checked={dropPassword} onChange={(event) => setDropPassword(event.target.checked)}>
-              {t('files.links.removePassword')}
-            </Checkbox>
-          )}
-        </div>
-        <div className="fs-linkedit__field">
-          <span className="fs-linkedit__label">
-            {t('files.linkExpires')} <Hint id="files.linkExpires" />
-          </span>
-          <DateTimeField
-            value={expires}
-            onChange={setExpires}
-            placeholder={config.maxLinkDays ? t('files.maxDays', { n: config.maxLinkDays }) : t('files.noExpiry')}
-            disabledDate={expiryDisabled(config.maxLinkDays)}
-          />
-          <div className="fs-linkedit__chips">
-            {presets.map((days) => (
-              <Button key={days} size="small" onClick={() => setExpires(nowInZone().add(days, 'day').second(0).millisecond(0).toISOString())}>
-                {t('files.days', { n: days })}
-              </Button>
-            ))}
-          </div>
-        </div>
+      <div className="sl-adv__section">
+        <label className="sl-adv__label" htmlFor="fs-link-title">{t('files.links.title')}</label>
+        <Input id="fs-link-title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder={node.name} allowClear />
       </div>
-      {needsPassword && <Alert type="warning" showIcon message={writes && config.requireWriteLinkPassword ? t('files.links.writePasswordNeeded') : t('files.links.passwordNeeded')} />}
-      <div className="fs-linkedit__actions">
-        {onCancel && <Button onClick={onCancel}>{t('common.cancel')}</Button>}
-        <Button type="primary" loading={busy} disabled={needsPassword} onClick={submit} icon={link ? null : <LinkOutlined />}>
-          {link ? t('common.save') : t('files.createLink')}
-        </Button>
-      </div>
-    </div>
+    </>
+  );
+
+  return (
+    <LinkSimpleForm
+      key={link?.id || 'new'}
+      isFolder={isFolder}
+      name={node.name}
+      initial={link || null}
+      perms={perms}
+      onPermsChange={setPerms}
+      allowed={grantable}
+      config={{ maxLinkDays: config.maxLinkDays, requireLinkPassword: config.requireLinkPassword }}
+      writePasswordRequired={writes && Boolean(config.requireWriteLinkPassword)}
+      host={window.location.host}
+      path={PATH}
+      checkSlug={checkSlug}
+      advanced={advanced}
+      advancedHint={t('linkShare.advancedHint')}
+      advancedSummary={summary}
+      onCancel={onCancel}
+      onSubmit={(basics, extra) =>
+        onSubmit(
+          {
+            ...basics,
+            title,
+            maxFileMb: extras.maxSize || null,
+            quotaMb: extras.quota || null,
+            requireName: extras.requireName,
+            requireEmail: extras.requireName && extras.requireEmail,
+            notify: extras.notify,
+            ...(isFolder ? { extensions: extras.extensions || '' } : {}),
+          },
+          extra
+        )
+      }
+    />
   );
 }
 
@@ -197,131 +142,66 @@ function LinkActivity({ linkId }) {
   );
 }
 
-function LinkCard({ link, index, node, config, grantable, isFolder, onRun }) {
-  const { t, locale } = useLocale();
-  const { message, modal } = App.useApp();
-  const [editing, setEditing] = useState(false);
+function LinkRow({ link, onEdit, onRun, fresh }) {
+  const { t } = useLocale();
+  const { modal } = App.useApp();
   const [activity, setActivity] = useState(false);
   const state = link.revoked ? 'revoked' : link.expired ? 'expired' : 'active';
   const url = linkUrl(link);
-  const copy = () =>
-    navigator.clipboard
-      ?.writeText(url)
-      .then(() => message.success(t('common.copied')))
-      .catch(() => message.error(t('files.links.copyFailed')));
-
-  if (editing) {
-    return (
-      <div className="fs-link is-editing">
-        <div className="fs-link__edithead">{t('files.links.editTitle')}</div>
-        <LinkEditor
-          node={node}
-          config={config}
-          grantable={grantable}
-          isFolder={isFolder}
-          link={link}
-          onCancel={() => setEditing(false)}
-          onSubmit={async (payload) => {
-            if (await onRun(() => filesApi.updateLink(link.id, payload))) {
-              setEditing(false);
-              message.success(t('files.links.saved'));
-            }
-          }}
-        />
-      </div>
-    );
-  }
-
-  const menu = {
-    items: [
-      { key: 'edit', icon: <EditOutlined />, label: t('files.links.edit') },
-      { key: 'activity', icon: <HistoryOutlined />, label: t('files.links.activity') },
-      { type: 'divider' },
-      link.revoked
-        ? { key: 'restore', icon: <UndoOutlined />, label: t('files.restoreLink') }
-        : { key: 'revoke', icon: <StopOutlined />, label: t('files.revokeLink') },
-      { key: 'delete', icon: <DeleteOutlined />, danger: true, label: t('common.delete') },
-    ],
-    onClick: ({ key }) => {
-      if (key === 'edit') setEditing(true);
-      else if (key === 'activity') setActivity((on) => !on);
-      else if (key === 'revoke' || key === 'restore') onRun(() => filesApi.updateLink(link.id, { revoked: key === 'revoke' }));
-      else if (key === 'delete') {
-        modal.confirm({
-          title: t('files.deleteLinkConfirm'),
-          content: t('files.links.deleteText'),
-          okButtonProps: { danger: true },
-          okText: t('common.delete'),
-          onOk: () => onRun(() => filesApi.deleteLink(link.id)),
-        });
-      }
-    },
+  const facts = (
+    <>
+      {link.uploads > 0 && <span className="sl-fact">⬆ {t('files.links.uploadsN', { n: link.uploads, size: formatBytes(link.uploadedBytes) })}</span>}
+      {link.quotaMb && <span className="sl-fact">{t('files.links.quotaOf', { used: formatBytes(link.uploadedBytes || 0), total: `${link.quotaMb} MB` })}</span>}
+      {!link.mine && link.createdBy && <span className="sl-fact">{t('files.links.by', { name: link.createdBy.name })}</span>}
+    </>
+  );
+  const menuItems = [
+    { key: 'activity', icon: <HistoryOutlined />, label: t('files.links.activity') },
+    link.revoked ? { key: 'restore', icon: <UndoOutlined />, label: t('files.restoreLink') } : { key: 'revoke', icon: <StopOutlined />, label: t('files.revokeLink') },
+    { key: 'delete', icon: <DeleteOutlined />, danger: true, label: t('common.delete') },
+  ];
+  const onMenu = (key) => {
+    if (key === 'activity') setActivity((on) => !on);
+    else if (key === 'revoke' || key === 'restore') onRun(() => filesApi.updateLink(link.id, { revoked: key === 'revoke' }));
+    else if (key === 'delete') {
+      modal.confirm({
+        title: t('files.deleteLinkConfirm'),
+        content: t('files.links.deleteText'),
+        okButtonProps: { danger: true },
+        okText: t('common.delete'),
+        onOk: () => onRun(() => filesApi.deleteLink(link.id)),
+      });
+    }
   };
-
   return (
-    <div className={`fs-link is-${state}`}>
-      <div className="fs-link__head">
-        <span className={`fs-link__badge is-${state}`}>
-          <LinkOutlined />
-        </span>
-        <div className="fs-link__headtext">
-          <div className="fs-link__title">
-            {link.title || t('files.links.untitled', { n: index })}
-            {state !== 'active' && (
-              <Tag bordered={false} className="fs-link__state">
-                {t(`files.linkState.${state}`)}
-              </Tag>
-            )}
-          </div>
-          <PermissionChips perms={link.permissions} />
-        </div>
-        <Dropdown menu={menu} trigger={['click']} placement="bottomRight">
-          <Button type="text" icon={<MoreOutlined />} aria-label={t('files.links.more')} />
-        </Dropdown>
-      </div>
-      <div className="fs-link__url">
-        <code title={url}>{url}</code>
-        <Tooltip title={t('common.copy')}>
-          <Button icon={<CopyOutlined />} disabled={state !== 'active'} onClick={copy} aria-label={t('common.copy')} />
-        </Tooltip>
-        <Popover
-          trigger="click"
-          content={
-            <div className="fs-qrbox">
-              <QrCode url={url} />
-              <span>{t('files.links.qrHint')}</span>
-            </div>
-          }
-        >
-          <Tooltip title={t('files.links.qr')}>
-            <Button icon={<QrcodeOutlined />} disabled={state !== 'active'} aria-label={t('files.links.qr')} />
-          </Tooltip>
-        </Popover>
-        <Tooltip title={t('files.links.preview')}>
-          <Button icon={<EyeOutlined />} disabled={state !== 'active'} href={`${url}?preview=1`} target="_blank" rel="noopener noreferrer" aria-label={t('files.links.preview')} />
-        </Tooltip>
-      </div>
-      <div className="fs-link__meta">
-        {link.hasPassword && (
-          <span className="fs-link__fact">
-            <LockOutlined /> {t('files.withPassword')}
-          </span>
-        )}
-        <span className="fs-link__fact">{link.expiresAt ? t('files.until', { date: formatDateTime(link.expiresAt, locale) }) : t('files.noExpiry')}</span>
-        <span className="fs-link__fact">{t('files.viewsN', { n: link.views })}</span>
-        {link.uploads > 0 && <span className="fs-link__fact">{t('files.links.uploadsN', { n: link.uploads, size: formatBytes(link.uploadedBytes) })}</span>}
-        {link.quotaMb && <span className="fs-link__fact">{t('files.links.quotaOf', { used: formatBytes(link.uploadedBytes || 0), total: `${link.quotaMb} MB` })}</span>}
-        {link.requireName && <span className="fs-link__fact">{t('files.links.asksName')}</span>}
-        {link.notify && <span className="fs-link__fact">{t('files.links.notifies')}</span>}
-        {!link.mine && link.createdBy && <span className="fs-link__fact">{t('files.links.by', { name: link.createdBy.name })}</span>}
-      </div>
+    <LinkListRow
+      url={url}
+      previewUrl={`${url}?preview=1`}
+      host={window.location.host}
+      path={PATH}
+      address={link.slug || link.token}
+      custom={Boolean(link.slug)}
+      title={link.title}
+      active={state === 'active'}
+      stateLabel={state === 'active' ? null : t(`files.linkState.${state}`)}
+      stateTone={state === 'expired' ? 'warn' : 'muted'}
+      perms={link.permissions}
+      hasPassword={link.hasPassword}
+      expiresAt={link.expiresAt}
+      views={link.views}
+      facts={facts}
+      menuItems={menuItems}
+      onMenu={onMenu}
+      onEdit={onEdit}
+      fresh={fresh}
+    >
       {activity && (
         <div className="fs-link__activity">
           <div className="fs-link__activityhead">{t('files.links.activity')}</div>
           <LinkActivity linkId={link.id} />
         </div>
       )}
-    </div>
+    </LinkListRow>
   );
 }
 
@@ -330,17 +210,19 @@ export default function ShareLinks({ node, config, onChanged }) {
   const { t } = useLocale();
   const { message } = App.useApp();
   const [data, setData] = useState(null);
-  const [composing, setComposing] = useState(false);
+  // view: { mode: 'list' } | { mode: 'new' } | { mode: 'edit', link } | { mode: 'done', link, copied, password }
+  const [view, setView] = useState({ mode: 'list' });
+  const [fresh, setFresh] = useState(null);
   const load = () =>
     filesApi
       .links(node.id)
       .then((res) => {
         setData(res.data);
-        if (!res.data.links.length) setComposing(true);
+        return res.data;
       })
       .catch((err) => message.error(errorMessage(err)));
   useEffect(() => {
-    load();
+    load().then((loaded) => loaded && !loaded.links.length && setView({ mode: 'new' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.id]);
 
@@ -360,41 +242,91 @@ export default function ShareLinks({ node, config, onChanged }) {
     }
   };
 
-  return (
-    <div className="fs-links">
-      {composing ? (
-        <div className="fs-link is-new">
-          <div className="fs-link__edithead">{t('files.links.newTitle')}</div>
-          <LinkEditor
-            node={node}
-            config={config}
-            grantable={data.grantable}
-            isFolder={isFolder}
-            onCancel={data.links.length ? () => setComposing(false) : null}
-            onSubmit={async (payload) => {
-              let created = null;
-              const ok = await run(async () => {
-                created = (await filesApi.createLink(node.id, payload)).data.link;
-              });
-              if (ok) {
-                setComposing(false);
-                navigator.clipboard?.writeText(linkUrl(created)).then(
-                  () => message.success(t('files.links.createdCopied')),
-                  () => message.success(t('files.links.created'))
-                );
+  const back = data.links.length ? () => setView({ mode: 'list' }) : null;
+
+  if (view.mode === 'done') {
+    const url = linkUrl(view.link);
+    return (
+      <LinkCreated
+        url={url}
+        host={window.location.host}
+        path={PATH}
+        address={view.link.slug || view.link.token}
+        password={view.password}
+        previewUrl={`${url}?preview=1`}
+        copied={view.copied}
+        name={node.name}
+        onDone={() => setView({ mode: 'list' })}
+        onAnother={() => setView({ mode: 'new' })}
+      />
+    );
+  }
+
+  if (view.mode === 'new' || view.mode === 'edit') {
+    const editing = view.mode === 'edit' ? view.link : null;
+    return (
+      <div className="sl-form">
+        {back && (
+          <Button type="link" className="sl-back" icon={<ArrowLeftOutlined />} onClick={back}>
+            {t('linkShare.back')}
+          </Button>
+        )}
+        <LinkEditor
+          key={editing?.id || 'new'}
+          node={node}
+          config={config}
+          grantable={data.grantable}
+          isFolder={isFolder}
+          link={editing}
+          onCancel={back}
+          onSubmit={async (payload, extra) => {
+            if (editing) {
+              if (await run(() => filesApi.updateLink(editing.id, payload))) {
+                message.success(t('files.links.saved'));
+                setFresh(editing.id);
+                setView({ mode: 'list' });
               }
-            }}
-          />
-        </div>
-      ) : (
-        <Button type="dashed" block icon={<PlusOutlined />} onClick={() => setComposing(true)} className="fs-links__new">
-          {t('files.links.new')}
+              return;
+            }
+            let created = null;
+            const ok = await run(async () => {
+              created = (await filesApi.createLink(node.id, payload)).data.link;
+            });
+            if (ok) {
+              const copied = await copyToClipboard(linkUrl(created));
+              setFresh(created.id);
+              setView({ mode: 'done', link: created, copied, password: payload.password || extra?.password || '' });
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (!data.links.length) {
+    return (
+      <div className="sl-empty">
+        <span className="sl-empty__icon"><LinkOutlined /></span>
+        <h3>{t('linkShare.emptyTitle')}</h3>
+        <p>{t('linkShare.emptyText', { name: node.name })}</p>
+        <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setView({ mode: 'new' })}>
+          {t('linkShare.emptyCta')}
         </Button>
-      )}
-      {data.links.map((link, index) => (
-        <LinkCard key={link.id} link={link} index={data.links.length - index} node={node} config={config} grantable={data.grantable} isFolder={isFolder} onRun={run} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="sl-list" data-testid="link-list">
+      <div className="sl-list__head">
+        <span className="sl-list__count">{t('linkShare.linksCount', { n: data.links.length })}</span>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setView({ mode: 'new' })} data-testid="link-new">
+          {t('linkShare.newLink')}
+        </Button>
+      </div>
+      {data.links.map((link) => (
+        <LinkRow key={link.id} link={link} fresh={fresh === link.id} onRun={run} onEdit={() => setView({ mode: 'edit', link })} />
       ))}
-      {!data.links.length && !composing && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('files.links.none')} />}
     </div>
   );
 }

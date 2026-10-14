@@ -128,12 +128,48 @@
   align-items: stretch;
 }
 
+.ax-hero__side {
+  container-type: inline-size;
+}
+
 .ax-hero__actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   align-items: center;
   justify-content: flex-end;
+}
+
+.ax-hero__actions > * {
+  flex: none;
+}
+
+/* Narrow side column: the docs link keeps only its icon (label in the tooltip);
+   on phones the API switch takes a row and the buttons share the next one. */
+@container (max-width: 400px) {
+  .ax-hero__actions {
+    flex-wrap: wrap;
+  }
+
+  .ax-hero__actions > .ax-switch {
+    flex: 1 1 100%;
+  }
+
+  .ax-hero__actions > .ant-btn {
+    flex: 1 1 auto;
+  }
+}
+
+@container (max-width: 520px) {
+  .ax-hero__actions .mod-act.ant-btn {
+    width: 32px;
+    padding-inline: 0;
+    flex: none;
+  }
+
+  .ax-hero__actions .mod-act.ant-btn > span:not(.ant-btn-icon) {
+    display: none;
+  }
 }
 
 .ax-switch {
@@ -2329,6 +2365,12 @@ button.ax-kpi:hover {
   width: min(360px, 34vw);
 }
 
+/* One control height across the top bar. */
+.dv-top .ant-btn:not(.ant-btn-sm),
+.dv-top__search .ant-input-affix-wrapper {
+  height: 36px;
+}
+
 .dv-top__search kbd {
   padding: 0 5px;
   border: 1px solid var(--ax-line);
@@ -2351,8 +2393,8 @@ button.ax-kpi:hover {
 
 .dv-burger {
   display: none;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--ax-line);
   border-radius: 10px;
   background: var(--da-surface);
@@ -3008,8 +3050,10 @@ button.ax-kpi:hover {
 
 .dv-param__desc {
   grid-column: 2;
+  min-width: 0;
   color: var(--da-muted);
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .dv-try {

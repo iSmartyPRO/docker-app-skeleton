@@ -7,6 +7,7 @@ import adminRoutes from './admin.routes.js';
 import accountRoutes from './account.routes.js';
 import notificationRoutes from './notifications.routes.js';
 import pwaRoutes from './pwa.routes.js';
+import { previewImageRoutes } from '../services/linkPreview/index.js';
 import { moduleRouter } from '../modules/index.js';
 import rateLimit from 'express-rate-limit';
 import { incidentFromRequest, recordIncident } from '../services/incidents.js';
@@ -24,6 +25,8 @@ router.use('/account', accountRoutes);
 router.use('/developer', developerRoutes());
 router.use('/notifications', notificationRoutes);
 router.use('/pwa', pwaRoutes);
+// Link preview pictures for messengers (Open Graph images).
+router.use('/og', previewImageRoutes());
 // Modules: /api/apps, /api/app/<id>/…, public prefixes such as /api/s/<slug>
 router.use(moduleRouter());
 

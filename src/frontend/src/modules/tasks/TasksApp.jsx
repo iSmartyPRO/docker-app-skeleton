@@ -1,7 +1,7 @@
 import { Suspense, lazy, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Button, Drawer, Result, Spin } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { MenuOutlined, PlusOutlined } from '@ant-design/icons';
 import Chrome from '../../components/Chrome';
 import PageTransition from '../../components/ui/PageTransition';
 import { MenuIcon } from '../../components/icons/menuIcons';
@@ -117,7 +117,7 @@ function Shell() {
         <Sidebar onNavigate={() => setDrawer(false)} />
       </Drawer>
       <main className="mod-shell__main">
-        <Button className="mod-shell__menu" onClick={() => setDrawer(true)} icon={<span>☰</span>}>
+        <Button className="mod-shell__menu" onClick={() => setDrawer(true)} icon={<MenuOutlined />}>
           {t('tasks.projects')}
         </Button>
         <Suspense fallback={<div className="page-fallback"><Spin /></div>}>

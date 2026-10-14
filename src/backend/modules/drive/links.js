@@ -5,13 +5,16 @@ import config from '../../config/app.js';
 import { query } from '../../config/database.js';
 import { httpError, intId } from '../shared/acl.js';
 import { parseExpiry } from '../files/links.js';
+import { addressMatch, addressOrder, checkSlug, claimSlug, clearHold, freshToken, releaseSlug, rethrowSlugConflict } from '../shared/linkSlug.js';
 import { driveSettings } from './credentials.js';
 import { cleanVisitor, effectivePerms, hasWrite, legacyPerms, linkOptions, normalizePerms, ungrantable } from './linkPerms.js';
 import { cleanPath, joinPath, nameOf, parentOf } from './paths.js';
 import { checkWrite, contextForUser, openTarget, statEntry } from './service.js';
 
 /*
- * Public links to drive files and folders: /d/<token>.
+ * Public links to drive files and folders: /d/<token>, or /d/<slug> when the
+ * author gave the link a custom address (shared/linkSlug.js; the token keeps
+ * working, a changed or deleted slug stops at once and is held for its author).
  *
  * A link has no access of its own. Every visit acts with its author's
  * credentials (the account the drive picks for the author on that server:
@@ -51,6 +54,7 @@ export function linkShape(row) {
   return {
     id: row.id,
     token: row.token,
+    slug: row.slug || null,
     shareId: row.share_id,
     shareTitle: row.share_title,
     path: row.path,
@@ -147,12 +151,14 @@ export async function createLink(ctx, shareId, rel, input = {}) {
   const perms = permsFromInput(input, kind);
   await assertGrantable(target, { kind, path, password_hash: password ? 'set' : null }, perms, settings);
   const options = linkOptions(input);
+  const expiresAt = parseExpiry(input.expiresAt, settings.maxLinkDays);
+  const slug = await claimSlug('drive', input.slug, { authorId: ctx.userId });
   const { rows } = await query(
     `INSERT INTO drive_links (token, share_id, path, kind, name, created_by, audience, password_hash, expires_at, allow_download,
-                              permissions, title, note, max_file_mb, allowed_exts, quota_mb, require_name, require_email, notify)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING id`,
+                              permissions, title, note, max_file_mb, allowed_exts, quota_mb, require_name, require_email, notify, slug)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id`,
     [
-      randomBytes(12).toString('base64url'),
+      await freshToken('drive', 12),
       target.share.id,
       path,
       kind,
@@ -160,7 +166,7 @@ export async function createLink(ctx, shareId, rel, input = {}) {
       ctx.userId,
       await audienceFor(input.audience, settings),
       password ? await bcrypt.hash(password.slice(0, 200), 10) : null,
-      parseExpiry(input.expiresAt, settings.maxLinkDays),
+      expiresAt,
       perms.includes('download'),
       perms,
       options.title ?? null,
@@ -171,8 +177,10 @@ export async function createLink(ctx, shareId, rel, input = {}) {
       options.require_name ?? false,
       options.require_email ?? false,
       options.notify ?? false,
+      slug,
     ]
-  );
+  ).catch((err) => rethrowSlugConflict('drive', err, slug));
+  if (slug) await clearHold('drive', slug);
   return (await loadLink(rows[0].id)).shape;
 }
 
@@ -239,10 +247,20 @@ export async function updateLink(ctx, id, input = {}) {
     set('revoked_at = ?', input.revoked ? new Date() : null);
     bump = true;
   }
+  // A new address: the old one stops working at once (and is held for the author).
+  let slug = row.slug || null;
+  if (input.slug !== undefined) {
+    slug = await claimSlug('drive', input.slug, { linkId: row.id, authorId: row.created_by });
+    if (slug !== (row.slug || null)) set('slug = ?', slug);
+  }
   if (bump) sets.push('version = version + 1');
   if (sets.length) {
     values.push(row.id);
-    await query(`UPDATE drive_links SET ${sets.join(', ')} WHERE id = $${values.length}`, values);
+    await query(`UPDATE drive_links SET ${sets.join(', ')} WHERE id = $${values.length}`, values).catch((err) => rethrowSlugConflict('drive', err, slug));
+  }
+  if (slug !== (row.slug || null)) {
+    await releaseSlug('drive', row.slug, row.created_by);
+    await clearHold('drive', slug);
   }
   return (await loadLink(row.id)).shape;
 }
@@ -250,7 +268,20 @@ export async function updateLink(ctx, id, input = {}) {
 export async function deleteLink(ctx, id) {
   const { row } = await ownedLink(ctx, id);
   await query(`DELETE FROM drive_links WHERE id = $1`, [row.id]);
+  await releaseSlug('drive', row.slug, row.created_by);
   return row;
+}
+
+/** Is this custom address free for the person (for their link `linkId` when editing)? */
+export async function checkLinkSlug(ctx, input = {}) {
+  let authorId = ctx.userId;
+  let linkId = null;
+  if (input.linkId) {
+    const { row } = await ownedLink(ctx, input.linkId);
+    linkId = row.id;
+    authorId = row.created_by;
+  }
+  return checkSlug('drive', input.slug, { linkId, authorId });
 }
 
 // ── Visitors ────────────────────────────────────────────────────────────────
@@ -279,7 +310,7 @@ export function readVisitor(row, token) {
  * session (`current`) keeps its id when they only add their name.
  */
 export async function unlockLink(token, input = {}, current = '') {
-  const { rows } = await query(`SELECT * FROM drive_links WHERE token = $1 AND revoked_at IS NULL`, [String(token || '').slice(0, 40)]);
+  const { rows } = await query(`SELECT * FROM drive_links l WHERE ${addressMatch('l', 1)} AND revoked_at IS NULL ${addressOrder('l', 1)}`, [String(token || '').slice(0, 64)]);
   const link = rows[0];
   if (!link) throw fail(404, 'NOT_FOUND', 'This link does not exist');
   const existing = readVisitor(link, current);
@@ -302,7 +333,7 @@ export async function unlockLink(token, input = {}, current = '') {
  */
 export async function openLink(token, visitorToken, viewer) {
   const settings = await driveSettings();
-  const { rows } = await query(`${SELECT} WHERE l.token = $1`, [String(token || '').slice(0, 40)]);
+  const { rows } = await query(`${SELECT} WHERE ${addressMatch('l', 1)} ${addressOrder('l', 1)}`, [String(token || '').slice(0, 64)]);
   const row = rows[0];
   if (!row) throw fail(404, 'NOT_FOUND', 'This link does not exist');
   const status = linkStatus(row);

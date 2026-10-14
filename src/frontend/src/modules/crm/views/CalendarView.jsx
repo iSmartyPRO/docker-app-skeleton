@@ -5,6 +5,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import ruLocale from '@fullcalendar/core/locales/ru';
 import { App, Button, Segmented, Select } from 'antd';
+import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -116,22 +117,24 @@ export default function CalendarView({ params, version, onOpen, onChanged }) {
 
   return (
     <div className="crm-cal">
-      <div className="crm-cal__bar">
-        <Button onClick={() => go('today')}>{t('crm.cal.today')}</Button>
-        <div className="crm-cal__nav">
-          <Button type="text" onClick={() => go('prev')} aria-label={t('crm.cal.prev')}>‹</Button>
-          <Button type="text" onClick={() => go('next')} aria-label={t('crm.cal.next')}>›</Button>
+      <div className="crm-cal__barwrap">
+        <div className="crm-cal__bar">
+          <Button onClick={() => go('today')}>{t('crm.cal.today')}</Button>
+          <div className="crm-cal__nav">
+            <Button type="text" icon={<LeftOutlined />} onClick={() => go('prev')} aria-label={t('crm.cal.prev')} title={t('crm.cal.prev')} />
+            <Button type="text" icon={<RightOutlined />} onClick={() => go('next')} aria-label={t('crm.cal.next')} title={t('crm.cal.next')} />
+          </div>
+          <h2 className="crm-cal__title" title={title}>{title}</h2>
+          <Select
+            className="crm-cal__field"
+            value={field}
+            onChange={(next) => savePrefs({ field: next })}
+            options={[{ value: 'closeDate', label: t('crm.fields.closeDate') }, ...dateFields.map((item) => ({ value: `cf_${item.key}`, label: item.label }))]}
+            popupMatchSelectWidth={false}
+            aria-label={t('crm.cal.field')}
+          />
+          <Segmented className="crm-cal__views" value={prefs.view} onChange={(view) => savePrefs({ view })} options={[{ value: 'dayGridMonth', label: t('crm.cal.month') }, { value: 'dayGridWeek', label: t('crm.cal.week') }]} />
         </div>
-        <h2 className="crm-cal__title">{title}</h2>
-        <span className="mod-toolbar__grow" />
-        <Select
-          value={field}
-          onChange={(next) => savePrefs({ field: next })}
-          options={[{ value: 'closeDate', label: t('crm.fields.closeDate') }, ...dateFields.map((item) => ({ value: `cf_${item.key}`, label: item.label }))]}
-          style={{ minWidth: 170 }}
-          aria-label={t('crm.cal.field')}
-        />
-        <Segmented value={prefs.view} onChange={(view) => savePrefs({ view })} options={[{ value: 'dayGridMonth', label: t('crm.cal.month') }, { value: 'dayGridWeek', label: t('crm.cal.week') }]} />
       </div>
       <div className={`cal-view crm-cal__view is-${prefs.view}`}>
         <FullCalendar

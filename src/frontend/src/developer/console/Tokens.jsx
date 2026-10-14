@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Dropdown, Input, Segmented, Select } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { formatDateTime, formatRelative } from '../../lib/format';
@@ -172,8 +173,8 @@ export default function Tokens({ meta, openEditor, tokensVersion, reload, showSe
           options={(meta?.people || []).map((person) => ({ value: person.id, search: `${person.name} ${person.username}`.toLowerCase(), label: person.name }))}
         />
         <span className="ax-grow" />
-        <Button type="primary" onClick={() => openEditor()}>
-          ＋ {t('api.newToken')}
+        <Button type="primary" onClick={() => openEditor()} icon={<PlusOutlined />}>
+          {t('api.newToken')}
         </Button>
       </div>
       {tokens === null ? (
@@ -190,8 +191,8 @@ export default function Tokens({ meta, openEditor, tokensVersion, reload, showSe
           title={t('api.noTokens')}
           text={t('api.noTokensText')}
           action={
-            <Button type="primary" size="large" onClick={() => openEditor()}>
-              ＋ {t('api.newToken')}
+            <Button type="primary" size="large" onClick={() => openEditor()} icon={<PlusOutlined />}>
+              {t('api.newToken')}
             </Button>
           }
         />

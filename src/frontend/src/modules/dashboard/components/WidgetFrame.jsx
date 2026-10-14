@@ -77,11 +77,11 @@ export default function WidgetFrame({ widget, editing, canEdit, dragHandle, onSe
             <MenuIcon name={def.icon} variant="mono" />
           </span>
           {def.link && !editing ? (
-            <Link to={def.link} className="dash-card__title">
+            <Link to={def.link} className="dash-card__title" title={typeof title === 'string' ? title : undefined}>
               {title}
             </Link>
           ) : (
-            <span className="dash-card__title">{title}</span>
+            <span className="dash-card__title" title={typeof title === 'string' ? title : undefined}>{title}</span>
           )}
           {actions}
         </header>

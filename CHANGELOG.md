@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Simpler sharing and responsive headers
+
+- **Share dialog (Files and File server):** simple by default — what the recipient can do (view / view and download), expiry, password and a **custom link address** with a live availability check, transliteration and suggestions; «Создать и скопировать» with QR and «Открыть как получатель»; all fine-grained settings moved under «Расширенные настройки». Slugs are unique per module (case-insensitive, race-safe), revoked links keep theirs, a changed slug is held 90 days for its author; token addresses keep working.
+- **Page headers:** Drive and Files use a new `ModuleHeader` (title, one-line action cluster, toolbar row, compact and phone modes); every other module's header and toolbar was audited at 390–1920 px and fixed — no ragged button rows, no horizontal scroll, consistent control heights, icon components instead of unicode glyphs.
+
+### Link previews in messengers
+
+Docs: [docs/link-previews.md](docs/link-previews.md).
+
+- Every page now carries the portal's name, description, colour and icon (no more «docker-app-skeleton» / «Application console» in WhatsApp/Telegram previews); nginx hands page addresses to the app server and falls back to the static `index.html` (neutral «Портал» defaults) when it is down.
+- Public links (`/l`, `/d`, `/s`) get resource-aware Open Graph / Twitter cards: file name, type and size, folder item counts, what the recipient can do, expiry and sender; upload-only links invite to send files; password-protected and refused links show only generic cards.
+- Branded 1200×630 preview pictures (resvg + bundled Inter font), cached under `uploads/.previews/og`; crawler fetches and `HEAD` requests no longer count as link views; «Как будет выглядеть в мессенджере» in the share dialogs.
+
 ### File server — public link permissions
 
 - Drive links get the same per-action permissions as Files (view, download, upload, folders, rename/move, replace, delete) with presets and «Настроить…», per-link size/type/total limits, visitor name/e-mail and batched notifications; existing links keep view + download.

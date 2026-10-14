@@ -39,8 +39,27 @@ function buildVersionFile() {
   };
 }
 
+/*
+ * Neutral page title and description for index.html (%PORTAL_NAME%,
+ * %PORTAL_DESCRIPTION%). The app server replaces them per request with the
+ * portal's own settings (backend services/linkPreview); these build-time
+ * values only show while it is unavailable. Override with VITE_APP_NAME /
+ * VITE_APP_DESCRIPTION at build time.
+ */
+function portalDefaults() {
+  const escape = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+  const name = String(process.env.VITE_APP_NAME || '').trim() || 'Портал';
+  const description = String(process.env.VITE_APP_DESCRIPTION || '').trim() || 'Корпоративный портал';
+  return {
+    name: 'portal-defaults',
+    transformIndexHtml(html) {
+      return html.replaceAll('%PORTAL_NAME%', escape(name)).replaceAll('%PORTAL_DESCRIPTION%', escape(description));
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), buildVersionFile()],
+  plugins: [react(), buildVersionFile(), portalDefaults()],
   define: {
     __APP_VERSION__: JSON.stringify(readAppVersion()),
     __BUILD_ID__: JSON.stringify(BUILD_ID),

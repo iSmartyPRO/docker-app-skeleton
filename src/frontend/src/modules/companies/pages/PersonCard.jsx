@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alert, App, Button, Dropdown, Input, Result, Skeleton, Tabs, Tag } from 'antd';
+import { EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatRelative } from '../../../lib/format';
@@ -30,7 +31,7 @@ function Career({ person, onChange }) {
     <div className="cmp-career">
       {person.canEdit && (
         <div className="cmp-staff__actions">
-          <Button type="primary" onClick={() => setDialog({ type: 'add' })}>+ {t('companies.addJob')}</Button>
+          <Button type="primary" onClick={() => setDialog({ type: 'add' })} icon={<PlusOutlined />}>{t('companies.addJob')}</Button>
         </div>
       )}
       {!person.positions.length && <div className="cmp-muted">{t('companies.noJobs')}</div>}
@@ -151,7 +152,7 @@ export default function PersonCard() {
           </div>
         </div>
         <div className="cmp-hero__actions">
-          {person.canEdit && <Button type="primary" onClick={() => setEditing(true)}>✎ {t('common.edit')}</Button>}
+          {person.canEdit && <Button type="primary" onClick={() => setEditing(true)} icon={<EditOutlined />}>{t('common.edit')}</Button>}
           {person.canEdit && (
             <Dropdown
               trigger={['click']}

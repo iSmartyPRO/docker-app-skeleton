@@ -1,6 +1,7 @@
 import { extraEn, extraRu } from './extra.js';
 import { filesEn, filesRu } from './files.js';
 import { linkPermsEn, linkPermsRu } from './linkPerms.js';
+import { linkShareEn, linkShareRu } from './linkShare.js';
 import { driveEn, driveRu } from './drive.js';
 import { resourcesEn, resourcesRu } from './resources.js';
 import { companiesEn, companiesRu } from './companies.js';
@@ -29,7 +30,7 @@ import { scanEn, scanRu } from './scan.js';
 import { contractsEn, contractsRu } from './contracts.js';
 
 const en = {
-  brand: 'docker-app-skeleton',
+  brand: 'Portal',
   footer: 'Developed by',
   common: {
     save: 'Save',
@@ -49,6 +50,8 @@ const en = {
     account: 'Account',
     home: 'Home',
     create: 'Create',
+    moreActions: 'More actions',
+    menu: 'Menu',
     delete: 'Delete',
     edit: 'Edit',
     search: 'Search',
@@ -989,7 +992,7 @@ const en = {
 };
 
 const ru = {
-  brand: 'docker-app-skeleton',
+  brand: 'Портал',
   footer: 'Разработка',
   common: {
     save: 'Сохранить',
@@ -1009,6 +1012,8 @@ const ru = {
     account: 'Кабинет',
     home: 'Главная',
     create: 'Создать',
+    moreActions: 'Ещё действия',
+    menu: 'Меню',
     delete: 'Удалить',
     edit: 'Изменить',
     search: 'Поиск',
@@ -1966,6 +1971,8 @@ mergeDeep(en, filesEn);
 mergeDeep(ru, filesRu);
 mergeDeep(en, linkPermsEn);
 mergeDeep(ru, linkPermsRu);
+mergeDeep(en, linkShareEn);
+mergeDeep(ru, linkShareRu);
 mergeDeep(en, driveEn);
 mergeDeep(ru, driveRu);
 mergeDeep(en, dashboardEn);

@@ -127,7 +127,7 @@ export default function MyTasks({ openRef }) {
 
   return (
     <div className="tasks-page">
-      <header className="mod-hero">
+      <header className="mod-hero tasks-hero tasks-hero--my">
         <div className="mod-hero__text">
           <h1>{t('tasks.myTitle')}</h1>
           <p>{t('tasks.myLead', { name })}</p>

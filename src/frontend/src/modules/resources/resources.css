@@ -117,10 +117,36 @@
   font-size: 15px;
 }
 
+.rs-head {
+  container-type: inline-size;
+}
+
+.rs-head__text {
+  min-width: 0;
+}
+
+.rs-head__actions > * {
+  flex: none;
+}
+
 .rs-head__actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 8px;
+}
+
+/* Narrow header: secondary actions (.mod-act) become icon buttons with tooltips. */
+@container (max-width: 640px) {
+  .rs-head__actions .mod-act.ant-btn {
+    width: 32px;
+    padding-inline: 0;
+    flex: none;
+  }
+
+  .rs-head__actions .mod-act.ant-btn > span:not(.ant-btn-icon) {
+    display: none;
+  }
 }
 
 .rs-filters {

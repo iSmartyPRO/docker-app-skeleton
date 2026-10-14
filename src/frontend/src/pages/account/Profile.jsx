@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { App, Avatar, Button, Form, Input, Upload } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/ui/PageHeader';
 import SaveBar from '../../components/ui/SaveBar';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
@@ -49,28 +50,30 @@ export default function AccountProfile() {
           <div className="profile-hero__name">{user?.displayName || user?.username}</div>
           <div className="profile-hero__meta">@{user?.username}</div>
           <div className="profile-hero__meta">{t('account.avatarHint')} <Hint id="account.avatar" /></div>
+          <div className="profile-hero__actions">
+            <Upload
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              showUploadList={false}
+              beforeUpload={async (file) => {
+                const form = new FormData();
+                form.append('avatar', file);
+                setUploading(true);
+                try {
+                  const res = await uploadAccountAvatar(form);
+                  setUser(res.data.user);
+                  message.success(t('common.saved'));
+                } catch (err) {
+                  message.error(errorMessage(err));
+                } finally {
+                  setUploading(false);
+                }
+                return false;
+              }}
+            >
+              <Button loading={uploading} icon={<UploadOutlined />}>{t('account.changeAvatar')}</Button>
+            </Upload>
+          </div>
         </div>
-        <Upload
-          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-          showUploadList={false}
-          beforeUpload={async (file) => {
-            const form = new FormData();
-            form.append('avatar', file);
-            setUploading(true);
-            try {
-              const res = await uploadAccountAvatar(form);
-              setUser(res.data.user);
-              message.success(t('common.saved'));
-            } catch (err) {
-              message.error(errorMessage(err));
-            } finally {
-              setUploading(false);
-            }
-            return false;
-          }}
-        >
-          <Button loading={uploading}>{t('account.changeAvatar')}</Button>
-        </Upload>
       </section>
       <Form {...formProps}>
         <SettingsSection>

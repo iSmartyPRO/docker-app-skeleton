@@ -80,13 +80,56 @@
   max-width: 920px;
 }
 
+/* Header: title block (shrinks) + one line of actions; below 560px of header
+   width the create button keeps only its icon (label in aria-label/tooltip). */
 .ctr-page__head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-bottom: 18px;
+  container-type: inline-size;
+}
+
+.ctr-page__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ctr-page__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctr-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ctr-toolbar .ctr-search {
+  flex: 0 1 420px;
+  width: auto;
+  min-width: 0;
+}
+
+@container (max-width: 560px) {
+  .ctr-page__head p {
+    display: none;
+  }
+
+  .ctr-page__head .ctr-page__create.ant-btn {
+    width: 32px;
+    padding-inline: 0;
+    flex: none;
+  }
+
+  .ctr-page__head .ctr-page__create.ant-btn > span:not(.ant-btn-icon) {
+    display: none;
+  }
 }
 
 .ctr-page__head h1 {
@@ -107,11 +150,16 @@
   color: var(--da-muted);
 }
 
+.ctr-page__actions > * {
+  flex: none;
+}
+
 .ctr-page__actions {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .ctr-search {
@@ -1876,18 +1924,39 @@ a.ctr-linkrow:hover {
     width: 100%;
   }
 
-  .ctr-page__actions {
-    width: 100%;
-  }
-
-  .ctr-page__actions .ctr-search {
-    flex: 1 1 200px;
+  .ctr-toolbar .ctr-search {
+    flex: 1 1 auto;
   }
 }
 
 @media (max-width: 720px) {
   .ctr-page {
     padding: 14px 16px 80px;
+  }
+
+  /* Headers with a long control set: the controls take a full row of their own. */
+  .ctr-page__head.is-stack {
+    flex-wrap: wrap;
+  }
+
+  .ctr-page__head.is-stack .ctr-page__actions {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+
+  .ctr-page__head.is-stack .ctr-page__actions > .ant-segmented {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .ctr-page__head.is-stack .ctr-page__actions > .ant-segmented .ant-segmented-item {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+
+  .ctr-page__head.is-stack .ctr-page__actions > .ant-segmented .ant-segmented-item-label {
+    padding-inline: 6px;
   }
 
   .ctr-chips {

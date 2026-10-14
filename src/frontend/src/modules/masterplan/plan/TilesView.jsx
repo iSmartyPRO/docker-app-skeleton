@@ -49,7 +49,7 @@ export default function TilesView({ tree, root, layer, filter, filtering, select
                   <b>{shortLabel(node)}</b>
                   {node.unit?.price !== undefined && node.unit?.price !== null && <span>{formatShortMoney(node.unit.price, node.unit.currency, locale)}</span>}
                   {node.unit && (node.unit.areaTotal || node.unit.areaPlot) ? <em>{formatArea(node.unit.areaTotal || node.unit.areaPlot, locale)}</em> : null}
-                  {!node.unit && <em>{node.type?.name}</em>}
+                  {!node.unit && <em title={node.type?.name}>{node.type?.name}</em>}
                   {layer === 'build' && node.readiness !== null && node.readiness !== undefined && <i>{Math.round(node.readiness)}%</i>}
                 </button>
               );

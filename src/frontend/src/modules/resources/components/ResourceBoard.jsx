@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { App, Button, Input, Skeleton, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import {
   DndContext,
   DragOverlay,
@@ -256,7 +257,7 @@ export default function ResourceBoard({ variant = 'page' }) {
           </span>
           <strong>{config.canManage ? t('resources.emptyAdmin') : t('resources.empty')}</strong>
           {config.canManage && (
-            <Link to="/app/resources/manage?new=1"><Button type="primary">+ {t('resources.add')}</Button></Link>
+            <Link to="/app/resources/manage?new=1"><Button type="primary" icon={<PlusOutlined />}>{t('resources.add')}</Button></Link>
           )}
         </div>
       ) : (

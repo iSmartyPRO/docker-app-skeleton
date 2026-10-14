@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Avatar, Button, DatePicker, Empty, Input, Segmented, Select, Table, Tag, Tooltip } from 'antd';
+import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatDateTime, formatRelative } from '../../../lib/format';
 import { fromPicker, getRegional, nowInZone, pickerFormat, toPicker, useRegional } from '../../../lib/datetime';
 import { driveApi, driveError, fileUrl, folderUrl, formatBytes } from '../api';
 import { useDrive } from '../DriveContext';
+import ModuleHeader from '../../shared/ModuleHeader';
 
 // Mirrors ACTION_GROUPS in the backend (modules/drive/activity.js).
 export const ACTION_GROUPS = {
@@ -355,18 +357,15 @@ export default function Activity() {
 
   return (
     <div className="dva">
-      <header className="dva-head">
-        <div>
-          <h1>{t('driveActivity.title')}</h1>
-          <p>{t('driveActivity.lead')}</p>
-        </div>
-        <div className="dva-head__actions">
-          <Button onClick={load} loading={loading}>↻ {t('driveActivity.refresh')}</Button>
-          <Tooltip title={t('driveActivity.exportHint')}>
-            <Button type="primary" href={driveApi.activityExportUrl({ ...query, tz: getRegional().timeZone })}>⤓ {t('driveActivity.export')}</Button>
-          </Tooltip>
-        </div>
-      </header>
+      <ModuleHeader
+        title={t('driveActivity.title')}
+        description={t('driveActivity.lead')}
+        dock={false}
+        actions={[
+          { key: 'refresh', icon: <ReloadOutlined />, label: t('driveActivity.refresh'), onClick: load, loading },
+          { key: 'export', primary: true, icon: <DownloadOutlined />, label: t('driveActivity.export'), tooltip: t('driveActivity.exportHint'), href: driveApi.activityExportUrl({ ...query, tz: getRegional().timeZone }) },
+        ]}
+      />
 
       <section className="dva-filters">
         <div className="dva-filters__row">

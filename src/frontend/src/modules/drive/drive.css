@@ -466,12 +466,6 @@
   --c: #2563eb;
 }
 
-.dv-head h1 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .dv-head__dot {
   width: 12px;
   height: 12px;
@@ -480,65 +474,39 @@
   flex: none;
 }
 
-.dv-head__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-
 .dv-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   border: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--da-faint, var(--da-muted));
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
   cursor: pointer;
-  transition: transform 0.15s var(--da-ease-out), color 0.15s var(--da-ease);
+  transition: transform 0.15s var(--da-ease-out), color 0.15s var(--da-ease), background 0.15s var(--da-ease);
 }
 
 .dv-star:hover {
-  transform: scale(1.15);
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
   color: #f59e0b;
+}
+
+.dv-star:active {
+  transform: scale(0.92);
 }
 
 .dv-star.is-on {
   color: #f59e0b;
 }
 
-.dv-unc {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  max-width: min(560px, 100%);
-  padding: 4px 6px 4px 10px;
-  border: 1px solid var(--da-hairline);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--da-text) 3%, transparent);
-  color: var(--da-muted);
-  cursor: copy;
-}
-
-.dv-unc code {
-  overflow: hidden;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: none;
-}
-
-.dv-unc span {
-  padding: 0 4px;
-}
-
-.dv-unc:hover {
-  color: var(--da-text);
-  border-color: color-mix(in srgb, var(--c) 40%, var(--da-hairline));
-}
-
-.dv-search {
-  width: 240px;
+.dv-star:focus-visible {
+  outline: 2px solid var(--da-primary);
+  outline-offset: 1px;
 }
 
 .fs-card.is-hidden,
@@ -1303,14 +1271,6 @@
     grid-template-columns: 1fr;
   }
 
-  .dv-search {
-    width: 100%;
-  }
-
-  .dv-head .fs-head__actions {
-    width: 100%;
-  }
-
   .dv-editor__body.is-split {
     grid-template-columns: 1fr;
   }
@@ -1376,29 +1336,13 @@
   gap: 16px;
 }
 
-.dva-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
+.dva > .mh {
+  margin-bottom: 0;
 }
 
-.dva-head h1 {
-  margin: 0 0 4px;
-  font-size: 26px;
-  letter-spacing: -0.02em;
-}
-
-.dva-head p {
-  margin: 0;
-  max-width: 720px;
-  color: var(--da-muted);
-}
-
-.dva-head__actions {
-  display: flex;
-  gap: 8px;
+.dv-head__star {
+  color: #f59e0b;
+  font-size: 0.8em;
 }
 
 .dva-filters {

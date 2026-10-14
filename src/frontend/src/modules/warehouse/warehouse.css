@@ -310,12 +310,77 @@
   color: #fff;
 }
 
-.wh-toolbar .wh-search {
-  width: min(340px, 100%);
+/* Toolbars follow the page width (the page is a size container, so the
+   sidebar open / collapsed / hidden is taken into account):
+   wide    — one row: search (grows) · filters · … · view switch on the right;
+   < 1000  — filters fill the first row(s), the view switch takes a row of its
+             own with equal segments; every row is filled edge to edge. */
+.wh-page {
+  container: wh-page / inline-size;
 }
 
 .wh-toolbar {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.wh-toolbar .wh-search {
+  flex: 1 1 220px;
+  width: auto;
+  min-width: 160px;
+  max-width: 340px;
+}
+
+.wh-toolbar > .ant-select,
+.wh-toolbar > .ant-picker {
+  flex: 0 1 190px;
+  min-width: 130px !important;
+}
+
+.wh-toolbar > .ant-segmented,
+.wh-toolbar > .ant-btn,
+.wh-toolbar > .ant-picker-range {
+  flex: none;
+}
+
+@container wh-page (max-width: 1000px) {
+  .wh-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .wh-toolbar .wh-search {
+    flex: 1 1 240px;
+    max-width: none;
+  }
+
+  .wh-toolbar > .ant-select,
+  .wh-toolbar > .ant-picker {
+    flex: 1 1 160px;
+  }
+
+  .wh-toolbar > .ant-picker-range {
+    flex: 1 1 240px;
+  }
+
+  .wh-toolbar > .mod-toolbar__grow {
+    display: none;
+  }
+
+  .wh-toolbar > .ant-btn {
+    flex: 1 1 auto;
+  }
+
+  /* The view switch goes last, spans its row, and scrolls if the names do not fit. */
+  .wh-toolbar > .ant-segmented {
+    order: 10;
+    flex: 1 1 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .wh-toolbar > .ant-segmented .ant-segmented-item {
+    flex: 1 0 auto;
+    text-align: center;
+  }
 }
 
 /* ── Tables, groups, tiles ───────────────────────────────────────────────── */
@@ -1625,14 +1690,7 @@
 @media (max-width: 720px) {
   .wh-toolbar > .ant-select,
   .wh-toolbar > .ant-select-tree-select {
-    flex: 1 1 45%;
     min-width: 0 !important;
-  }
-
-  .wh-toolbar .ant-segmented {
-    max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
   }
 
   .wh-tile__top > strong {
@@ -1953,4 +2011,71 @@
 
 .whi-mrow.is-amber {
   border-color: color-mix(in srgb, var(--da-warning) 50%, transparent);
+}
+
+/* ── Page header: title block shrinks, the action cluster keeps one line ──
+ * Narrow page (< 640px): secondary buttons keep their icons only (they carry
+ * aria-labels / tooltips), the badge and the lead line step aside on phones.
+ */
+.wh-hero {
+  flex-wrap: wrap;
+}
+
+.wh-hero .mod-hero__badge,
+.wh-hero .mod-hero__actions > * {
+  flex: none;
+}
+
+.wh-hero .mod-hero__text {
+  flex: 1 1 0;
+  min-width: min(220px, 100%);
+}
+
+.wh-hero .mod-hero__text h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wh-hero .mod-hero__actions {
+  flex: none;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+@container wh-page (max-width: 640px) {
+  .wh-hero .mod-hero__actions .ant-btn:not(.ant-btn-primary):has(.ant-btn-icon) {
+    width: 32px;
+    padding-inline: 0;
+    flex: none;
+  }
+
+  .wh-hero .mod-hero__actions .ant-btn:not(.ant-btn-primary):has(.ant-btn-icon) > span:not(.ant-btn-icon) {
+    display: none;
+  }
+}
+
+@container wh-page (max-width: 480px) {
+  .wh-hero .mod-hero__badge,
+  .wh-hero .mod-hero__text p {
+    display: none;
+  }
+}
+
+/* Phones (< 520px of header): the title keeps the first row, the actions take
+   the second one — the primary action stretches, icon buttons sit to the right. */
+@container wh-page (max-width: 520px) {
+  .wh-hero .mod-hero__actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  .wh-hero .mod-hero__actions > .ant-btn-primary,
+  .wh-hero .mod-hero__actions > .ant-space-compact {
+    flex: 1 1 auto;
+  }
+
+  .wh-hero .mod-hero__actions > .ant-space-compact > .ant-btn:first-child {
+    flex: 1 1 auto;
+  }
 }

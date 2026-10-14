@@ -2,6 +2,7 @@ import { query, withTransaction } from '../../config/database.js';
 import { onBeforeUserDelete } from '../../services/hooks.js';
 import { registerJob } from '../../services/scheduler.js';
 import { ensureAclTable } from '../shared/acl.js';
+import { ensureSlugSchema } from '../shared/linkSlug.js';
 import { prunePreviewCaches } from '../shared/storage.js';
 import { flushLinkNotices } from './linkWrites.js';
 import { beforeUserDelete, purgeTrash } from './trash.js';
@@ -102,6 +103,8 @@ export async function ensureFilesSchema() {
       ADD COLUMN IF NOT EXISTS require_email BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS notify BOOLEAN NOT NULL DEFAULT FALSE
   `);
+  // Custom addresses /l/<slug> (shared/linkSlug.js).
+  await ensureSlugSchema('files');
   // allow_download is kept in step with permissions on every write, so this only ever touches old rows.
   await query(`UPDATE fs_links SET permissions = array_remove(permissions, 'download') WHERE allow_download = FALSE AND 'download' = ANY(permissions)`);
   // What visitors did through a link: the activity log, the per-link quota,

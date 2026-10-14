@@ -19,6 +19,7 @@ import apiRoutes from './routes/index.js';
 import { requestIds } from './services/incidents.js';
 import { tokenGate, versionPrefix } from './api/gate.js';
 import { closeAllStreams } from './modules/chat/realtime.js';
+import { shellMiddleware } from './services/linkPreview/index.js';
 
 const app = express();
 const PORT = config.server.port;
@@ -35,6 +36,9 @@ ensureUploadDirs();
 
 // Every request carries an id (and the browser's session id) for incident lookup.
 app.use(requestIds);
+// Page navigations handed over by nginx: index.html with link-preview tags
+// (services/linkPreview). Before helmet and the IP guard, like the static file.
+app.use(shellMiddleware());
 // /api/v1/* is the stable address for integrations (same handlers as /api/*).
 app.use(versionPrefix);
 app.use(

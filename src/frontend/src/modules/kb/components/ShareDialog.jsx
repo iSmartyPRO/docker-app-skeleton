@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Button, Input, Modal, Popconfirm, Segmented, Spin, Switch, Tag, Tooltip } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getRegional, inZone, nowInZone, todayISO } from '../../../lib/datetime';
 import { DateField } from '../../../components/ui/DateTimeField';
@@ -280,8 +281,8 @@ export default function ShareDialog({ open, folder, config, onClose }) {
               </div>
             );
           })}
-          <Button type="primary" block size="large" onClick={() => setEditing('new')}>
-            + {t('kb.share.new')}
+          <Button type="primary" block size="large" onClick={() => setEditing('new')} icon={<PlusOutlined />}>
+            {t('kb.share.new')}
           </Button>
         </div>
       )}

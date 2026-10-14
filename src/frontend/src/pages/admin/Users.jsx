@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PlusOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   App,
@@ -215,8 +216,8 @@ export default function AdminUsers() {
         description={t('users.lead')}
         extra={
           can('users.manage') && (
-            <Button type="primary" onClick={() => setOpen(true)}>
-              + {t('users.create')}
+            <Button type="primary" onClick={() => setOpen(true)} icon={<PlusOutlined />}>
+              {t('users.create')}
             </Button>
           )
         }
@@ -228,12 +229,12 @@ export default function AdminUsers() {
             placeholder={t('users.searchPlaceholder')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            style={{ maxWidth: 320 }}
+            className="panel__search"
           />
           <Select
             value={role}
             onChange={setRole}
-            style={{ width: 190 }}
+            className="panel__filter"
             options={[
               { value: 'all', label: t('users.allRoles') },
               ...access.roles.map((item) => ({ value: item.id, label: roleLabel(item, t) })),
@@ -242,7 +243,7 @@ export default function AdminUsers() {
           <Select
             value={group}
             onChange={setGroup}
-            style={{ width: 190 }}
+            className="panel__filter"
             options={[
               { value: 'all', label: t('users.allGroups') },
               ...access.groups.map((item) => ({ value: item.id, label: item.name })),
@@ -251,7 +252,7 @@ export default function AdminUsers() {
           <Select
             value={status}
             onChange={setStatus}
-            style={{ width: 170 }}
+            className="panel__filter"
             options={[
               { value: 'all', label: t('users.allStatuses') },
               { value: 'active', label: t('users.active') },

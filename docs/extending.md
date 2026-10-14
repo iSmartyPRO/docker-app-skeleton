@@ -332,6 +332,56 @@ The sidebar item, palette entry and icon slot appear automatically.
 
 ---
 
+## Module page header
+
+Module screens with a sidebar (`mod-shell`) start with `ModuleHeader`
+(`src/frontend/src/modules/shared/ModuleHeader.jsx`, styles in `modules/shared/module.css`, `.mh-*`).
+Drive and Files use it; other modules can adopt it. Admin and cabinet pages keep `PageHeader`.
+
+```jsx
+import ModuleHeader, { PathChip, SelectionBar, SortButton, ViewToggle } from '../../shared/ModuleHeader';
+
+<ModuleHeader
+  crumbs={[{ key: 'root', label: 'Drive', to: '/app/drive' }, { key: 'cur', label: 'Reports' }]}
+  icon={<span className="mod-dot" />}
+  title="Reports"
+  titleExtra={<StarButton />}
+  meta={<PathChip value={unc} onCopy={copy} />}
+  description="Lead text"
+  actions={[
+    { key: 'upload', primary: true, icon: <UploadOutlined />, label: t('files.upload'), onClick: pick, menu: [/* antd menu items → split button */] },
+    { key: 'folder', icon: <FolderAddOutlined />, label: t('files.newFolder'), onClick: create },
+  ]}
+  more={[/* antd menu items for the ⋯ button */]}
+  search={{ value, onChange, onSearch, loading, placeholder }}
+  status={t('files.itemsN', { n })}
+  selection={selected.length > 0 && <SelectionBar label={…} actions={[…]} onClear={clear} />}
+  tools={<><SortButton … /><ViewToggle value={view} onChange={setView} /></>}
+/>
+```
+
+| Prop | Meaning |
+| --- | --- |
+| `crumbs` | `[{ key, label, to? }]`, the last item is the current page. Long trails collapse into a `…` menu (wide: first + last 3; compact: first + last 2; phone: `… / parent / current`). |
+| `title`, `icon`, `titleExtra` | One-line title (ellipsis, full text in `title`); `null` shows a skeleton. `icon` sits before it (colour dot), `titleExtra` after it (favourite star). |
+| `meta`, `description` | Row under the title (chips, `PathChip`, usage bar) and a muted lead paragraph. |
+| `actions` | Action objects: `{ key, label, icon, onClick, href, primary, danger, loading, disabled, tooltip, menu }`. `menu` makes a split button. `{ key, node }` renders a hidden helper element (e.g. the folder `<input>` from `useUploadActions`). Hide write actions by leaving them out (`canWrite && {…}` — falsy entries are skipped). |
+| `more`, `moreLabel` | antd menu items for the `⋯` overflow button and its accessible name. |
+| `search` | `{ value, onChange(text), onSearch(text), loading, placeholder }`: a growing field; an icon that expands on phones. |
+| `filters`, `status` | Extra controls / muted text after the search (e.g. a `Segmented` filter, "Items: 12"). |
+| `selection` | Replaces search + filters while items are selected; use `SelectionBar` (`label`, `actions`, `onClear`) — its buttons turn into icons with tooltips below the wide mode. |
+| `tools` | Right side of the toolbar: `SortButton` (`options=[{key,label}]`, `value`, `desc`, `onChange(key)`), `ViewToggle` (`value`, `onChange`), or anything else. |
+| `dock` | Default `true`: on phones the actions (with a `primary` one) move into a bottom dock. Pass `false` for pages where a dock would be in the way. |
+| `className`, `style` | On the `<header>`; `style={{ '--c': color }}` tints the path chip hover. |
+
+Layout modes follow the header's own width (`data-size` on `.mh`): **wide** ≥ 640px (icon + text buttons),
+**compact** ≥ 480px (secondary actions become icon buttons with tooltips), **phone** < 480px (bottom dock,
+search icon, short crumbs). The action cluster never wraps; the title block shrinks with an ellipsis.
+`useHeaderMode()` returns the mode inside the header. All controls are 32px high; use `@ant-design/icons`
+for icons, not Unicode glyphs.
+
+---
+
 ## Add a public page
 
 Public routes live outside `/admin` and `/account` in `App.jsx`. Wrap them in `<SetupGate>` and, if the page should respect the *Closed* access mode, in `<AccessGate>`:

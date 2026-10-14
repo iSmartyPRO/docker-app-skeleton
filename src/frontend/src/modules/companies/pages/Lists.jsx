@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Input, Segmented, Select, Table } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatRelative } from '../../../lib/format';
 import { cmpApi, relationLabel } from '../api';
@@ -46,37 +47,52 @@ export function CompanyList({ scope }) {
 
   const countries = (meta?.settings?.countries || []).filter((code) => meta?.countries?.[code]);
   const titles = { mine: t('companies.myCompanies'), archive: t('companies.archive'), undefined: t('companies.companies') };
+  const countryOptions = [{ value: '', label: t('companies.allCountries') }, ...countries.slice(0, 5).map((code) => ({ value: code, label: `${meta.countries[code].flag} ${code === 'OTHER' ? t('companies.other') : code}` }))];
 
   return (
     <div className="cmp-list">
       <header className="cmp-list__head">
-        <div>
+        <div className="cmp-list__title">
           <h1>{titles[scope]}</h1>
           <p>{data ? t('companies.totalN', { n: data.total }) : '…'}</p>
         </div>
-        {scope !== 'archive' && <Button type="primary" size="large" onClick={() => setCreating(true)}>+ {t('companies.addCompany')}</Button>}
+        {scope !== 'archive' && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)} className="cmp-list__create" aria-label={t('companies.addCompany')}><span>{t('companies.addCompany')}</span></Button>}
       </header>
-      <div className="cmp-filters">
-        <Input.Search allowClear value={q} onChange={(event) => setQ(event.target.value)} placeholder={t('companies.searchCompanies')} className="cmp-filters__search" size="large" />
-        <Segmented
-          value={filters.country || ''}
-          onChange={(value) => { setPage(1); setFilters({ country: value }); }}
-          options={[{ value: '', label: t('companies.allCountries') }, ...countries.slice(0, 5).map((code) => ({ value: code, label: `${meta.countries[code].flag} ${code === 'OTHER' ? t('companies.other') : code}` }))]}
-        />
-        <Select
-          allowClear
-          placeholder={t('companies.f.relations')}
-          value={filters.relation || undefined}
-          onChange={(value) => { setPage(1); setFilters({ relation: value }); }}
-          options={(meta?.settings?.relations || []).map((relation) => ({ value: relation.key, label: relationLabel(t, relation) }))}
-          style={{ minWidth: 160 }}
-        />
-        <Select
-          value={filters.sort || 'name'}
-          onChange={(value) => setFilters({ sort: value })}
-          options={['name', 'updated', 'created', 'rating'].map((value) => ({ value, label: t(`companies.sort.${value}`) }))}
-          style={{ minWidth: 170 }}
-        />
+      <div className="cmp-filters-wrap">
+        <div className="cmp-filters">
+          <Input.Search allowClear value={q} onChange={(event) => setQ(event.target.value)} placeholder={t('companies.searchCompanies')} className="cmp-filters__search" />
+          <Segmented
+            className="cmp-filters__countries"
+            value={filters.country || ''}
+            onChange={(value) => { setPage(1); setFilters({ country: value }); }}
+            options={countryOptions}
+          />
+          {/* The same choice as a list when the row is narrow (CSS shows one of the two). */}
+          <Select
+            className="cmp-filters__countries-select"
+            value={filters.country || ''}
+            onChange={(value) => { setPage(1); setFilters({ country: value }); }}
+            options={countryOptions}
+            popupMatchSelectWidth={false}
+            aria-label={t('companies.allCountries')}
+          />
+          <Select
+            className="cmp-filters__select"
+            allowClear
+            placeholder={t('companies.f.relations')}
+            value={filters.relation || undefined}
+            onChange={(value) => { setPage(1); setFilters({ relation: value }); }}
+            options={(meta?.settings?.relations || []).map((relation) => ({ value: relation.key, label: relationLabel(t, relation) }))}
+            popupMatchSelectWidth={false}
+          />
+          <Select
+            className="cmp-filters__select"
+            value={filters.sort || 'name'}
+            onChange={(value) => setFilters({ sort: value })}
+            options={['name', 'updated', 'created', 'rating'].map((value) => ({ value, label: t(`companies.sort.${value}`) }))}
+            popupMatchSelectWidth={false}
+          />
+        </div>
       </div>
       <Table
         className="cmp-table"
@@ -139,15 +155,17 @@ export function PeopleList({ scope }) {
   return (
     <div className="cmp-list">
       <header className="cmp-list__head">
-        <div>
+        <div className="cmp-list__title">
           <h1>{scope === 'archive' ? t('companies.peopleArchive') : t('companies.people')}</h1>
           <p>{data ? t('companies.totalN', { n: data.total }) : '…'}</p>
         </div>
-        {scope !== 'archive' && <Button type="primary" size="large" onClick={() => setCreating(true)}>+ {t('companies.addPerson')}</Button>}
+        {scope !== 'archive' && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)} className="cmp-list__create" aria-label={t('companies.addPerson')}><span>{t('companies.addPerson')}</span></Button>}
       </header>
+      <div className="cmp-filters-wrap">
       <div className="cmp-filters">
-        <Input.Search allowClear value={q} onChange={(event) => setQ(event.target.value)} placeholder={t('companies.searchPeople')} className="cmp-filters__search" size="large" />
+        <Input.Search allowClear value={q} onChange={(event) => setQ(event.target.value)} placeholder={t('companies.searchPeople')} className="cmp-filters__search" />
         <Segmented
+          className="cmp-filters__scope"
           value={filters.owner === 'me' ? 'mine' : filters.free === '1' ? 'free' : ''}
           onChange={(value) => { setPage(1); setFilters({ owner: value === 'mine' ? 'me' : '', free: value === 'free' ? '1' : '' }); }}
           options={[
@@ -156,6 +174,7 @@ export function PeopleList({ scope }) {
             { value: 'free', label: t('companies.withoutCompany') },
           ]}
         />
+      </div>
       </div>
       <Table
         className="cmp-table"
