@@ -14,6 +14,7 @@ import Shortcuts from './pages/Shortcuts';
 import MyLinks from './pages/MyLinks';
 import Connections from './pages/Connections';
 import FilePage from './pages/FilePage';
+import EditPage from './pages/EditPage';
 import Activity from './pages/Activity';
 import '../shared/module.css';
 import '../kb/kb.css';
@@ -110,6 +111,7 @@ function Shell() {
   const title = useDriveTitle();
   const [drawer, setDrawer] = useState(false);
   const fileRoute = useMatch('/app/drive/v/*');
+  const editRoute = useMatch('/app/drive/e/*');
   // Only the page the drive was entered on may jump straight into a lone folder: coming back to the
   // overview later (menu, breadcrumb, Back) always shows the list. Reset when the app is left and re-entered.
   const { pathname } = useLocation();
@@ -127,10 +129,11 @@ function Shell() {
     );
   }
   // A file on its own page takes the whole width: no sidebar.
-  if (fileRoute) {
+  if (fileRoute || editRoute) {
     return (
       <Routes>
         <Route path="v/:shareId/*" element={<FilePage />} />
+        <Route path="e/:shareId/*" element={<EditPage />} />
       </Routes>
     );
   }

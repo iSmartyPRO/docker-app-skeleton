@@ -7,6 +7,7 @@ import { errorMessage } from '../../../lib/errors';
 import AccessDialog from '../../shared/AccessDialog';
 import { filesApi, formatBytes, nodeSource } from '../api';
 import { useFiles } from '../FilesContext';
+import { editorMode, opensInEditor } from '../../office/editable';
 import NodeList, { nodeLabel } from '../components/NodeList';
 import NodeViewer from '../components/NodeViewer';
 import ShareDialog from '../components/ShareDialog';
@@ -264,6 +265,7 @@ export default function Browser({ place }) {
     if (trash) return;
     if (node.kind === 'folder') navigate(`/app/files/f/${node.id}`);
     // Default: the file's own page; optionally a modal over the folder.
+    else if (opensInEditor(config?.editor, node.file?.ext)) navigate(`/app/files/e/${node.id}`);
     else if (config?.openMode !== 'modal') navigate(`/app/files/v/${node.id}`);
     else setViewing(node);
   };
@@ -289,8 +291,10 @@ export default function Browser({ place }) {
     }
     const edit = atLeast(node.level, 'edit');
     const system = Boolean(node.systemTag);
+    const office = node.kind === 'file' ? editorMode(config?.editor, node.file?.ext, edit) : null;
     return [
-      { key: 'open', label: node.kind === 'folder' ? t('files.open') : t('files.preview'), onClick: () => open(node) },
+      office && { key: 'editor', label: t(office === 'edit' ? 'office.editOnline' : 'office.openInEditor'), onClick: () => navigate(`/app/files/e/${node.id}`) },
+      { key: 'open', label: node.kind === 'folder' ? t('files.open') : t('files.preview'), onClick: () => (node.kind === 'folder' ? open(node) : config?.openMode !== 'modal' ? navigate(`/app/files/v/${node.id}`) : setViewing(node)) },
       node.kind === 'file' && { key: 'download', label: <a href={src.file(node, { download: true })}>{t('kb.download')}</a> },
       { type: 'divider' },
       !system && { key: 'share', label: t('files.share'), onClick: () => setDialog({ type: 'share', node }) },

@@ -6,6 +6,7 @@ import { logoDir } from '../config/paths.js';
 import { APP_VERSION } from '../config/version.js';
 import { REGIONAL_DEFAULTS, resolveRegional, sanitizeRegional } from './datetime.js';
 import { MODULE_CATALOG, MODULE_IDS, resolveModules, sanitizeModules } from '../modules/catalog.js';
+import { EDITING_DEFAULTS, sanitizeEditing } from './office/editing.js';
 
 export const DEFAULTS = {
   app_name: 'docker-app-skeleton',
@@ -65,6 +66,8 @@ export const DEFAULTS = {
     documents: {
       enabled: false,
       serverUrl: '',
+      // Online editing through the same Collabora server (WOPI); see services/office/config.js.
+      editing: EDITING_DEFAULTS,
     },
     mattermost: {
       enabled: false,
@@ -267,6 +270,12 @@ export function parseSettings(raw) {
       { ...defaults, ...(storedIntegrations[group] || {}) },
     ])
   );
+  // Online editing lives inside the document integration (services/office/config.js).
+  try {
+    integrations.documents.editing = sanitizeEditing({}, storedIntegrations.documents?.editing || {});
+  } catch {
+    integrations.documents.editing = { ...EDITING_DEFAULTS };
+  }
   const security = parseJson(raw.security, JSON.parse(DEFAULTS.security));
   const authDefaults = JSON.parse(DEFAULTS.auth);
   const storedAuth = parseJson(raw.auth, {});
@@ -726,8 +735,12 @@ export async function updateAdminSettings(patch) {
   if (patch.integrations) {
     const merged = mergeKeepSecrets(parsed.integrations, patch.integrations);
     merged.wazzup = sanitizeWazzup(merged.wazzup);
+    // The editing block is replaced as a whole by the patch, cleaned (addresses, formats, limits).
+    merged.documents.editing = sanitizeEditing(parsed.integrations.documents?.editing, patch.integrations.documents?.editing);
     if (merged.activeDirectory) merged.activeDirectory.caCert = sanitizeCaCert(merged.activeDirectory.caCert);
     await setSetting('integrations', JSON.stringify(merged));
+    // The editor server may have changed: read its discovery again on next use.
+    if (patch.integrations.documents) (await import('./office/discovery.js')).forgetDiscovery();
   }
   if (patch.modules) {
     await setSetting('modules', JSON.stringify(sanitizeModules(parsed.modules, patch.modules)));

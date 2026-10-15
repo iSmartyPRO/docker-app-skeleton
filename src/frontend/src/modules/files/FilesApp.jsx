@@ -10,6 +10,7 @@ import { filesApi, formatBytes } from './api';
 import { FilesProvider, useFiles } from './FilesContext';
 import Browser from './pages/Browser';
 import FilePage from './pages/FilePage';
+import EditPage from './pages/EditPage';
 import SpaceDialog from './components/SpaceDialog';
 import '../shared/module.css';
 import './files.css';
@@ -139,6 +140,7 @@ function Shell() {
   const { config, error } = useFiles();
   const [drawer, setDrawer] = useState(false);
   const fileRoute = useMatch('/app/files/v/:id');
+  const editRoute = useMatch('/app/files/e/:id');
   if (error) return <Result status="warning" title={errorMessage(error)} />;
   if (!config) {
     return (
@@ -148,10 +150,11 @@ function Shell() {
     );
   }
   // A file on its own page takes the whole width: no sidebar.
-  if (fileRoute) {
+  if (fileRoute || editRoute) {
     return (
       <Routes>
         <Route path="v/:id" element={<FilePage />} />
+        <Route path="e/:id" element={<EditPage />} />
       </Routes>
     );
   }

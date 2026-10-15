@@ -28,6 +28,8 @@ import {
 import { extAllowed, fileLimitBytes, quotaBytes, requirePerm, visitorName } from './linkPerms.js';
 import { noteLinkChange } from './linkNotify.js';
 import { cleanName, cleanPath, joinPath, nameOf, parentOf } from './paths.js';
+import { editorsIn, openEditor } from './office.js';
+import { editorClientConfig } from '../../services/office/session.js';
 import { activityPeople, audited, clientLeft, exportActivity, listActivity, logActivity } from './activity.js';
 import {
   adminOverview,
@@ -99,11 +101,20 @@ export function privateRoutes() {
 
   const target = (req) => openTarget(req.drive, req.params.id);
 
-  router.get('/', wrap(async (req, res) => res.json({ success: true, ...(await home(req.drive)) })));
+  router.get('/', wrap(async (req, res) => {
+    const data = await home(req.drive);
+    // Online editing (Collabora): which extensions open in the editor.
+    data.config.editor = await editorClientConfig().catch(() => ({ enabled: false, edit: [], view: [] }));
+    res.json({ success: true, ...data });
+  }));
 
   // Browsing
   router.get('/shares/:id/list', audited('list', (req) => ({ ...at(req, req.query.path), isDir: true }), async (req, res) => {
-    res.json({ success: true, ...(await listFolder(await target(req), req.query.path, { hidden: req.query.hidden === '1' })) });
+    const opened = await target(req);
+    const listing = await listFolder(opened, req.query.path, { hidden: req.query.hidden === '1' });
+    // Files open in the online editor right now: { path: name }.
+    listing.editing = await editorsIn(opened, listing.entries);
+    res.json({ success: true, ...listing });
   }));
   router.get('/shares/:id/stat', wrap(async (req, res) => {
     res.json({ success: true, ...(await statEntry(await target(req), req.query.path, { access: true })) });
@@ -185,6 +196,10 @@ export function privateRoutes() {
   const opened = (req) => ({ ...at(req, req.query.path), action: req.query.download === '1' ? 'download' : 'view' });
   router.get('/shares/:id/file', audited('view', opened, async (req, res) => {
     await sendEntry(req, res, await target(req), req.query.path, { download: req.query.download === '1' });
+  }));
+  // Online editor (Collabora): the frame address and a WOPI access token for a file.
+  router.post('/shares/:id/editor', audited('view', (req) => ({ ...at(req, req.body?.path), details: { editor: req.body?.mode === 'view' ? 'view' : 'edit' } }), async (req, res) => {
+    res.json({ success: true, ...(await openEditor(req, req.drive, req.params.id, req.body || {})) });
   }));
   router.get('/shares/:id/thumb', wrap(async (req, res) => sendThumb(res, await target(req), req.query.path, req.query.size)));
   router.get('/shares/:id/preview.pdf', audited('view', opened, async (req, res) => sendPreview(res, await target(req), req.query.path)));

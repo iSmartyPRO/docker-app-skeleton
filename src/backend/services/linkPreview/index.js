@@ -1,3 +1,4 @@
+import { editingConfig, editorOrigin } from '../office/config.js';
 import { readFile, stat } from 'fs/promises';
 import { basename, join, resolve } from 'path';
 import { Router } from 'express';
@@ -214,6 +215,15 @@ export function shellMiddleware() {
     } catch (err) {
       // No database (setup, restarts): the plain page, as nginx would serve it.
       if (err?.code !== 'ECONNREFUSED') console.warn(`[link-preview] ${req.path}: ${err.message}`);
+    }
+    // The online editor's server may be framed and posted to (nginx adds it to
+    // the page's CSP frame-src and form-action; see nginx.conf). Every page
+    // carries it: the editor opens inside the app without a page load.
+    try {
+      const origin = editorOrigin(await editingConfig());
+      if (origin) res.setHeader('X-Portal-Frame-Src', origin);
+    } catch {
+      /* no database: no editor */
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');

@@ -12,9 +12,12 @@ import { moduleRouter } from '../modules/index.js';
 import rateLimit from 'express-rate-limit';
 import { incidentFromRequest, recordIncident } from '../services/incidents.js';
 import { accountApiRoutes, adminApiRoutes, developerRoutes } from '../api/routes.js';
+import { wopiRoutes } from '../services/office/wopi.js';
 
 const router = Router();
 
+// Online editor callbacks (WOPI): Collabora calls these server to server with an access token, no cookie.
+router.use('/wopi', wopiRoutes());
 router.use('/auth', authRoutes);
 router.use('/setup', setupRoutes);
 // API console and personal tokens sit before their parents' guards.

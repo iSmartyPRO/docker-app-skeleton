@@ -20,6 +20,7 @@ import { requestIds } from './services/incidents.js';
 import { tokenGate, versionPrefix } from './api/gate.js';
 import { closeAllStreams } from './modules/chat/realtime.js';
 import { shellMiddleware } from './services/linkPreview/index.js';
+import { maskToken } from './services/office/tokens.js';
 
 const app = express();
 const PORT = config.server.port;
@@ -58,9 +59,12 @@ app.use(cookieParser());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // Server-Sent Events (chat) must reach the browser as they are written.
-app.use(compression({ filter: (req, res) => !String(res.getHeader('Content-Type') || '').startsWith('text/event-stream') && compression.filter(req, res) }));
+// WOPI file transfers (Collabora) are passed through as they are.
+app.use(compression({ filter: (req, res) => !String(res.getHeader('Content-Type') || '').startsWith('text/event-stream') && !req.path.startsWith('/api/wopi/') && compression.filter(req, res) }));
 
 if (config.server.nodeEnv !== 'production') {
+  // Access tokens of the online editor (?access_token=) and link read tokens (?t=) never reach the log.
+  morgan.token('url', (req) => maskToken(req.originalUrl || req.url));
   app.use(morgan('dev'));
 }
 
@@ -201,7 +205,8 @@ async function start() {
   // Uploads through public links: Drive (PUT /d/…/upload|replace) and Files (POST /l/…/upload, /l/…/nodes/:id/replace).
   const LINK_UPLOAD = { PUT: /^\/d\/[\w-]+\/(upload|replace)$/, POST: /^\/l\/[\w-]+\/(upload|nodes\/\d+\/replace)$/ };
   // API tokens are checked before the general limiter; they have their own per-token limit.
-  app.use('/api', tokenGate);
+  // WOPI calls carry `Authorization: Bearer <WOPI token>` (not an API token): the WOPI router checks them.
+  app.use('/api', (req, res, next) => (req.path.startsWith('/wopi/') ? next() : tokenGate(req, res, next)));
   app.use(
     '/api/',
     rateLimit({
@@ -221,7 +226,8 @@ async function start() {
       // Sign-in has its own brute-force limiters; a busy guest IP must never block signing in.
       // Uploads through public links (one request per file) have their own per-link
       // limits (modules/drive/routes.js, modules/files/routes.js).
-      skip: (req) => Boolean(req.apiToken) || req.path.startsWith('/auth/') || (req.method === 'GET' && (FREE_READS.has(req.path) || STREAM.test(req.path))) || Boolean(LINK_UPLOAD[req.method]?.test(req.path)),
+      // WOPI (online editor) calls come from the Collabora server with their own limiter.
+      skip: (req) => Boolean(req.apiToken) || req.path.startsWith('/auth/') || req.path.startsWith('/wopi/') || (req.method === 'GET' && (FREE_READS.has(req.path) || STREAM.test(req.path))) || Boolean(LINK_UPLOAD[req.method]?.test(req.path)),
       handler: (req, res, next, options) => {
         res.status(options.statusCode).json({
           success: false,

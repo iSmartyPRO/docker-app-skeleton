@@ -173,6 +173,20 @@ export async function ensureDriveSchema() {
   await query(`CREATE INDEX IF NOT EXISTS drive_activity_share_idx ON drive_activity (share_id, at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS drive_activity_action_idx ON drive_activity (action, at DESC)`);
 
+  // Online editor: opaque WOPI file ids for files on a folder entry. The id
+  // stands for (entry, path); Collabora only ever sees the id, never a path.
+  await query(`
+    CREATE TABLE IF NOT EXISTS drive_office_files (
+      id VARCHAR(32) PRIMARY KEY,
+      share_id INTEGER NOT NULL REFERENCES drive_shares(id) ON DELETE CASCADE,
+      path TEXT NOT NULL,
+      path_key TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (share_id, path_key)
+    )
+  `);
+
   onDirectorySignIn(rememberLoginCredential);
   onDirectoryCredential(storeDirectoryCredential);
   registerJob({ name: 'drive:activity', everyMs: 24 * 60 * 60 * 1000, run: pruneActivity });

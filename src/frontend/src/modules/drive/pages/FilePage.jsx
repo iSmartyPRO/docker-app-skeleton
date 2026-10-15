@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button, Result, Spin, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
-import { driveApi, driveError, fileUrl, folderUrl, shareSource } from '../api';
+import { driveApi, driveError, editUrl, fileUrl, folderUrl, shareSource } from '../api';
+import { editorMode } from '../../office/editable';
 import { useDrive } from '../DriveContext';
 import { sortEntries, usePrefs } from '../prefs';
 import { DriveFileView } from '../components/DriveViewer';
@@ -139,7 +140,16 @@ export default function FilePage() {
             </Link>
           </Tooltip>
         }
-        extra={nav}
+        extra={
+          <>
+            {nav}
+            {editorMode(config?.editor, data.entry?.ext || (data.entry?.name || '').split('.').pop(), canWrite) && (
+              <Button type="primary" onClick={() => navigate(editUrl(shareId, path))}>
+                {t(editorMode(config?.editor, data.entry?.ext || (data.entry?.name || '').split('.').pop(), canWrite) === 'edit' ? 'office.editOnline' : 'office.openInEditor')}
+              </Button>
+            )}
+          </>
+        }
       />
       <LinkDialog open={Boolean(linkEntry)} shareId={shareId} entry={linkEntry} config={config || {}} onClose={() => setLinkEntry(null)} />
     </div>

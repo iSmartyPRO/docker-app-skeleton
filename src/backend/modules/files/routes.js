@@ -6,6 +6,8 @@ import { getSettings, parseSettings } from '../../services/settings.js';
 import { LEVEL, contextFromRequest, httpError, intId, listSubjects, wrap } from '../shared/acl.js';
 import { officePreview, sendBlob, sendPdf, storagePath } from '../shared/storage.js';
 import { requireNode } from './access.js';
+import { openEditor, withEditors } from './office.js';
+import { editorClientConfig } from '../../services/office/session.js';
 import { linkRateKey, slugCheckLimiter } from '../shared/linkSlug.js';
 import { checkLinkSlug, countView, createLink, deleteLink, linkActivity, listLinks, nodeInLink, pageTokens, resolveLink, startSession, unlockLink, updateLink, visitorLinkShape } from './links.js';
 import { sessionUploads, visitorDelete, visitorFolderTree, visitorMkdir, visitorReplace, visitorUpdate, visitorUpload } from './linkWrites.js';
@@ -85,17 +87,24 @@ export function privateRoutes() {
           const documents = parseSettings(rawSettings).integrations.documents;
           return Boolean(documents?.enabled && documents?.serverUrl);
         })(),
+        // Online editing (Collabora): which extensions open in the editor.
+        editor: await editorClientConfig().catch(() => ({ enabled: false, edit: [], view: [] })),
       },
     });
   }));
 
   // Places
-  router.get('/my', wrap(async (req, res) => res.json({ success: true, ...(await listPlace(req.fs, { root: 'my' })) })));
-  router.get('/folders/:id', wrap(async (req, res) => res.json({ success: true, ...(await listPlace(req.fs, { folderId: intId(req.params.id) })) })));
-  router.get('/spaces/:id/files', wrap(async (req, res) => res.json({ success: true, ...(await listPlace(req.fs, { root: 'space', spaceId: intId(req.params.id) })) })));
-  router.get('/shared', wrap(async (req, res) => res.json({ success: true, items: await sharedWithMe(req.fs) })));
-  router.get('/recent', wrap(async (req, res) => res.json({ success: true, items: await recent(req.fs) })));
-  router.get('/search', wrap(async (req, res) => res.json({ success: true, items: await search(req.fs, req.query.q) })));
+  // Listings mark files open in the online editor (editingBy).
+  const listed = async (result) => {
+    await withEditors(result.items);
+    return result;
+  };
+  router.get('/my', wrap(async (req, res) => res.json({ success: true, ...(await listed(await listPlace(req.fs, { root: 'my' }))) })));
+  router.get('/folders/:id', wrap(async (req, res) => res.json({ success: true, ...(await listed(await listPlace(req.fs, { folderId: intId(req.params.id) }))) })));
+  router.get('/spaces/:id/files', wrap(async (req, res) => res.json({ success: true, ...(await listed(await listPlace(req.fs, { root: 'space', spaceId: intId(req.params.id) }))) })));
+  router.get('/shared', wrap(async (req, res) => res.json({ success: true, items: await withEditors(await sharedWithMe(req.fs)) })));
+  router.get('/recent', wrap(async (req, res) => res.json({ success: true, items: await withEditors(await recent(req.fs)) })));
+  router.get('/search', wrap(async (req, res) => res.json({ success: true, items: await withEditors(await search(req.fs, req.query.q)) })));
   router.get('/trash', wrap(async (req, res) => res.json({ success: true, items: await listTrash(req.fs) })));
   router.delete('/trash', wrap(async (req, res) => res.json({ success: true, removed: await emptyTrash(req.fs) })));
 
@@ -152,6 +161,10 @@ export function privateRoutes() {
   router.get('/nodes/:id/preview.pdf', wrap(async (req, res) => {
     const access = await requireNode(req.fs, intId(req.params.id), LEVEL.view);
     await sendNodePreview(res, access.node);
+  }));
+  // Online editor (Collabora): the frame address and a WOPI access token for this file.
+  router.post('/nodes/:id/editor', wrap(async (req, res) => {
+    res.json({ success: true, ...(await openEditor(req, req.fs, intId(req.params.id), req.body || {})) });
   }));
 
   // Sharing

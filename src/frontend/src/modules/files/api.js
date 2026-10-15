@@ -34,6 +34,7 @@ export const filesApi = {
     });
   },
   node: (id) => api.get(`${base}/nodes/${id}`),
+  openEditor: (id, options) => api.post(`${base}/nodes/${id}/editor`, options),
   rename: (id, name) => api.put(`${base}/nodes/${id}`, { name }),
   move: (id, move) => api.put(`${base}/nodes/${id}`, { move }),
   trashNode: (id) => api.delete(`${base}/nodes/${id}`),

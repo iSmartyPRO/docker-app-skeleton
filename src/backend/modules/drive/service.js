@@ -459,6 +459,37 @@ export async function uploadInto(target, rel, name, req, { conflict = 'rename', 
   return { entry: entryShape(result.entry, path), replaced: result.replaced };
 }
 
+/**
+ * Online editor (office.js): writes `length` bytes from `body` over the file
+ * at `rel` (temporary file on the share, then an atomic replace by the
+ * gateway). Returns the new entry.
+ */
+export async function overwriteFile(target, rel, body, length) {
+  const path = cleanPath(rel);
+  if (!path) throw httpError(400, 'Invalid path', 'INVALID_PATH');
+  const res = await stream(target, 'write', { path: fullPath(target, parentOf(path)), name: nameOf(path), conflict: 'replace' }, { body, length });
+  const chunks = [];
+  for await (const chunk of res) chunks.push(chunk);
+  const result = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  return entryShape(result.entry, parentOf(path));
+}
+
+/** Raw read stream of a whole file (gateway response with x-size / x-mtime headers). */
+export async function readFileStream(target, rel) {
+  const path = cleanPath(rel);
+  if (!path) throw httpError(400, 'Not a file', 'IS_A_FOLDER');
+  return stream(target, 'read', { path: fullPath(target, path) });
+}
+
+/** A small file (e.g. an Office owner file) into memory; null when it cannot be read. */
+export async function readSmallFile(target, rel, max = 4096) {
+  try {
+    return await gateReadAll(params(target, { path: fullPath(target, cleanPath(rel)) }), max);
+  } catch {
+    return null;
+  }
+}
+
 // ── Content ─────────────────────────────────────────────────────────────────
 
 function contentHeaders(res, name, ext, download) {

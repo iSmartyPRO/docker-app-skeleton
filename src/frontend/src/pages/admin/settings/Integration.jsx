@@ -10,6 +10,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { listWazzupChannels, testAdminIntegration } from '../../../services/api';
 import SettingsPageHeader from './SettingsPageHeader';
+import EditorSettings from './EditorSettings';
 import { HintLabel } from '../../../help/Hint';
 
 /** Help hint per integration group (help/content/admin.js → fields). */
@@ -319,6 +320,7 @@ export default function IntegrationSettings({ itemId }) {
         {settings && (
           <IntegrationForm key={item.id} group={item.integration} settings={settings} save={save} />
         )}
+        {settings && item.integration === 'documents' && <EditorSettings settings={settings} save={save} />}
       </LoadState>
     </>
   );

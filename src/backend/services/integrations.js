@@ -399,6 +399,8 @@ export async function testIntegration(kind, override) {
   if (kind === 'wazzup') return testWazzup(override);
   if (kind === 'mattermost') return testMattermost(override);
   if (kind === 'documents') return testDocuments(override);
+  // Online editor: discovery, capabilities and the WOPI callback address (services/office/session.js).
+  if (kind === 'documentsEditor') return (await import('./office/session.js')).testEditor(override);
   if (kind === 'google') return testGoogle(override);
   if (kind === 'activeDirectory') return testActiveDirectory(override);
   throw fail('Unknown integration');

@@ -7,6 +7,7 @@ import { copyText } from '../../drive/api';
 import { filesApi, nodeSource } from '../api';
 import { useFiles } from '../FilesContext';
 import { NodeFileView } from '../components/NodeViewer';
+import { editorMode } from '../../office/editable';
 
 /** Where the file lives: its folder, its space's root, or "My files". */
 function parentOf(node, crumbs) {
@@ -127,6 +128,11 @@ export default function FilePage() {
                   <Button type="text" disabled={index >= siblings.length - 1} onClick={() => go(1)} aria-label={t('drive.nextFile')}>›</Button>
                 </Tooltip>
               </span>
+            )}
+            {editorMode(config?.editor, node.file?.ext, ['edit', 'manage'].includes(node.level)) && (
+              <Button type="primary" onClick={() => navigate(`/app/files/e/${node.id}`)}>
+                {t(editorMode(config?.editor, node.file?.ext, ['edit', 'manage'].includes(node.level)) === 'edit' ? 'office.editOnline' : 'office.openInEditor')}
+              </Button>
             )}
             <Tooltip title={t('files.copyPageLinkHint')}>
               <Button onClick={() => copyText(window.location.href).then(() => message.success(t('files.pageLinkCopied')))}>⧉ {t('files.copyPageLink')}</Button>

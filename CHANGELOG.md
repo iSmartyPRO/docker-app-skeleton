@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Online editing of office documents** in Files and the File server with Collabora Online (WOPI) — «Редактировать онлайн» / «Открыть в редакторе» in lists, menus and the file page, a full-window editor with save status, co-editing, «Редактирует: Имя» locks, conflict detection on the file server and desktop-lock awareness; Files keeps the previous content in the trash once per editing session. Settings → Document conversion → «Онлайн-редактор» with a connection check and the Collabora values to configure. See [docs/office-editing.md](docs/office-editing.md).
+
 ## [1.0.3] - 2026-10-15
 
 ### Changed

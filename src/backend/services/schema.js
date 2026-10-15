@@ -10,6 +10,7 @@ import { ensurePushTables } from './push.js';
 import { startScheduler } from './scheduler.js';
 import { ensureApiTables } from '../api/schema.js';
 import { ensureLegalEntitiesTable } from './legalEntities.js';
+import { ensureOfficeSchema } from './office/locks.js';
 
 let bootstrapped = false;
 
@@ -30,6 +31,8 @@ export async function bootstrapSchema() {
   await ensureLegalEntitiesTable();
   await ensureModuleSchemas();
   await ensureApiTables();
+  // Online editing (WOPI locks); after the modules (Drive's editor file ids live in its schema).
+  await ensureOfficeSchema();
   // Reminders and housekeeping start once the database is ready.
   startScheduler();
   bootstrapped = true;

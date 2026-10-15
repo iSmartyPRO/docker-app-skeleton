@@ -16,6 +16,7 @@ export const driveApi = {
   home: () => api.get(base),
   list: (shareId, path, hidden) => api.get(`${base}/shares/${shareId}/list`, { params: { path, hidden: hidden ? 1 : undefined } }),
   stat: (shareId, path) => api.get(`${base}/shares/${shareId}/stat`, { params: { path } }),
+  openEditor: (shareId, path, options) => api.post(`${base}/shares/${shareId}/editor`, { path, ...options }),
   search: (shareId, path, q) => api.get(`${base}/shares/${shareId}/search`, { params: { path, q }, timeout: 30000 }),
   mkdir: (shareId, path, name) => api.post(`${base}/shares/${shareId}/folders`, { path, name }),
   /** Folder uploads: makes (or reuses) these folder paths under `path`; [{ path, error }] in the same order. */
@@ -169,6 +170,11 @@ export function formatBytes(bytes) {
 /** Folder path → URL under /app/drive/s/:shareId/… */
 export function folderUrl(shareId, path = '') {
   return `/app/drive/s/${shareId}${path ? `/${path.split('/').map(encodeURIComponent).join('/')}` : ''}`;
+}
+
+/** File path → the online editor page under /app/drive/e/:shareId/… */
+export function editUrl(shareId, path) {
+  return `/app/drive/e/${shareId}/${path.split('/').map(encodeURIComponent).join('/')}`;
 }
 
 /** File path → its own viewer page under /app/drive/v/:shareId/… */

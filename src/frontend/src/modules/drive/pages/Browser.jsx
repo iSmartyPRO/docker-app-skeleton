@@ -8,7 +8,11 @@ import TransferPanel from '../../files/components/TransferPanel';
 import { useUploadActions } from '../../files/components/UploadButton';
 import ModuleHeader, { PathChip, SelectionBar, SortButton, ViewToggle } from '../../shared/ModuleHeader';
 import { FolderUploadError, batchLabel, collectDrop, collectPicked, useFolderUploads } from '../../files/folderUpload';
-import { copyText, driveApi, driveError, fileUrl, folderUrl, shareSource } from '../api';
+import { copyText, driveApi, driveError, editUrl, fileUrl, folderUrl, shareSource } from '../api';
+import { editorMode, opensInEditor } from '../../office/editable';
+
+/** A file's extension (the server sends `ext`; the name is the fallback). */
+const extOf = (entry) => entry?.ext || (String(entry?.name || '').includes('.') ? String(entry.name).split('.').pop().toLowerCase() : '');
 import { useDrive } from '../DriveContext';
 import EntryList from '../components/EntryList';
 import DriveViewer from '../components/DriveViewer';
@@ -159,6 +163,12 @@ export default function Browser() {
   const open = (entry) => {
     if (entry.dir) {
       navigate(folderUrl(shareId, entry.path));
+      return;
+    }
+    // Office documents open in the online editor when it is on.
+    if (opensInEditor(config?.editor, extOf(entry))) {
+      navigate(editUrl(shareId, entry.path));
+      driveApi.touchRecent({ shareId, path: entry.path, size: entry.size }).catch(() => {});
       return;
     }
     // Default: the file's own page (it records the visit itself); optionally a modal over the folder.
@@ -334,9 +344,11 @@ export default function Browser() {
 
   const copyPath = (entry) => copyText(entry ? uncOf(entry) : data?.unc).then(() => message.success(t('drive.pathCopied')));
 
-  const menu = (entry) =>
-    [
-      { key: 'open', label: entry.dir ? t('drive.open') : t('drive.preview'), onClick: () => open(entry) },
+  const menu = (entry) => {
+    const office = entry.dir ? null : editorMode(config?.editor, extOf(entry), canWrite && !entry.readonly);
+    return [
+      office && { key: 'editor', label: t(office === 'edit' ? 'office.editOnline' : 'office.openInEditor'), onClick: () => navigate(editUrl(shareId, entry.path)) },
+      { key: 'open', label: entry.dir ? t('drive.open') : t('drive.preview'), onClick: () => (entry.dir || config?.openMode === 'modal' ? open(entry) : navigate(fileUrl(shareId, entry.path))) },
       !entry.dir && { key: 'download', label: <a href={src.file(entry, { download: true })}>{t('kb.download')}</a> },
       entry.dir && { key: 'zip', label: <a href={src.zip([entry.path])}>{t('drive.downloadZip')}</a> },
       { type: 'divider' },
@@ -350,6 +362,7 @@ export default function Browser() {
       canDelete && { type: 'divider' },
       canDelete && { key: 'delete', danger: true, label: t('common.delete'), onClick: () => remove([entry]) },
     ].filter(Boolean);
+  };
 
   const toggle = (entry) =>
     setSelected((prev) => {

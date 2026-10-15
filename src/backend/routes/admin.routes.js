@@ -188,6 +188,12 @@ router.post('/integrations/:kind/test', integrationSettings, wrap(async (req, re
   res.json({ success: true, ...(await testIntegration(req.params.kind, req.body || {})) });
 }));
 
+// Online editor: the values the Collabora server must be configured with for this portal.
+router.get('/integrations/documents/editor-info', integrationSettings, wrap(async (req, res) => {
+  const { editorInfo } = await import('../services/office/session.js');
+  res.json({ success: true, ...(await editorInfo()) });
+}));
+
 // Google: values the admin copies into Google Cloud Console; disconnecting the Gmail sender.
 router.get('/integrations/google/info', integrationSettings, wrap(async (req, res) => {
   res.json({ success: true, redirectUri: redirectUri(), origin: publicBase() });

@@ -335,6 +335,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | [Public API](docs/public-api.md) | Tokens, access templates, rules and limits, webhooks, request log, developer portal, OpenAPI |
 | [Calendar](docs/calendar.md) | Calendars, recurrence, attendees, reminders, Google Calendar, API |
 | [Notifications](docs/notifications.md) | Notification center, channels, Web Push, scheduler, sealed secrets |
+| [Online document editing](docs/office-editing.md) | Edit docx/xlsx/pptx in Files and the File server with Collabora Online (WOPI) |
 | [Time zones and formats](docs/datetime.md) | Portal and personal time zone, date/time formats, week start; rules for code |
 | [Installable app (PWA)](docs/pwa.md) | Manifest, service worker, icons, install guide, deployment notes |
 | [Link previews](docs/link-previews.md) | Open Graph / messenger cards: page titles from settings, resource-aware previews of public links, preview pictures, privacy rules |
