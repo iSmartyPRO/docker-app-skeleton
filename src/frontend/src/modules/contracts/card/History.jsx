@@ -10,6 +10,7 @@ import { formatMoney, typeLabel } from '../lib';
 const ICON = {
   created: '✦', updated: '✎', status: '→', prolonged: '↻', version: '⬆', current: '★', signed_mark: '✍', signed_unmark: '✍',
   risk: '!', risk_update: '!', risk_delete: '✕',
+  deposit: '🔐', schedule: '🗓', payment: '💳', payment_delete: '✕', mp_sync: '🏗',
   started: '➤', approve: '✓', approved: '★', reject: '✕', return: '↩', question: '?', answer: '💬', delegate: '⇄', withdraw: '⤺', restart: '↻', reminder: '⏰', escalated: '⚠',
 };
 
@@ -102,6 +103,24 @@ export default function History({ contract, process, refreshKey }) {
         return d.status ? t('contracts.history.riskStatus', { no: d.no, status: t(`contracts.risks.status.${d.status.to}`) }) : t('contracts.history.riskUpdate', { no: d.no });
       case 'risk_delete':
         return t('contracts.history.riskDelete', { no: d.no });
+      case 'deposit': {
+        const kind = t(`contracts.pay.deposit.kindShort.${d.kind || 'deposit'}`);
+        if (d.action === 'status') return t('contracts.history.deposit.status', { kind, from: t(`contracts.pay.deposit.status.${d.from}`).toLowerCase(), to: t(`contracts.pay.deposit.status.${d.to}`).toLowerCase() });
+        if (d.action === 'created') return t('contracts.history.deposit.created', { kind, amount: formatMoney(d.amount, d.currency || contract.currency, locale) });
+        return t(`contracts.history.deposit.${['updated', 'deleted', 'file'].includes(d.action) ? d.action : 'updated'}`, { kind });
+      }
+      case 'schedule':
+        return d.rows ? t('contracts.history.schedule', { n: d.rows, total: formatMoney(d.total, contract.currency, locale) }) : t('contracts.history.scheduleCleared');
+      case 'payment':
+        return t('contracts.history.payment', { amount: formatMoney(d.amount, contract.currency, locale), date: fmtDate(d.paidOn) });
+      case 'payment_delete':
+        return t('contracts.history.paymentDelete', { amount: formatMoney(d.amount, contract.currency, locale), date: fmtDate(d.paidOn) });
+      case 'mp_sync': {
+        const unit = d.unit?.code || '—';
+        if (d.action === 'paid') return t('contracts.history.mpSync.paid', { unit, amount: formatMoney(d.paid, contract.currency, locale) });
+        const to = d.to ? t(`mp.status.${d.to}`) : '';
+        return d.result === 'refused' ? t('contracts.history.mpSync.refused', { unit, to, code: d.code || '' }) : t('contracts.history.mpSync.applied', { unit, to });
+      }
       default:
         return event.kind;
     }

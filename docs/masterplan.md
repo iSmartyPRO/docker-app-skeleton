@@ -300,6 +300,7 @@ Error codes: `VERSION_CONFLICT, SAME_STATUS, INVALID_TRANSITION, FORBIDDEN, NOT_
 - **Notifications** (`notificationCatalog.js`, group `masterplan`): `masterplan.expiring`, `masterplan.expired`, `masterplan.status` (booked / deposit / contract / sold / handed, rollbacks, closing — to heads of sales and management in the zone; also when a CRM stage could not be applied), `masterplan.report` (managers holding units under the report's objects + the sales responsible), `masterplan.review`, `masterplan.construction` (stale, delays), `masterplan.access`. Texts in the recipient's language, moments in their zone and formats.
 - **Scheduler**: `masterplan:bookings` (1 min), `masterplan:daily` (6 h).
 - **CRM**: see [Adaptation decisions](#adaptation-decisions). The deal block appears in the deal panel under the fields; «Подобрать объект» opens the plan with `?deal=` so the reserve / booking dialog already has the deal. When `syncDealAmount`, booking or contracting a unit writes its price / contract amount into the deal amount (a `field` event in the deal history).
+- **Contracts** ([contracts.md#masterplan](contracts.md#masterplan)): a contract linked to a sellable object moves it through this module's own sales service with the rights of the person acting in Contracts — deposit confirmed → «Задаток» (from «Резерв» / «Бронь»), contract signed → «Договор» (number, date, amount copied; a unit already in «Договор» gets them copied with `status.contract`), payments → `paid_amount` (payments + the held deposit, derived, written without a Masterplan right), paid in full → «Продано». Transition rules, zones, field hiding, notifications and the CRM deal line stay as described here. A move refused here (e.g. `INVALID_TRANSITION` from «Резерв») is not an error in Contracts: it is recorded as an `mp_events` entry of kind `contract` (`{ contractId, number, action, result, code, paid, contract }` — status-view only, amounts hidden without `amounts.*`) and as a note on the contract. The contract's payment schedule can be prefilled from the unit's price grid (`activeGrid` + `paymentOptions`), which answers open question 4 below for the client side: the per-client schedule plan / fact lives in Contracts.
 - **Counterparties**: clients come from the deal (person / company); a client name is stored for display only (spec §13.2).
 
 ## Frontend
@@ -319,14 +320,14 @@ Error codes: `VERSION_CONFLICT, SAME_STATUS, INVALID_TRANSITION, FORBIDDEN, NOT_
 
 ## Deferred to v2 / v3 and open questions
 
-Deferred: payment schedules per client (plan / fact; the grid gives the offer schedule only), price-change approval queue, saved registry presets and the PDF price list, «responsibles» layer and minimap on the plan, Gantt plan / fact, before / after photo comparison, monthly PDF report, watermarks, report comments by technical supervision, external agent and investor roles (the capabilities model is ready: add a role in `ROLE_CAPS` and a permission), contour import / export (SVG / GeoJSON), currency display switch, public showcase and buyer cabinet (v3), offline upload queue surviving a page reload (today retries happen while the page is open).
+Deferred: price-change approval queue, saved registry presets and the PDF price list, «responsibles» layer and minimap on the plan, Gantt plan / fact, before / after photo comparison, monthly PDF report, watermarks, report comments by technical supervision, external agent and investor roles (the capabilities model is ready: add a role in `ROLE_CAPS` and a permission), contour import / export (SVG / GeoJSON), currency display switch, public showcase and buyer cabinet (v3), offline upload queue surviving a page reload (today retries happen while the page is open).
 
 Open questions of the spec (§18) that change behaviour, and where the answer goes:
 
 1. Hierarchy per project and a vector plan — level types per project are configurable; SVG backgrounds are supported.
 2. Full list of types and what is sold — the types directory.
 3. Booking regulations — `reserveHours`, `bookingDays`, `managerExtensions`, `reserveLimit`, `requireDeal`, paid booking flag.
-4. Payment schedule in Masterplan or 1C — not built yet (only contract amount / paid / remaining).
+4. Payment schedule in Masterplan or 1C — per client in the Contracts module (deposit, schedule plan / fact, payments); the unit keeps contract amount / paid / remaining, kept in sync from the contract.
 5. Report moderation — a per-project switch.
 6. Finishing options — fixed list `pso, rough, whitebox, turnkey, furnished` (translations), extend in `constants.js`.
 7. Deal stages → unit statuses per pipeline — `stageMap` in the settings.

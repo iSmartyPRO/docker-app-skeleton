@@ -15,6 +15,8 @@ export const WIDGETS = {
   notifications: { area: 'notifications' },
   inbox: { module: 'approvals' },
   procurement: { module: 'procurement' },
+  // «Поступления по договорам»: finance and those who see every contract.
+  contractsPayments: { module: 'contracts', anyPermission: ['contracts.finance', 'contracts.view_all', 'contracts.legal', 'contracts.admin'] },
   warehouseLow: { module: 'warehouse' },
   warehouseIncoming: { module: 'warehouse' },
   warehouseMyTools: { module: 'warehouse' },
@@ -55,7 +57,7 @@ export const DEFAULT_LAYOUT = [
 /** Widget types this person can use now (module on, permission held). */
 export function availableTypes(modules, permissions) {
   return Object.entries(WIDGETS)
-    .filter(([, def]) => (!def.module || modules[def.module]?.enabled) && (!def.permission || hasPermission(permissions, def.permission)))
+    .filter(([, def]) => (!def.module || modules[def.module]?.enabled) && (!def.permission || hasPermission(permissions, def.permission)) && (!def.anyPermission || def.anyPermission.some((perm) => hasPermission(permissions, perm))))
     .map(([type]) => type);
 }
 

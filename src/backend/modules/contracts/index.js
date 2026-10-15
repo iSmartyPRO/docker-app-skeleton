@@ -87,6 +87,18 @@ registerInboxProvider(
   { module: 'contracts' }
 );
 
+/** «Ждёт меня» for finance (contracts.finance): contracts with overdue payments — «Платёж просрочен». */
+registerInboxProvider(
+  'contracts.payments',
+  async (ctx) => {
+    const policy = ctx.apiToken?.policy || ctx.req?.apiToken?.policy;
+    if (policy && !decide(policy, 'GET', '/app/contracts/contracts').ok) return [];
+    const { overdueInbox } = await import('./payments.js');
+    return overdueInbox(ctx);
+  },
+  { module: 'contracts' }
+);
+
 export default {
   id: 'contracts',
   schema: ensureContractsSchema,

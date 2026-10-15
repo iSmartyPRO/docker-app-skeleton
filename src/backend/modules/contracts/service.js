@@ -22,7 +22,7 @@ import {
   httpError,
   noticeDeadline,
 } from './logic.js';
-import { Params, canEdit, canManageRisks, canView, canWorkFiles, contractsContext, contractsSettings, isOwn, modulesEnabled, rolesFor, visibleSql } from './access.js';
+import { Params, canEdit, canManageRisks, canPlanPayments, canView, canWorkFiles, contractsContext, contractsSettings, isOwn, modulesEnabled, rolesFor, visibleSql } from './access.js';
 import { contractMessage } from './messages.js';
 import { resolveLinks, validateLinks } from './links.js';
 
@@ -38,12 +38,14 @@ export const COLUMNS = `c.id, c.seq, c.number, c.ext_number, c.title, c.type_key
   c.concluded_on::text AS concluded_on, c.starts_on::text AS starts_on, c.ends_on::text AS ends_on,
   c.auto_renew, c.notice_days, c.lawyer_id, c.owner_id, c.deal_id, c.mp_project_id, c.mp_node_id,
   c.status, c.status_changed_at, c.current_version_id, c.signed_version_id, c.signed_at, c.signed_by, c.terminated_reason,
-  c.created_by, c.updated_by, c.created_at, c.updated_at`;
+  c.created_by, c.updated_by, c.created_at, c.updated_at,
+  c.pay_tracked, c.pay_total, c.pay_paid, c.deposit_status, c.pay_plan`;
 
 const LIST_EXTRAS = `ap.status AS approval_status, ap.urgency AS approval_urgency, ap.due_at AS approval_due_at,
   EXISTS (SELECT 1 FROM ctr_versions sv WHERE sv.contract_id = c.id AND sv.signed) AS has_signed,
   (SELECT COUNT(*)::int FROM ctr_versions vv WHERE vv.contract_id = c.id) AS versions,
-  (SELECT COUNT(*)::int FROM ctr_risks rr WHERE rr.contract_id = c.id AND rr.status = 'open' AND rr.importance = 'high') AS open_high`;
+  (SELECT COUNT(*)::int FROM ctr_risks rr WHERE rr.contract_id = c.id AND rr.status = 'open' AND rr.importance = 'high') AS open_high,
+  (SELECT MIN(s.due_on)::text FROM ctr_schedule s WHERE s.contract_id = c.id AND s.paid < s.amount) AS pay_next_due`;
 
 const FROM = `ctr_contracts c LEFT JOIN approval_processes ap ON ap.type = '${TYPE_KEY}' AND ap.doc_id = c.id::text`;
 
@@ -125,6 +127,16 @@ export function contractShape(row, users = new Map()) {
     url: contractUrl(row.id),
   };
   shape.noticeDeadline = noticeDeadline(shape);
+  // The money side, only on contracts that follow it (a deposit, a schedule or payments).
+  shape.payments = row.pay_tracked
+    ? {
+        total: num(row.pay_total) || 0,
+        paid: num(row.pay_paid) || 0,
+        percent: Number(row.pay_total) > 0 ? Math.min(100, Math.floor((Number(row.pay_paid || 0) / Number(row.pay_total)) * 100)) : 0,
+        depositStatus: row.deposit_status || null,
+        nextDue: row.pay_next_due || null,
+      }
+    : null;
   if ('approval_status' in row) {
     shape.approval = row.approval_status ? { status: row.approval_status, urgency: row.approval_urgency, dueAt: row.approval_due_at, overdue: row.approval_status === 'pending' && row.approval_due_at && new Date(row.approval_due_at) < new Date() } : null;
     shape.hasSigned = Boolean(row.has_signed);
@@ -189,7 +201,7 @@ export async function actorNameOf(actorId) {
 
 // ── Registry ────────────────────────────────────────────────────────────────
 
-export const VIEWS = ['all', 'mine', 'waiting', 'urgent', 'overdue', 'work', 'active', 'expiring', 'unsigned', 'archive'];
+export const VIEWS = ['all', 'mine', 'waiting', 'urgent', 'overdue', 'work', 'active', 'expiring', 'unsigned', 'deposit_wait', 'pay_overdue', 'paid', 'archive'];
 
 /** SQL condition of a chip. `waiting` = ids of contracts waiting for the person. */
 function viewSql(view, ctx, p, extra) {
@@ -213,6 +225,15 @@ function viewSql(view, ctx, p, extra) {
       return `(c.status = 'expiring' OR (c.status = ANY(${p.add(RUNNING)}::text[]) AND c.ends_on BETWEEN ${p.add(ctx.today)}::date AND ${p.add(ctx.today)}::date + ${p.add(ctx.settings.expiringDays || 30)}::int))`;
     case 'unsigned':
       return `c.status IN ('approved', 'signed', 'active', 'expiring') AND NOT EXISTS (SELECT 1 FROM ctr_versions uv WHERE uv.contract_id = c.id AND uv.signed)`;
+    case 'deposit_wait':
+      // «Ждут задаток»: a deposit is expected and the deal is alive.
+      return `c.deposit_status = 'expected' AND c.status NOT IN ('completed', 'terminated', 'rejected')`;
+    case 'pay_overdue':
+      // «Просрочены платежи»: a schedule row due before today (the person's day) is not paid in full.
+      return `c.status NOT IN ('completed', 'terminated', 'rejected') AND EXISTS (SELECT 1 FROM ctr_schedule ps WHERE ps.contract_id = c.id AND ps.paid < ps.amount AND ps.due_on < ${p.add(ctx.today)}::date)`;
+    case 'paid':
+      // «Оплачены»: the schedule is paid in full.
+      return `c.pay_total > 0 AND c.pay_paid >= c.pay_total`;
     case 'archive':
       return `c.status = ANY(${p.add(ARCHIVED)}::text[])`;
     default:
@@ -385,6 +406,9 @@ export function rightsOf(ctx, row, process) {
     start: ['draft', 'rejected'].includes(row.status) && (own || ctx.isLegal) && !approvalActive,
     delete: ['draft', 'rejected'].includes(row.status) && !approvalActive && (row.created_by === ctx.userId || ctx.isAdmin || ctx.isLegal),
     signedMark: ctx.isLegal,
+    // The money side: plan the deposit and the schedule; confirm and register money (finance).
+    planPayments: canPlanPayments(ctx, row),
+    finance: ctx.isFinance,
   };
 }
 
@@ -641,8 +665,15 @@ export async function changeStatus(ctx, id, input = {}) {
     return loadRow(row.id, client);
   });
   await afterStatus(updated, row.status, to, { actorId: ctx.userId, comment });
-  // A signed contract whose start date has come is in force at once.
-  if (to === 'signed') return getContract(ctx, (await applyDates(updated, ctx.today, ctx.settings, ctx.userId)).id);
+  if (to === 'signed') {
+    // A linked Masterplan unit becomes «Договор» (number, date, amount) with the signer's rights there.
+    const { syncSigned } = await import('./mpSync.js');
+    const sync = await syncSigned(ctx, updated).catch((err) => console.warn('[contracts] masterplan sync after signing:', err.message));
+    // A signed contract whose start date has come is in force at once.
+    const result = await getContract(ctx, (await applyDates(updated, ctx.today, ctx.settings, ctx.userId)).id);
+    if (sync) result.masterplanSync = sync;
+    return result;
+  }
   return getContract(ctx, updated.id);
 }
 
@@ -651,9 +682,20 @@ export async function deleteContract(ctx, id) {
   if (!rightsOf(ctx, row, row.approval_status ? { status: row.approval_status } : null).delete) {
     throw httpError(403, 'Only a draft can be deleted, by its author or a lawyer', 'FORBIDDEN');
   }
+  // Money that came in stays on record: a contract with payments or a received deposit is not deleted.
+  const money = await query(
+    `SELECT EXISTS (SELECT 1 FROM ctr_payments WHERE contract_id = $1) OR EXISTS (SELECT 1 FROM ctr_deposits WHERE contract_id = $1 AND status <> 'expected') AS has`,
+    [row.id]
+  );
+  if (money.rows[0]?.has) throw httpError(409, 'The contract has payments or a received deposit', 'HAS_PAYMENTS');
   // A process returned for rework would stay in the author's inbox: close it first.
   if (row.approval_status === 'returned') await withdraw({ system: true, user: { id: ctx.userId } }, TYPE_KEY, row.id).catch(() => null);
-  const versions = await query(`SELECT storage_key FROM ctr_versions WHERE contract_id = $1`, [row.id]);
+  const versions = await query(
+    `SELECT storage_key FROM ctr_versions WHERE contract_id = $1
+     UNION ALL SELECT file_key FROM ctr_deposits WHERE contract_id = $1 AND file_key IS NOT NULL
+     UNION ALL SELECT file_key FROM ctr_payments WHERE contract_id = $1 AND file_key IS NOT NULL`,
+    [row.id]
+  );
   await query(`DELETE FROM ctr_contracts WHERE id = $1`, [row.id]);
   await query(`DELETE FROM approval_processes WHERE type = $1 AND doc_id = $2 AND status NOT IN ('pending', 'question')`, [TYPE_KEY, String(row.id)]).catch(() => null);
   for (const version of versions.rows) await removeBlob(version.storage_key);
@@ -668,7 +710,7 @@ const CSV_HEAD = {
 };
 const DIRECTION = { ru: { supplier: 'С поставщиком', client: 'С клиентом' }, en: { supplier: 'Supplier', client: 'Client' } };
 
-const csvCell = (value) => {
+export const csvCell = (value) => {
   const text = value === null || value === undefined ? '' : String(value);
   // Formula injection: a cell starting with = + - @ is kept as text.
   const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;

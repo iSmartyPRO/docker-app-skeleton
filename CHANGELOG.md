@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Contracts: deposit, payment schedule and payments** for companies that sell (White Hills cottages and apartments). A contract with a client (or of the «Купли-продажи» / new «Продажа объекта» type, or any contract that already has one) gets the «Оплаты» tab: the deposit — «Задаток» or «Аванс» with a one-line legal hint, amount and currency, due day, refund / forfeit terms, document; finance confirms the receipt (who and when), credits it to the price, returns (double for a задаток) or retains it. A payment schedule from the amount — 100 % or installments (first payment %, months, first day, day of month), prefilled from the linked Masterplan object's price grid, whole amounts with the last payment absorbing the difference, the deposit as its own row counted toward the first payment, rows editable before saving. Payments received are allocated to the oldest rows first (partial payments too) with «оплачено N %», remaining, overdue (red) and upcoming (amber) by the person's day. See [docs/contracts.md](docs/contracts.md#deposit-and-payments).
+- **Contracts: payments registry** (`/app/contracts/payments`) for the new `contracts.finance` permission and those who see every contract: Просрочено / Сегодня / На неделе / Позже, totals per currency, «Отметить поступление» and «Подтвердить» a deposit in the row, CSV export (formula-guarded). Registry chips «Ждут задаток», «Просрочены платежи», «Оплачены» (shown when they count something), «оплачено N %» under the amount, a dashboard widget «Поступления по договорам», payment reminders before the day and once when overdue (owner, then finance), «Ждёт меня» items «Платёж просрочен» for finance, notifications `contracts.payment`, `contracts.payment_due`, `contracts.payment_overdue`, webhooks `contracts.deposit.received`, `contracts.payment.received`, `contracts.payment.overdue`.
+- **Contracts → Masterplan**: a contract linked to an object moves it with the person's Masterplan rights — deposit confirmed → «Задаток», signed → «Договор» (number, date, amount), payments update «оплачено», 100 % → «Продано». A move Masterplan refuses never fails the contract action: both histories record it and the card shows what to do by hand. See [docs/masterplan.md](docs/masterplan.md#integrations).
+
+### Fixed
+
+- Contracts registry: the header uses the shared module header (actions never run off the right edge, the create button moves to the bottom dock on phones), and the chips scroll inside the page width with fading edges and ‹ › buttons instead of being cut off.
+
 ## [1.1.0] - 2026-10-15
 
 ### Added

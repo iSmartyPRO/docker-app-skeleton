@@ -128,7 +128,7 @@ test('contracts: settings are sanitized; the module is off by default', () => {
   const module = MODULE_CATALOG.find((m) => m.id === 'contracts');
   assert.equal(module.defaultEnabled, false);
   assert.equal(resolveModules({}).contracts.enabled, false);
-  assert.deepEqual(module.permissions, ['contracts.create', 'contracts.view_all', 'contracts.legal', 'contracts.admin']);
+  assert.deepEqual(module.permissions, ['contracts.create', 'contracts.view_all', 'contracts.legal', 'contracts.finance', 'contracts.admin']);
   const next = module.sanitize(module.defaults, { prefix: ' Д Г ', reminderDays: [7, 30, 0, 'x', 30], expiringDays: 9999, types: [{ key: 'lease' }, { key: 'custom', label: '' }, { key: 'mine', label: 'Мой тип' }], currencies: ['eur', 'euro', '12'] });
   assert.equal(next.prefix, 'ДГ');
   assert.deepEqual(next.reminderDays, [30, 7]);
@@ -156,7 +156,7 @@ test('contracts: notification texts in both languages with the recipient’s dat
   assert.match(en.title, /12\/01\/2026/);
   assert.match(en.body, /1 day left/);
   for (const [kind, build] of Object.entries(CONTRACT_MESSAGES)) {
-    const texts = build({ contract, role: 'lawyer', status: 'signed', risk: { no: 1, importance: 'high', text: 't', clause: '1' }, no: 2, left: 3, target: '2026-12-01', endsOn: '2027-12-31' });
+    const texts = build({ contract, role: 'lawyer', status: 'signed', risk: { no: 1, importance: 'high', text: 't', clause: '1' }, no: 2, left: 3, target: '2026-12-01', endsOn: '2027-12-31', deposit: { kind: 'deposit', amount: 1, status: 'received' }, payment: { amount: 1 }, totals: { paid: 1, total: 1, percent: 100, full: true }, row: { dueOn: '2026-12-01', left: 1 } });
     assert.ok(texts.ru.title && texts.en.title, kind);
   }
 });

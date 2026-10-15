@@ -5,6 +5,7 @@ import { Companies, Drive, DriveActivity, KbRecent, Links, People, RecentFiles }
 import { getRegional } from '../../lib/datetime';
 import InboxWidget from '../approvals/InboxWidget';
 import ProcurementWidget from '../procurement/ProcurementWidget';
+import ContractsPaymentsWidget from '../contracts/PaymentsWidget';
 import { IncomingWidget, LowStockWidget, MyToolsWidget } from '../warehouse/WarehouseWidgets';
 
 /*
@@ -215,6 +216,18 @@ export const WIDGET_CATALOG = {
     link: '/app/procurement',
     fit: true,
     size: { w: 4, h: 6, minW: 3, minH: 4 },
+    preview: 'list',
+    fields: [],
+  },
+  contractsPayments: {
+    Component: ContractsPaymentsWidget,
+    module: 'contracts',
+    category: 'business',
+    icon: 'wallet',
+    color: '#0EA5E9',
+    link: '/app/contracts/payments',
+    fit: true,
+    size: { w: 4, h: 5, minW: 3, minH: 4 },
     preview: 'list',
     fields: [],
   },

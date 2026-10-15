@@ -65,6 +65,8 @@ export function ContractsForm({ state, onSave, inApp }) {
       reminderDays: [30, 7],
       expiringDays: 30,
       maxUploadMb: 50,
+      paymentSoonDays: 7,
+      paymentReminderDays: [3, 0],
       ...state.settings,
     }),
     [state]
@@ -121,6 +123,19 @@ export function ContractsForm({ state, onSave, inApp }) {
         <SettingRow label={t('contracts.settings.maxUpload')}>
           <Form.Item name="maxUploadMb" noStyle>
             <InputNumber min={1} max={500} addonAfter="MB" style={{ width: 160 }} />
+          </Form.Item>
+        </SettingRow>
+      </SettingsSection>
+
+      <SettingsSection title={t('contracts.pay.settings.title')} description={t('contracts.pay.settings.desc')}>
+        <SettingRow label={t('contracts.pay.settings.soonDays')} description={t('contracts.pay.settings.soonDaysDesc')}>
+          <Form.Item name="paymentSoonDays" noStyle>
+            <InputNumber min={0} max={60} addonAfter={t('contracts.form.days')} style={{ width: 160 }} />
+          </Form.Item>
+        </SettingRow>
+        <SettingRow label={t('contracts.pay.settings.reminderDays')} description={t('contracts.pay.settings.reminderDaysDesc')}>
+          <Form.Item name="paymentReminderDays" noStyle>
+            <Select mode="tags" style={{ minWidth: 200 }} options={[7, 3, 1, 0].map((n) => ({ value: n, label: n === 0 ? t('contracts.pay.settings.onTheDay') : t('contracts.settings.daysBefore', { n }) }))} />
           </Form.Item>
         </SettingRow>
       </SettingsSection>

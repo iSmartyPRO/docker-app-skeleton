@@ -605,7 +605,7 @@ export async function nodeEvents(ctx, id, { before } = {}) {
       delete data.reportAuthorId;
     }
     if (!has(caps, 'price.view') && row.kind === 'price') return null;
-    if (!has(caps, 'status.view') && ['status', 'migration', 'booking', 'extend', 'expired', 'manager', 'crm_stage'].includes(row.kind)) return null;
+    if (!has(caps, 'status.view') && ['status', 'migration', 'booking', 'extend', 'expired', 'manager', 'crm_stage', 'contract'].includes(row.kind)) return null;
     // Who holds a unit and until when: booking.view (as on the unit itself).
     if (!has(caps, 'booking.view') && row.kind === 'manager') return null;
     const ownBooking = data.manager?.id && data.manager.id === ctx.userId;

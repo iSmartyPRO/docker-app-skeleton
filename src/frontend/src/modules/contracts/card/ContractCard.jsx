@@ -19,9 +19,13 @@ import Discussion from './Discussion';
 import Links from './Links';
 import History from './History';
 import StatusActions from './StatusActions';
+import Payments, { PayBar } from './Payments';
 import { HighRisksCallout } from './Risks';
 
-const TABS = ['overview', 'versions', 'discussion', 'links', 'history'];
+const TABS = ['overview', 'payments', 'versions', 'discussion', 'links', 'history'];
+
+/** The money side shows only where it matters: sales to clients, sale types, or contracts that already track money. */
+export const paymentsRelevant = (contract) => Boolean(contract && (contract.payments || contract.direction === 'client' || ['sale', 'property_sale'].includes(contract.typeKey)));
 
 /**
  * The contract card over the registry (spec §6.4): header, the approval path
@@ -37,7 +41,7 @@ export default function ContractCard({ id, onClose, onChanged, onStep }) {
   const highlightRisk = Number(params.get('risk')) || null;
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState(() => (params.get('tab') === 'payments' ? 'payments' : 'overview'));
   const [editing, setEditing] = useState(false);
   const [riskTalk, setRiskTalk] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -59,7 +63,7 @@ export default function ContractCard({ id, onClose, onChanged, onStep }) {
   useEffect(() => {
     setData(null);
     setError(null);
-    setTab('overview');
+    setTab(new URLSearchParams(window.location.search).get('tab') === 'payments' ? 'payments' : 'overview');
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
@@ -136,6 +140,7 @@ export default function ContractCard({ id, onClose, onChanged, onStep }) {
   const inApproval = process && ['pending', 'question'].includes(process.status);
   const showApproval = Boolean(process) || data?.can?.start;
   const noticeLeft = contract?.noticeDeadline ? daysLeft(contract.noticeDeadline) : null;
+  const payOverdue = Boolean(contract?.payments?.nextDue && daysLeft(contract.payments.nextDue) < 0);
 
   const panel = (
     <div className="ctr-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -208,6 +213,12 @@ export default function ContractCard({ id, onClose, onChanged, onStep }) {
                 <div className="ctr-fact">
                   <span>{t('contracts.fields.amount')}</span>
                   <strong><Money contract={contract} /></strong>
+                  {contract.payments?.total > 0 && (
+                    <button type="button" className="ctr-fact__pay" onClick={() => setTab('payments')}>
+                      <PayBar percent={contract.payments.percent} overdue={payOverdue} size="sm" />
+                      <em>{t('contracts.pay.percent', { p: contract.payments.percent })}</em>
+                    </button>
+                  )}
                 </div>
                 <div className="ctr-fact">
                   <span>{t('contracts.card.term')}</span>
@@ -261,16 +272,18 @@ export default function ContractCard({ id, onClose, onChanged, onStep }) {
             <StatusActions data={data} onDone={(next) => { setData(next); changed(); reloadProcess(); }} />
 
             <nav className="ctr-tabs" role="tablist">
-              {TABS.filter((key) => key !== 'discussion' || modules.chat).map((key) => (
+              {TABS.filter((key) => (key !== 'discussion' || modules.chat) && (key !== 'payments' || paymentsRelevant(contract))).map((key) => (
                 <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'is-active' : ''} onClick={() => setTab(key)}>
                   {t(`contracts.tabs.${key}`)}
                   {key === 'versions' && counts.versions > 0 && <em>{counts.versions}</em>}
                   {key === 'overview' && counts.overview > 0 && <em className="is-risk">{counts.overview}</em>}
+                  {key === 'payments' && payOverdue && <em className="is-risk">!</em>}
                 </button>
               ))}
             </nav>
             <div className="ctr-tabpane">
               {tab === 'overview' && <Overview data={data} onEdit={() => setEditing(true)} onChanged={changed} onDiscuss={modules.chat ? discussRisk : null} highlightRisk={highlightRisk} />}
+              {tab === 'payments' && <Payments contract={contract} onChanged={() => { load(); onChanged?.(); touch(); }} />}
               {tab === 'versions' && <Versions data={data} onChanged={changed} />}
               {tab === 'discussion' && <Discussion data={data} chatEnabled={modules.chat} risk={riskTalk} onRiskDone={() => setRiskTalk(null)} />}
               {tab === 'links' && <Links data={data} onChanged={changed} />}

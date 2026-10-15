@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button, Skeleton } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { fmtDate, fmtDateTime } from '../../../lib/datetime';
@@ -76,6 +77,16 @@ function EventText({ event }) {
       return d.bulk > 1 ? t('mp.ev.movedBulk', { n: d.bulk }) : t('mp.ev.moved');
     case 'bulk':
       return t('mp.ev.bulk', { n: d.count, from: d.from, to: d.to });
+    case 'contract': {
+      // From the Contracts module (docs/contracts.md "Masterplan"): a deposit, signing, payments, paid in full.
+      const head = t(`mp.ev.contractSync.${d.action}`, { number: d.number || `#${d.contractId}`, amount: d.paid !== undefined && d.paid !== null ? formatMoney(d.paid, null, locale) : '—' });
+      return (
+        <>
+          {d.contractId ? <Link to={`/app/contracts/${d.contractId}?tab=payments`}>{head}</Link> : head}
+          {d.result === 'refused' && <span className="mp-ev__reason">{t('mp.ev.contractRefused', { code: d.code || '' })}</span>}
+        </>
+      );
+    }
     case 'crm_stage':
       return t('mp.ev.crmStage', { stage: d.stage?.name || '', status: t(`mp.status.${d.action}`), code: d.code || '' });
     case 'report_deleted':

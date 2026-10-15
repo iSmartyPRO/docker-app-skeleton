@@ -168,14 +168,80 @@
 
 /* ── Chips with counters ── */
 
+/* The chips scroll inside the page width (ChipRail): fading edges and ‹ › show what is hidden. */
+.ctr-rail {
+  position: relative;
+  min-width: 0;
+  margin: 0 0 16px;
+}
+
 .ctr-chips {
   display: flex;
   gap: 8px;
-  margin: 0 -28px 16px;
-  padding: 2px 28px 6px;
+  min-width: 0;
+  padding: 2px 2px 6px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
   scroll-snap-type: x proximity;
+  scroll-padding-inline: 40px;
+}
+
+.ctr-rail.has-end .ctr-chips {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent);
+}
+
+.ctr-rail.has-start .ctr-chips {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 56px);
+  mask-image: linear-gradient(to right, transparent, #000 56px);
+}
+
+.ctr-rail.has-start.has-end .ctr-chips {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+}
+
+.ctr-rail__btn {
+  position: absolute;
+  top: 3px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 50%;
+  background: var(--da-surface);
+  box-shadow: var(--da-shadow);
+  color: var(--da-text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform 0.15s var(--da-ease), border-color 0.15s var(--da-ease);
+}
+
+.ctr-rail__btn:hover {
+  border-color: var(--da-primary);
+  color: var(--da-primary);
+}
+
+.ctr-rail__btn:active {
+  transform: scale(0.94);
+}
+
+.ctr-rail__btn.is-start {
+  left: -4px;
+}
+
+.ctr-rail__btn.is-end {
+  right: -4px;
+}
+
+/* Touch screens swipe; the buttons are for a mouse. */
+@media (hover: none) {
+  .ctr-rail__btn {
+    display: none;
+  }
 }
 
 .ctr-chips::-webkit-scrollbar {
@@ -1959,8 +2025,11 @@ a.ctr-linkrow:hover {
     padding-inline: 6px;
   }
 
-  .ctr-chips {
+  .ctr-rail {
     margin: 0 -16px 14px;
+  }
+
+  .ctr-chips {
     padding: 2px 16px 6px;
   }
 
@@ -2059,4 +2128,17 @@ a.ctr-linkrow:hover {
 
 .ctr-month__head .ctr-month__notice {
   color: var(--da-primary);
+}
+
+/* Module header (shared ModuleHeader): the registry has only a search in the toolbar — no frame around it. */
+.ctr-mh .mh-toolbar.has-start {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.ctr-mh .mh-search {
+  flex: 0 1 420px;
 }

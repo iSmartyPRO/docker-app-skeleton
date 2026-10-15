@@ -43,4 +43,28 @@ export const contractsApi = {
   /** Purchase requests that point at the contract (Procurement module; 404 while it is off). */
   procurementRequests: (id) => api.get('/app/procurement/requests', { params: { contract: id } }),
   companies: (q) => api.get('/app/companies/search', { params: { q } }),
+
+  // ── Deposit, schedule, payments (docs/contracts.md "Deposit and payments") ──
+  payments: (id) => api.get(`${base}/contracts/${id}/payments`),
+  paymentPlans: (id) => api.get(`${base}/contracts/${id}/payment-plans`),
+  saveDeposit: (id, payload) => api.put(`${base}/contracts/${id}/deposit`, payload),
+  removeDeposit: (id) => api.delete(`${base}/contracts/${id}/deposit`),
+  depositStatus: (id, payload, file) => api.post(`${base}/contracts/${id}/deposit/status`, withFile(payload, file), { timeout: 0 }),
+  depositFile: (id, file) => api.post(`${base}/contracts/${id}/deposit/file`, withFile({}, file), { timeout: 0 }),
+  previewSchedule: (id, payload) => api.post(`${base}/contracts/${id}/schedule/preview`, payload),
+  saveSchedule: (id, payload) => api.put(`${base}/contracts/${id}/schedule`, payload),
+  addPayment: (id, payload, file) => api.post(`${base}/contracts/${id}/payments`, withFile(payload, file), { timeout: 0 }),
+  removePayment: (paymentId) => api.delete(`${base}/payments/${paymentId}`),
+  registry: (params) => api.get(`${base}/payments-registry`, { params }),
+  registryCsvUrl: (params) => `/api${base}/payments-registry.csv?${new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString()}`,
+  widget: () => api.get(`${base}/payments-widget`),
 };
+
+/** JSON, or multipart when a file comes along (the server takes both). */
+function withFile(payload, file) {
+  if (!file) return payload;
+  const form = new FormData();
+  for (const [key, value] of Object.entries(payload || {})) if (value !== undefined && value !== null && value !== '') form.append(key, String(value));
+  form.append('file', file, file.name);
+  return form;
+}

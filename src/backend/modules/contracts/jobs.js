@@ -63,3 +63,19 @@ async function sendReminders(row, today, settings) {
   }
   return sent;
 }
+
+/**
+ * contracts:payments (every 15 minutes, the portal's day): reminders before a
+ * payment's day and once when it is overdue (payments.js sendPaymentReminders).
+ */
+export async function runPaymentReminders({ today: forcedToday, settings: forcedSettings } = {}) {
+  let settings = forcedSettings;
+  if (!settings) {
+    const module = parseSettings(await getSettings()).modules.contracts;
+    if (!module?.enabled) return { reminders: 0 };
+    settings = module.settings;
+  }
+  const today = forcedToday || (await portalToday());
+  const { sendPaymentReminders } = await import('./payments.js');
+  return { reminders: await sendPaymentReminders(today, settings) };
+}

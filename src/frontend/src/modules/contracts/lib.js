@@ -1,4 +1,5 @@
 import { todayISO } from '../../lib/datetime';
+import { errorMessage } from '../../lib/errors';
 
 export { formatMoney } from '../approvals/lib';
 
@@ -20,7 +21,12 @@ export const STATUS_LOOK = {
 
 export const STATUS_ORDER = ['draft', 'approval', 'question', 'approved', 'signed', 'active', 'expiring', 'completed', 'rejected', 'terminated'];
 
-export const VIEWS = ['all', 'mine', 'waiting', 'urgent', 'overdue', 'work', 'active', 'expiring', 'unsigned', 'archive'];
+export const VIEWS = ['all', 'mine', 'waiting', 'urgent', 'overdue', 'work', 'active', 'expiring', 'unsigned', 'deposit_wait', 'pay_overdue', 'paid', 'archive'];
+/** Chips of the money side: shown only when they count something (or are picked), so companies without sales see no clutter. */
+export const PAY_VIEWS = ['deposit_wait', 'pay_overdue', 'paid'];
+
+/** Colours of schedule rows / registry items by state (red overdue, amber soon, green paid). */
+export const PAY_STATE_LOOK = { paid: '#10B981', overdue: '#E5484D', soon: '#F59E0B', planned: '#94A3B8' };
 
 export const IMPORTANCE_LOOK = { high: '#E5484D', medium: '#F59E0B', low: '#64748B' };
 
@@ -73,3 +79,14 @@ export const fileKind = (ext) => {
   if (['doc', 'docx', 'odt', 'rtf', 'xls', 'xlsx', 'ods', 'ppt', 'pptx', 'odp'].includes(e)) return 'office';
   return 'other';
 };
+
+/** An error of the money side in the UI language (known codes), else the server's text. */
+export function payError(err, t) {
+  const code = err?.response?.data?.code;
+  if (code) {
+    const key = `contracts.pay.errors.${code}`;
+    const text = t(key);
+    if (text !== key) return text;
+  }
+  return errorMessage(err);
+}

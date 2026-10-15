@@ -1,6 +1,6 @@
 import { query } from '../../config/database.js';
 import { registerJob } from '../../services/scheduler.js';
-import { runDaily } from './jobs.js';
+import { runDaily, runPaymentReminders } from './jobs.js';
 import { registerContractChat } from './chat.js';
 
 /*
@@ -118,6 +118,102 @@ export async function ensureContractsSchema() {
     )
   `);
 
+  await ensurePaymentsSchema();
+
   registerJob({ name: 'contracts:daily', everyMs: 10 * 60 * 1000, run: runDaily });
+  registerJob({ name: 'contracts:payments', everyMs: 15 * 60 * 1000, run: runPaymentReminders });
   registerContractChat();
+}
+
+/*
+ * The money side (docs/contracts.md "Deposit and payments"), all optional:
+ *
+ *   ctr_deposits     one per contract: «Задаток» / «Аванс», amount, due / received days,
+ *                    method, document, status (expected → received → credited |
+ *                    returned | forfeited), refund / forfeit terms, who confirmed
+ *   ctr_schedule     the payment schedule: day, amount, purpose, `paid` (allocated,
+ *                    recomputed after every change, oldest row first)
+ *   ctr_payments     received payments (fact): day, amount, method, number, document
+ *   ctr_pay_reminders payment reminders already sent: (row, kind, days, due day) once
+ *
+ * ctr_contracts keeps the totals for the registry chips: pay_tracked (has a
+ * deposit / schedule / payments), pay_total, pay_paid, deposit_status, pay_plan.
+ */
+export async function ensurePaymentsSchema() {
+  await query(`ALTER TABLE ctr_contracts
+    ADD COLUMN IF NOT EXISTS pay_tracked BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS pay_total NUMERIC(18,2),
+    ADD COLUMN IF NOT EXISTS pay_paid NUMERIC(18,2),
+    ADD COLUMN IF NOT EXISTS deposit_status VARCHAR(10),
+    ADD COLUMN IF NOT EXISTS pay_plan JSONB`);
+  await query(`CREATE INDEX IF NOT EXISTS ctr_contracts_pay_idx ON ctr_contracts (pay_tracked) WHERE pay_tracked`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS ctr_deposits (
+      contract_id INTEGER PRIMARY KEY REFERENCES ctr_contracts(id) ON DELETE CASCADE,
+      kind VARCHAR(8) NOT NULL DEFAULT 'deposit' CHECK (kind IN ('deposit', 'advance')),
+      amount NUMERIC(18,2) NOT NULL,
+      currency CHAR(3),
+      due_on DATE,
+      received_on DATE,
+      method VARCHAR(8),
+      reference VARCHAR(80),
+      status VARCHAR(10) NOT NULL DEFAULT 'expected' CHECK (status IN ('expected', 'received', 'credited', 'returned', 'forfeited')),
+      terms TEXT,
+      settled_on DATE,
+      settled_amount NUMERIC(18,2),
+      note VARCHAR(1000),
+      file_key VARCHAR(255),
+      file_name VARCHAR(255),
+      file_ext VARCHAR(12),
+      file_size BIGINT,
+      confirmed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      confirmed_at TIMESTAMPTZ,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS ctr_schedule (
+      id SERIAL PRIMARY KEY,
+      contract_id INTEGER NOT NULL REFERENCES ctr_contracts(id) ON DELETE CASCADE,
+      no INTEGER NOT NULL,
+      due_on DATE NOT NULL,
+      amount NUMERIC(18,2) NOT NULL,
+      purpose VARCHAR(8) NOT NULL DEFAULT 'monthly',
+      note VARCHAR(300),
+      paid NUMERIC(18,2) NOT NULL DEFAULT 0
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS ctr_schedule_contract_idx ON ctr_schedule (contract_id, due_on, no)`);
+  await query(`CREATE INDEX IF NOT EXISTS ctr_schedule_open_idx ON ctr_schedule (due_on) WHERE paid < amount`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS ctr_payments (
+      id SERIAL PRIMARY KEY,
+      contract_id INTEGER NOT NULL REFERENCES ctr_contracts(id) ON DELETE CASCADE,
+      paid_on DATE NOT NULL,
+      amount NUMERIC(18,2) NOT NULL CHECK (amount > 0),
+      method VARCHAR(8) NOT NULL DEFAULT 'bank',
+      reference VARCHAR(80),
+      note VARCHAR(1000),
+      file_key VARCHAR(255),
+      file_name VARCHAR(255),
+      file_ext VARCHAR(12),
+      file_size BIGINT,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS ctr_payments_contract_idx ON ctr_payments (contract_id, paid_on)`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS ctr_pay_reminders (
+      row_id INTEGER NOT NULL REFERENCES ctr_schedule(id) ON DELETE CASCADE,
+      kind VARCHAR(8) NOT NULL,
+      days INTEGER NOT NULL,
+      due_on DATE NOT NULL,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (row_id, kind, days, due_on)
+    )
+  `);
 }

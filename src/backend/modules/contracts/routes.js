@@ -9,7 +9,9 @@ import { calendar, changeStatus, counters, createContract, deleteContract, expor
 import { addVersion, assertCanAddVersion, sendVersion, sendVersionPreview, updateVersion, uploadErrors, versionUploader } from './versions.js';
 import { addRisk, deleteRisk, updateRisk } from './risks.js';
 import { dealOptions, masterplanOptions } from './links.js';
-import { runDaily } from './jobs.js';
+import { runDaily, runPaymentReminders } from './jobs.js';
+import { addPayment, deleteDeposit, deletePayment, depositFile, depositStatus, paymentsOf, planOptions, previewSchedule, registry, registryCsv, saveDeposit, saveSchedule, sendPayFile, widget } from './payments.js';
+import { requireContract } from './service.js';
 
 const wrap = (handler) => async (req, res, next) => {
   try {
@@ -33,7 +35,7 @@ export function privateRoutes() {
     const { settings } = req.ctr;
     ok(res, {
       settings,
-      me: { id: req.ctr.userId, canCreate: req.ctr.canCreate, isLegal: req.ctr.isLegal, isAdmin: req.ctr.isAdmin, viewAll: req.ctr.viewAll },
+      me: { id: req.ctr.userId, canCreate: req.ctr.canCreate, isLegal: req.ctr.isLegal, isAdmin: req.ctr.isAdmin, viewAll: req.ctr.viewAll, isFinance: req.ctr.isFinance },
       modules: await modulesEnabled(),
       legalEntities: await listLegalEntities(),
       today: req.ctr.today,
@@ -96,10 +98,42 @@ export function privateRoutes() {
     ok(res);
   }));
 
+  // ── Deposit, schedule, payments (docs/contracts.md "Deposit and payments") ──
+  const upload = (check) => [
+    // Cheap check before multer writes the file to disk.
+    wrap(async (req, _res, next) => {
+      const row = await requireContract(req.ctr, req.params.id);
+      check(req.ctr, row);
+      next();
+    }),
+    (req, res, next) => versionUploader(req.ctr.settings.maxUploadMb || 50)(req, res, (err) => next(uploadErrors(err))),
+  ];
+  const financeOnly = (ctx) => {
+    if (!ctx.isFinance) throw httpError(403, 'Only finance confirms money', 'FORBIDDEN');
+  };
+  router.get('/contracts/:id/payments', wrap(async (req, res) => ok(res, await paymentsOf(req.ctr, req.params.id))));
+  router.get('/contracts/:id/payment-plans', wrap(async (req, res) => ok(res, await planOptions(req.ctr, req.params.id))));
+  router.put('/contracts/:id/deposit', wrap(async (req, res) => ok(res, await saveDeposit(req.ctr, req.params.id, req.body || {}))));
+  router.delete('/contracts/:id/deposit', wrap(async (req, res) => ok(res, await deleteDeposit(req.ctr, req.params.id))));
+  router.post('/contracts/:id/deposit/status', ...upload(financeOnly), wrap(async (req, res) => ok(res, await depositStatus(req.ctr, req.params.id, req.body || {}, req.file))));
+  router.post('/contracts/:id/deposit/file', ...upload(() => {}), wrap(async (req, res) => ok(res, await depositFile(req.ctr, req.params.id, req.file))));
+  router.post('/contracts/:id/schedule/preview', wrap(async (req, res) => ok(res, await previewSchedule(req.ctr, req.params.id, req.body || {}))));
+  router.put('/contracts/:id/schedule', wrap(async (req, res) => ok(res, await saveSchedule(req.ctr, req.params.id, req.body || {}))));
+  router.post('/contracts/:id/payments', ...upload(financeOnly), wrap(async (req, res) => ok(res, await addPayment(req.ctr, req.params.id, req.body || {}, req.file), 201)));
+  router.delete('/payments/:id', wrap(async (req, res) => ok(res, await deletePayment(req.ctr, req.params.id))));
+  router.get('/payfiles/:kind(deposit|payment)/:id', wrap(async (req, res) => sendPayFile(req.ctr, req.params.kind, req.params.id, res, { download: req.query.download === '1' })));
+  router.get('/payments-registry', wrap(async (req, res) => ok(res, await registry(req.ctr, req.query))));
+  router.get('/payments-registry.csv', wrap(async (req, res) => registryCsv(req.ctr, req.query, res)));
+  router.get('/payments-widget', wrap(async (req, res) => ok(res, await widget(req.ctr))));
+
   // ── Maintenance: run the expiry job now (administrators; the scheduler runs it every 10 minutes) ──
   router.post('/jobs/daily', wrap(async (req, res) => {
     if (!req.ctr.isAdmin) throw httpError(403, 'Administrators only', 'FORBIDDEN');
     ok(res, await runDaily());
+  }));
+  router.post('/jobs/payments', wrap(async (req, res) => {
+    if (!req.ctr.isAdmin) throw httpError(403, 'Administrators only', 'FORBIDDEN');
+    ok(res, await runPaymentReminders());
   }));
 
   return router;

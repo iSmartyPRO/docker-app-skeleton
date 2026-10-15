@@ -31,6 +31,7 @@ const STOCK_TYPE_NAMES = {
   work: { ru: 'Подряд', en: 'Works' },
   employment: { ru: 'Трудовой', en: 'Employment' },
   sale: { ru: 'Купли-продажи', en: 'Sale' },
+  property_sale: { ru: 'Продажа объекта', en: 'Property sale' },
   agency: { ru: 'Агентский', en: 'Agency' },
   loan: { ru: 'Займ', en: 'Loan' },
   nda: { ru: 'NDA', en: 'NDA' },

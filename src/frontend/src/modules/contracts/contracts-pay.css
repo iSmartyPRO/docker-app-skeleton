@@ -1,0 +1,1034 @@
+/* ── Contracts: deposit, payment schedule, payments, payments registry ──────
+   Red = overdue, amber = soon, green = paid (spec §2 «Цвет означает срок»).
+   Theme tokens only, so light / dark and every template work. */
+
+.ctr-pay {
+  --pay-red: var(--da-error, #e5484d);
+  --pay-amber: #d97706;
+  --pay-green: var(--da-success, #10b981);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Progress bar «оплачено 45 %» */
+.ctr-paybar {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--da-text) 8%, transparent);
+}
+
+.ctr-paybar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--da-primary) 80%, #fff), var(--da-primary));
+  transition: width 0.5s var(--da-ease-out, ease);
+}
+
+.ctr-paybar.is-full > span {
+  background: linear-gradient(90deg, color-mix(in srgb, #10b981 75%, #fff), #10b981);
+}
+
+.ctr-paybar.is-overdue {
+  background: color-mix(in srgb, var(--da-error, #e5484d) 18%, transparent);
+}
+
+.ctr-paybar.is-lg {
+  height: 10px;
+}
+
+.ctr-paybar.is-sm {
+  height: 6px;
+}
+
+.ctr-paybar.is-xs {
+  width: 56px;
+  height: 4px;
+}
+
+/* Summary */
+.ctr-pay-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--da-hairline);
+  border-radius: var(--da-radius-lg, 14px);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--da-primary) 5%, var(--da-surface)), var(--da-surface));
+  box-shadow: var(--da-shadow-sm);
+}
+
+.ctr-pay-summary.is-overdue {
+  border-color: color-mix(in srgb, var(--da-error, #e5484d) 35%, var(--da-hairline));
+}
+
+.ctr-pay-summary.is-full {
+  background: linear-gradient(180deg, color-mix(in srgb, #10b981 7%, var(--da-surface)), var(--da-surface));
+}
+
+.ctr-pay-summary__top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ctr-pay-summary__label {
+  display: block;
+  color: var(--da-muted);
+  font-size: 13px;
+}
+
+.ctr-pay-summary__pct {
+  display: block;
+  color: var(--da-text);
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-pay-summary__facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.ctr-pay-summary__facts > div {
+  min-width: 0;
+}
+
+.ctr-pay-summary__facts dt {
+  color: var(--da-faint);
+  font-size: 12px;
+}
+
+.ctr-pay-summary__facts dd {
+  margin: 2px 0 0;
+  color: var(--da-text);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ctr-pay-summary__facts .is-overdue dd {
+  color: var(--pay-red);
+}
+
+.ctr-pay-summary__facts .is-soon dd {
+  color: var(--pay-amber);
+}
+
+.ctr-pay-intro {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--da-tint);
+  color: var(--da-text);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* Cards */
+.ctr-pay-card {
+  padding: 14px 16px;
+  border: 1px solid var(--da-hairline);
+  border-radius: var(--da-radius-lg, 14px);
+  background: var(--da-surface);
+}
+
+.ctr-pay-card .ctr-empty {
+  padding: 18px 8px;
+}
+
+.ctr-pay-alert {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.ctr-pay-alert p {
+  margin: 4px 0 0;
+}
+
+.ctr-pay-alert.is-warn {
+  border: 1px solid color-mix(in srgb, #eab308 40%, transparent);
+  background: color-mix(in srgb, #eab308 10%, var(--da-surface));
+  color: var(--da-text);
+}
+
+.ctr-pay-alert.is-error {
+  border: 1px solid color-mix(in srgb, var(--da-error, #e5484d) 35%, transparent);
+  background: color-mix(in srgb, var(--da-error, #e5484d) 8%, var(--da-surface));
+  color: var(--da-text);
+}
+
+.ctr-pay-hint {
+  margin: 0;
+  color: var(--da-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.ctr-pay-unit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+}
+
+.ctr-mpstatus {
+  --c: #64748b;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  color: color-mix(in srgb, var(--c) 75%, var(--da-text));
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ctr-mpstatus.is-reserve { --c: #eab308; }
+.ctr-mpstatus.is-booking { --c: #f97316; }
+.ctr-mpstatus.is-deposit { --c: #8b5cf6; }
+.ctr-mpstatus.is-contract { --c: #3b82f6; }
+.ctr-mpstatus.is-sold { --c: #ef4444; }
+.ctr-mpstatus.is-handed { --c: #991b1b; }
+.ctr-mpstatus.is-free { --c: #10b981; }
+
+/* Deposit */
+.ctr-pay-deposit {
+  --c: #8b5cf6;
+  border-left: 3px solid var(--c);
+}
+
+.ctr-pay-deposit.is-received,
+.ctr-pay-deposit.is-credited { --c: #10b981; }
+.ctr-pay-deposit.is-returned { --c: #64748b; }
+.ctr-pay-deposit.is-forfeited { --c: #b45309; }
+.ctr-pay-deposit.is-late { --c: var(--da-error, #e5484d); }
+
+.ctr-pay-deposit.is-empty {
+  border-left-color: var(--da-hairline);
+  border-style: dashed;
+  background: transparent;
+}
+
+.ctr-pay-deposit__empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ctr-pay-deposit__empty > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.ctr-pay-deposit__empty p {
+  margin: 2px 0 0;
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+.ctr-pay-deposit__icon {
+  font-size: 22px;
+}
+
+.ctr-pay-deposit__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ctr-pay-deposit__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--da-text);
+  font-weight: 700;
+}
+
+.ctr-pay-deposit__info {
+  color: var(--da-faint);
+  cursor: help;
+}
+
+.ctr-depstatus {
+  --c: #8b5cf6;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  color: color-mix(in srgb, var(--c) 80%, var(--da-text));
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ctr-depstatus.is-received,
+.ctr-depstatus.is-credited { --c: #10b981; }
+.ctr-depstatus.is-returned { --c: #64748b; }
+.ctr-depstatus.is-forfeited { --c: #b45309; }
+.is-late > .ctr-pay-deposit__head .ctr-depstatus { --c: #e5484d; }
+
+.ctr-pay-deposit__body {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.ctr-pay-deposit__amount {
+  color: var(--da-text);
+  font-size: 20px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-pay-deposit__facts {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.ctr-pay-deposit__facts dt {
+  color: var(--da-faint);
+  font-size: 12px;
+}
+
+.ctr-pay-deposit__facts dd {
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.ctr-pay-deposit__facts dd.is-late {
+  color: var(--da-error, #e5484d);
+  font-weight: 650;
+}
+
+.ctr-pay-deposit__terms {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--da-text) 3%, transparent);
+  color: var(--da-text);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.ctr-pay-deposit__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.ctr-pay-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Schedule */
+.ctr-plan {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ctr-plan__row {
+  --c: #94a3b8;
+  display: grid;
+  grid-template-columns: minmax(118px, 1.1fr) minmax(90px, 1.4fr) minmax(96px, auto) minmax(110px, max-content);
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px 9px 12px;
+  border-bottom: 1px solid var(--da-hairline);
+  border-left: 3px solid transparent;
+}
+
+.ctr-plan__row:last-child {
+  border-bottom: 0;
+}
+
+.ctr-plan__row.is-overdue {
+  --c: var(--da-error, #e5484d);
+  border-left-color: var(--c);
+  background: color-mix(in srgb, var(--c) 6%, transparent);
+}
+
+.ctr-plan__row.is-soon {
+  --c: #d97706;
+  border-left-color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 8%, transparent);
+}
+
+.ctr-plan__row.is-paid {
+  --c: #10b981;
+}
+
+.ctr-plan__row.is-paid .ctr-plan__date strong,
+.ctr-plan__row.is-paid .ctr-plan__amount {
+  color: var(--da-muted);
+}
+
+.ctr-plan__date {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ctr-plan__date strong {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-plan__date small,
+.ctr-plan__fact small {
+  color: var(--da-muted);
+  font-size: 12px;
+}
+
+.ctr-plan__fact {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ctr-plan__amount {
+  text-align: right;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-paystate {
+  --c: #94a3b8;
+  justify-self: end;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  color: color-mix(in srgb, var(--c) 80%, var(--da-text));
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.ctr-paystate.is-paid { --c: #10b981; }
+.ctr-paystate.is-overdue { --c: #e5484d; }
+.ctr-paystate.is-soon { --c: #d97706; }
+
+/* Payments received */
+.ctr-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ctr-ledger li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--da-hairline);
+}
+
+.ctr-ledger li:last-child {
+  border-bottom: 0;
+}
+
+.ctr-ledger__icon {
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.ctr-ledger__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ctr-ledger__text strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-ledger__text small {
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+/* Header fact and registry cell */
+.ctr-fact__pay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.ctr-fact__pay em {
+  color: var(--da-muted);
+  font-style: normal;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ctr-cell-money {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.ctr-mrow .ctr-cell-money {
+  align-items: flex-start;
+}
+
+.ctr-paymini {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ctr-paymini em {
+  color: var(--da-muted);
+  font-style: normal;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.ctr-paymini.is-overdue em {
+  color: var(--da-error, #e5484d);
+}
+
+.ctr-chip.is-money:not(.is-active) {
+  border-style: dashed;
+}
+
+/* Dialogs */
+.ctr-pay-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ctr-pay-form > label {
+  margin-top: 6px;
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+.ctr-pay-form__row {
+  display: flex;
+  gap: 8px;
+}
+
+.ctr-pay-dlg-sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--da-tint);
+}
+
+.ctr-pay-dlg-sum strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-pay-double {
+  align-self: flex-start;
+  font-size: 12.5px;
+}
+
+.ctr-pay-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.ctr-pay-file__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 4px 2px 10px;
+  border-radius: 999px;
+  background: var(--da-tint);
+  font-size: 12.5px;
+}
+
+.ctr-pay-file__chip button {
+  border: 0;
+  background: none;
+  color: var(--da-muted);
+  cursor: pointer;
+}
+
+/* Schedule builder */
+.ctr-sched {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ctr-sched__label {
+  margin-bottom: 6px;
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+.ctr-sched__plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.ctr-sched__plan {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 12px;
+  background: var(--da-surface);
+  color: var(--da-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s var(--da-ease), box-shadow 0.15s var(--da-ease);
+}
+
+.ctr-sched__plan:hover {
+  border-color: color-mix(in srgb, var(--da-primary) 50%, var(--da-hairline));
+}
+
+.ctr-sched__plan.is-active {
+  border-color: var(--da-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--da-primary) 15%, transparent);
+}
+
+.ctr-sched__plan span {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-sched__plan em {
+  color: var(--da-muted);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.ctr-sched__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.ctr-sched__fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ctr-sched__fields label > span {
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+.ctr-sched__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ctr-sched__total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-sched__total.is-off {
+  color: #b45309;
+}
+
+.ctr-sched__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ctr-sched__row {
+  display: grid;
+  grid-template-columns: 24px minmax(120px, 1fr) minmax(130px, 1fr) minmax(110px, 1fr) 32px;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctr-sched__row.is-deposit .ctr-sched__no {
+  color: #8b5cf6;
+}
+
+.ctr-sched__no {
+  color: var(--da-faint);
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-sched__date,
+.ctr-sched__purpose,
+.ctr-sched__amount {
+  width: 100%;
+}
+
+/* Payments registry */
+.ctr-prg-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.ctr-prg-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 14px;
+  background: var(--da-surface);
+  box-shadow: var(--da-shadow-sm);
+}
+
+.ctr-prg-kpi small {
+  color: var(--da-muted);
+  font-size: 12px;
+}
+
+.ctr-prg-kpi strong {
+  font-size: 20px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ctr-prg-kpi.is-red strong {
+  color: var(--da-error, #e5484d);
+}
+
+.ctr-prg-group {
+  --c: #64748b;
+  margin-bottom: 18px;
+}
+
+.ctr-prg-group.is-overdue { --c: #e5484d; }
+.ctr-prg-group.is-today { --c: #d97706; }
+.ctr-prg-group.is-week { --c: #3b82f6; }
+
+.ctr-prg-group__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ctr-prg-group__title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+.ctr-prg-group__title em {
+  padding: 0 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  color: color-mix(in srgb, var(--c) 80%, var(--da-text));
+  font-style: normal;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.ctr-prg-group__sum {
+  margin-left: auto;
+  color: var(--da-muted);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-prg-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--da-hairline);
+  border-left: 3px solid var(--c);
+  border-radius: 12px;
+  background: var(--da-surface);
+  list-style: none;
+}
+
+.ctr-prg-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--da-hairline);
+}
+
+.ctr-prg-row:last-child {
+  border-bottom: 0;
+}
+
+.ctr-prg-row.is-open {
+  background: var(--da-tint);
+}
+
+.ctr-prg-row__main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ctr-prg-row__no {
+  flex: none;
+  color: var(--da-muted);
+  font-family: var(--da-font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+}
+
+.ctr-prg-row__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ctr-prg-row__text strong,
+.ctr-prg-row__text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctr-prg-row__text small {
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+.ctr-prg-row__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ctr-prg-row__when small {
+  color: var(--da-muted);
+  font-size: 12px;
+}
+
+.ctr-prg-row__money {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 110px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-prg-row__money small {
+  color: var(--da-muted);
+  font-size: 12px;
+}
+
+/* Dashboard widget */
+.ctr-pwidget {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ctr-pwidget__kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ctr-pwidget__kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--da-text) 3%, transparent);
+  color: var(--da-text);
+}
+
+.ctr-pwidget__kpi small {
+  color: var(--da-muted);
+  font-size: 12px;
+}
+
+.ctr-pwidget__kpi strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ctr-pwidget__kpi.is-red {
+  background: color-mix(in srgb, var(--da-error, #e5484d) 9%, transparent);
+}
+
+.ctr-pwidget__kpi.is-red strong {
+  color: var(--da-error, #e5484d);
+}
+
+.ctr-pwidget__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ctr-pwidget__list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--da-hairline);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ctr-pwidget__list li:last-child button {
+  border-bottom: 0;
+}
+
+.ctr-pwidget__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c, #94a3b8);
+}
+
+.ctr-pwidget__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ctr-pwidget__text strong,
+.ctr-pwidget__text em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctr-pwidget__text em {
+  color: var(--da-muted);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.ctr-pwidget__money {
+  flex: none;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .ctr-pay-summary__facts {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ctr-plan__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'date amount' 'fact state';
+    row-gap: 6px;
+  }
+
+  .ctr-plan__date { grid-area: date; }
+  .ctr-plan__amount { grid-area: amount; }
+  .ctr-plan__fact { grid-area: fact; }
+  .ctr-plan__row .ctr-paystate { grid-area: state; }
+
+  .ctr-sched__row {
+    grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) 32px;
+    grid-template-areas: 'no date purpose del' 'no amount amount del';
+  }
+
+  .ctr-sched__no { grid-area: no; }
+  .ctr-sched__date { grid-area: date; }
+  .ctr-sched__purpose { grid-area: purpose; }
+  .ctr-sched__amount { grid-area: amount; }
+  .ctr-sched__row > .ant-btn { grid-area: del; }
+
+  .ctr-prg-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'main money' 'when btn';
+    row-gap: 8px;
+  }
+
+  .ctr-prg-row__main { grid-area: main; }
+  .ctr-prg-row__money { grid-area: money; min-width: 0; }
+  .ctr-prg-row__when { grid-area: when; flex-direction: row; gap: 8px; align-items: center; justify-self: start; }
+  .ctr-prg-row__btn { grid-area: btn; justify-self: end; }
+}
+
+.ctr-pay-card > .ctr-empty {
+  border: 0;
+  background: none;
+}

@@ -17,6 +17,10 @@ import { TYPE_KEY } from './logic.js';
  *   risks   the contract's lawyer, contracts.legal, contracts.admin
  *   status  «Подписан», «Действует», «Завершён», «Расторгнут»: contracts.legal / admin
  *   create  contracts.create (legal and admin too)
+ *   money   contracts.finance (and admin): sees every contract with a deposit or a
+ *           payment schedule, confirms deposits, registers payments, the payments
+ *           registry; the deposit and the schedule are planned by the people
+ *           who edit the contract (canEdit) or by finance
  *
  * The default group (everyone is in it) does not count as "a group in common".
  */
@@ -39,6 +43,7 @@ export function contractsContext(req, settings = {}) {
   const isAdmin = hasPermission(perms, 'contracts.admin') && !limited;
   const isLegal = isAdmin || (hasPermission(perms, 'contracts.legal') && !limited);
   const viewAll = isLegal || hasPermission(perms, 'contracts.view_all');
+  const isFinance = isAdmin || (hasPermission(perms, 'contracts.finance') && !limited);
   return {
     req,
     userId: req?.user?.id ? Number(req.user.id) : null,
@@ -46,6 +51,7 @@ export function contractsContext(req, settings = {}) {
     isAdmin,
     isLegal,
     viewAll,
+    isFinance,
     canCreate: isLegal || hasPermission(perms, 'contracts.create'),
     settings,
   };
@@ -71,6 +77,8 @@ async function sharesGroup(ctx, row) {
 export async function canView(ctx, row) {
   if (!row || !ctx.userId) return false;
   if (ctx.viewAll || isOwn(ctx, row)) return true;
+  // Finance sees the contracts whose money it follows (a deposit, a schedule or payments).
+  if (ctx.isFinance && row.pay_tracked) return true;
   if (await sharesGroup(ctx, row)) return true;
   return isParticipant(ctx.req, TYPE_KEY, row.id);
 }
@@ -94,6 +102,11 @@ export function canManageRisks(ctx, row) {
   return ctx.isLegal || (ctx.userId && row.lawyer_id === ctx.userId);
 }
 
+/** May plan the money: the deposit's terms and the payment schedule. */
+export function canPlanPayments(ctx, row) {
+  return ctx.isFinance || canEdit(ctx, row);
+}
+
 /** Roles for status transitions (logic.checkTransition). */
 export function rolesFor(ctx, row) {
   return { legal: ctx.isLegal, editor: ctx.isLegal || isOwn(ctx, row) };
@@ -107,6 +120,7 @@ export async function visibleSql(ctx, p, alias = 'c') {
   if (ctx.viewAll) return 'TRUE';
   const me = p.add(ctx.userId);
   const parts = [`${alias}.created_by = ${me}`, `${alias}.owner_id = ${me}`, `${alias}.lawyer_id = ${me}`];
+  if (ctx.isFinance) parts.push(`${alias}.pay_tracked`);
   if (ctx.groupIds.length) {
     const groups = p.add(ctx.groupIds);
     parts.push(`EXISTS (SELECT 1 FROM user_group_members vm JOIN app_groups vg ON vg.id = vm.group_id AND vg.is_default = FALSE

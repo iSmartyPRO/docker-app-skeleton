@@ -12,10 +12,12 @@ import { ContractsProvider, useContracts } from './ContractsContext';
 import ContractForm from './components/ContractForm';
 import '../shared/module.css';
 import './contracts.css';
+import './contracts-pay.css';
 
 const RegistryPage = lazy(() => import('./pages/RegistryPage'));
 const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const PaymentsPage = lazy(() => import('./pages/PaymentsPage'));
 
 function Sidebar({ onNavigate, onCreate }) {
   const { t } = useLocale();
@@ -59,6 +61,13 @@ function Sidebar({ onNavigate, onCreate }) {
           <MenuIcon name="calendar" variant="mono" />
           <span className="mod-nav__text">{t('contracts.nav.calendar')}</span>
         </NavLink>
+        {(me.isFinance || me.viewAll) && (
+          <NavLink to="/app/contracts/payments" className="mod-nav__link" onClick={onNavigate}>
+            <MenuIcon name="wallet" variant="mono" />
+            <span className="mod-nav__text">{t('contracts.nav.payments')}</span>
+            {counts?.pay_overdue > 0 && <span className="mod-nav__count is-alert">{counts.pay_overdue}</span>}
+          </NavLink>
+        )}
       </nav>
       <nav className="mod-nav ctr-side__bottom">
         {viewLink('archive', 'archive', t('contracts.views.archive'), null)}
@@ -109,6 +118,7 @@ function Shell() {
             <Routes>
               <Route index element={<RegistryPage onCreate={create} />} />
               <Route path="calendar" element={<CalendarPage />} />
+              <Route path="payments" element={<PaymentsPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path=":id" element={<RegistryPage onCreate={create} />} />
               <Route path="*" element={<Navigate to="/app/contracts" replace />} />

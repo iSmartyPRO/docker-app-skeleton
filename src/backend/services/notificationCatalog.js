@@ -135,6 +135,12 @@ export const NOTIFICATION_GROUPS = [
       { kind: 'contracts.risk', defaults: on(true, true, false) },
       // N days before the end or before the refusal deadline of an auto-prolonged contract.
       { kind: 'contracts.reminder', defaults: on(true, true, true) },
+      // A deposit confirmed / settled or a payment received on a contract I own, handle or created.
+      { kind: 'contracts.payment', defaults: on(true, false, false) },
+      // A payment of my contract is due in a few days / today.
+      { kind: 'contracts.payment_due', defaults: on(true, true, false) },
+      // A payment is overdue (the owner and finance).
+      { kind: 'contracts.payment_overdue', defaults: on(true, true, true) },
     ],
   },
   {

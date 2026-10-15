@@ -29,6 +29,7 @@ import { warehouseEn, warehouseRu } from './warehouse.js';
 import { warehouseMobileEn, warehouseMobileRu } from './warehouseMobile.js';
 import { scanEn, scanRu } from './scan.js';
 import { contractsEn, contractsRu } from './contracts.js';
+import { contractsPaymentsEn, contractsPaymentsRu } from './contractsPayments.js';
 
 const en = {
   brand: 'Portal',
@@ -2033,7 +2034,9 @@ mergeDeep(ru, masterplanReportsRu);
 mergeDeep(en, approvalsEn);
 mergeDeep(ru, approvalsRu);
 mergeDeep(en, contractsEn);
+mergeDeep(en, contractsPaymentsEn);
 mergeDeep(ru, contractsRu);
+mergeDeep(ru, contractsPaymentsRu);
 mergeDeep(en, procurementEn);
 mergeDeep(ru, procurementRu);
 mergeDeep(en, warehouseEn);

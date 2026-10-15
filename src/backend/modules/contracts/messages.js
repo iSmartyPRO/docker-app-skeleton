@@ -12,6 +12,21 @@ const STATUS = {
 const IMPORTANCE = { ru: { high: 'высокая', medium: 'средняя', low: 'низкая' }, en: { high: 'high', medium: 'medium', low: 'low' } };
 const ROLE = { ru: { lawyer: 'юристом', owner: 'ответственным' }, en: { lawyer: 'the lawyer', owner: 'the business owner' } };
 
+const DEPOSIT_STATUS = {
+  ru: { expected: 'ожидается', received: 'получен', credited: 'зачтён в оплату', returned: 'возвращён', forfeited: 'удержан' },
+  en: { expected: 'expected', received: 'received', credited: 'credited to the price', returned: 'returned', forfeited: 'retained' },
+};
+const SYMBOL = { KGS: { ru: 'сом', en: 'KGS' } };
+
+/** "5 000 USD" / "120 000 сом" with the recipient's separators (as procurement/messages.js). */
+export function moneyText(amount, currency, locale = 'ru') {
+  if (amount === null || amount === undefined) return '';
+  const value = Number(amount);
+  const digits = Number.isInteger(value) ? 0 : 2;
+  const number = new Intl.NumberFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { minimumFractionDigits: digits, maximumFractionDigits: 2 }).format(value);
+  return `${number} ${SYMBOL[currency]?.[locale] || currency || ''}`.trim();
+}
+
 const lines = (...parts) => parts.filter(Boolean).join('\n');
 const day = (value, locale, regional) => (value ? formatDate(value, regional || undefined, locale) : '');
 const name = (c) => `${c.number} «${c.title}»`;
@@ -66,6 +81,45 @@ export const CONTRACT_MESSAGES = {
       title: `Contract ${nameEn(contract)}: refuse prolongation by ${day(target, 'en', regional)}`,
       body: lines(left === 0 ? 'Today is the last day to send the refusal' : `${daysEn(left)} left to send the refusal`, contract.endsOn ? `Otherwise it renews after ${day(contract.endsOn, 'en', regional)}` : ''),
     },
+  }),
+  // ── Deposit and payments ──
+  depositReceived: ({ contract, deposit, actor, regional }) => ({
+    ru: {
+      title: `${deposit.kind === 'advance' ? 'Аванс' : 'Задаток'} получен: договор ${name(contract)}`,
+      body: lines(`${moneyText(deposit.amount, deposit.currency, 'ru')} — ${day(deposit.receivedOn, 'ru', regional)}`, contract.counterparty, actor),
+    },
+    en: {
+      title: `${deposit.kind === 'advance' ? 'Advance' : 'Deposit'} received: contract ${nameEn(contract)}`,
+      body: lines(`${moneyText(deposit.amount, deposit.currency, 'en')} — ${day(deposit.receivedOn, 'en', regional)}`, contract.counterparty, actor),
+    },
+  }),
+  depositStatus: ({ contract, deposit, actor }) => ({
+    ru: { title: `${deposit.kind === 'advance' ? 'Аванс' : 'Задаток'} по договору ${name(contract)}: ${DEPOSIT_STATUS.ru[deposit.status]}`, body: lines(deposit.settledAmount ? moneyText(deposit.settledAmount, deposit.currency, 'ru') : '', deposit.note, actor) },
+    en: { title: `${deposit.kind === 'advance' ? 'Advance' : 'Deposit'} of contract ${nameEn(contract)}: ${DEPOSIT_STATUS.en[deposit.status]}`, body: lines(deposit.settledAmount ? moneyText(deposit.settledAmount, deposit.currency, 'en') : '', deposit.note, actor) },
+  }),
+  paymentReceived: ({ contract, payment, totals, actor, regional }) => ({
+    ru: {
+      title: `${totals.full ? 'Оплачен полностью' : 'Поступила оплата'}: договор ${name(contract)}`,
+      body: lines(`${moneyText(payment.amount, contract.currency, 'ru')} — ${day(payment.paidOn, 'ru', regional)}`, `Оплачено ${moneyText(totals.paid, contract.currency, 'ru')} из ${moneyText(totals.total, contract.currency, 'ru')} (${totals.percent} %)`, actor),
+    },
+    en: {
+      title: `${totals.full ? 'Paid in full' : 'Payment received'}: contract ${nameEn(contract)}`,
+      body: lines(`${moneyText(payment.amount, contract.currency, 'en')} — ${day(payment.paidOn, 'en', regional)}`, `Paid ${moneyText(totals.paid, contract.currency, 'en')} of ${moneyText(totals.total, contract.currency, 'en')} (${totals.percent}%)`, actor),
+    },
+  }),
+  paymentDue: ({ contract, row, left, regional }) => ({
+    ru: {
+      title: left === 0 ? `Сегодня платёж по договору ${name(contract)}` : `Платёж по договору ${name(contract)} через ${daysRu(left)}`,
+      body: lines(`${moneyText(row.left, contract.currency, 'ru')} — до ${day(row.dueOn, 'ru', regional)}`, contract.counterparty),
+    },
+    en: {
+      title: left === 0 ? `Payment due today: contract ${nameEn(contract)}` : `Payment due in ${daysEn(left)}: contract ${nameEn(contract)}`,
+      body: lines(`${moneyText(row.left, contract.currency, 'en')} — by ${day(row.dueOn, 'en', regional)}`, contract.counterparty),
+    },
+  }),
+  paymentOverdue: ({ contract, row, regional }) => ({
+    ru: { title: `Платёж просрочен: договор ${name(contract)}`, body: lines(`${moneyText(row.left, contract.currency, 'ru')} — срок был ${day(row.dueOn, 'ru', regional)}`, contract.counterparty) },
+    en: { title: `Payment overdue: contract ${nameEn(contract)}`, body: lines(`${moneyText(row.left, contract.currency, 'en')} — was due ${day(row.dueOn, 'en', regional)}`, contract.counterparty) },
   }),
 };
 

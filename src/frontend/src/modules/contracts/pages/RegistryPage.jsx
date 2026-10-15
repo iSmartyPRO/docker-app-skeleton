@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Button, Grid, Input, Pagination, Skeleton, Table, Tooltip } from 'antd';
-import { DownloadOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Grid, Pagination, Skeleton, Table, Tooltip } from 'antd';
+import { DownloadOutlined, LeftOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons';
+import { todayISO } from '../../../lib/datetime';
+import ModuleHeader from '../../shared/ModuleHeader';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { HelpButton } from '../../../help/Hint';
@@ -9,28 +11,88 @@ import { UrgencyTag } from '../../approvals/components/bits';
 import { useApprovalsMeta } from '../../approvals/lib';
 import { useContracts } from '../ContractsContext';
 import { contractsApi } from '../api';
-import { VIEWS, isTyping } from '../lib';
+import { PAY_VIEWS, VIEWS, isTyping } from '../lib';
+import { PayBar } from '../card/Payments';
 import { Avatar, Empty, EndDate, Money, StatusPill, TypeTag } from '../components/bits';
 import ContractCard from '../card/ContractCard';
 
 const PAGE_SIZE = 50;
-const RED = new Set(['overdue', 'waiting']);
+const RED = new Set(['overdue', 'waiting', 'pay_overdue']);
+const WARN = new Set(['expiring', 'deposit_wait']);
 
-/** Chips with counters over the list (spec §6.4 and the common «Срочные / Просрочено / В работе / Отработано»). */
+/**
+ * A row of chips that scrolls sideways inside the page width: the edges fade
+ * where more chips hide, and on devices with a pointer ‹ › buttons scroll it.
+ * The picked chip is scrolled into view.
+ */
+export function ChipRail({ children, label, active }) {
+  const { t } = useLocale();
+  const ref = useRef(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const start = el.scrollLeft > 2;
+    const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    setEdges((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+  }, []);
+  useLayoutEffect(() => {
+    update();
+    if (typeof ResizeObserver === 'undefined' || !ref.current) return undefined;
+    const observer = new ResizeObserver(update);
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [update, children]);
+  useEffect(() => {
+    const el = ref.current?.querySelector('.is-active');
+    if (el && ref.current) {
+      const box = ref.current.getBoundingClientRect();
+      const chip = el.getBoundingClientRect();
+      if (chip.left < box.left || chip.right > box.right) ref.current.scrollBy({ left: chip.left - box.left - 24, behavior: 'smooth' });
+    }
+  }, [active]);
+  const scroll = (dir) => ref.current?.scrollBy({ left: dir * Math.max(160, ref.current.clientWidth * 0.6), behavior: 'smooth' });
+  return (
+    <div className={`ctr-rail${edges.start ? ' has-start' : ''}${edges.end ? ' has-end' : ''}`}>
+      {edges.start && <button type="button" className="ctr-rail__btn is-start" onClick={() => scroll(-1)} aria-label={t('contracts.registry.chipsScroll')} tabIndex={-1}><LeftOutlined /></button>}
+      <div ref={ref} className="ctr-chips" role="tablist" aria-label={label} onScroll={update}>
+        {children}
+      </div>
+      {edges.end && <button type="button" className="ctr-rail__btn is-end" onClick={() => scroll(1)} aria-label={t('contracts.registry.chipsScroll')} tabIndex={-1}><RightOutlined /></button>}
+    </div>
+  );
+}
+
+/** Chips with counters over the list (spec §6.4 and the common «Срочные / Просрочено / В работе / Отработано»); the money chips only when they count something. */
 function Chips({ view, counts, onPick, expiringDays }) {
   const { t } = useLocale();
+  const keys = VIEWS.filter((key) => !PAY_VIEWS.includes(key) || counts?.[key] > 0 || view === key);
   return (
-    <div className="ctr-chips" role="tablist" aria-label={t('contracts.registry.filters')}>
-      {VIEWS.map((key) => {
+    <ChipRail label={t('contracts.registry.filters')} active={view}>
+      {keys.map((key) => {
         const n = counts?.[key];
         return (
-          <button key={key} type="button" role="tab" aria-selected={view === key} className={`ctr-chip${view === key ? ' is-active' : ''}${RED.has(key) && n ? ' is-alert' : ''}${key === 'expiring' && n ? ' is-warn' : ''}`} onClick={() => onPick(key)}>
+          <button key={key} type="button" role="tab" aria-selected={view === key} className={`ctr-chip${view === key ? ' is-active' : ''}${RED.has(key) && n ? ' is-alert' : ''}${WARN.has(key) && n ? ' is-warn' : ''}${PAY_VIEWS.includes(key) ? ' is-money' : ''}`} onClick={() => onPick(key)}>
             <span>{key === 'expiring' ? t('contracts.views.expiring', { n: expiringDays }) : t(`contracts.views.${key}`)}</span>
             <em>{n ?? '·'}</em>
           </button>
         );
       })}
-    </div>
+    </ChipRail>
+  );
+}
+
+/** «оплачено 45 %» under the amount of a contract that tracks its payments. */
+function PayMini({ contract }) {
+  const { t } = useLocale();
+  const pay = contract.payments;
+  if (!pay || !(pay.total > 0)) return null;
+  const overdue = Boolean(pay.nextDue && pay.nextDue < todayISO());
+  return (
+    <span className={`ctr-paymini${overdue ? ' is-overdue' : ''}`}>
+      <PayBar percent={pay.percent} overdue={overdue} size="xs" />
+      <em>{t('contracts.registry.paidShort', { p: pay.percent })}</em>
+    </span>
   );
 }
 
@@ -49,7 +111,10 @@ function MobileRow({ item, active, onOpen }) {
       <strong className="ctr-mrow__title">{item.title}</strong>
       <span className="ctr-mrow__cp">{item.counterparty || t('contracts.registry.noCounterparty')}</span>
       <div className="ctr-mrow__bottom">
-        <Money contract={item} />
+        <span className="ctr-cell-money">
+          <Money contract={item} />
+          <PayMini contract={item} />
+        </span>
         <span className="ctr-grow" />
         <EndDate contract={item} compact />
         <Avatar user={item.owner} size={20} />
@@ -82,7 +147,6 @@ export default function RegistryPage({ onCreate }) {
   const [counts, setCounts] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const searchRef = useRef(null);
   const seq = useRef(0);
 
   const setParam = useCallback(
@@ -135,7 +199,7 @@ export default function RegistryPage({ onCreate }) {
       if (id || isTyping(document.activeElement) || event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === '/') {
         event.preventDefault();
-        searchRef.current?.focus();
+        document.querySelector('.ctr-page .mh-search input')?.focus();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -194,7 +258,12 @@ export default function RegistryPage({ onCreate }) {
         align: 'right',
         sorter: true,
         sortOrder: sort === 'amount' ? (order === 'desc' ? 'descend' : 'ascend') : null,
-        render: (_, item) => <Money contract={item} />,
+        render: (_, item) => (
+          <span className="ctr-cell-money">
+            <Money contract={item} />
+            <PayMini contract={item} />
+          </span>
+        ),
       },
       {
         key: 'endsOn',
@@ -242,38 +311,17 @@ export default function RegistryPage({ onCreate }) {
 
   return (
     <div className="ctr-page">
-      <header className="ctr-page__head">
-        <div className="ctr-page__title">
-          <h1>
-            <span className="ctr-page__name">{t('apps.contracts.name')}</span> <HelpButton id="contracts" />
-          </h1>
-          <p>{t('contracts.registry.subtitle')}</p>
-        </div>
-        <div className="ctr-page__actions">
-          <Tooltip title={t('contracts.registry.export')}>
-            <Button href={contractsApi.exportUrl({ view, search, sort, order, lang: document.documentElement.lang })} icon={<DownloadOutlined />} aria-label={t('contracts.registry.export')}>
-              CSV
-            </Button>
-          </Tooltip>
-          {me.canCreate && (
-            <Button type="primary" className="ctr-page__create" onClick={onCreate} icon={<PlusOutlined />} aria-label={t('contracts.create')}>
-              <span>{t('contracts.create')}</span>
-            </Button>
-          )}
-        </div>
-      </header>
-      <div className="ctr-toolbar">
-        <Input.Search
-          ref={searchRef}
-          allowClear
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onSearch={(value) => setParam({ q: value.trim(), page: 1 })}
-          placeholder={t('contracts.registry.search')}
-          className="ctr-search"
-          aria-label={t('contracts.registry.search')}
-        />
-      </div>
+      <ModuleHeader
+        className="ctr-mh"
+        title={t('apps.contracts.name')}
+        titleExtra={<HelpButton id="contracts" />}
+        description={t('contracts.registry.subtitle')}
+        actions={[
+          { key: 'export', icon: <DownloadOutlined />, label: 'CSV', tooltip: t('contracts.registry.export'), href: contractsApi.exportUrl({ view, search, sort, order, lang: document.documentElement.lang }) },
+          me.canCreate && { key: 'create', primary: true, icon: <PlusOutlined />, label: t('contracts.create'), onClick: onCreate },
+        ]}
+        search={{ value: query, onChange: setQuery, onSearch: (value) => setParam({ q: value.trim(), page: 1 }), placeholder: t('contracts.registry.search'), loading }}
+      />
 
       <Chips view={view} counts={counts || globalCounts} onPick={(key) => setParam({ view: key, page: 1 })} expiringDays={settings.expiringDays || 30} />
 
