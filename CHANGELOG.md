@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Module switch on settings pages
+
+- Warehouse and Procurement settings pages get the «Модуль включён» switch (shared `ModuleEnableSwitch`), like the other modules; before, they could only be switched on from Settings → Modules.
+
 ### Simpler sharing and responsive headers
 
 - **Share dialog (Files and File server):** simple by default — what the recipient can do (view / view and download), expiry, password and a **custom link address** with a live availability check, transliteration and suggestions; «Создать и скопировать» with QR and «Открыть как получатель»; all fine-grained settings moved under «Расширенные настройки». Slugs are unique per module (case-insensitive, race-safe), revoked links keep theirs, a changed slug is held 90 days for its author; token addresses keep working.

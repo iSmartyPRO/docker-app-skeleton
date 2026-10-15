@@ -648,6 +648,9 @@ const en = {
     enabledLabel: 'Module is on',
     settings: 'Settings',
     open: 'Open',
+    enableLabel: 'Module is on',
+    enableOnDesc: 'The module is in the apps menu for people with access.',
+    enableOffDesc: 'Switched off: the module is hidden from menus. Switch it on to start using it.',
     footnote: 'A switched-off module disappears from menus and its addresses answer “not found”. Its data is kept.',
   },
   kbSettings: {
@@ -1610,6 +1613,9 @@ const ru = {
     enabledLabel: 'Модуль включён',
     settings: 'Настройки',
     open: 'Открыть',
+    enableLabel: 'Модуль включён',
+    enableOnDesc: 'Модуль доступен в меню приложений тем, у кого есть доступ.',
+    enableOffDesc: 'Выключен: модуль скрыт из меню. Включите, чтобы начать им пользоваться.',
     footnote: 'Выключенный модуль пропадает из меню, его адреса отвечают «не найдено». Данные сохраняются.',
   },
   kbSettings: {
