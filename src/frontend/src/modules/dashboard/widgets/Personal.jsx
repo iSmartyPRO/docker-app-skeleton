@@ -164,9 +164,10 @@ function QuickTile({ module, settings, t }) {
 export function QuickActions({ widget, size }) {
   const { t } = useLocale();
   const { settings } = useSettings();
+  const { user } = useAuth();
   const [measure, box] = useBox();
   const chosen = widget.settings.modules;
-  const modules = enabledModules(settings).filter((module) => module.id !== 'dashboard' && (!chosen?.length || chosen.includes(module.id)));
+  const modules = enabledModules(settings, user).filter((module) => module.id !== 'dashboard' && (!chosen?.length || chosen.includes(module.id)));
   if (!modules.length) return <div className="dw-empty"><strong>{t('dashboard.quick.none')}</strong></div>;
   const phone = size.cols === 1;
   // A card too low for one row of tiles shows the list instead.

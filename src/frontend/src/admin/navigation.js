@@ -246,6 +246,11 @@ export const SETTINGS_GROUPS = [
         keywords: 'drive file server smb share dfs network windows active directory сетевой диск файловый сервер шара папки',
       },
       {
+        id: 'folderaccess',
+        defaultIcon: 'lock',
+        keywords: 'folder access security groups active directory ntfs permissions sg доступ к папкам группы безопасности права ntfs',
+      },
+      {
         id: 'kb',
         defaultIcon: 'graduation',
         keywords: 'knowledge base kb documents files folders sharing база знаний документы папки ссылки',

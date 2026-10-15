@@ -41,8 +41,9 @@ function useNarrow() {
 function AppsLauncher() {
   const { t } = useLocale();
   const { settings } = useSettings();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const modules = enabledModules(settings);
+  const modules = enabledModules(settings, user);
   if (!modules.length) return null;
   return (
     <Dropdown

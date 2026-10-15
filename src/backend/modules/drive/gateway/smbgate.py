@@ -43,14 +43,19 @@ from smbprotocol.create_contexts import (
     SMB2CreateQueryMaximalAccessResponse,
 )
 from smbprotocol.exceptions import SMBAuthenticationError, SMBException, SMBOSError, SMBResponseException
-from smbprotocol.file_info import FileAttributes
+from smbprotocol.file_info import FileAttributes, InfoType
 from smbprotocol.open import (
     CreateDisposition,
     FilePipePrinterAccessMask,
     ImpersonationLevel,
     Open,
     ShareAccess,
+    SMB2QueryInfoRequest,
+    SMB2QueryInfoResponse,
+    SMB2SetInfoRequest,
 )
+
+import ntacl
 
 KEY = os.environ.get("SMBGATE_KEY", "")
 IDLE_SECONDS = int(os.environ.get("SMBGATE_IDLE", "300"))
@@ -94,6 +99,11 @@ NTSTATUS = {
     0xC0000044: (507, "QUOTA_EXCEEDED"),
     0xC00000BA: (400, "IS_A_FOLDER"),
     0xC0000103: (400, "NOT_A_FOLDER"),
+    0xC0000061: (403, "ACCESS_DENIED"),  # privilege not held (e.g. taking ownership)
+    0xC0000077: (400, "BAD_ACL"),
+    0xC0000078: (400, "BAD_ACL"),
+    0xC0000079: (400, "BAD_ACL"),
+    0xC000005A: (400, "INVALID_OWNER"),
 }
 
 
@@ -109,6 +119,8 @@ def translate(exc):
     """Maps any SMB / network failure to (http status, code, message)."""
     if isinstance(exc, GateError):
         return exc
+    if isinstance(exc, ntacl.AclError):
+        return GateError(getattr(exc, "status", 400) or 400, exc.code, str(exc))
     status = getattr(exc, "ntstatus", None)
     if status is None:
         status = getattr(exc, "status", None)
@@ -148,6 +160,34 @@ class Pool:
         self.created = time.monotonic()
         self.used = self.created
         self.lock = threading.Lock()
+        # Long operations (acl_propagate) that hold the sessions: the reaper
+        # leaves the pool alone while > 0 (see hold_pool).
+        self.active = 0
+
+    def touch(self):
+        self.used = time.monotonic()
+
+    def busy(self):
+        return self.active > 0
+
+
+class hold_pool:
+    """`with hold_pool(pool):` keeps the pool (and its SMB sessions) from being reaped."""
+
+    def __init__(self, pool):
+        self.pool = pool
+
+    def __enter__(self):
+        with POOLS_LOCK:
+            self.pool.active += 1
+            self.pool.touch()
+        return self.pool
+
+    def __exit__(self, *_exc):
+        with POOLS_LOCK:
+            self.pool.active = max(0, self.pool.active - 1)
+            self.pool.touch()
+        return False
 
 
 RETIRED = []
@@ -180,19 +220,23 @@ def pool_for(server, cred):
 def reaper():
     while True:
         time.sleep(30)
-        now = time.monotonic()
-        with POOLS_LOCK:
-            stale = [key for key, pool in POOLS.items() if now - pool.used > IDLE_SECONDS]
-            dropped = [POOLS.pop(key) for key in stale]
-            expired = [pool for pool in RETIRED if now - pool.created > MAX_AGE_SECONDS + 3600]
-            for pool in expired:
-                RETIRED.remove(pool)
-            dropped += expired
-        for pool in dropped:
-            try:
-                smbclient.reset_connection_cache(fail_on_error=False, connection_cache=pool.cache)
-            except Exception:  # noqa: BLE001 - best effort on idle sockets
-                pass
+        reap_once(time.monotonic())
+
+
+def reap_once(now):
+    """Closes idle pools and expired retired ones; pools held by a running walk stay."""
+    with POOLS_LOCK:
+        stale = [key for key, pool in POOLS.items() if now - pool.used > IDLE_SECONDS and not pool.busy()]
+        dropped = [POOLS.pop(key) for key in stale]
+        expired = [pool for pool in RETIRED if now - pool.created > MAX_AGE_SECONDS + 3600 and not pool.busy()]
+        for pool in expired:
+            RETIRED.remove(pool)
+        dropped += expired
+    for pool in dropped:
+        try:
+            smbclient.reset_connection_cache(fail_on_error=False, connection_cache=pool.cache)
+        except Exception:  # noqa: BLE001 - best effort on idle sockets
+            pass
 
 
 def drop_pool(server, cred):
@@ -201,6 +245,10 @@ def drop_pool(server, cred):
         for key, value in list(POOLS.items()):
             if value is pool:
                 POOLS.pop(key, None)
+        if pool.busy():
+            # A propagation still walks on these sessions: the reaper closes them after it ends.
+            RETIRED.append(pool)
+            return
     try:
         smbclient.reset_connection_cache(fail_on_error=False, connection_cache=pool.cache)
     except Exception:  # noqa: BLE001
@@ -218,10 +266,15 @@ def account(cred):
 
 
 def session_kwargs(req):
+    return session(req)[0]
+
+
+def session(req):
+    """(smbclient kwargs, pool) for the request's server + credential."""
     server = req.get("server") or {}
     cred = req.get("cred") or {}
     pool = pool_for(server, cred)
-    pool.used = time.monotonic()
+    pool.touch()
     kwargs = {
         "username": account(cred),
         "password": str(cred.get("password") or ""),
@@ -232,7 +285,7 @@ def session_kwargs(req):
     }
     if server.get("encrypt"):
         kwargs["encrypt"] = True
-    return kwargs
+    return kwargs, pool
 
 
 # ── Paths ───────────────────────────────────────────────────────────────────
@@ -781,6 +834,284 @@ def op_logout(req, _body):
     return {"ok": True}
 
 
+# ── NTFS permissions (security descriptors) ────────────────────────────────
+# Read: open with READ_CONTROL, SMB2 QUERY_INFO (SECURITY, OWNER|GROUP|DACL).
+# Write: open with WRITE_DAC (+ WRITE_OWNER when the owner changes), re-read on
+# the same handle and refuse with STALE when the descriptor is not the one the
+# caller saw, then SET_INFO with DACL (+ OWNER) only. The SACL is never touched.
+# The servers do not propagate inheritance over SMB: acl_propagate does it.
+
+READ_CONTROL = 0x00020000
+WRITE_DAC = 0x00040000
+WRITE_OWNER = 0x00080000
+SD_INFO = ntacl.OWNER_INFO | ntacl.GROUP_INFO | ntacl.DACL_INFO
+REPARSE = FileAttributes.FILE_ATTRIBUTE_REPARSE_POINT
+SD_BUFFER = 65536
+
+
+def sd_open(target, kwargs, access):
+    tree, fd_path = _pool.get_smb_tree(target, **kwargs)
+    handle = Open(tree, fd_path)
+    handle.create(
+        ImpersonationLevel.Impersonation,
+        access,
+        0,
+        ShareAccess.FILE_SHARE_READ | ShareAccess.FILE_SHARE_WRITE | ShareAccess.FILE_SHARE_DELETE,
+        CreateDisposition.FILE_OPEN,
+        0,
+    )
+    return handle
+
+
+def sd_is_dir(handle):
+    attrs = getattr(handle, "file_attributes", None)
+    return None if attrs is None else bool(int(attrs) & DIRECTORY)
+
+
+def sd_query(handle, info=SD_INFO):
+    request = SMB2QueryInfoRequest()
+    request["info_type"] = InfoType.SMB2_0_INFO_SECURITY
+    request["output_buffer_length"] = SD_BUFFER
+    request["additional_information"] = info
+    request["file_id"] = handle.file_id
+    sent = handle.connection.send(request, handle.tree_connect.session.session_id, handle.tree_connect.tree_connect_id)
+    response = handle.connection.receive(sent)
+    parsed = SMB2QueryInfoResponse()
+    parsed.unpack(response["data"].get_value())
+    return bytes(parsed["buffer"].get_value())
+
+
+def sd_set(handle, raw, info):
+    request = SMB2SetInfoRequest()
+    request["info_type"] = InfoType.SMB2_0_INFO_SECURITY
+    request["additional_information"] = info
+    request["file_id"] = handle.file_id
+    request["buffer"] = raw
+    sent = handle.connection.send(request, handle.tree_connect.session.session_id, handle.tree_connect.tree_connect_id)
+    handle.connection.receive(sent)
+
+
+def sd_read(target, kwargs):
+    handle = sd_open(target, kwargs, READ_CONTROL)
+    try:
+        return sd_query(handle), sd_is_dir(handle)
+    finally:
+        handle.close()
+
+
+def acl_payload(raw, is_dir, path):
+    out = ntacl.sd_json(raw, is_dir)
+    out["path"] = path
+    return out
+
+
+def acl_aces(value):
+    """Explicit ACEs from the caller: [{type allow|deny|other, sid, mask, flags}] without INHERITED."""
+    if not isinstance(value, list) or len(value) > 1000:
+        raise GateError(400, "BAD_ACL", "Bad ACE list")
+    out = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise GateError(400, "BAD_ACL", "Bad ACE")
+        flags = ntacl.flags_from(item.get("flags", 0))
+        if flags & ntacl.ID:
+            raise GateError(400, "BAD_ACL", "Inherited ACEs cannot be written as explicit")
+        if item.get("type") == "other":
+            out.append({"type": "other", "aceType": int(item["aceType"]), "flags": flags, "raw": str(item.get("raw") or "")})
+        elif item.get("type") in ("allow", "deny"):
+            mask = int(item.get("mask") or 0)
+            if not mask:
+                raise GateError(400, "BAD_ACL", "Empty access mask")
+            out.append(ntacl.ace(item["type"], item.get("sid"), mask, flags))
+        else:
+            raise GateError(400, "BAD_ACL", "Unknown ACE type")
+    return out
+
+
+def write_sd(req, body, compose):
+    """
+    Shared write path of acl_set / acl_restore. `compose(current, is_dir)`
+    returns (new dacl aces, control, owner or None). Returns the previous
+    descriptor (undo) and the new state. With body.dryRun nothing is written
+    (and only READ_CONTROL is needed): "before" and the predicted "acl" come
+    back for the confirmation screen and the guards.
+    """
+    kwargs = session_kwargs(req)
+    target = unc(req)
+    path = "/".join(clean_parts(req.get("path")))
+    dry = bool(body.get("dryRun"))
+    wanted_owner = ntacl.normalize_sid(body["owner"]) if body.get("owner") else None
+    owner_change = False
+    if wanted_owner and not dry:
+        # WRITE_OWNER only when the owner really changes: people with just
+        # "Change permissions" can still restore a descriptor with the same owner.
+        owner_change = wanted_owner != ntacl.parse_sd(sd_read(target, kwargs)[0])["owner"]
+    access = READ_CONTROL if dry else READ_CONTROL | WRITE_DAC | (WRITE_OWNER if owner_change else 0)
+    handle = sd_open(target, kwargs, access)
+    try:
+        raw = sd_query(handle)
+        expected = body.get("revision")
+        if expected and expected != ntacl.revision_of(raw):
+            raise GateError(409, "STALE", "The permissions changed since they were read")
+        current = ntacl.parse_sd(raw)
+        is_dir = sd_is_dir(handle)
+        aces, control, owner = compose(current, is_dir)
+        info = ntacl.DACL_INFO
+        if owner and owner != current["owner"]:
+            if not dry and not owner_change:
+                raise GateError(409, "STALE", "The owner changed since it was read")
+            info |= ntacl.OWNER_INFO
+        else:
+            owner = None
+        # SYSTEM / Administrators keep their access, never an empty DACL (also
+        # for restores: a saved descriptor is written back only when it passes).
+        problems = ntacl.guard_problems(current["dacl"], aces, is_dir)
+        if dry:
+            predicted = ntacl.build_sd(owner=owner or current["owner"], group=current["group"], dacl=aces, control=control)
+        else:
+            ntacl.refuse_unsafe(problems)
+            sd_set(handle, ntacl.build_sd(owner=owner, dacl=aces, control=control), info)
+            after = sd_query(handle)
+    finally:
+        handle.close()
+    previous = {"sd": base64.b64encode(raw).decode("ascii"), "sddl": ntacl.sd_to_sddl(raw), "revision": ntacl.revision_of(raw)}
+    if dry:
+        shape = acl_payload(predicted, is_dir, path)
+        shape["revision"] = None
+        return {"dryRun": True, "previous": previous, "before": acl_payload(raw, is_dir, path), "acl": shape, "guard": problems}
+    return {"previous": previous, "acl": acl_payload(after, is_dir, path)}
+
+
+def op_acl_get(req, _body):
+    """{path} -> owner, group, control flags, ACEs, SDDL, base64 descriptor, revision token."""
+    kwargs = session_kwargs(req)
+    raw, is_dir = sd_read(unc(req), kwargs)
+    return acl_payload(raw, is_dir, "/".join(clean_parts(req.get("path"))))
+
+
+def inherited_part(req, current, is_dir, inherit, owner=None, fallback=None):
+    """
+    The inherited ACEs of a DACL that is not protected: the current ones
+    ("keep"), or recomputed from the parent folder ("parent", and with "auto"
+    when the folder is protected now). At the share root there is no parent:
+    `fallback` when given, else NO_PARENT.
+    """
+    was_protected = bool(current["control"] & ntacl.SE_DACL_PROTECTED)
+    if inherit == "parent" or (inherit == "auto" and was_protected):
+        parts = clean_parts(req.get("path"))
+        if not parts:
+            if fallback is not None:
+                return list(fallback)
+            raise GateError(409, "NO_PARENT", "The share root has no parent folder to inherit from")
+        parent_raw, _ = sd_read(unc(req, path="/".join(parts[:-1])), session_kwargs(req))
+        parent = ntacl.parse_sd(parent_raw)
+        return ntacl.inherit_aces(parent["dacl"] or [], bool(is_dir), owner or current["owner"], current["group"])
+    return [e for e in (current["dacl"] or []) if e.get("flags", 0) & ntacl.ID]
+
+
+def op_acl_set(req, body):
+    """
+    body: {revision, aces: explicit ACEs, protected: bool, owner?: sid,
+           inherit?: "auto" | "keep" | "parent"}
+    The inherited part is not taken from the caller: with protection on there
+    is none; otherwise the current inherited ACEs are kept, or recomputed from
+    the parent folder ("parent", and always when protection is turned off).
+    """
+    body = body or {}
+    explicit = acl_aces(body.get("aces"))
+    protected = bool(body.get("protected"))
+    inherit = body.get("inherit") or "auto"
+    owner = ntacl.normalize_sid(body["owner"]) if body.get("owner") else None
+
+    def compose(current, is_dir):
+        inherited = [] if protected else inherited_part(req, current, is_dir, inherit, owner)
+        control = ntacl.SE_DACL_AUTO_INHERITED | (ntacl.SE_DACL_PROTECTED if protected else 0)
+        return ntacl.canonical(explicit) + inherited, control, owner
+
+    return write_sd(req, body, compose)
+
+
+def op_acl_restore(req, body):
+    """
+    body: {sd: base64 | sddl: text, revision?: expected current revision, owner?: bool,
+           inherit?: "auto" | "keep" | "parent"}
+    Writes the DACL (+ owner) of the blob back. A protected saved DACL is
+    written as it was. One that inherits gets its explicit entries and
+    protection back, while the inherited part is the folder's current one
+    (or recomputed from the parent, as for acl_set): the saved inherited copies
+    may be out of date (the parent changed and was propagated since).
+    """
+    body = body or {}
+    inherit = body.get("inherit") or "auto"
+    if body.get("sd"):
+        try:
+            blob = base64.b64decode(str(body["sd"]), validate=True)
+        except Exception as exc:  # noqa: BLE001
+            raise GateError(400, "BAD_ACL", "Bad descriptor") from exc
+        saved = ntacl.parse_sd(blob)
+    elif body.get("sddl"):
+        saved, _ = ntacl.sddl_to_sd(body["sddl"])
+    else:
+        raise GateError(400, "BAD_ACL", "Nothing to restore")
+    if saved["dacl"] is None:
+        raise GateError(400, "BAD_ACL", "The saved descriptor has no DACL")
+    restore_owner = bool(body.get("owner")) and saved.get("owner")
+    write_body = dict(body, owner=saved["owner"] if restore_owner else None)
+
+    def compose(current, is_dir):
+        control = saved["control"] & (ntacl.SE_DACL_PROTECTED | ntacl.SE_DACL_AUTO_INHERITED | ntacl.SE_DACL_AUTO_INHERIT_REQ)
+        owner = saved["owner"] if restore_owner else None
+        if control & ntacl.SE_DACL_PROTECTED:
+            return saved["dacl"], control, owner
+        explicit = [e for e in saved["dacl"] if not e.get("flags", 0) & ntacl.ID]
+        saved_inherited = [e for e in saved["dacl"] if e.get("flags", 0) & ntacl.ID]
+        return explicit + inherited_part(req, current, is_dir, inherit, owner, fallback=saved_inherited), control, owner
+
+    return write_sd(req, write_body, compose)
+
+
+class SmbTree:
+    """ntacl.Propagation adapter over one SMB session."""
+
+    def __init__(self, req, kwargs, pool=None):
+        self.req = req
+        self.kwargs = kwargs
+        self.pool = pool
+
+    def touch(self):
+        if self.pool is not None:
+            self.pool.touch()
+
+    def unc(self, parts):
+        return unc(self.req, path="/".join(parts))
+
+    def read(self, parts):
+        self.touch()
+        return sd_read(self.unc(parts), self.kwargs)
+
+    def write(self, parts, raw):
+        self.touch()
+        handle = sd_open(self.unc(parts), self.kwargs, WRITE_DAC)
+        try:
+            sd_set(handle, raw, ntacl.DACL_INFO)
+        finally:
+            handle.close()
+
+    def list(self, parts):
+        self.touch()
+        out = []
+        for entry in smbclient.scandir(self.unc(parts), **self.kwargs):
+            if entry.name in (".", ".."):
+                continue
+            attrs = int(entry.smb_info.file_attributes)
+            out.append((entry.name, bool(attrs & DIRECTORY), bool(attrs & REPARSE)))
+        return out
+
+    def classify(self, exc):
+        mapped = translate(exc)
+        return mapped.code, mapped.status == 401 or mapped.code in ("SERVER_UNREACHABLE", "SHARE_NOT_FOUND", "GATE_ERROR")
+
+
 JSON_OPS = {
     "auth": op_auth,
     "probe": op_probe,
@@ -795,6 +1126,14 @@ JSON_OPS = {
     "search": op_search,
     "volume": op_volume,
     "logout": op_logout,
+    "acl_get": op_acl_get,
+}
+
+# Operations with a JSON request body (ACE lists and descriptors do not fit a header).
+BODY_OPS = {
+    "mkdirs": op_mkdirs,
+    "acl_set": op_acl_set,
+    "acl_restore": op_acl_restore,
 }
 
 
@@ -854,15 +1193,10 @@ class Handler(BaseHTTPRequestHandler):
                 if length:
                     self.rfile.read(length)
                 self.ok(JSON_OPS[op](req, None))
-            elif op == "mkdirs":
-                length = int(self.headers.get("Content-Length") or 0)
-                if length > 4 * 1024 * 1024:
-                    raise GateError(413, "TOO_LARGE", "Folder list too large")
-                try:
-                    body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
-                except Exception as exc:  # noqa: BLE001
-                    raise GateError(400, "BAD_REQUEST", "Bad folder list") from exc
-                self.ok(op_mkdirs(req, body))
+            elif op in BODY_OPS:
+                self.ok(BODY_OPS[op](req, self.json_body()))
+            elif op == "acl_propagate":
+                self.op_acl_propagate(req, self.json_body())
             elif op == "read":
                 self.op_read(req)
             elif op == "write":
@@ -875,6 +1209,82 @@ class Handler(BaseHTTPRequestHandler):
                 raise GateError(404, "NOT_FOUND", "Unknown operation")
         except Exception as exc:  # noqa: BLE001 - everything becomes a coded error
             self.fail(translate(exc))
+
+    def json_body(self, limit=4 * 1024 * 1024):
+        length = int(self.headers.get("Content-Length") or 0)
+        if length > limit:
+            raise GateError(413, "TOO_LARGE", "Request body too large")
+        try:
+            body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+        except Exception as exc:  # noqa: BLE001
+            raise GateError(400, "BAD_REQUEST", "Bad request body") from exc
+        return body if isinstance(body, dict) else {}
+
+    # "Replace all child object permissions with inheritable permissions from
+    # this folder": a long walk that streams NDJSON lines —
+    #   {"type":"progress","path",done,changed,unchanged,failed,protected,...} (throttled)
+    #   {"type":"failed","path","code","stage"}  {"type":"protected","path"}
+    #   {"type":"result",...stats, marker, stopped, failedList, protectedList}
+    #   {"type":"error","code","error"} when the walk had to stop (auth, server gone).
+    # params: path (the source folder), mode inherit|replace, dryRun, marker
+    # (resume after this share-relative path); body: {"retry": [paths]}.
+    # The walk stops when Node closes the connection (cancel).
+    def op_acl_propagate(self, req, body):
+        kwargs, pool = session(req)
+        with hold_pool(pool):
+            self.propagate(req, body, kwargs, pool)
+
+    def propagate(self, req, body, kwargs, pool):
+        root = clean_parts(req.get("path"))
+        marker = clean_parts(req.get("marker")) if req.get("marker") else None
+        retry = [p for p in (body.get("retry") or []) if isinstance(p, str)][:5000]
+        for item in retry:
+            clean_parts(item)
+        state = {"gone": False, "last": 0.0}
+
+        def send(event):
+            if state["gone"]:
+                return
+            try:
+                self.wfile.write((json.dumps(event, default=str) + "\n").encode("utf-8"))
+                self.wfile.flush()
+            except Exception:  # noqa: BLE001 - Node went away: cancel
+                state["gone"] = True
+
+        def on_event(event):
+            if event["type"] == "progress":
+                now = time.monotonic()
+                if now - state["last"] < 0.5:
+                    return
+                state["last"] = now
+            send(event)
+
+        walker = ntacl.Propagation(
+            SmbTree(req, kwargs, pool),
+            mode=req.get("mode") or "inherit",
+            dry_run=bool(req.get("dryRun")),
+            marker=marker,
+            on_event=on_event,
+            should_stop=lambda: state["gone"],
+        )
+        # Check the source before answering 200 so plain errors stay plain:
+        # readable, and safe to pass down (no NULL DACL, SYSTEM and
+        # Administrators get inheritable access) unless only retrying.
+        source_raw, source_dir = sd_read(unc(req), kwargs)
+        if not retry and source_dir is not False:
+            ntacl.refuse_unsafe(ntacl.source_problems(ntacl.parse_sd(source_raw)["dacl"]), "propagation")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/x-ndjson")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.close_connection = True
+        try:
+            result = walker.run(root, retry=retry or None)
+        except Exception as exc:  # noqa: BLE001 - after the headers errors travel as a line
+            mapped = translate(exc)
+            send({**walker.result(), "type": "error", "code": mapped.code, "error": str(mapped)[:500]})
+            return
+        send(result)
 
     # Streaming file read with an optional byte range.
     def op_read(self, req):

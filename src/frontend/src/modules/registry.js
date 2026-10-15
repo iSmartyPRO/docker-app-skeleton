@@ -1,9 +1,12 @@
 import { lazy } from 'react';
+import { can } from '../lib/access';
 
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
  * /app/<id>; the backend decides whether it is enabled (settings.modules).
  * Adding a module: an entry here, a backend module, and i18n `apps.<id>.*`.
+ * `permission`: the module is listed (launcher, /apps, quick actions) only for
+ * people who have it — the API enforces it again.
  */
 export const MODULE_REGISTRY = [
   {
@@ -143,6 +146,18 @@ export const MODULE_REGISTRY = [
     App: lazy(() => import('./drive/DriveApp')),
     Settings: lazy(() => import('./drive/DriveSettings')),
   },
+  {
+    // «Доступ к папкам»: AD security groups that open folders on the file server (docs/folder-access.md).
+    id: 'folderaccess',
+    path: '/app/folderaccess',
+    icon: 'lock',
+    labelKey: 'apps.folderaccess.name',
+    descKey: 'apps.folderaccess.desc',
+    // Superadministrators (*) and system administrators only.
+    permission: 'folderaccess.groups',
+    App: lazy(() => import('./folderaccess/FolderAccessApp')),
+    Settings: lazy(() => import('./folderaccess/FolderAccessSettings')),
+  },
 ];
 
 /**
@@ -168,7 +183,11 @@ export function moduleById(id) {
   return MODULE_REGISTRY.find((module) => module.id === id) || null;
 }
 
-/** Modules switched on in public settings. */
-export function enabledModules(settings) {
-  return MODULE_REGISTRY.filter((module) => settings?.modules?.[module.id]?.enabled);
+/**
+ * Modules switched on in public settings. With `user` (null = signed out), a module
+ * with a `permission` is left out unless the person has it; without it (pickers
+ * that configure the portal for others) every enabled module is listed.
+ */
+export function enabledModules(settings, user) {
+  return MODULE_REGISTRY.filter((module) => settings?.modules?.[module.id]?.enabled && (user === undefined || !module.permission || can(user, module.permission)));
 }

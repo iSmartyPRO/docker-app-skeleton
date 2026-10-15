@@ -99,6 +99,14 @@ async function serviceBind(client, cfg) {
   }
 }
 
+/** A new (unbound) client for the configured directory; the caller binds and unbinds. */
+export function directoryClient(cfg) {
+  return connect(cfg);
+}
+
+/** Binds `client` as the service account from Settings → Integrations → Active Directory. */
+export const bindServiceAccount = serviceBind;
+
 /** Used by "Test connection": service bind + a one-entry search under the base DN. */
 export async function testDirectory(cfg) {
   const client = connect(cfg);

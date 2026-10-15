@@ -48,3 +48,6 @@ uploads/
 
 # Copied from node_modules at build time
 src/frontend/public/pdfjs/
+
+# Python bytecode (the drive gateway's tracked __pycache__ stays tracked)
+__pycache__/

@@ -514,6 +514,86 @@ export function sanitizeWarehouse(current, incoming = {}) {
   return next;
 }
 
+// ── Folder access (docs/folder-access.md) ───────────────────────────────────
+
+export const FOLDERACCESS_NTFS_RIGHTS = ['modify', 'read_execute', 'read', 'full_control'];
+
+export const FOLDERACCESS_DEFAULTS = {
+  // Security groups that open folders: <prefix><org>_<name>_<full|read>, e.g. sg_co_hr_full.
+  prefix: 'sg_',
+  // Organisation code for new groups, and every code the parser accepts (wh is the old one).
+  orgCode: 'co',
+  orgCodes: ['co', 'wh'],
+  // New group names: {prefix} {org} {name} {type} (type = full | read).
+  nameTemplate: '{prefix}{org}_{name}_{type}',
+  // Where the groups are searched ('' = the Active Directory base DN).
+  groupsBase: '',
+  // Where new group pairs are created ('' = creating is off).
+  newGroupOu: '',
+  // People and NTFS subjects ('' = the domain root derived from the base DN).
+  subjectsBase: '',
+  // Drive letters in descriptions → File server folders: [{ letter: 'W', shareId: 1 }].
+  driveMap: [],
+  // Access type → NTFS rights (stage 3).
+  typeMap: { full: 'modify', read: 'read_execute' },
+  // Groups a system administrator may not touch (glob, case-insensitive).
+  protectedGroups: ['sg_*_root_*'],
+  // Groups without the prefix that superadministrators also see (glob).
+  otherGroups: ['nextcloud_*'],
+};
+
+const faText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
+const faDn = (value) => {
+  const text = faText(value, 500);
+  return !text || /^[a-z][\w-]*=[^,]+(,\s*[a-z][\w-]*=[^,]+)*$/i.test(text) ? text : null;
+};
+const faPatterns = (list) => [...new Set((Array.isArray(list) ? list : []).map((item) => faText(item, 64).toLowerCase()).filter((item) => /^[a-z0-9_.*-]+$/.test(item) && item !== '*'))].slice(0, 20);
+
+export function sanitizeFolderAccess(current, incoming = {}) {
+  const next = { ...current };
+  if (incoming.prefix !== undefined) {
+    const prefix = faText(incoming.prefix, 16).toLowerCase();
+    if (/^[a-z0-9_-]{1,16}$/.test(prefix)) next.prefix = prefix;
+  }
+  if (Array.isArray(incoming.orgCodes)) {
+    const codes = [...new Set(incoming.orgCodes.map((code) => faText(code, 16).toLowerCase()).filter((code) => /^[a-z0-9]{1,16}$/.test(code)))].slice(0, 10);
+    if (codes.length) next.orgCodes = codes;
+  }
+  if (incoming.orgCode !== undefined) {
+    const code = faText(incoming.orgCode, 16).toLowerCase();
+    if (/^[a-z0-9]{1,16}$/.test(code)) next.orgCode = code;
+  }
+  // The code for new groups is always an accepted one.
+  if (!next.orgCodes.includes(next.orgCode)) next.orgCodes = [next.orgCode, ...next.orgCodes].slice(0, 10);
+  if (incoming.nameTemplate !== undefined) {
+    const template = faText(incoming.nameTemplate, 80);
+    if (template.includes('{name}') && template.includes('{type}') && /^[a-z0-9_{}-]+$/i.test(template)) next.nameTemplate = template;
+  }
+  for (const key of ['groupsBase', 'newGroupOu', 'subjectsBase']) {
+    if (incoming[key] !== undefined) {
+      const dn = faDn(incoming[key]);
+      if (dn !== null) next[key] = dn;
+    }
+  }
+  if (Array.isArray(incoming.driveMap)) {
+    const seen = new Set();
+    next.driveMap = incoming.driveMap
+      .map((row) => ({ letter: faText(row?.letter, 2).replace(':', '').toUpperCase(), shareId: clampInt(row?.shareId, 0, 2 ** 31 - 1, 0) }))
+      .filter((row) => /^[A-Z]$/.test(row.letter) && row.shareId > 0 && !seen.has(row.letter) && seen.add(row.letter))
+      .slice(0, 26);
+  }
+  if (incoming.typeMap && typeof incoming.typeMap === 'object') {
+    const map = { ...next.typeMap };
+    for (const type of ['full', 'read']) {
+      if (FOLDERACCESS_NTFS_RIGHTS.includes(incoming.typeMap[type])) map[type] = incoming.typeMap[type];
+    }
+    next.typeMap = map;
+  }
+  if (incoming.protectedGroups !== undefined) next.protectedGroups = faPatterns(incoming.protectedGroups);
+  if (incoming.otherGroups !== undefined) next.otherGroups = faPatterns(incoming.otherGroups);
+  return next;
+}
+
 export const MODULE_CATALOG = [
   {
     id: 'files',
@@ -931,6 +1011,16 @@ export const MODULE_CATALOG = [
     permissions: ['warehouse.view', 'warehouse.request', 'warehouse.operate', 'warehouse.writeoff', 'warehouse.inventory', 'warehouse.cost', 'warehouse.backdate', 'warehouse.admin'],
     defaults: WAREHOUSE_DEFAULTS,
     sanitize: sanitizeWarehouse,
+  },
+  {
+    id: 'folderaccess',
+    // Off until an administrator turns it on (docs/folder-access.md).
+    defaultEnabled: false,
+    // groups: system administrators manage membership of the folder groups
+    // (sg_…), except protected ones; everything else is for superadministrators (*).
+    permissions: ['folderaccess.groups'],
+    defaults: FOLDERACCESS_DEFAULTS,
+    sanitize: sanitizeFolderAccess,
   },
 ];
 

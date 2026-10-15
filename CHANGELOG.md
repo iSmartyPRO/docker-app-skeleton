@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Folder access («Доступ к папкам»)** — who can open which folder on the file server, through the Active Directory security groups `sg_<org>_<name>_full|read` (org codes `co` and the old `wh`). Folders list with search and «Требует проверки» for names and descriptions that do not match; folder card with both groups' members (name, login, department, active / disabled); person card with every folder; add and remove, move between full and read access in one step, copy access from a colleague, revoke all. Every change runs with the acting administrator's own AD account (domain password reused from the File server or asked for and checked), is journalled (who, AD account, IP, before → after, result; filters, CSV, undo) and recorded as a security event. New permission `folderaccess.groups` for system administrators (no protected root groups, people only); superadministrators also create group pairs, edit descriptions and delete groups. NTFS permissions come in the next stage. See [docs/folder-access.md](docs/folder-access.md).
+- Modules can name a permission in the frontend registry: the launcher, «Все приложения» and the quick-actions widget list Folder access only for people with `folderaccess.groups` (or `*`).
+
 ## [1.2.0] - 2026-10-15
 
 ### Added

@@ -3,6 +3,7 @@ import { Empty } from 'antd';
 import Chrome from '../components/Chrome';
 import AppFooter from '../components/AppFooter';
 import { MenuIcon } from '../components/icons/menuIcons';
+import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
 import { enabledModules, moduleLabel } from '../modules/registry';
@@ -12,7 +13,8 @@ import InstallBanner from '../pwa/InstallBanner';
 export default function Apps() {
   const { t } = useLocale();
   const { settings } = useSettings();
-  const modules = enabledModules(settings);
+  const { user } = useAuth();
+  const modules = enabledModules(settings, user);
   return (
     <div className="shell">
       <Chrome />

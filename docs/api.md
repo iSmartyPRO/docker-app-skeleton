@@ -99,7 +99,7 @@ Safety rails (all return `400`/`409` with a readable `error`):
 | `GET` | `/api/res` | Online resources board for anyone (public tiles for guests) |
 | `*` | `/api/d/…` | Drive public links (anonymous or employees, token per link) |
 
-Full references: [Counterparties](companies.md#api), [Online resources](resources.md#api), [Drive](drive.md#api), [Files](files.md#api), [Knowledge Base](knowledge-base.md#api), [Tasks](tasks.md#api-apiapptasks-signed-in-users), [Calendar](calendar.md#api-apiappcalendar-signed-in-users).
+Full references: [Counterparties](companies.md#api), [Online resources](resources.md#api), [Drive](drive.md#api), [Folder access](folder-access.md#api), [Files](files.md#api), [Knowledge Base](knowledge-base.md#api), [Tasks](tasks.md#api-apiapptasks-signed-in-users), [Calendar](calendar.md#api-apiappcalendar-signed-in-users).
 
 ## Notifications, push, PWA
 

@@ -32,6 +32,7 @@ export const SETTINGS_PAGES = {
   chat: lazy(() => import('../modules/chat/ChatSettings')),
   files: lazy(() => import('../modules/files/FilesSettings')),
   drive: lazy(() => import('../modules/drive/DriveSettings')),
+  folderaccess: lazy(() => import('../modules/folderaccess/FolderAccessSettings')),
   resources: lazy(() => import('../modules/resources/ResourcesSettings')),
   companies: lazy(() => import('../modules/companies/CompaniesSettings')),
   tasks: lazy(() => import('../modules/tasks/TasksSettings')),

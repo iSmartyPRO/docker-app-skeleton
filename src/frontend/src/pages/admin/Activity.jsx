@@ -26,6 +26,10 @@ export const EVENT_KINDS = [
   'directory_unlinked',
   'directory_password',
   'directory_password_removed',
+  'folder_access_changed',
+  'folder_group_changed',
+  'folder_access_password',
+  'folder_ntfs_changed',
 ];
 
 export const EVENT_TAG = {
@@ -35,6 +39,10 @@ export const EVENT_TAG = {
   directory_unlinked: 'blue',
   directory_password: 'blue',
   directory_password_removed: 'blue',
+  folder_access_changed: 'cyan',
+  folder_group_changed: 'magenta',
+  folder_access_password: 'blue',
+  folder_ntfs_changed: 'volcano',
   login_failed: 'warning',
   lockout: 'error',
   account_disabled: 'error',

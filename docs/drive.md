@@ -193,6 +193,7 @@ Reactivating the author's account makes their links work again. Deleting the acc
 - **Caches are checked on every use.** Thumbnails, Office PDFs and DWG conversions are cached in `UPLOAD_DIR/.previews/` by path, size and modification time. Each request first checks access on the server with the person's own credentials. Before a cached copy (or one being made for someone else) is served, the file is also opened for reading (a one-byte read), since listing a folder alone does not grant reading its files; a positive answer is remembered for 5 minutes per credential and file. Cached copies unused for 30 days are removed by the daily `storage:previews` job.
 - **Moving a server drops its secrets.** When an administrator changes a server's host or port, the stored service-account password and the accounts people saved for that server ("Connect as…") are cleared; the service password has to be typed again. *Test* with a changed host or port never uses secrets saved for the old machine.
 - **DWG conversions** stream the drawing to disk (never into memory), run at most two at a time, and requests for the same drawing share one conversion.
+- **NTFS permissions** (Folder access) are read and changed through the same gateway (`acl_get`, `acl_set`, `acl_restore`, `acl_propagate`), always with the acting administrator's own domain account. See [NTFS permissions](ntfs-permissions.md).
 
 ## Operations
 
