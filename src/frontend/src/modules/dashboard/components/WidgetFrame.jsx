@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Dropdown, Tooltip } from 'antd';
+import { CopyOutlined, DeleteOutlined, EllipsisOutlined, ExpandAltOutlined, ExportOutlined, HolderOutlined, SettingOutlined } from '@ant-design/icons';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
 import { WIDGET_CATALOG } from '../catalog';
@@ -27,10 +28,11 @@ export default function WidgetFrame({ widget, editing, canEdit, dragHandle, onSe
   const title = widgetTitle(widget, t);
   const menu = {
     items: [
-      { key: 'settings', label: `⚙ ${t('dashboard.frame.settings')}`, onClick: onSettings },
+      { key: 'settings', icon: <SettingOutlined />, label: t('dashboard.frame.settings'), onClick: onSettings },
       {
         key: 'size',
-        label: `⤡ ${t('dashboard.frame.size')}`,
+        icon: <ExpandAltOutlined />,
+        label: t('dashboard.frame.size'),
         children: SIZE_PRESETS.map((preset) => ({
           key: preset.key,
           label: (
@@ -44,25 +46,31 @@ export default function WidgetFrame({ widget, editing, canEdit, dragHandle, onSe
           onClick: () => onResize(preset),
         })),
       },
-      { key: 'duplicate', label: `⧉ ${t('dashboard.frame.duplicate')}`, onClick: onDuplicate },
-      def.link && { key: 'open', label: <Link to={def.link}>↗ {t('dashboard.frame.open')}</Link> },
+      { key: 'duplicate', icon: <CopyOutlined />, label: t('dashboard.frame.duplicate'), onClick: onDuplicate },
+      def.link && { key: 'open', icon: <ExportOutlined />, label: <Link to={def.link}>{t('dashboard.frame.open')}</Link> },
       { type: 'divider' },
-      { key: 'remove', danger: true, label: `✕ ${t('dashboard.frame.remove')}`, onClick: onRemove },
+      { key: 'remove', danger: true, icon: <DeleteOutlined />, label: t('dashboard.frame.remove'), onClick: onRemove },
     ].filter(Boolean),
   };
 
+  // Desktop: a settings shortcut next to «⋯». Touch screens and phones keep
+  // only «⋯» (settings is its first item), so the header stays calm.
   const actions = canEdit && (
     <div className="dash-card__actions">
       {editing && (
         <span className="dash-card__grip" {...dragHandle} title={t('dashboard.frame.drag')} aria-label={t('dashboard.frame.drag')}>
-          ⋮⋮
+          <HolderOutlined />
         </span>
       )}
       <Tooltip title={t('dashboard.frame.settings')}>
-        <button type="button" onClick={onSettings} aria-label={t('dashboard.frame.settings')}>⚙</button>
+        <button type="button" className="dash-card__set" onClick={onSettings} aria-label={t('dashboard.frame.settings')}>
+          <SettingOutlined />
+        </button>
       </Tooltip>
       <Dropdown menu={menu} trigger={['click']} placement="bottomRight">
-        <button type="button" aria-label={t('dashboard.frame.more')}>⋯</button>
+        <button type="button" aria-label={t('dashboard.frame.more')}>
+          <EllipsisOutlined />
+        </button>
       </Dropdown>
     </div>
   );
@@ -87,7 +95,7 @@ export default function WidgetFrame({ widget, editing, canEdit, dragHandle, onSe
         </header>
       )}
       <div className="dash-card__body">{children}</div>
-      {editing && canEdit && (
+      {editing && canEdit && onResizeStart && (
         <span className="dash-card__resize" onPointerDown={onResizeStart} title={t('dashboard.frame.resize')} aria-hidden>
           <svg viewBox="0 0 12 12" width="12" height="12">
             <path d="M11 4v7H4M11 8v3H8" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />

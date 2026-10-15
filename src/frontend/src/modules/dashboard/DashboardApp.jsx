@@ -1,6 +1,6 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Dropdown, Skeleton } from 'antd';
-import { CheckOutlined, DownOutlined, EditOutlined, PlusOutlined, UndoOutlined } from '@ant-design/icons';
+import { CheckOutlined, CrownOutlined, DownOutlined, EditOutlined, PlusOutlined, UndoOutlined } from '@ant-design/icons';
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import Chrome from '../../components/Chrome';
@@ -78,10 +78,13 @@ function GridItem({ widget, cols, editing, canEdit, flash, resizing, onSettings,
   return (
     <div
       ref={setNodeRef}
-      className={`dash-item${isDragging ? ' is-placeholder' : ''}${flash ? ' is-new' : ''}`}
+      className={`dash-item${isDragging ? ' is-placeholder' : ''}${flash ? ' is-new' : ''}${cols === 1 && (def.autoHeight || def.fit) ? ' is-fit' : ''}`}
       style={
         cols === 1
-          ? { height: def.autoHeight ? 'auto' : `calc(${span.h} * var(--dash-row) + ${span.h - 1} * var(--dash-gap))` }
+          ? // Phones: list-like widgets are as tall as their content; charts keep their rows.
+            def.autoHeight || def.fit
+            ? undefined
+            : { height: `calc(${span.h} * var(--dash-row) + ${span.h - 1} * var(--dash-gap))` }
           : { gridColumn: `span ${span.w}`, gridRow: `span ${span.h}` }
       }
       data-widget={widget.type}
@@ -311,7 +314,10 @@ function Dashboard() {
                 </Button>
                 {adminMenu && (
                   <Dropdown menu={adminMenu} trigger={['click']}>
-                    <Button icon={<DownOutlined />} iconPosition="end">{t('dashboard.admin.menu')}</Button>
+                    <Button className="mod-act dash-act-admin" icon={<CrownOutlined />} aria-label={t('dashboard.admin.menu')} title={t('dashboard.admin.menu')}>
+                      <span>{t('dashboard.admin.menu')}</span>
+                      <DownOutlined className="dash-act-admin__caret" />
+                    </Button>
                   </Dropdown>
                 )}
                 <Button className="mod-act" onClick={() => setGallery(true)} icon={<PlusOutlined />} aria-label={t('dashboard.addWidget')} title={t('dashboard.addWidget')}>
@@ -326,8 +332,8 @@ function Dashboard() {
                 <Button className="mod-act" onClick={() => setGallery(true)} icon={<PlusOutlined />} aria-label={t('dashboard.addWidget')} title={t('dashboard.addWidget')}>
                   <span>{t('dashboard.addWidget')}</span>
                 </Button>
-                <Button type="primary" onClick={() => setEditing(true)} icon={<EditOutlined />}>
-                  {t('dashboard.customize')}
+                <Button type="primary" className="dash-act-main" onClick={() => setEditing(true)} icon={<EditOutlined />} aria-label={t('dashboard.customize')} title={t('dashboard.customize')}>
+                  <span>{t('dashboard.customize')}</span>
                 </Button>
               </>
             )}
@@ -335,7 +341,7 @@ function Dashboard() {
         )}
       </header>
 
-      {editing && <div className="dash-editbar">{t('dashboard.editBar')}</div>}
+      {editing && <div className="dash-editbar">{t(cols === 1 ? 'dashboard.editBarPhone' : 'dashboard.editBar')}</div>}
 
       {!meta ? (
         <div className="dash-grid is-loading" ref={attachGrid}>

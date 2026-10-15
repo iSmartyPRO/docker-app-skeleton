@@ -22,7 +22,7 @@ export default function InboxWidget({ widget }) {
   }, [reload]);
   const data = state.data;
   return (
-    <WidgetState state={state} empty={data && !data.total ? t('approvals.widget.empty') : null} emptyIcon="🎉">
+    <WidgetState state={state} empty={data && !data.total ? t('approvals.widget.empty') : null} emptyIcon="inbox">
       <div className="apr-widget">
         <div className="apr-widget__kpis">
           <Link to="/app/approvals" className="apr-widget__kpi">

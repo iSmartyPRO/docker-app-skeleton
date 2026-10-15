@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Avatar, Button } from 'antd';
+import { Avatar, Button, Dropdown } from 'antd';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { useSettings } from '../../../context/SettingsContext';
@@ -121,23 +121,101 @@ export function Welcome({ widget }) {
 
 // ── Quick access ────────────────────────────────────────────────────────────
 
+// Tile geometry, kept in step with .dw-quick in dashboard.css.
+const QUICK = {
+  tiles: { minW: 76, rowH: 96, gap: 4, rowGap: 8 },
+  list: { minW: 200, rowH: 48, gap: 4, rowGap: 4 },
+};
+// Phones size the card to its content: up to this many rows, then «More».
+const PHONE_ROWS = 3;
+
+/** Width and height of an element, live. */
+function useBox() {
+  const [node, setNode] = useState(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    if (!node) return undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setBox((prev) => (Math.round(width) === prev.w && Math.round(height) === prev.h ? prev : { w: Math.round(width), h: Math.round(height) }));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node]);
+  return [setNode, box];
+}
+
+function QuickTile({ module, settings, t }) {
+  return (
+    <Link to={module.path} className="dw-quick__item" title={moduleLabel(module, settings, t)}>
+      <span className="dw-quick__icon">
+        <MenuIcon name={module.icon} />
+      </span>
+      <span className="dw-quick__label">{moduleLabel(module, settings, t)}</span>
+    </Link>
+  );
+}
+
+/**
+ * App tiles in the launcher's icon style. Columns follow the card's width;
+ * rows follow its height on the grid (on phones: the content, up to three
+ * rows). Apps that do not fit go behind a «More» tile, so nothing is clipped.
+ */
 export function QuickActions({ widget, size }) {
   const { t } = useLocale();
   const { settings } = useSettings();
+  const [measure, box] = useBox();
   const chosen = widget.settings.modules;
   const modules = enabledModules(settings).filter((module) => module.id !== 'dashboard' && (!chosen?.length || chosen.includes(module.id)));
   if (!modules.length) return <div className="dw-empty"><strong>{t('dashboard.quick.none')}</strong></div>;
-  const list = widget.settings.style === 'list' || size.w <= 2;
+  const phone = size.cols === 1;
+  // A card too low for one row of tiles shows the list instead.
+  const list = widget.settings.style === 'list' || size.w <= 2 || (!phone && box.h > 0 && box.h < QUICK.tiles.rowH);
+  const geo = list ? QUICK.list : QUICK.tiles;
+  const cols = box.w ? Math.max(1, Math.floor((box.w + geo.gap) / (geo.minW + geo.gap))) : list ? 1 : 4;
+  const rows = phone ? (list ? 8 : PHONE_ROWS) : Math.max(1, Math.floor((box.h + geo.rowGap) / (geo.rowH + geo.rowGap)));
+  const capacity = box.w ? cols * rows : modules.length;
+  const shown = modules.length > capacity ? modules.slice(0, Math.max(0, capacity - 1)) : modules;
+  const rest = modules.slice(shown.length);
   return (
-    <div className={`dw-quick${list ? ' is-list' : ''}`}>
-      {modules.map((module) => (
-        <Link key={module.id} to={module.path} className="dw-quick__item" style={{ '--c': MODULE_COLORS[module.id] || '#6366F1' }}>
-          <span className="dw-quick__icon">
-            <MenuIcon name={module.icon} variant="mono" />
-          </span>
-          <span className="dw-quick__label">{moduleLabel(module, settings, t)}</span>
-        </Link>
-      ))}
+    <div ref={measure} className={`dw-quick${list ? ' is-list' : ''}${phone ? ' is-auto' : ''}`}>
+      <div className="dw-quick__grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+        {shown.map((module) => (
+          <QuickTile key={module.id} module={module} settings={settings} t={t} />
+        ))}
+        {rest.length > 0 && (
+          <Dropdown
+            trigger={['click']}
+            placement="bottomRight"
+            overlayClassName="launcher"
+            popupRender={() => (
+              <div className="launcher__panel">
+                <div className="launcher__title">{t('dashboard.quick.moreTitle')}</div>
+                <div className="launcher__grid">
+                  {rest.map((module) => (
+                    <Link key={module.id} to={module.path} className="launcher__app">
+                      <MenuIcon name={module.icon} />
+                      <span>{moduleLabel(module, settings, t)}</span>
+                    </Link>
+                  ))}
+                </div>
+                <Link to="/apps" className="launcher__all">{t('apps.all')} →</Link>
+              </div>
+            )}
+          >
+            <button type="button" className="dw-quick__item is-more" aria-label={t('dashboard.quick.moreN', { n: rest.length })}>
+              <span className="dw-quick__icon">
+                <span className="dw-quick__dots" aria-hidden>
+                  {rest.slice(0, 4).map((module) => (
+                    <MenuIcon key={module.id} name={module.icon} />
+                  ))}
+                </span>
+              </span>
+              <span className="dw-quick__label">{t('dashboard.quick.moreN', { n: rest.length })}</span>
+            </button>
+          </Dropdown>
+        )}
+      </div>
     </div>
   );
 }
@@ -259,7 +337,7 @@ export function Notifications({ widget }) {
   };
   const unread = read.has('all') ? 0 : Math.max(0, (state.data?.unread || 0) - [...read].filter((id) => id !== 'all').length);
   return (
-    <WidgetState state={state} empty={state.data && !items.length ? t('dashboard.notifications.empty') : null} emptyIcon="🔔">
+    <WidgetState state={state} empty={state.data && !items.length ? t('dashboard.notifications.empty') : null} emptyIcon="bell">
       <div className="dw-notes">
         {unread > 0 && (
           <div className="dw-notes__bar">

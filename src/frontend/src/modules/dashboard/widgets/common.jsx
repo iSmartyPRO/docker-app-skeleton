@@ -5,9 +5,15 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatRelative } from '../../../lib/format';
 import { fmtTime, inZone, todayISO } from '../../../lib/datetime';
+import { ICON_CATALOG, MenuIcon } from '../../../components/icons/menuIcons';
 
-/** Loading, error and empty states shared by data widgets. */
-export function WidgetState({ state, rows = 4, empty, emptyIcon = '✦', emptyAction, children }) {
+/** Empty-state glyph: an icon id from the app's icon set, else the text as given. */
+function EmptyGlyph({ icon }) {
+  return ICON_CATALOG[icon] ? <MenuIcon name={icon} variant="mono" /> : icon;
+}
+
+/** Loading, error and empty states shared by data widgets. `emptyIcon` is an icon id (menuIcons). */
+export function WidgetState({ state, rows = 4, empty, emptyIcon = 'spark', emptyAction, children }) {
   const { t } = useLocale();
   if (!state.data && state.loading) return <Skeleton active title={false} paragraph={{ rows }} className="dw-skeleton" />;
   if (!state.data && state.error) {
@@ -23,7 +29,9 @@ export function WidgetState({ state, rows = 4, empty, emptyIcon = '✦', emptyAc
   if (empty) {
     return (
       <div className="dw-empty">
-        <span className="dw-empty__icon">{emptyIcon}</span>
+        <span className="dw-empty__icon">
+          <EmptyGlyph icon={emptyIcon} />
+        </span>
         <strong>{empty}</strong>
         {emptyAction}
       </div>

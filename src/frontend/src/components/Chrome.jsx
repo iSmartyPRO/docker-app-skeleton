@@ -1,13 +1,15 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { App, Avatar, Dropdown, Tooltip } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
+import { useThemeMode } from '../context/ThemeContext';
 import { initials } from '../lib/format';
 import { can, primaryRole, roleLabel } from '../lib/access';
 import BrandMark from './BrandMark';
-import LanguageSwitch from './LanguageSwitch';
+import LanguageSwitch, { FLAGS } from './LanguageSwitch';
 import ThemeSwitch from './ThemeSwitch';
 import { IconAdmin, IconLogin } from './icons/AdminIcons';
 import { MenuIcon } from './icons/menuIcons';
@@ -18,6 +20,22 @@ import InboxButton from '../modules/approvals/InboxButton';
 import { isStandalone } from '../pwa/pwa';
 import { useHelp } from '../help/HelpContext';
 import api from '../services/api';
+
+// Phones: help, theme, language and the console move into the account menu
+// (index.css hides their header buttons at the same width).
+const NARROW = '(max-width: 560px)';
+
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => Boolean(window.matchMedia?.(NARROW).matches));
+  useEffect(() => {
+    const query = window.matchMedia?.(NARROW);
+    if (!query) return undefined;
+    const update = () => setNarrow(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return narrow;
+}
 
 /** Grid button listing every enabled module (the "app launcher"). */
 function AppsLauncher() {
@@ -55,9 +73,11 @@ function AppsLauncher() {
   );
 }
 
-function UserMenu({ user }) {
+function UserMenu({ user, onHelp }) {
   const { logout } = useAuth();
-  const { t } = useLocale();
+  const { t, locale, setLocale } = useLocale();
+  const { mode, setMode } = useThemeMode();
+  const narrow = useNarrow();
   const { message } = App.useApp();
   const navigate = useNavigate();
   const name = user.displayName || user.username;
@@ -90,11 +110,26 @@ function UserMenu({ user }) {
         ]
       : []),
     ...(isStandalone() ? [] : [{ key: '/install', label: `📱 ${t('pwa.install.menu')}` }]),
+    ...(narrow
+      ? [
+          { type: 'divider' },
+          { key: 'help', label: t('help.title') },
+          { key: 'theme', label: t(mode === 'dark' ? 'header.lightTheme' : 'header.darkTheme') },
+          {
+            key: 'lang',
+            label: t('header.language'),
+            children: FLAGS.map((flag) => ({ key: `lang:${flag.id}`, label: flag.title, disabled: flag.id === locale })),
+          },
+        ]
+      : []),
     { type: 'divider' },
     { key: 'logout', danger: true, label: t('common.signOut') },
   ];
 
   const onClick = async ({ key }) => {
+    if (key === 'help') return onHelp();
+    if (key === 'theme') return setMode(mode === 'dark' ? 'light' : 'dark');
+    if (key.startsWith('lang:')) return setLocale(key.slice(5));
     if (key === 'logout') {
       try {
         await logout();
@@ -176,7 +211,7 @@ export default function Chrome({ dense }) {
         <BrandMark />
         <span className="chrome__name">{name}</span>
       </Link>
-      <div className="chrome__actions">
+      <div className={`chrome__actions${user ? ' has-user' : ''}`}>
         <LanguageSwitch />
         <ThemeSwitch />
         {user ? (
@@ -196,12 +231,12 @@ export default function Chrome({ dense }) {
             <AppsLauncher />
             {can(user, 'console.access') && (
               <Tooltip title={t('menu.adminConsole')} mouseEnterDelay={0.15}>
-                <Link className="chrome__icon" to="/admin" aria-label={t('common.admin')}>
+                <Link className="chrome__icon chrome__admin" to="/admin" aria-label={t('common.admin')}>
                   <IconAdmin />
                 </Link>
               </Tooltip>
             )}
-            <UserMenu user={user} />
+            <UserMenu user={user} onHelp={() => openHelp()} />
           </>
         ) : (
           <Tooltip title={t('common.signIn')} mouseEnterDelay={0.15}>

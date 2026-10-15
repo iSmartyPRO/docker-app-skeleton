@@ -35,7 +35,7 @@ export default function ProcurementWidget() {
     </Link>
   );
   return (
-    <WidgetState state={{ ...state, reload }} empty={data && !data.counters.all ? t('procurement.widget.empty') : null} emptyIcon="🛒" emptyAction={data?.canCreate ? <Link to="/app/procurement/new">{t('procurement.create')}</Link> : null}>
+    <WidgetState state={{ ...state, reload }} empty={data && !data.counters.all ? t('procurement.widget.empty') : null} emptyIcon="cart" emptyAction={data?.canCreate ? <Link to="/app/procurement/new">{t('procurement.create')}</Link> : null}>
       <div className="prc-widget">
         <div className="prc-widget__kpis">
           {kpi('waiting', data?.counters.waiting)}

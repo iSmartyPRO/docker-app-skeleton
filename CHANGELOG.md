@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Dashboard «Быстрый доступ»: app tiles use the launcher's colour icons; columns follow the card's width (4 on most phones, 3 on narrow ones), labels take at most two lines, and apps that do not fit go behind an «Ещё N» tile that opens the rest with a link to all apps. Nothing is cut off at the card's edge any more; a card too low for tiles shows a list.
+- Dashboard on phones: list-like widgets (quick access, tasks, notifications, agenda, files, links, month, warehouse, procurement…) are as tall as their content, with no inner scrolling and no empty space under a short empty state; tighter paddings and gaps; the title row keeps «+» and «Настроить» as icon buttons next to the title; room at the bottom so the assistant does not cover the last card. In edit mode the actions fit on one row («Администрирование» becomes an icon) and the resize corner, which phones cannot use, is gone.
+- Dashboard widgets: header actions use the app's icons instead of «⚙ ⋯» characters; on phones, touch screens and narrow cards only «⋯» is shown (settings is its first item); the «⋯» menu items have icons; empty states use the widget's icon in its colour instead of emoji. A card whose content does not fit shows soft shadows at the edge it scrolls to.
+- Header on phones: a wide logo shrinks with its proportions and no longer runs under the buttons; the header keeps chat, inbox, notifications, apps and the account button, while help, theme, language and the admin console move into the account menu.
+
 ## [1.0.2] - 2026-10-15
 
 ### Fixed

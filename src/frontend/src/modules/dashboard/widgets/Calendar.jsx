@@ -92,7 +92,7 @@ export function Agenda({ widget }) {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [state.data]);
   return (
-    <WidgetState state={state} empty={state.data && !groups.length ? t('dashboard.agenda.free', { n: widget.settings.days || 7 }) : null} emptyIcon="☕">
+    <WidgetState state={state} empty={state.data && !groups.length ? t('dashboard.agenda.free', { n: widget.settings.days || 7 }) : null} emptyIcon="calendar">
       <div className="dw-agenda">
         {groups.map(([key, group]) => {
           const date = dateOf(key);

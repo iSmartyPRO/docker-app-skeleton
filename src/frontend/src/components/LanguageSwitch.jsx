@@ -33,7 +33,7 @@ function FlagRU() {
   );
 }
 
-const FLAGS = [
+export const FLAGS = [
   { id: 'en', title: 'English', mark: 'EN', icon: <FlagEN /> },
   { id: 'ru', title: 'Русский', mark: 'RU', icon: <FlagRU /> },
 ];

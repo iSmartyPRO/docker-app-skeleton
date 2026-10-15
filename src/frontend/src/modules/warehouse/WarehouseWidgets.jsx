@@ -36,7 +36,7 @@ export function LowStockWidget() {
   const state = useWidget();
   const block = state.data?.belowMin;
   return (
-    <WidgetState state={state} empty={block && !block.count ? t('wh.widgets.lowEmpty') : null} emptyIcon="✅">
+    <WidgetState state={state} empty={block && !block.count ? t('wh.widgets.lowEmpty') : null} emptyIcon="box">
       <div className="wh-widget">
         <Link to="/app/warehouse/stock?chip=below_min" className="wh-widget__kpi is-amber"><strong>{block?.count ?? 0}</strong><span>{t('wh.stockChips.below_min')}</span></Link>
         <ul className="wh-widget__list">
@@ -61,7 +61,7 @@ export function IncomingWidget() {
   const state = useWidget();
   const block = state.data?.awaitingReceipt;
   return (
-    <WidgetState state={state} empty={block && !block.count ? t('wh.widgets.incomingEmpty') : null} emptyIcon="🚚">
+    <WidgetState state={state} empty={block && !block.count ? t('wh.widgets.incomingEmpty') : null} emptyIcon="send">
       <div className="wh-widget">
         <Link to="/app/warehouse/documents?chip=awaiting_receipt" className="wh-widget__kpi is-violet"><strong>{block?.count ?? 0}</strong><span>{t('wh.docChips.awaiting_receipt')}</span></Link>
         <ul className="wh-widget__list">
@@ -86,7 +86,7 @@ export function MyToolsWidget() {
   const state = useWidget();
   const block = state.data?.myTools;
   return (
-    <WidgetState state={state} empty={block && !block.count && !block.incoming?.length ? t('wh.widgets.toolsEmpty') : null} emptyIcon="🧰">
+    <WidgetState state={state} empty={block && !block.count && !block.incoming?.length ? t('wh.widgets.toolsEmpty') : null} emptyIcon="wrench">
       <div className="wh-widget">
         <Link to="/app/warehouse/my-tools" className="wh-widget__kpi"><strong>{block?.count ?? 0}</strong><span>{t('wh.nav.myTools')}</span></Link>
         {block?.incoming?.length > 0 && <Link to="/app/warehouse/my-tools" className="wh-widget__alert">{t('wh.widgets.toConfirm', { n: block.incoming.length })}</Link>}

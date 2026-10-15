@@ -73,6 +73,8 @@ const en = {
     theme: 'Theme',
     light: 'Light',
     dark: 'Dark',
+    lightTheme: 'Light theme',
+    darkTheme: 'Dark theme',
   },
   landing: {
     kicker: 'Application skeleton',
@@ -1038,6 +1040,8 @@ const ru = {
     theme: 'Тема',
     light: 'Светлая',
     dark: 'Тёмная',
+    lightTheme: 'Светлая тема',
+    darkTheme: 'Тёмная тема',
   },
   landing: {
     kicker: 'Каркас приложения',

@@ -53,13 +53,46 @@
   }
 }
 
+/* Phones: title and the two buttons share one row («+» and «Customize» turn
+   into icons); while editing, the actions take a row of their own. */
 @container (max-width: 520px) {
-  .dash-head__actions {
+  .dash-head {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .dash-head__title {
+    min-width: 0;
+  }
+
+  .dash-head .dash-act-main.ant-btn {
+    width: 40px;
+    padding-inline: 0;
+  }
+
+  .dash-head .dash-act-main.ant-btn > span:not(.ant-btn-icon) {
+    display: none;
+  }
+
+  .dash-head__actions .mod-act.ant-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .dash-head .dash-act-main.ant-btn {
+    height: 40px;
+  }
+
+  .dash.is-editing .dash-head {
+    flex-wrap: wrap;
+  }
+
+  .dash.is-editing .dash-head__actions {
     flex: 1 1 100%;
     justify-content: flex-end;
   }
 
-  .dash-head__actions > .ant-btn-primary {
+  .dash.is-editing .dash-head__actions > .ant-btn-primary {
     flex: 1 1 auto;
   }
 }
@@ -73,7 +106,10 @@
 
 .dash-head p {
   margin: 2px 0 0;
+  overflow: hidden;
   color: var(--da-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .dash-head__actions > * {
@@ -138,6 +174,16 @@
   flex-direction: column;
 }
 
+/* Phones: a card sized to its content never scrolls inside. */
+.dash-item.is-fit .dash-card__body {
+  overflow: visible;
+}
+
+.dash-item.is-fit .dw-empty {
+  min-height: 0;
+  padding: 8px 10px 12px;
+}
+
 .dash-item.is-placeholder .dash-card {
   opacity: 0.35;
   outline: 2px dashed var(--w-accent, var(--da-primary));
@@ -166,6 +212,7 @@
 
 .dash-card {
   --dash-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+  --dash-pad: 16px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -195,8 +242,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 14px 8px 16px;
-  min-height: 52px;
+  flex: none;
+  height: 52px;
+  padding: 8px 10px 0 var(--dash-pad);
 }
 
 .dash-card.is-editing .dash-card__head {
@@ -238,6 +286,7 @@ a.dash-card__title:hover {
 
 .dash-card__actions {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 2px;
   opacity: 0;
@@ -254,25 +303,61 @@ a.dash-card__title:hover {
 .dash-card__grip {
   display: inline-grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: 0;
-  border-radius: 8px;
-  font-size: 15px;
+  border-radius: 10px;
+  font-size: 16px;
   color: var(--da-muted);
   background: transparent;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
-.dash-card__actions button:hover {
+.dash-card__actions button:hover,
+.dash-card__actions button[aria-expanded='true'] {
   color: var(--da-text);
   background: var(--da-tint-strong);
 }
 
 .dash-card__grip {
   cursor: grab;
-  letter-spacing: -2px;
   touch-action: none;
+}
+
+/* Narrow cards keep only «⋯» so the title has room. */
+.dash-item {
+  container-type: inline-size;
+}
+
+@container (max-width: 300px) {
+  .dash-card__set {
+    display: none !important;
+  }
+}
+
+.dash-act-admin__caret {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* Touch screens: actions always visible, only «⋯» (settings is inside it). */
+@media (hover: none), (max-width: 760px) {
+  .dash-card__actions,
+  .dash-card__float {
+    opacity: 1;
+  }
+
+  .dash-card__set {
+    display: none !important;
+  }
+
+  .dash-card__actions button,
+  .dash-card__grip {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
 }
 
 .dash-card__body {
@@ -280,8 +365,19 @@ a.dash-card__title:hover {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 2px 16px 16px;
+  padding: 2px var(--dash-pad) var(--dash-pad);
   scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+
+/* A body with more than fits scrolls; soft shadows at the top and bottom
+   edges say so (they appear only while there is something to scroll to). */
+.dash-card:not(.is-bare) .dash-card__body {
+  background:
+    linear-gradient(var(--da-surface) 30%, transparent) center top / 100% 28px no-repeat local,
+    linear-gradient(transparent, var(--da-surface) 70%) center bottom / 100% 28px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--da-text) 14%, transparent), transparent) center top / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--da-text) 14%, transparent), transparent) center bottom / 100% 10px no-repeat scroll;
 }
 
 .dash-card.is-bare .dash-card__body {
@@ -655,11 +751,17 @@ a.dash-card__title:hover {
 .dw-empty__icon {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 14px;
   font-size: 18px;
-  background: var(--da-tint-strong);
+  color: var(--w-accent, var(--da-muted));
+  background: color-mix(in srgb, var(--w-accent, var(--da-text)) 11%, transparent);
+}
+
+.dw-empty__icon .da-icon {
+  width: 22px;
+  height: 22px;
 }
 
 .dw-empty.is-error .dw-empty__icon {
@@ -1000,69 +1102,156 @@ a.dw-kpi:hover {
   margin-top: 6px;
 }
 
-/* Quick access */
+/* Quick access: app tiles in the launcher's icon style. Geometry (tile
+   min width 76, row 96, gaps 8/4; list rows 48) matches QUICK in Personal.jsx. */
 
 .dw-quick {
+  height: 100%;
+}
+
+.dw-quick.is-auto {
+  height: auto;
+}
+
+/* On the grid the tiles sit in the middle of whatever height is left over. */
+.dw-quick:not(.is-auto):not(.is-list) .dw-quick__grid {
+  height: 100%;
+  align-content: center;
+}
+
+.dw-quick__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-  gap: 8px;
+  grid-auto-rows: 96px;
+  gap: 8px 4px;
+  align-content: start;
 }
 
 .dw-quick__item {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
-  padding: 8px 4px;
-  border-radius: 14px;
+  min-width: 0;
+  height: 96px;
+  padding: 8px 1px 6px;
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
   color: var(--da-text);
   text-align: center;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition: background 0.15s, transform 0.15s;
 }
 
-.dw-quick__item:hover {
+.dw-quick__item:hover,
+.dw-quick__item:focus-visible,
+.dw-quick__item[aria-expanded='true'] {
   color: var(--da-text);
-  background: color-mix(in srgb, var(--c) 9%, transparent);
-  transform: translateY(-1px);
+  background: var(--da-tint);
+}
+
+.dw-quick__item:active {
+  transform: scale(0.96);
 }
 
 .dw-quick__icon {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  color: #fff;
-  background: linear-gradient(140deg, var(--c), color-mix(in srgb, var(--c) 70%, #000));
-  box-shadow: 0 8px 18px -8px var(--c);
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  transition: transform 0.2s var(--da-ease-out, ease);
 }
 
-.dw-quick__icon svg {
-  width: 21px;
-  height: 21px;
+.dw-quick__icon > .da-icon {
+  width: 46px;
+  height: 46px;
+  filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.12));
+}
+
+.dw-quick__item:hover .dw-quick__icon {
+  transform: translateY(-1px);
 }
 
 .dw-quick__label {
-  font-size: 12.5px;
-  font-weight: 550;
-  line-height: 1.25;
+  display: -webkit-box;
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 15px;
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
-.dw-quick.is-list {
-  grid-template-columns: 1fr;
-  gap: 2px;
+/* «More»: a folder-like tile with the hidden apps in miniature. */
+.dw-quick__item.is-more .dw-quick__icon {
+  background: color-mix(in srgb, var(--da-text) 6%, transparent);
+  box-shadow: inset 0 0 0 1px var(--da-hairline);
+}
+
+.dw-quick__dots {
+  display: grid;
+  grid-template-columns: repeat(2, 15px);
+  grid-auto-rows: 15px;
+  gap: 4px;
+}
+
+.dw-quick__dots .da-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.dw-quick__item.is-more .dw-quick__label {
+  color: var(--da-muted);
+}
+
+.dw-quick.is-list .dw-quick__grid {
+  grid-auto-rows: 48px;
+  gap: 4px;
 }
 
 .dw-quick.is-list .dw-quick__item {
   flex-direction: row;
+  gap: 12px;
+  height: 48px;
   padding: 6px 8px;
   text-align: left;
 }
 
-.dw-quick.is-list .dw-quick__icon {
-  width: 32px;
-  height: 32px;
+.dw-quick.is-list .dw-quick__icon,
+.dw-quick.is-list .dw-quick__icon > .da-icon {
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
+}
+
+.dw-quick.is-list .dw-quick__label {
+  font-size: 13.5px;
+  font-weight: 550;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.dw-quick.is-list .dw-quick__dots {
+  grid-template-columns: repeat(2, 11px);
+  grid-auto-rows: 11px;
+  gap: 3px;
+}
+
+.dw-quick.is-list .dw-quick__dots .da-icon {
+  width: 11px;
+  height: 11px;
 }
 
 /* Tasks */
@@ -1213,8 +1402,8 @@ a.dw-kpi:hover {
 
 .dw-quickadd {
   position: sticky;
-  bottom: -16px;
-  margin: 8px -16px -16px;
+  bottom: calc(-1 * var(--dash-pad, 16px));
+  margin: 8px calc(-1 * var(--dash-pad, 16px)) calc(-1 * var(--dash-pad, 16px));
   padding: 6px 8px;
   border-top: 1px solid var(--da-hairline);
   background: var(--da-surface);
@@ -1536,6 +1725,11 @@ a.dw-kpi:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* On the grid wide cards keep day cells low, so the month and today's list fit. */
+.dash-grid:not(.is-single) .dw-month__cell {
+  max-height: 36px;
+}
+
 .dw-month.is-compact .dw-month__cell {
   aspect-ratio: auto;
   height: 30px;
@@ -1839,6 +2033,7 @@ a.dw-kpi:hover {
 }
 
 .dw-note textarea {
+  display: block;
   width: 100%;
   height: 100%;
   padding: 20px 22px;
@@ -1892,17 +2087,42 @@ a.dw-kpi:hover {
 /* ── Small screens ──────────────────────────────────────────────────────── */
 
 @media (max-width: 760px) {
+  /* Room at the bottom so the floating assistant never sits on the last card. */
   .dash-shell {
-    width: calc(100% - 24px);
-    padding-top: 18px;
+    width: calc(100% - 28px);
+    padding: 16px 0 calc(120px + var(--safe-bottom, 0px));
+  }
+
+  .dash {
+    --dash-gap: 12px;
+  }
+
+  .dash-head {
+    gap: 10px;
+    margin-bottom: 14px;
   }
 
   .dash-head h1 {
     font-size: 24px;
+    line-height: 1.2;
   }
 
-  .dash-card__actions {
-    opacity: 1;
+  .dash-head p {
+    font-size: 13px;
+  }
+
+  .dash-card {
+    --dash-pad: 14px;
+    border-radius: 18px;
+  }
+
+  .dash-card__head {
+    height: 54px;
+    padding: 6px 4px 0 var(--dash-pad);
+  }
+
+  .dash-card__title {
+    font-size: 15px;
   }
 
   .dw-welcome {

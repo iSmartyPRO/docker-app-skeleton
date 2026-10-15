@@ -70,7 +70,7 @@ export function MyTasks({ widget, size }) {
           {data.today > 0 && <span className="dw-pill is-warn">{t('dashboard.tasks.todayN', { n: data.today })}</span>}
         </div>
       )}
-      <WidgetState state={state} empty={data && !data.items.length ? t('dashboard.tasks.empty') : null} emptyIcon="✓">
+      <WidgetState state={state} empty={data && !data.items.length ? t('dashboard.tasks.empty') : null} emptyIcon="tasks">
         <ul className="dw-list dw-tasks__list">
           {(data?.items || []).map((task) => (
             <li key={task.id} className={closing.has(task.id) ? 'is-closing' : ''}>

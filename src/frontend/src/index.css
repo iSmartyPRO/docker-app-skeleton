@@ -170,7 +170,12 @@ h4,
   height: var(--da-logo-h, 32px);
   width: auto;
   max-width: min(260px, 40vw);
+  /* A wide logo shrinks with its box (keeping its proportions) instead of
+     spilling over the header buttons. */
+  min-width: 0;
+  flex: 0 1 auto;
   object-fit: contain;
+  object-position: left center;
   display: block;
 }
 
@@ -2004,6 +2009,39 @@ h4,
 
   .save-bar__text {
     font-size: 13px;
+  }
+}
+
+/* Phones: the header keeps chat, inbox, notifications, apps and the account
+   button; help, theme, language and the console live in the account menu
+   (Chrome.jsx). The logo takes whatever room is left. */
+@media (max-width: 560px) {
+  .chrome {
+    gap: 10px;
+  }
+
+  .chrome__brand {
+    flex: 0 1 auto;
+  }
+
+  .chrome__logo {
+    max-width: 100%;
+    max-height: 30px;
+  }
+
+  .chrome__logo + .chrome__name {
+    display: none;
+  }
+
+  .chrome__actions {
+    flex: none;
+    gap: 4px;
+  }
+
+  .chrome__actions.has-user .theme-switch,
+  .chrome__actions.has-user .chrome__help,
+  .chrome__actions.has-user .chrome__admin {
+    display: none;
   }
 }
 

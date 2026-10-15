@@ -34,7 +34,7 @@ export function RecentFiles({ widget }) {
           {data.usage.quota > 0 && <Meter value={data.usage.used} max={data.usage.quota} />}
         </div>
       )}
-      <WidgetState state={state} empty={data && !data.items.length ? t('dashboard.files.empty') : null} emptyIcon="📁">
+      <WidgetState state={state} empty={data && !data.items.length ? t('dashboard.files.empty') : null} emptyIcon="folder">
         <ul className="dw-list">
           {(data?.items || []).map((node) => (
             <li key={node.id}>
@@ -110,7 +110,7 @@ export function KbRecent({ widget }) {
   const state = useWidgetData('kbRecent', widget.settings);
   const data = state.data;
   return (
-    <WidgetState state={state} empty={data && !data.items.length ? t('dashboard.kb.empty') : null} emptyIcon="📚">
+    <WidgetState state={state} empty={data && !data.items.length ? t('dashboard.kb.empty') : null} emptyIcon="graduation">
       <ul className="dw-list">
         {(data?.items || []).map((item) => (
           <li key={item.id}>
@@ -140,7 +140,7 @@ export function Links({ widget, size }) {
   const items = state.data?.items || [];
   const list = widget.settings.style === 'list';
   return (
-    <WidgetState state={state} empty={state.data && !items.length ? t('dashboard.links.empty') : null} emptyIcon="🧭">
+    <WidgetState state={state} empty={state.data && !items.length ? t('dashboard.links.empty') : null} emptyIcon="compass">
       <div className={`dw-links${list ? ' is-list' : ''}`} style={{ '--tile': size.w >= 6 ? '92px' : '80px' }}>
         {items.map((item) => {
           const text = itemText(item, { locale, t, settings, registry: MODULE_REGISTRY });
