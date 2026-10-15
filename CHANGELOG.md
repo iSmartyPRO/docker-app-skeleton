@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- CI: backend unit tests no longer need a `.env` (`JWT_SECRET` is set by a test fixture), so GitHub checks pass again.
+
 ## [1.0.0] - 2026-10-15
 
 ### Versions and releases

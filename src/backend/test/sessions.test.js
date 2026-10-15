@@ -1,3 +1,4 @@
+import '../test-fixtures/test-env.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUserAgent } from '../services/userAgent.js';
