@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-15
+
 ### Added
 
 - **Online editing of office documents** in Files and the File server with Collabora Online (WOPI) — «Редактировать онлайн» / «Открыть в редакторе» in lists, menus and the file page, a full-window editor with save status, co-editing, «Редактирует: Имя» locks, conflict detection on the file server and desktop-lock awareness; Files keeps the previous content in the trash once per editing session. Settings → Document conversion → «Онлайн-редактор» with a connection check and the Collabora values to configure. See [docs/office-editing.md](docs/office-editing.md).
@@ -461,7 +463,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.1.0
 [1.0.3]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.3
 [1.0.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.2
 [1.0.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.1
