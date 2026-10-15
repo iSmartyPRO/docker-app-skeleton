@@ -22,6 +22,10 @@ make test        # backend unit tests + frontend production build
 
 How to add screens, endpoints, settings and integrations: [docs/extending.md](docs/extending.md).
 
+## Commit messages and versions
+
+Use [Conventional Commits](https://www.conventionalcommits.org/): `feat(scope): …` for new features (minor), `fix(scope): …`, `perf`, `refactor`, `docs`, `chore` for the rest (patch), and `!` or a `BREAKING CHANGE:` footer for incompatible changes (major). `make release` / `make deploy` classify the commits since the last tag and bump the version everywhere — see [docs/operations.md](docs/operations.md#version-and-releases).
+
 ## What to change vs. what to keep
 
 | Keep as-is | Replace in a product fork |
@@ -40,4 +44,4 @@ See [docs/adapt.md](docs/adapt.md).
 - New UI uses the shared kit (`PageHeader`, `SettingsSection`, `SaveBar`) and design tokens — no ad-hoc colors.
 - Every user-facing string goes into both `en` and `ru` dictionaries.
 - Add a line to [CHANGELOG.md](CHANGELOG.md) under *Unreleased*.
-- Commit messages: imperative mood, ≤ 72-character subject (`Add maintenance mode setting`).
+- Commit messages: Conventional Commits, imperative mood, ≤ 72-character subject (`feat(settings): add maintenance mode`).

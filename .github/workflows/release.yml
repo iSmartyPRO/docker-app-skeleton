@@ -1,0 +1,35 @@
+name: Release
+
+# A version tag (pushed by `make release` / `make deploy`) becomes a GitHub release
+# whose notes are that version's section of CHANGELOG.md.
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Notes from CHANGELOG
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          awk -v v="$ver" '
+            $0 ~ "^## \\[" v "\\]" { on=1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || echo "Release $GITHUB_REF_NAME" > notes.md
+          echo "Notes: $(wc -l < notes.md) lines"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+          fi

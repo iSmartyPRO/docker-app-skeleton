@@ -156,6 +156,32 @@ _bump:
 	$(MAKE) --no-print-directory sync-version APP_VERSION=$$next; \
 	echo "Bumped $(PART): $$ver -> $$next"
 
+release: ## Classify changes since the last tag, bump VERSION everywhere, update CHANGELOG, tag, push (BUMP=major|minor|patch|x.y.z to force)
+	@node "$(PROJECT_ROOT)scripts/release.mjs" $(BUMP)
+
+release-dry: ## Show how the next release would be classified, change nothing
+	@node "$(PROJECT_ROOT)scripts/release.mjs" $(BUMP) --dry-run
+
+# Database backup before deploys (prod: the Postgres container from .env credentials)
+DB_CONTAINER ?= postgres-18
+# Compose names the image <project dir>-app (e.g. portal-app)
+APP_IMAGE    ?= $(notdir $(patsubst %/,%,$(PROJECT_ROOT)))-app
+BACKUP_DIR   ?= /root/db-backups
+backup: ## Dump the app database to $(BACKUP_DIR)/<db>-<timestamp>.dump (skipped if $(DB_CONTAINER) is not running)
+	@if docker ps --format '{{.Names}}' | grep -qx "$(DB_CONTAINER)"; then \
+		db=$$(grep '^POSTGRES_DB=' "$(PROJECT_ROOT).env" | cut -d= -f2-); user=$$(grep '^POSTGRES_USER=' "$(PROJECT_ROOT).env" | cut -d= -f2-); \
+		mkdir -p "$(BACKUP_DIR)"; f="$(BACKUP_DIR)/$$db-$$(date +%Y%m%d-%H%M%S).dump"; \
+		docker exec -e PGPASSWORD="$$(grep '^POSTGRES_PASSWORD=' "$(PROJECT_ROOT).env" | cut -d= -f2-)" "$(DB_CONTAINER)" pg_dump -h 127.0.0.1 -U "$$user" -Fc "$$db" > "$$f" && test -s "$$f" && echo "Backup: $$f ($$(du -h "$$f" | cut -f1))" || { echo "Backup failed"; rm -f "$$f"; exit 1; }; \
+	else echo "Backup skipped: container $(DB_CONTAINER) is not running"; fi
+
+deploy: ## Release (if anything changed) → backup → tag previous image → rebuild → wait until ready
+	@node "$(PROJECT_ROOT)scripts/release.mjs" $(BUMP)
+	@$(MAKE) --no-print-directory backup
+	@docker image inspect $(APP_IMAGE) >/dev/null 2>&1 && docker tag $(APP_IMAGE) $(APP_IMAGE):previous && echo "Tagged $(APP_IMAGE):previous" || true
+	@$(MAKE) --no-print-directory rebuild
+	@for i in $$(seq 1 60); do curl -fsS "$(HEALTH_URL)" 2>/dev/null | grep -q '"status":"ok"' && break; sleep 3; done; \
+	curl -fsS "$(HEALTH_URL)" && echo && echo "Deployed v$$(cat "$(PROJECT_ROOT)VERSION")"
+
 # ── Production (docker-compose.yml) ─────────────────────────────────────────
 build: ## Build production image
 	@$(MAKE) --no-print-directory env

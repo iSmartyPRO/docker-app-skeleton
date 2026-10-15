@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Versions and releases
+
+- Every deploy is versioned automatically: `make deploy` classifies the commits since the last tag (major / minor / patch, Conventional Commits), bumps `VERSION`, both `package.json` and lock files, closes the CHANGELOG section, tags `vX.Y.Z`, pushes, backs up the database and rebuilds. The tag becomes a GitHub release with the CHANGELOG notes (`.github/workflows/release.yml`). The version shows in the app footer, `/version.json`, `/health` and on GitHub. The project starts at **1.0.0**.
+
 ### Module switch on settings pages
 
 - Warehouse and Procurement settings pages get the «Модуль включён» switch (shared `ModuleEnableSwitch`), like the other modules; before, they could only be switched on from Settings → Modules.

@@ -36,20 +36,36 @@ make dev-down
 make test           # backend unit tests + frontend production build (host Node 22)
 ```
 
-## Version
+## Version and releases
 
-Keep [CHANGELOG.md](../CHANGELOG.md) up to date, then:
+Every update gets a version automatically: [Semantic Versioning](https://semver.org/) `MAJOR.MINOR.PATCH`, starting at **1.0.0**. One number is shown everywhere:
+
+- **in the app:** the footer (`v 1.2.3`), read from `VERSION` at build time; `/version.json` carries it too;
+- **on the server:** `/health` → `version` (the image is built with `APP_VERSION` from `VERSION`);
+- **on GitHub:** the tag `v1.2.3` and a release whose notes are that section of [CHANGELOG.md](../CHANGELOG.md) (published by `.github/workflows/release.yml` when the tag is pushed).
 
 ```bash
-make version
-make bump-patch     # 0.0.1 → 0.0.2
-make bump-minor
-make bump-major
-make rebuild        # bake VERSION into the image
-git tag v$(cat VERSION) && git push --tags
+make deploy              # release (if anything changed) → backup → tag image :previous → rebuild → wait for /health
+make release-dry         # how the next release would be classified
+make release             # release only: bump, CHANGELOG, commit, tag, push
+make deploy BUMP=minor   # force the level (major | minor | patch) or an exact version (BUMP=2.0.0)
 ```
 
-`make bump-*` updates `VERSION`, both `package.json` files and both lock files. The UI reads `VERSION` at build time.
+**Classification** (`scripts/release.mjs`) looks at every commit since the last `v*` tag; the highest level wins:
+
+| Level | When |
+|---|---|
+| major | `BREAKING CHANGE` in the message, or a type with `!` (`feat!: …`) — incompatible changes to the API, data or configuration |
+| minor | `feat: …` — new modules and features (also plain subjects starting with *Add / New …* or mentioning a *module*) |
+| patch | `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`, `style:`, `test:` and everything else |
+
+Write commit subjects as [Conventional Commits](https://www.conventionalcommits.org/) (`feat(warehouse): …`, `fix(drive): …`) so the level is exact. The release then:
+
+1. writes the new number to `VERSION`, both `package.json` and both lock files;
+2. turns `## [Unreleased]` in `CHANGELOG.md` into `## [x.y.z] - date` (if the section is empty, the commit subjects are used) and opens a new empty `[Unreleased]`;
+3. commits `chore(release): vx.y.z`, creates the annotated tag and pushes both.
+
+With no commits since the last tag, nothing is released and `make deploy` just redeploys the same version. `make backup` (also part of `make deploy`) dumps the database from `DB_CONTAINER` (default `postgres-18`) to `BACKUP_DIR` (default `/root/db-backups`).
 
 ## Upgrading a running installation
 
