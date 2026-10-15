@@ -73,7 +73,8 @@ export const HOLDER_TYPES = ['employee', 'object', 'project'];
 export const WRITEOFF_REASONS = ['used', 'defect', 'damage', 'shortage', 'expired', 'lost', 'other'];
 export const WAREHOUSE_KINDS = ['main', 'site', 'transit', 'mobile'];
 export const TRACKING = ['quantity', 'batch', 'serial'];
-export const INSTANCE_STATES = ['ok', 'repair', 'written_off'];
+/** `lost`: an inventory count did not find the piece (its act took it off the books); found again → `ok`. */
+export const INSTANCE_STATES = ['ok', 'repair', 'written_off', 'lost'];
 export const BIN_KINDS = ['zone', 'rack', 'shelf'];
 export const FILE_KINDS = ['photo', 'waybill', 'act', 'signature', 'invoice', 'other'];
 export const RESERVE_TARGETS = ['object', 'project', 'deal', 'request', 'employee', 'other'];
@@ -253,6 +254,20 @@ export function barcodeKind(code, hint) {
 
 /** Keys that carry money anywhere in the module's responses. */
 export const COST_KEYS = new Set(['price', 'amount', 'sum', 'cost', 'unitCost', 'avgCost', 'lastPrice', 'planPrice', 'sumIn', 'sumOut', 'openingSum', 'closingSum', 'amountIn', 'amountOut', 'issuedSum', 'returnedSum', 'writtenOffSum', 'shortageSum', 'estimatedTotal', 'balanceSum', 'surplusSum', 'grossSum', 'netSum', 'currency', 'rate', 'totals']);
+
+/**
+ * Money inside history events (`data.total` of posted / shipped / sent to
+ * approval). `total` is not in COST_KEYS because lists use it for the number
+ * of rows (pagination); history strips it explicitly.
+ */
+export const EVENT_COST_KEYS = new Set(['total']);
+
+/** Event data without sums: COST_KEYS and EVENT_COST_KEYS removed. */
+export function stripEventCost(data) {
+  const out = stripCost(data);
+  if (out && typeof out === 'object' && !Array.isArray(out)) for (const key of EVENT_COST_KEYS) delete out[key];
+  return out;
+}
 
 /** A deep copy without money keys (for people without warehouse.cost). */
 export function stripCost(value) {

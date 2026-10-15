@@ -108,9 +108,11 @@ Presets in the share dialog (shared picker `components/ui/LinkPermissions.jsx`, 
 | Full access | all keys the item supports |
 | Customize… | individual switches |
 
+A key that needs `view` is dropped when `view` is missing (it is never turned into a read link): `['upload', 'download']` is the drop box `['upload']`. Files, Drive and the picker use one rule (`modules/shared/linkPermissions.js`, mirrored by `src/frontend/src/lib/linkPermissions.js`; a test checks that they agree).
+
 Links created before permissions existed keep exactly what they did: `view` + `download`, or `view` where downloads were off (a startup migration fills `fs_links.permissions` from `allow_download`; the old `allowDownload` field is still accepted by the API and kept in step).
 
-**Upload only.** The visitor sees a *Send files to …* page with the owner's name, a drop zone, the link's rules and the files they sent from this browser tab. They never see the folder's contents or other visitors' uploads: the listing answers only uploads of their own visitor session, files land in the shared folder itself, and file and preview routes refuse upload-only links.
+**Upload only.** The visitor sees a *Send files to …* page with the owner's name, a drop zone, the link's rules and the files they sent from this browser tab. They never see the folder's contents or other visitors' uploads: the listing answers only uploads of their own visitor session, files land in the shared folder itself, and file and preview routes refuse upload-only links. A file whose name is already taken is stored as `Name (2)` as usual, but the visitor is answered (and later shown) the name they sent, so a drop box never reveals what the folder holds; the owner sees the stored name (`fs_link_events.sent_name` keeps the visitor's one).
 
 **Visitor page.** The header shows the owner, the link name and *You can: view, download, upload*. Depending on the permissions there are an upload button (files, or a folder where the browser can pick one and `mkdir` is allowed), drag & drop onto the folder, *New folder*, and per item *Download*, *Rename*, *Replace with a new version* and *Delete* (with a confirmation). Every upload shows its own progress and can be cancelled. A link that asks for the name shows a short *Introduce yourself* dialog before the first change; the name (and e-mail) is kept in the visitor session for the tab.
 
@@ -118,7 +120,9 @@ Links created before permissions existed keep exactly what they did: `view` + `d
 
 **Where changes go.** Every visitor change runs as the link's author through the usual Files code: edit access on the target, the owner's personal quota (with its lock), allowed types, magic bytes, the knowledge-base guard on deletes. Uploaded files belong to the folder's owner (or space) and count toward their quota, plus the link's own quota. Deletes go to the owner's trash. Files has no version history, so *Replace* keeps the previous content as a copy in the owner's trash (restorable; it counts toward the quota until the trash is emptied) and requires the same extension (`EXT_MISMATCH`).
 
-**Activity.** `fs_link_events` records each visitor change (upload, replace, mkdir, rename, move, delete) with the link name, the visitor's name / e-mail, IP, bytes and session. Owners see it in the link's *Activity*, and files added or changed through a link carry a *via link · Name* mark in the lists. The per-link quota is the sum of bytes uploaded or replaced through the link (deleting does not give it back).
+**Activity.** `fs_link_events` records each visitor change (upload, replace, mkdir, rename, move, delete) with the link name, the visitor's name / e-mail, IP, bytes and session. Owners see it in the link's *Activity*, and files added or changed through a link carry a *via link · Name* mark in the lists. The per-link quota is the sum of bytes uploaded or replaced through the link (deleting does not give it back). A link without a quota of its own is limited by the module setting *Default upload limit per link* (2048 MB; 0 = unlimited), so a link into a shared space (which has no personal quota) cannot fill the disk.
+
+**Views.** A view is the first load of the link page by a person in a browser tab: crawlers and HEAD requests never count, nor *Open as recipient* (`?preview=1`), nor reloads in the same tab (after an upload, a rename or F5 the page asks with `?repeat=1`).
 
 **Notifications.** With *Notify me*, the `files:link-notices` job (every minute) sends the author one notice (`files.linkActivity`) per visitor burst: once the session has been quiet for 45 seconds (or after 10 minutes at most), e.g. *Anna — link "Contracts": 3 uploaded, 1 changed* with the first file names.
 
@@ -151,6 +155,7 @@ Existing Knowledge Base files are moved into Files once, on the first start afte
 | Any other type | on (unknown types can be stored but are only downloaded, never shown inline) |
 | Public links / require password / maximum days | on / off / 0 (unlimited) |
 | Links that allow changes / password for them | on / off |
+| Default upload limit per link (`linkQuotaMb`) | 2048 MB (0 = unlimited); applies to links without their own quota, uploads and new versions count |
 | Who publishes links | owners (`owners`; or `members`: anyone with access, within their rights) |
 | Who can create spaces | administrators (`files.admin`) |
 | Days in the trash | 30 (1–365) |
@@ -164,9 +169,9 @@ The Knowledge Base still applies its own size limit and file types to uploads ma
 - PDF and image uploads must match their magic bytes.
 - Files are served only by access-checked API routes, with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Only safe types are shown inline; everything else is an attachment.
 - Hidden items return `404`, so their existence does not leak. Trashed items are visible only to their owner or a space manager.
-- Link passwords are bcrypt-hashed. Visitor tokens are JWTs bound to the link and its version, carrying a random session id (and the visitor's name). Writes take the token from the `X-Link-Token` header only, never from the URL.
+- Link passwords are bcrypt-hashed. Visitor tokens are JWTs (12 h) bound to the link and its version, of two kinds: the **visitor session** (scope `w`, random session id, the visitor's name) travels in the `X-Link-Token` header only and is needed for every change and for renewing the session; a **read token** (scope `r`, no session) is the only kind accepted in an address (`?t=` on file and preview URLs for `<img>`, `<video>` and the PDF viewer). What reaches browser history or access logs can open files but never change anything; a read token in the header does not count as unlocked for writes or `/session`. Tokens issued before scopes existed still read from addresses and are swapped for a session token on the next page load (same session, password mark and name), so visitors notice nothing. The bundled nginx masks `t=` in its access log.
 - Visitor writes are confined to the link's subtree with the same ancestor-chain check as reads; the shared item itself cannot be renamed, moved or deleted (`LINK_ROOT`).
-- Public write routes are rate-limited (300 per 10 minutes per IP and link, 1500 per link; 30 session starts per 15 minutes per IP and link) on top of the general guest budget, and pass the same Origin check as every API write. nginx allows 1024 MB bodies only on `/api/l/<token>/upload` and `/api/l/<token>/nodes/<id>/replace` (streamed, not buffered); the app applies the module and link limits.
+- Public write routes are rate-limited per link (its id: the token and every letter case of its slug share one budget): uploads and replacements 600 per 15 minutes per IP and link and 3000 per hour per link (not counted by the general guest budget, so a folder upload of hundreds of files goes through); other changes 300 per 10 minutes per IP and link and 1500 per link on top of the guest budget; 30 session starts per 15 minutes and 10 wrong passwords per 15 minutes per IP and link. They pass the same Origin check as every API write. nginx allows 1024 MB bodies only on `/api(/v1)/l/<token>/upload` and `/api(/v1)/l/<token>/nodes/<id>/replace` (streamed, not buffered); the app applies the module and link limits.
 - The `files:trash` scheduler job deletes expired trash every 6 hours, rows and blobs both. The daily `storage:previews` job removes cached previews (Files, Knowledge Base, Drive) nobody opened for 30 days; they are made again on the next view.
 - The personal quota is checked again for every file under a per-owner lock (`pg_advisory_xact_lock`), so two parallel uploads cannot both slip past it.
 - Search, *Shared with me* and *Recent* check access for all candidates in a few batched queries (same rules as opening a single item).
@@ -200,13 +205,13 @@ All under `/api/app/files`, signed-in users only:
 | GET | `/link-slugs/check?slug=[&linkId=]` | `{ slug, available, reason, suggestions }`; `slug` is normalized (transliterated, lowercase); `reason`: `SHORT`, `LONG`, `CHARS`, `HYPHEN`, `RESERVED`, `TAKEN`, `RECENT`; `linkId` (a link the person manages) treats its own address as free. 60 checks per minute per person (`429 RATE_LIMITED`) |
 | GET | `/links/:id/activity` | What visitors did through the link |
 
-Public API, no session (`X-Link-Token` header or `?t=`). `:token` is the link's token or its custom address in any case (the token is tried first):
+Public API, no session (`X-Link-Token` header; file and preview URLs also take a read token in `?t=`). `:token` is the link's token or its custom address in any case (the token is tried first):
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/api/l/:token/unlock` | `{ password }` → `{ token }` |
-| GET | `/api/l/:token[?folder=][&preview=1]` | `link` (permissions, owner, rules, visitor), the node and a folder's contents; upload-only links answer `mine` (the session's own uploads) and no items |
-| POST | `/api/l/:token/session` | `{ name?, email? }` → `{ token, visitor }`: starts or names the visitor session (needed before any change) |
+| POST | `/api/l/:token/unlock` | `{ password }` → `{ token, readToken }` |
+| GET | `/api/l/:token[?folder=][&preview=1][&repeat=1]` | `link` (permissions, owner, rules, visitor), the node and a folder's contents; upload-only links answer `mine` (the session's own uploads, under the names sent) and no items. With a visitor token in the header (never one from the address): `readToken` for file URLs, and `visitorToken` replacing a token issued before scopes. `preview=1` / `repeat=1`: not counted as a view. Refused before the password with `401 PASSWORD_REQUIRED` and no details |
+| POST | `/api/l/:token/session` | `{ name?, email? }` → `{ token, readToken, visitor }`: starts, renews or names the visitor session (needed before any change); keeps the name already given |
 | POST | `/api/l/:token/upload[?folder=]` | Multipart `files[]` (≤ 20 per request), needs `upload` |
 | POST | `/api/l/:token/folders` | `{ parentId, name }`, needs `mkdir` |
 | POST | `/api/l/:token/folders/tree` | Folder uploads (as the private route), needs `upload` + `mkdir` |

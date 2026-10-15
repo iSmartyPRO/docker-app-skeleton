@@ -506,6 +506,8 @@ export const MODULE_CATALOG = [
       // Public links that let visitors upload, rename, replace or delete.
       writeLinks: true,
       requireWriteLinkPassword: false,
+      // Total a link that accepts files may take in when it has no quota of its own (MB, 0 = unlimited).
+      linkQuotaMb: 2048,
       // Who publishes links: 'owners' (owners and space managers) or 'members'
       // (anyone with access, granting at most their own rights).
       linkSharing: 'owners',
@@ -524,6 +526,7 @@ export const MODULE_CATALOG = [
         if (typeof incoming[flag] === 'boolean') next[flag] = incoming[flag];
       }
       if (incoming.maxLinkDays !== undefined) next.maxLinkDays = clampInt(incoming.maxLinkDays, 0, 3650, 0);
+      if (incoming.linkQuotaMb !== undefined) next.linkQuotaMb = clampInt(incoming.linkQuotaMb, 0, 10_000_000, 2048);
       if (['owners', 'members'].includes(incoming.linkSharing)) next.linkSharing = incoming.linkSharing;
       if (incoming.trashDays !== undefined) next.trashDays = clampInt(incoming.trashDays, 1, 365, 30);
       if (['everyone', 'admins'].includes(incoming.spaceCreation)) next.spaceCreation = incoming.spaceCreation;

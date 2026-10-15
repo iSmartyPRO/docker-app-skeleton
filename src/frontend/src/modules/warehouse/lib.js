@@ -87,7 +87,9 @@ export function whError(err, t) {
     const first = data.info.shortages[0];
     return t('wh.errors.INSUFFICIENT_ITEM', { name: first.name || `#${first.itemId}`, need: first.need, available: first.available, unit: first.unit || '' });
   }
-  const known = code && t(`wh.errors.${code}`);
+  // Plain values of the error's info fill the message ({inventoryNo}, …).
+  const params = data?.info && typeof data.info === 'object' ? Object.fromEntries(Object.entries(data.info).filter(([, v]) => ['string', 'number'].includes(typeof v))) : undefined;
+  const known = code && t(`wh.errors.${code}`, params);
   return known && !known.startsWith('wh.errors.') ? known : errorMessage(err);
 }
 

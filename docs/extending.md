@@ -500,7 +500,7 @@ const qr = renderBarcodeSVG('https://…', 'qr', { moduleSize: 4 });
 
 ## Public link permissions
 
-`components/ui/LinkPermissions.jsx` is the shared picker for what a public share link allows (used by Files, reusable by Drive). It is presentational: the server must enforce every key on every route. Strings live in `i18n/linkPerms.js` (`linkPerms.*`).
+`components/ui/LinkPermissions.jsx` is the shared picker for what a public share link allows (used by Files, reusable by Drive). It is presentational: the server must enforce every key on every route. Strings live in `i18n/linkPerms.js` (`linkPerms.*`). The normalisation rule (`normalizePermissions`: everything except `upload` needs `view` and is dropped without it) lives in `src/frontend/src/lib/linkPermissions.js` and mirrors the server's `modules/shared/linkPermissions.js`, which Files and Drive both use; `test/link-review.test.js` checks that all three agree.
 
 Keys: `view` (list + preview), `download`, `upload` (new files), `mkdir`, `rename` (rename and move), `replace` (new version of a file), `delete` (to the trash). Everything except `upload` needs `view`; `upload` without `view` is an upload-only drop box. File links support `view`, `download` and `replace` only.
 

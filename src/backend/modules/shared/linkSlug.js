@@ -203,11 +203,16 @@ export function rethrowSlugConflict(module, err, slug) {
   throw err;
 }
 
-/** A slug that stopped being used (changed or link deleted): held for its author. */
-export async function releaseSlug(module, slug, authorId) {
+/**
+ * A slug that stopped being used (changed or link deleted): held for its
+ * author. Pass the transaction's `client` so the hold commits together with
+ * the change that released the slug (never a free address in between).
+ */
+export async function releaseSlug(module, slug, authorId, client = null) {
   if (!slug) return;
-  await query(`DELETE FROM link_slug_holds WHERE released_at < NOW() - make_interval(days => $1)`, [SLUG_HOLD_DAYS]);
-  await query(
+  const db = client || { query };
+  await db.query(`DELETE FROM link_slug_holds WHERE released_at < NOW() - make_interval(days => $1)`, [SLUG_HOLD_DAYS]);
+  await db.query(
     `INSERT INTO link_slug_holds (module, slug, author_id) VALUES ($1, $2, $3)
      ON CONFLICT (module, slug) DO UPDATE SET author_id = EXCLUDED.author_id, released_at = NOW()`,
     [module, String(slug).toLowerCase(), authorId || null]
@@ -215,8 +220,8 @@ export async function releaseSlug(module, slug, authorId) {
 }
 
 /** The author took a held slug back: it is no longer held. */
-export async function clearHold(module, slug) {
-  if (slug) await query(`DELETE FROM link_slug_holds WHERE module = $1 AND slug = $2`, [module, String(slug).toLowerCase()]);
+export async function clearHold(module, slug, client = null) {
+  if (slug) await (client || { query }).query(`DELETE FROM link_slug_holds WHERE module = $1 AND slug = $2`, [module, String(slug).toLowerCase()]);
 }
 
 /**
@@ -251,3 +256,29 @@ export function slugCheckLimiter(module, { windowMs = 60 * 1000, max = 60 } = {}
 /** SQL condition matching a public address: the token exactly, else the slug in any case. Param $n is the address. */
 export const addressMatch = (alias, n) => `(${alias}.token = $${n} OR LOWER(${alias}.slug) = LOWER($${n}))`;
 export const addressOrder = (alias, n) => `ORDER BY (${alias}.token = $${n}) DESC LIMIT 1`;
+
+/*
+ * The key public-link rate limits count under: the link's id once the
+ * address resolves (its token and every letter-case variant of its slug share
+ * one budget), else the lowercased address. Lookups are memoised briefly so
+ * the limiter adds no real database load.
+ */
+const KEY_MS = 60 * 1000;
+const keyMemo = new Map();
+
+export async function linkRateKey(module, address) {
+  const raw = String(address || '').slice(0, 64);
+  const memoKey = `${module}:${raw}`;
+  const hit = keyMemo.get(memoKey);
+  if (hit && hit.until > Date.now()) return hit.key;
+  let key = `addr:${raw.toLowerCase()}`;
+  try {
+    const { rows } = await query(`SELECT id FROM ${tableOf(module)} l WHERE ${addressMatch('l', 1)} ${addressOrder('l', 1)}`, [raw]);
+    if (rows[0]) key = `id:${rows[0].id}`;
+  } catch {
+    /* no database: the lowercased address */
+  }
+  if (keyMemo.size > 5000) keyMemo.clear();
+  keyMemo.set(memoKey, { key, until: Date.now() + KEY_MS });
+  return key;
+}

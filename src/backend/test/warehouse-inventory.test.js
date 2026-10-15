@@ -7,6 +7,7 @@ import {
   cleanOp,
   frozenHit,
   inScope,
+  instancesTwice,
   nextDue,
   reconcile,
   reconcileTotals,
@@ -198,4 +199,49 @@ test('notification kinds of inventories are catalogued', async () => {
   const { NOTIFICATION_EVENTS } = await import('../services/notificationCatalog.js');
   const kinds = NOTIFICATION_EVENTS.filter((event) => event.module === 'warehouse').map((event) => event.kind);
   for (const kind of ['warehouse.inventory_assigned', 'warehouse.inventory_due']) assert.ok(kinds.includes(kind), kind);
+});
+
+test('reconcile: one instance scanned by two counters is one piece, not a conflict', () => {
+  const items = new Map([[20, { tracking: 'serial' }]]);
+  const rows = reconcile({
+    book: [{ bin_id: 1, item_id: 20, instance_id: 5, qty: 1 }],
+    counts: [
+      { bin_id: 1, item_id: 20, instance_id: 5, counter_id: 1, qty: 1 },
+      { bin_id: 1, item_id: 20, instance_id: 5, counter_id: 2, qty: 1 },
+    ],
+    areas: [{ bin_id: 1, status: 'done' }],
+    items,
+  });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].counted, 1);
+  assert.equal(rows[0].status, 'match');
+  assert.equal(rows[0].conflict, false);
+  // A manager's decision above one is one too.
+  const decided = reconcile({ book: [{ bin_id: 1, item_id: 20, instance_id: 5, qty: 1 }], counts: [{ bin_id: 1, item_id: 20, instance_id: 5, counter_id: 1, qty: 1 }], finals: [{ bin_id: 1, item_id: 20, instance_id: 5, qty: 3 }], areas: [{ bin_id: 1, status: 'done' }], items });
+  assert.equal(decided[0].counted, 1);
+});
+
+test('act lines: an instance found in a counted bin leaves its uncounted booked bin; counted twice is caught', () => {
+  const items = new Map([[20, { tracking: 'serial' }]]);
+  const book = [{ bin_id: 1, item_id: 20, instance_id: 7, qty: 1 }];
+  const rows = reconcile({ book, counts: [{ bin_id: 2, item_id: 20, instance_id: 7, counter_id: 1, qty: 1 }], areas: [{ bin_id: 1, status: 'counting' }, { bin_id: 2, status: 'done' }], items });
+  const lines = actLines(rows, { book });
+  // The move out of bin 1 comes first, then the piece arrives in bin 2.
+  assert.deepEqual(lines.map((l) => [l.binId, l.instanceId, l.countedQty, l.bookQty]), [[1, 7, 0, 1], [2, 7, 1, 0]]);
+  // Bin 1 counted too: its own row takes the piece out, no extra line.
+  const both = reconcile({ book, counts: [{ bin_id: 2, item_id: 20, instance_id: 7, counter_id: 1, qty: 1 }], areas: [{ bin_id: 1, status: 'done' }, { bin_id: 2, status: 'done' }], items });
+  assert.deepEqual(actLines(both, { book }).map((l) => [l.binId, l.instanceId, l.countedQty]), [[1, null, 0], [2, 7, 1]]);
+  // Found in two bins at once → the finish asks which.
+  assert.deepEqual(instancesTwice([{ instanceId: 7, countedQty: 1 }, { instanceId: 7, countedQty: 1 }, { instanceId: 8, countedQty: 1 }]), [7]);
+});
+
+test('count ops: the phone cannot ask for a recount itself', () => {
+  const op = cleanOp({ clientId: 'abcdef12', kind: 'add', itemId: 1, qty: 2, recount: true });
+  assert.equal(op.recount, undefined);
+});
+
+test('session actions: a finished session whose act was deleted can be reopened', () => {
+  assert.equal(sessionActions({ status: 'finished' }, { manage: true, docStatus: null }).reopen, true);
+  assert.equal(sessionActions({ status: 'finished' }, { manage: true, docStatus: 'posted' }).reopen, false);
+  assert.equal(sessionActions({ status: 'finished' }, { manage: true, docStatus: 'draft' }).reopen, false);
 });

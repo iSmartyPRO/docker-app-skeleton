@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { optionalAuth } from '../../middleware/auth.js';
 import { httpError, intId, listSubjects, wrap } from '../shared/acl.js';
 import { connectionStatus, driveSettings, forgetCredential, saveCredential } from './credentials.js';
-import { slugCheckLimiter } from '../shared/linkSlug.js';
+import { linkRateKey, slugCheckLimiter } from '../shared/linkSlug.js';
 import {
   allLinks,
   checkLinkSlug,
@@ -16,6 +16,7 @@ import {
   myLinks,
   myUploads,
   openLink,
+  pageTokens,
   recordUpload,
   releaseQuota,
   reserveQuota,
@@ -348,6 +349,9 @@ export function privateRoutes() {
 
 const limitAnswer = (req, res) => res.status(429).json({ success: false, error: 'Too many attempts. Try again later.', code: 'RATE_LIMITED' });
 
+// Every budget below counts per link (its id: the token and every letter case of its slug share one).
+const linkOf = (req) => linkRateKey('drive', req.params.token);
+
 // Only wrong passwords count: opening a visitor session (or adding one's name) is routine.
 const unlockLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -355,7 +359,7 @@ const unlockLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
-  keyGenerator: (req) => `${req.ip}:${String(req.params.token).toLowerCase()}`,
+  keyGenerator: async (req) => `drive-unlock:${req.ip}:${await linkOf(req)}`,
   handler: limitAnswer,
 });
 
@@ -365,7 +369,7 @@ const uploadLimiter = rateLimit({
   max: 600,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `drive-up:${req.ip}:${req.params.token}`,
+  keyGenerator: async (req) => `drive-up:${req.ip}:${await linkOf(req)}`,
   handler: limitAnswer,
 });
 const changeLimiter = rateLimit({
@@ -373,7 +377,7 @@ const changeLimiter = rateLimit({
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `drive-change:${req.ip}:${req.params.token}`,
+  keyGenerator: async (req) => `drive-change:${req.ip}:${await linkOf(req)}`,
   handler: limitAnswer,
 });
 const linkWriteLimiter = rateLimit({
@@ -381,11 +385,20 @@ const linkWriteLimiter = rateLimit({
   max: 3000,
   standardHeaders: false,
   legacyHeaders: false,
-  keyGenerator: (req) => `drive-link:${req.params.token}`,
+  keyGenerator: async (req) => `drive-link:${await linkOf(req)}`,
   handler: limitAnswer,
 });
 
-const visitorToken = (req) => req.get('x-link-token') || req.query.t || '';
+/*
+ * The visitor token of a request and where it came from: the X-Link-Token
+ * header (any kind on reads; changes never accept a read token), else a read
+ * token in ?t= (file addresses in <img>, <video>, the PDF viewer, downloads).
+ */
+function visitorToken(req, write) {
+  const header = req.get('x-link-token') || '';
+  if (write) return [header, 'write'];
+  return header ? [header, 'header'] : [String(req.query.t || ''), 'url'];
+}
 
 // Steps of the normal flow, not worth a row: the page then asks for the password or a sign-in.
 const LINK_FLOW = new Set(['PASSWORD_REQUIRED', 'SIGN_IN_REQUIRED', 'SESSION_REQUIRED', 'VISITOR_REQUIRED']);
@@ -435,7 +448,8 @@ function visit(handler, audit, { write = false } = {}) {
       }
     };
     try {
-      opened = await openLink(req.params.token, visitorToken(req), req.user || null);
+      const [token, from] = visitorToken(req, write);
+      opened = await openLink(req.params.token, token, req.user || null, { from });
       const result = await handler(req, res, opened);
       log(result);
     } catch (raw) {
@@ -458,10 +472,12 @@ function visit(handler, audit, { write = false } = {}) {
 /**
  * The visitor session a change needs. It must come in the X-Link-Token header
  * (never the address), which a page on another site cannot set: with the
- * Origin check in server.js this keeps forged cross-site requests out.
+ * Origin check in server.js this keeps forged cross-site requests out. Only a
+ * session token (scope "w") will do: never a read token, nor one issued
+ * before scopes (the page swaps it on its next load).
  */
 function writer(req, { link, visitor }) {
-  if (!req.get('x-link-token') || !visitor?.sid) throw httpError(401, 'Open the link again to continue', 'SESSION_REQUIRED');
+  if (!req.get('x-link-token') || !visitor?.sid || visitor.scope !== 'write') throw httpError(401, 'Open the link again to continue', 'SESSION_REQUIRED');
   if ((link.require_name && !visitor.name) || (link.require_email && !visitor.email)) {
     throw httpError(401, 'Please introduce yourself first', 'VISITOR_REQUIRED');
   }
@@ -518,7 +534,9 @@ async function visitorUpload(req, opened, folder, name, { conflict, renameFrom, 
     await releaseQuota(link, length).catch(() => {});
     throw err;
   }
-  await recordUpload(link, visitor, { path: result.entry.path, name: result.entry.name, size: result.entry.size, ip: req.ip }).catch((err) => console.warn('[drive] upload record failed:', err.message));
+  // A visitor who cannot see the folder keeps the name they sent ("my uploads"); the stored path is the real one.
+  const shownName = opened.perms.includes('view') ? result.entry.name : fileName;
+  await recordUpload(link, visitor, { path: result.entry.path, name: shownName, size: result.entry.size, ip: req.ip }).catch((err) => console.warn('[drive] upload record failed:', err.message));
   noteLinkChange(link, visitor, { action: result.replaced ? 'replace' : 'upload', name: result.entry.name });
   return result;
 }
@@ -544,10 +562,11 @@ export function publicRoutes() {
     }
   }));
 
-  router.get('/:token', visit(async (req, res, { link, target, audience, perms, visitor, settings }) => {
+  router.get('/:token', visit(async (req, res, { link, target, audience, perms, visitor, visitorFrom, settings }) => {
     const canView = perms.includes('view');
     const sub = canView ? cleanPath(req.query.path) : '';
-    if (!sub && countsAsView(req)) await countView(link);
+    // A view: the first load of the page by a person (not the author's preview, not a reload after a change).
+    if (!sub && req.query.preview !== '1' && req.query.repeat !== '1' && countsAsView(req)) await countView(link);
     const quota = quotaBytes(link);
     const base = {
       link: {
@@ -569,8 +588,9 @@ export function publicRoutes() {
           quotaLeft: quota === null ? null : Math.max(0, quota - Number(link.uploaded_bytes || 0)),
         },
       },
-      visitor: visitor ? { name: visitor.name, email: visitor.email } : null,
+      visitor: visitor && visitor.scope !== 'read' ? { name: visitor.name, email: visitor.email } : null,
       conversion: await conversionEnabled(),
+      ...pageTokens(link, visitor, visitorFrom),
     };
     if (!canView) {
       // A file request: the folder's contents stay private.
@@ -600,7 +620,7 @@ export function publicRoutes() {
 
   // What this visitor uploaded in this browser session (file requests show only this).
   router.get('/:token/mine', visit(async (req, res, opened) => {
-    res.json({ success: true, uploads: await myUploads(opened.link, opened.visitor) });
+    res.json({ success: true, uploads: await myUploads(opened.link, opened.visitor, { masked: !opened.perms.includes('view') }) });
   }));
 
   const contentEvent = (req, opened) => ({
@@ -641,7 +661,13 @@ export function publicRoutes() {
       } else conflict = asked === 'rename' ? 'rename' : 'fail';
     }
     const result = await visitorUpload(req, opened, folder, req.query.name, { conflict, renameFrom: 1 });
-    res.json({ success: true, replaced: Boolean(result.replaced), entry: { ...result.entry, path: strip(link, result.entry.path) } });
+    if (!perms.includes('view')) {
+      // A file request: the visitor gets back the name they sent, never "name (1)" (that would reveal "name").
+      const sent = visitorName(cleanName(req.query.name));
+      res.json({ success: true, replaced: false, entry: { ...result.entry, name: sent, path: sent } });
+    } else {
+      res.json({ success: true, replaced: Boolean(result.replaced), entry: { ...result.entry, path: strip(link, result.entry.path) } });
+    }
     return result;
   }, uploadEvent, { write: true }));
 

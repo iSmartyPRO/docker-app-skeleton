@@ -486,6 +486,11 @@ export default function MobileDocFlow() {
         hint={sheet && type !== 'receipt' ? <HintLine hint={lines.find((l) => l.item?.id === sheet.item.id)?.hint} unit={sheet.item.baseUnit} /> : null}
         onChange={(next) => setSheet((s) => ({ ...s, ...next }))}
         onSubmit={commitSheet}
+        onScanCode={(code, { qty }) => {
+          // A wedge scanner typed into the quantity: the quantity stays as it was, the code is a scan.
+          if (sheetRef.current) sheetRef.current = { ...sheetRef.current, qty };
+          onCode(code);
+        }}
         onClose={() => setSheet(null)}
         onRemove={sheet?.lineId ? removeLine : null}
         submitLabel={sheet?.lineId ? t('whm.qty.save') : t('whm.qty.add')}

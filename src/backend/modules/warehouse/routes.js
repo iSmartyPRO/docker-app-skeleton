@@ -132,7 +132,7 @@ export function privateRoutes() {
   }));
 
   // Scanning: what is this code?
-  router.get('/resolve', wrap(async (req, res) => ok(req, res, await resolveCode(req, req.query.code, req.query))));
+  router.get('/resolve', wrap(async (req, res) => ok(req, res, await resolveCode(req, req.query.code, { warehouse: req.query.warehouse }))));
 
   // Nomenclature
   router.get('/items', wrap(async (req, res) => ok(req, res, await listItems(req, req.query))));

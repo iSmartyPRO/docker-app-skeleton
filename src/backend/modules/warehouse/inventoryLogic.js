@@ -80,7 +80,8 @@ export function cleanOp(raw) {
     const n = Number(value);
     return Number.isInteger(n) && n > 0 && n < 2 ** 31 ? n : null;
   };
-  const out = { clientId, kind, binId: int(raw.binId), itemId: int(raw.itemId), instanceId: int(raw.instanceId), unit: raw.unit ? String(raw.unit).slice(0, 16) : null, recount: raw.recount === true, at: raw.at && !Number.isNaN(new Date(raw.at).getTime()) ? new Date(raw.at).toISOString() : null };
+  // A client's `recount` flag is not trusted: only recounts the manager opened replace other counts (applyOp).
+  const out = { clientId, kind, binId: int(raw.binId), itemId: int(raw.itemId), instanceId: int(raw.instanceId), unit: raw.unit ? String(raw.unit).slice(0, 16) : null, at: raw.at && !Number.isNaN(new Date(raw.at).getTime()) ? new Date(raw.at).toISOString() : null };
   if (kind === 'add' || kind === 'set') {
     const qty = Number(String(raw.qty ?? '').replace(',', '.'));
     if (!out.itemId || !Number.isFinite(qty) || Math.abs(qty) > 1e9) return null;
@@ -135,8 +136,9 @@ export function reconcile({ book = [], counts = [], finals = [], areas = [], ite
   const out = [];
   for (const r of rows.values()) {
     const counters = [...r.counters.entries()].map(([counterId, qty]) => ({ counterId, qty }));
-    const sum = q4(counters.reduce((acc, c) => acc + c.qty, 0));
-    const counted = r.final !== null ? r.final : sum;
+    // One instance is one piece: two counters who both scanned it found it once (not twice).
+    const sum = r.instanceId ? Math.min(1, q4(Math.max(0, ...counters.map((c) => c.qty)))) : q4(counters.reduce((acc, c) => acc + c.qty, 0));
+    const counted = r.final !== null ? (r.instanceId ? Math.min(1, r.final) : r.final) : sum;
     const done = doneAreas.has(Number(r.binId || 0));
     const diff = q4(counted - r.book);
     const status = !done ? 'pending' : Math.abs(diff) < EPS ? 'match' : diff > 0 ? 'surplus' : 'shortage';
@@ -153,7 +155,7 @@ export function reconcile({ book = [], counts = [], finals = [], areas = [], ite
       sum: costs && done ? cents(diff * cost) : null,
       cost: costs ? cost : null,
       counters,
-      conflict: counters.length > 1 && r.final === null,
+      conflict: counters.length > 1 && r.final === null && (!r.instanceId || new Set(counters.map((c) => c.qty)).size > 1),
       final: r.final,
       status,
     });
@@ -186,17 +188,37 @@ export function reconcileTotals(rows) {
 /**
  * The lines of the session's inventory act: one per compared row of the
  * counted areas (matches too — the act lists what was checked). Serial rows
- * per instance carry it; an instance found that the register holds somewhere
- * else (`elsewhere` set of instance ids) is left out (it is moved by a document, not by a count).
+ * per instance carry it; an instance found that the register holds outside
+ * the scope (`elsewhere` set of instance ids) is left out (it is moved by a
+ * document, not by a count). An instance found in a counted bin while the book
+ * keeps it in a bin of the scope that was not counted (forced finish) is moved
+ * by the act: a line «0» for its booked bin, so it is never in two bins.
+ * `book` [{ bin_id, item_id, instance_id, qty }] are the register rows of the scope.
+ * Shortages come first (a moved instance leaves its old bin before it arrives).
  */
-export function actLines(rows, { elsewhere = new Set() } = {}) {
+export function actLines(rows, { elsewhere = new Set(), book = [] } = {}) {
   const out = [];
+  const covered = (binId, itemId, instanceId) => rows.some((r) => r.status !== 'pending' && Number(r.binId || 0) === Number(binId || 0) && r.itemId === Number(itemId) && (!r.instanceId || r.instanceId === Number(instanceId)));
   for (const r of rows) {
     if (r.status === 'pending') continue;
     if (r.instanceId && r.book < EPS && elsewhere.has(r.instanceId)) continue;
     out.push({ itemId: r.itemId, binId: r.binId, instanceId: r.instanceId, countedQty: q4(r.counted), bookQty: q4(r.book) });
+    if (r.instanceId && r.counted > EPS && r.book < EPS) {
+      for (const b of book) {
+        if (Number(b.instance_id) !== r.instanceId || !(Number(b.qty) > EPS) || Number(b.bin_id || 0) === Number(r.binId || 0)) continue;
+        if (covered(b.bin_id, b.item_id, b.instance_id)) continue;
+        out.push({ itemId: r.itemId, binId: b.bin_id || null, instanceId: r.instanceId, countedQty: 0, bookQty: q4(b.qty), moved: true });
+      }
+    }
   }
-  return out;
+  return out.map((line, index) => ({ line, index })).sort((a, b) => Number(a.line.countedQty >= a.line.bookQty) - Number(b.line.countedQty >= b.line.bookQty) || a.index - b.index).map((x) => x.line);
+}
+
+/** Instances the act would count more than once (two bins, two counters) → [instanceId]. */
+export function instancesTwice(lines) {
+  const total = new Map();
+  for (const line of lines) if (line.instanceId) total.set(line.instanceId, q4((total.get(line.instanceId) || 0) + Number(line.countedQty)));
+  return [...total].filter(([, qty]) => qty > 1 + EPS).map(([id]) => id);
 }
 
 /** Progress by areas (bins): { total, done, recount, counting, todo, percent }. */
@@ -263,7 +285,8 @@ export function sessionActions(session, { manage = false, counter = false, docSt
     assign: manage && ['draft', 'counting', 'review'].includes(s),
     count: (manage || counter) && COUNTING.includes(s),
     close: manage && s === 'counting',
-    reopen: manage && (s === 'review' || (s === 'finished' && ['rejected', 'cancelled', 'reversed'].includes(docStatus))),
+    // A finished session whose act was rejected, cancelled, reversed — or deleted (a draft act that failed to post) — is reviewed again.
+    reopen: manage && (s === 'review' || (s === 'finished' && (['rejected', 'cancelled', 'reversed'].includes(docStatus) || docStatus === null))),
     reconcile: manage && ['counting', 'review', 'finished'].includes(s),
     recount: manage && COUNTING.includes(s),
     finish: manage && COUNTING.includes(s),

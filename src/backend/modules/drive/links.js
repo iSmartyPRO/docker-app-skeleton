@@ -2,12 +2,13 @@ import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import config from '../../config/app.js';
-import { query } from '../../config/database.js';
+import { query, withTransaction } from '../../config/database.js';
+import { forgetPreviews } from '../../services/linkPreview/memo.js';
 import { httpError, intId } from '../shared/acl.js';
 import { parseExpiry } from '../files/links.js';
 import { addressMatch, addressOrder, checkSlug, claimSlug, clearHold, freshToken, releaseSlug, rethrowSlugConflict } from '../shared/linkSlug.js';
 import { driveSettings } from './credentials.js';
-import { cleanVisitor, effectivePerms, hasWrite, legacyPerms, linkOptions, normalizePerms, ungrantable } from './linkPerms.js';
+import { cleanVisitor, effectivePerms, hasWrite, legacyPerms, linkOptions, normalizePerms, storedPermissions, ungrantable } from './linkPerms.js';
 import { cleanPath, joinPath, nameOf, parentOf } from './paths.js';
 import { checkWrite, contextForUser, openTarget, statEntry } from './service.js';
 
@@ -35,7 +36,11 @@ import { checkWrite, contextForUser, openTarget, statEntry } from './service.js'
  * Visitors who change something hold a visitor session: a signed token bound
  * to the link and its version (a new password, turning the link off or on
  * ends every session), with a random session id ("my uploads") and the name
- * and e-mail the visitor gave.
+ * and e-mail the visitor gave. It travels in the X-Link-Token header only.
+ * File addresses (<img>, <video>, the PDF viewer, downloads) carry a separate
+ * read token in ?t= (scope "r", no session id): what can end up in an access
+ * log opens files but never changes anything or starts a session. Tokens
+ * issued before scopes existed are swapped on the next page load.
  */
 
 const secret = () => `${config.auth.jwtSecret || 'dev-secret'}:drive-link`;
@@ -47,7 +52,7 @@ function linkStatus(row) {
   return 'active';
 }
 
-const storedPerms = (row) => normalizePerms(Array.isArray(row.permissions) && row.permissions.length ? row.permissions : legacyPerms(row.allow_download), row.kind);
+const storedPerms = (row) => storedPermissions(row);
 
 export function linkShape(row) {
   const permissions = storedPerms(row);
@@ -153,34 +158,40 @@ export async function createLink(ctx, shareId, rel, input = {}) {
   const options = linkOptions(input);
   const expiresAt = parseExpiry(input.expiresAt, settings.maxLinkDays);
   const slug = await claimSlug('drive', input.slug, { authorId: ctx.userId });
-  const { rows } = await query(
-    `INSERT INTO drive_links (token, share_id, path, kind, name, created_by, audience, password_hash, expires_at, allow_download,
-                              permissions, title, note, max_file_mb, allowed_exts, quota_mb, require_name, require_email, notify, slug)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id`,
-    [
-      await freshToken('drive', 12),
-      target.share.id,
-      path,
-      kind,
-      path ? nameOf(path) : target.share.title,
-      ctx.userId,
-      await audienceFor(input.audience, settings),
-      password ? await bcrypt.hash(password.slice(0, 200), 10) : null,
-      expiresAt,
-      perms.includes('download'),
-      perms,
-      options.title ?? null,
-      options.note ?? null,
-      options.max_file_mb ?? null,
-      options.allowed_exts ?? null,
-      options.quota_mb ?? null,
-      options.require_name ?? false,
-      options.require_email ?? false,
-      options.notify ?? false,
-      slug,
-    ]
-  ).catch((err) => rethrowSlugConflict('drive', err, slug));
-  if (slug) await clearHold('drive', slug);
+  const token = await freshToken('drive', 12);
+  const passwordHash = password ? await bcrypt.hash(password.slice(0, 200), 10) : null;
+  const rows = await withTransaction(async (client) => {
+    const { rows: inserted } = await client.query(
+      `INSERT INTO drive_links (token, share_id, path, kind, name, created_by, audience, password_hash, expires_at, allow_download,
+                                permissions, title, note, max_file_mb, allowed_exts, quota_mb, require_name, require_email, notify, slug)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id`,
+      [
+        token,
+        target.share.id,
+        path,
+        kind,
+        path ? nameOf(path) : target.share.title,
+        ctx.userId,
+        await audienceFor(input.audience, settings),
+        passwordHash,
+        expiresAt,
+        perms.includes('download'),
+        perms,
+        options.title ?? null,
+        options.note ?? null,
+        options.max_file_mb ?? null,
+        options.allowed_exts ?? null,
+        options.quota_mb ?? null,
+        options.require_name ?? false,
+        options.require_email ?? false,
+        options.notify ?? false,
+        slug,
+      ]
+    );
+    if (slug) await clearHold('drive', slug, client);
+    return inserted;
+  }).catch((err) => rethrowSlugConflict('drive', err, slug));
+  forgetPreviews();
   return (await loadLink(rows[0].id)).shape;
 }
 
@@ -254,21 +265,28 @@ export async function updateLink(ctx, id, input = {}) {
     if (slug !== (row.slug || null)) set('slug = ?', slug);
   }
   if (bump) sets.push('version = version + 1');
-  if (sets.length) {
-    values.push(row.id);
-    await query(`UPDATE drive_links SET ${sets.join(', ')} WHERE id = $${values.length}`, values).catch((err) => rethrowSlugConflict('drive', err, slug));
-  }
-  if (slug !== (row.slug || null)) {
-    await releaseSlug('drive', row.slug, row.created_by);
-    await clearHold('drive', slug);
-  }
+  // The change and the hold on the old address commit together.
+  await withTransaction(async (client) => {
+    if (sets.length) {
+      values.push(row.id);
+      await client.query(`UPDATE drive_links SET ${sets.join(', ')} WHERE id = $${values.length}`, values);
+    }
+    if (slug !== (row.slug || null)) {
+      await releaseSlug('drive', row.slug, row.created_by, client);
+      await clearHold('drive', slug, client);
+    }
+  }).catch((err) => rethrowSlugConflict('drive', err, slug));
+  forgetPreviews();
   return (await loadLink(row.id)).shape;
 }
 
 export async function deleteLink(ctx, id) {
   const { row } = await ownedLink(ctx, id);
-  await query(`DELETE FROM drive_links WHERE id = $1`, [row.id]);
-  await releaseSlug('drive', row.slug, row.created_by);
+  await withTransaction(async (client) => {
+    await client.query(`DELETE FROM drive_links WHERE id = $1`, [row.id]);
+    await releaseSlug('drive', row.slug, row.created_by, client);
+  });
+  forgetPreviews();
   return row;
 }
 
@@ -292,38 +310,75 @@ function fail(status, code, message, details) {
   return error;
 }
 
-/** The visitor session in `token`, when it belongs to this link and its current version. */
-export function readVisitor(row, token) {
+const SCOPES = { r: 'read', w: 'write' };
+
+/**
+ * The visitor token in `token`, when it belongs to this link and its current
+ * version: { sid, name, email, scope } (scope 'read', 'write' or 'legacy' —
+ * issued before scopes). `from` says where it came from:
+ *   'url'    — the address: read tokens (and legacy ones, for pages opened
+ *              before the upgrade) only;
+ *   'header' — X-Link-Token on a read request: any kind;
+ *   'write'  — X-Link-Token on a change or a new session: never a read token.
+ */
+export function readVisitor(row, token, { from = 'header' } = {}) {
   if (!token) return null;
   try {
     const payload = jwt.verify(String(token), secret());
     if (payload.lid !== row.id || payload.v !== row.version) return null;
-    return { sid: payload.sid || null, name: payload.n || null, email: payload.e || null };
+    const scope = SCOPES[payload.s] || 'legacy';
+    if (from === 'url' && scope === 'write') return null;
+    if (from === 'write' && scope === 'read') return null;
+    return { sid: scope === 'read' ? null : payload.sid || null, name: payload.n || null, email: payload.e || null, scope };
   } catch {
     return null;
   }
 }
 
+const signSession = (row, { sid, name, email }) => {
+  const payload = { lid: row.id, v: row.version, s: 'w', sid: sid || randomBytes(12).toString('base64url') };
+  if (name) payload.n = name;
+  if (email) payload.e = email;
+  return jwt.sign(payload, secret(), { expiresIn: '12h' });
+};
+
+/** A read token for file addresses: no session, no name, no changes. */
+export const signReader = (row) => jwt.sign({ lid: row.id, v: row.version, s: 'r' }, secret(), { expiresIn: '12h' });
+
 /**
  * Opens a visitor session: checks the password (when the link has one) and
  * records the name and e-mail the visitor gave. A visitor who already holds a
- * session (`current`) keeps its id when they only add their name.
+ * session (`current`, from the header; never a read token) keeps its id when
+ * they only add their name.
  */
 export async function unlockLink(token, input = {}, current = '') {
   const { rows } = await query(`SELECT * FROM drive_links l WHERE ${addressMatch('l', 1)} AND revoked_at IS NULL ${addressOrder('l', 1)}`, [String(token || '').slice(0, 64)]);
   const link = rows[0];
   if (!link) throw fail(404, 'NOT_FOUND', 'This link does not exist');
-  const existing = readVisitor(link, current);
+  const existing = readVisitor(link, current, { from: 'write' });
   if (link.password_hash && !existing) {
     if (!(await bcrypt.compare(String(input.password || ''), link.password_hash))) throw fail(401, 'WRONG_PASSWORD', 'Wrong password');
   }
   const given = input.name !== undefined || input.email !== undefined;
   const visitor = given ? cleanVisitor(input, link) : { name: existing?.name || null, email: existing?.email || null };
-  const sid = existing?.sid || randomBytes(12).toString('base64url');
-  const payload = { lid: link.id, v: link.version, sid };
-  if (visitor.name) payload.n = visitor.name;
-  if (visitor.email) payload.e = visitor.email;
-  return { token: jwt.sign(payload, secret(), { expiresIn: '12h' }), visitor: { name: visitor.name, email: visitor.email } };
+  return {
+    token: signSession(link, { sid: existing?.sid, ...visitor }),
+    readToken: signReader(link),
+    visitor: { name: visitor.name, email: visitor.email },
+  };
+}
+
+/**
+ * Tokens for the page that opened the link: a read token for file addresses
+ * (when the visitor holds any token), and a fresh session token in place of
+ * one issued before scopes existed (same session id, name and e-mail).
+ */
+export function pageTokens(row, visitor, from = 'header') {
+  // Only for a token the page sent in the header: one found in an address (a log) is never renewed.
+  if (!visitor || from !== 'header') return {};
+  const out = { readToken: signReader(row) };
+  if (visitor.scope === 'legacy') out.visitorToken = signSession(row, visitor);
+  return out;
 }
 
 /**
@@ -331,7 +386,7 @@ export async function unlockLink(token, input = {}, current = '') {
  * NOT_FOUND, REVOKED, EXPIRED, OWNER_INACTIVE, LINKS_DISABLED, SIGN_IN_REQUIRED,
  * PASSWORD_REQUIRED, OWNER_NO_ACCESS, UNAVAILABLE, UPLOADS_DISABLED.
  */
-export async function openLink(token, visitorToken, viewer) {
+export async function openLink(token, visitorToken, viewer, { from = 'header' } = {}) {
   const settings = await driveSettings();
   const { rows } = await query(`${SELECT} WHERE ${addressMatch('l', 1)} ${addressOrder('l', 1)}`, [String(token || '').slice(0, 64)]);
   const row = rows[0];
@@ -346,15 +401,14 @@ export async function openLink(token, visitorToken, viewer) {
   if (!shareRows[0]?.allow_links) throw fail(403, 'LINKS_DISABLED', 'Links are turned off for this folder');
 
   const perms = effectivePerms(row, settings);
-  if (!perms.length) throw fail(403, 'UPLOADS_DISABLED', 'Uploads through links are turned off', { name: row.title || row.name });
+  // Refusals before the link opens say nothing about it (no name, no kind).
+  if (!perms.length) throw fail(403, 'UPLOADS_DISABLED', 'Uploads through links are turned off');
 
   const audience = settings.linkAudience === 'employees' ? 'employees' : row.audience;
-  if (audience === 'employees' && !viewer) throw fail(401, 'SIGN_IN_REQUIRED', 'Sign in to open this link', { name: row.name });
+  if (audience === 'employees' && !viewer) throw fail(401, 'SIGN_IN_REQUIRED', 'Sign in to open this link');
 
-  const visitor = readVisitor(row, visitorToken);
-  if (row.password_hash && !visitor) {
-    throw fail(401, 'PASSWORD_REQUIRED', 'This link is protected by a password', { name: row.title || row.name, kind: row.kind });
-  }
+  const visitor = readVisitor(row, visitorToken, { from });
+  if (row.password_hash && !visitor) throw fail(401, 'PASSWORD_REQUIRED', 'This link is protected by a password');
 
   // Act as the author: visibility, credentials and server rights are theirs.
   const ownerCtx = await contextForUser(row.created_by);
@@ -365,7 +419,7 @@ export async function openLink(token, visitorToken, viewer) {
     if (err.code === 'NOT_FOUND') throw fail(403, 'OWNER_NO_ACCESS', 'The author no longer has access to these files');
     throw fail(503, 'UNAVAILABLE', 'The files are temporarily unavailable', { reason: err.code === 'CREDENTIALS_FAILED' || err.code === 'CREDENTIALS_REQUIRED' ? 'credentials' : 'server' });
   }
-  return { link: row, target, audience, perms, visitor, settings };
+  return { link: row, target, audience, perms, visitor, visitorFrom: visitor ? from : null, settings };
 }
 
 /** A path inside the link, relative to the link root. */
@@ -427,12 +481,21 @@ export async function recordUpload(link, visitor, { path, name, size, ip }) {
   );
 }
 
-/** What this visitor session uploaded (paths relative to the link root). */
-export async function myUploads(link, visitor) {
+/**
+ * What this visitor session uploaded (paths relative to the link root). A
+ * visitor who cannot see the folder (`masked`) gets the names they sent, never
+ * the stored ones ("x (1).xlsx" would tell that "x.xlsx" is there).
+ */
+export async function myUploads(link, visitor, { masked = false } = {}) {
   if (!visitor?.sid) return [];
   const { rows } = await query(
     `SELECT path, name, size, at FROM drive_link_uploads WHERE link_id = $1 AND session_id = $2 ORDER BY at DESC LIMIT 500`,
     [link.id, visitor.sid]
   );
-  return rows.map((row) => ({ name: row.name, path: link.path ? row.path.slice(link.path.length + 1) : row.path, size: Number(row.size), at: row.at }));
+  return rows.map((row) => ({
+    name: row.name,
+    path: masked ? row.name : link.path ? row.path.slice(link.path.length + 1) : row.path,
+    size: Number(row.size),
+    at: row.at,
+  }));
 }

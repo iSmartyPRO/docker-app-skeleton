@@ -92,6 +92,18 @@ export async function markProcurementDelivery(row, actorId) {
   return result;
 }
 
+/** After a receipt with a request is reversed: its delivery mark goes back (what is still to come is recomputed). */
+export async function revertProcurementDelivery(row, actorId) {
+  if (!(await modulesState()).procurement) return { skipped: 'MODULE_DISABLED' };
+  const { rows: items } = await query(`SELECT id, qty FROM proc_items WHERE request_id = $1`, [row.proc_request_id]);
+  const received = await receivedByProcItem(row.proc_request_id);
+  const partial = items.length ? items.some((item) => (received.get(item.id) || 0) < Number(item.qty) - EPS) : null;
+  const { revertExternalDelivery } = await import('../procurement/money.js');
+  const result = await revertExternalDelivery({ requestId: row.proc_request_id, actorId, reference: row.number, source: 'warehouse', partial });
+  await logEvent({ query }, 'doc', row.id, actorId, result.skipped ? 'procurement_revert_skipped' : 'procurement_reverted', { requestId: row.proc_request_id, ...(result.skipped ? { reason: result.skipped } : { status: result.status }) });
+  return result;
+}
+
 async function createPurchaseDraft(req, { title, lines, description }) {
   await assertProcurement(req);
   const ctx = await whContext(req);

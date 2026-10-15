@@ -85,7 +85,7 @@ export async function runDaily({ today: forcedToday, settings: forcedSettings } 
     `SELECT ins.id, ins.inventory_no, ins.next_service_on::text AS due, i.name, s.holder_type, s.holder_id, s.warehouse_id
      FROM wh_instances ins JOIN wh_items i ON i.id = ins.item_id
      LEFT JOIN LATERAL (SELECT * FROM wh_stock st WHERE st.instance_id = ins.id AND st.qty > 0 LIMIT 1) s ON TRUE
-     WHERE ins.state <> 'written_off' AND ins.next_service_on IS NOT NULL AND ins.next_service_on <= $1::date`,
+     WHERE ins.state NOT IN ('written_off', 'lost') AND ins.next_service_on IS NOT NULL AND ins.next_service_on <= $1::date`,
     [addDays(today, settings.serviceWarnDays ?? 7)]
   );
   for (const tool of tools) {

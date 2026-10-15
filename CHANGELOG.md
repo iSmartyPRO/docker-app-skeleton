@@ -5,6 +5,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Warehouse: two people scanning one tool count it once; a tool found in another bin is moved by the inventory act instead of being in two places; a tool counted in two bins stops the finish until the manager decides; serial items are counted per tool label on the phone (a counted piece can be removed one by one); batch surpluses go into an existing batch; tools not found become «Не найден» and come back with a storno.
+- Warehouse: the phone's inventory queue keeps counts when the session expired or a request was refused for a moment and sends them after signing in (only closed or deleted inventories drop them).
+- Warehouse: the inventory act is built under the session lock (no count lost to a last-second sync); deleting a failed act lets the session be reopened.
+- Warehouse: storno keeps the closed period, never leaves value on empty stock (a recorded cost adjustment), gives back consumed reserves and takes the delivery mark back in Procurement; a hand-over decline can no longer cancel a confirmed one.
+- Warehouse: old drafts are dated when posted (a chosen past date stays); the closed period and «today» follow the portal's time zone; an emptied «received» field means 0, not «all arrived»; a barcode scanned into a quantity field is taken as a scan.
+- Warehouse: a write-off from an employee takes only what came from the document's warehouse; the «not enough stock» safety-net error names the item and quantities; about 20 error codes got Russian and English texts.
+- Public links (Files, Drive): a drop box answers and lists a visitor's upload under the name they sent, even when the folder already had that name (the owner sees the stored «Name (2)»).
+- Public links: views count once per visitor tab — not reloads after an upload, not F5, not «Open as recipient» (Drive now supports `?preview=1` too).
+- Public links: Files and Drive read a permission list by one rule (`['upload', 'download']` is a drop box in both; stored Drive lists keep their meaning); the picker uses the same rule.
+- Files: folder uploads of hundreds of files through a public link are no longer stopped by the general guest limit (uploads have their own per-link budget, like Drive); nginx accepts `/api/v1/l/…/upload` like `/api/l/…`.
+- Files: Russian and English texts for the public-link errors TOO_MANY_FILES, NOT_FOLDER, NOT_FILE, FILE_MISSING, MOVE_CYCLE, SYSTEM_FOLDER, TRASHED, LINK_DISABLED, NAME_REQUIRED.
+- Link previews: a changed, revoked or deleted link (or a new address) shows its new state at once, not after a minute.
+- Phones: the bottom action bar of Files and Drive no longer covers the end of the list.
+- Releases: a push that failed is retried by the next `make release` / `make deploy` (also when there is nothing new to release); `make deploy` pushes the release only after the new version is up and healthy, and stops when the database backup cannot be made (`BACKUP=skip` to deploy without one). See docs/operations.md, «Failed deploy».
+
+### Security
+
+- Warehouse: posted sums no longer leak through document history or approval processes to people without the cost right; the item card, scanned codes, holder hints and the «by holder» report show only places the person may see; code lookup needs a warehouse right, a running count or held goods.
+- Public links (Files, Drive): file addresses (`?t=`) carry a separate read-only token; the visitor session that allows changes travels only in the `X-Link-Token` header, and the bundled nginx masks `t=` in its access log. Sessions issued before are swapped on the next page load without asking anything again.
+- Public links: rate limits count per link, so letter-case variants of a custom address no longer get extra password attempts or uploads.
+- Public links: a password-protected or employees-only link no longer tells its name or kind before it is opened; link previews follow the IP allow-list (a refused address gets the plain page, no link lookup); a forged `Host` header can no longer make the server draw new preview pictures, and the drawing queue is bounded.
+- Public links: changing or deleting a custom address writes its 90-day hold in the same transaction.
+- Files: links that accept files and have no quota of their own are limited by a new module setting «Максимальный объём загрузок по ссылке по умолчанию» (2 GB by default; uploads and new versions count).
+
 ## [1.0.1] - 2026-10-15
 
 ### Fixed

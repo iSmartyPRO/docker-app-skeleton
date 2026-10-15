@@ -9,7 +9,7 @@ import { whApi } from '../api';
 import { useWh } from '../WhContext';
 import { formatQty, scanFeedback, whError } from '../lib';
 import { BinSelect } from '../components/bits';
-import { BottomBar, MobileTop, ScanBar, SuccessScreen, WarehouseChip, useMobileWarehouse, useResolver } from './parts';
+import { BottomBar, MobileTop, ScanBar, SuccessScreen, WarehouseChip, useMobileWarehouse, useQtyScanGuard, useResolver } from './parts';
 
 /** The list of transfers waiting for acceptance at the chosen warehouse; scanning a transfer number opens it. */
 function AcceptList() {
@@ -64,6 +64,12 @@ function AcceptList() {
       )}
     </div>
   );
+}
+
+/** The received quantity of a line; a wedge scanner aimed at it scans instead of typing digits. */
+function ReceivedInput({ value, onChange, onCode, label }) {
+  const guard = useQtyScanGuard({ value, restore: onChange, onCode });
+  return <input type="text" inputMode="decimal" value={String(value ?? '')} onChange={(e) => onChange(e.target.value.replace(',', '.').replace(/[^\d.]/g, ''))} onKeyDown={guard} aria-label={label} />;
 }
 
 /** Accepting one transfer: received quantity per line (default as shipped), the bin, scanning to check. */
@@ -138,7 +144,9 @@ function AcceptDoc({ id }) {
   const submit = async () => {
     setBusy(true);
     try {
-      const res = await whApi.action(doc.id, 'receive', { lines: rows, comment });
+      // An emptied field is «nothing arrived» (0), as the difference on screen shows — never «as shipped».
+      const lines = rows.map((r) => ({ ...r, receivedQty: r.receivedQty === '' || r.receivedQty === null || r.receivedQty === undefined ? 0 : Number(r.receivedQty) }));
+      const res = await whApi.action(doc.id, 'receive', { lines, comment });
       const act = res.data.document.derived?.find((d) => d.type === 'discrepancy');
       setDone({ act: act?.number || null });
       inboxChanged();
@@ -170,7 +178,7 @@ function AcceptDoc({ id }) {
               <div className="whm-accept__row">
                 <div className="whm-mini-stepper">
                   <button type="button" onClick={() => setRow(index, { receivedQty: Math.max(0, Number(r.receivedQty) - 1) })} aria-label={t('whm.qty.less')}><MinusOutlined /></button>
-                  <input type="text" inputMode="decimal" value={String(r.receivedQty)} onChange={(e) => setRow(index, { receivedQty: e.target.value.replace(',', '.').replace(/[^\d.]/g, '') })} aria-label={t('wh.lines.received')} />
+                  <ReceivedInput value={r.receivedQty} onChange={(receivedQty) => setRow(index, { receivedQty })} onCode={onCode} label={t('wh.lines.received')} />
                   <button type="button" onClick={() => setRow(index, { receivedQty: Number(r.receivedQty) + 1 })} aria-label={t('whm.qty.more')}><PlusOutlined /></button>
                 </div>
                 <span className="whm-muted">{line.unit}</span>

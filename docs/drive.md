@@ -133,7 +133,7 @@ Custom addresses follow the Files rules (3–64 characters, `a–z`, `0–9`, si
 | Full access | all seven | |
 | Customize… | any combination | |
 
-The seven permissions: `view` (list and open), `download` (files and ZIPs), `upload` (new files), `mkdir` (new folders, also needed to upload whole folders), `rename`, `replace` (a new version of an existing file), `delete`. Everything except `upload` needs `view`. A **file** link can only grant `view`, `download` and `replace`.
+The seven permissions: `view` (list and open), `download` (files and ZIPs), `upload` (new files), `mkdir` (new folders, also needed to upload whole folders), `rename`, `replace` (a new version of an existing file), `delete`. Everything except `upload` needs `view` and is dropped without it (never turned into a read link: `['upload', 'download']` is the file request `['upload']`), the same rule as Files and the picker (`modules/shared/linkPermissions.js`). Lists saved by the earlier rule, which added `view` instead, are read as before. A **file** link can only grant `view`, `download` and `replace`.
 
 **Upload rules** (shown when the link accepts files): maximum file size (within the module's limit), allowed file types (`.pdf, .jpg`), a total for the link (quota), *Ask the visitor's name* (and e-mail), *Notify me*. A **title** and a **message** for the recipient are optional; the editor shows a live preview of the page the recipient will see.
 
@@ -149,12 +149,14 @@ A link has **no access of its own**. Reading and every change act with the **aut
 
 ### Visitors who change files
 
-- **Visitor session.** Changes need a visitor session: a signed token (12 h) bound to the link and its version, with a random session id and the name and e-mail the visitor gave. A new password, or turning the link off or on, ends every session. The token travels only in the `X-Link-Token` header — never in the address — which a page on another site cannot set; with the portal's Origin check this keeps forged cross-site requests out.
+- **Visitor session.** Changes need a visitor session: a signed token (12 h, scope `w`) bound to the link and its version, with a random session id and the name and e-mail the visitor gave. A new password, or turning the link off or on, ends every session. The token travels only in the `X-Link-Token` header — never in the address — which a page on another site cannot set; with the portal's Origin check this keeps forged cross-site requests out.
+- **Read tokens in addresses.** File addresses (`/file`, `/thumb`, `/preview.pdf`, `/cad`, `/zip` in `<img>`, `<video>`, the PDF viewer, downloads) carry a separate read token in `?t=` (scope `r`, no session id) that the page gets with every load. It opens files but never changes anything, never opens a session (`/unlock` does not accept it in place of the password) and is the only kind accepted in an address, so what ends up in browser history or access logs (the bundled nginx also masks `t=`) cannot be used for changes. Tokens issued before scopes existed are swapped on the next page load (same session id and name), so open pages keep working.
 - **Name and e-mail.** With *Ask the visitor's name* the page asks once before the first change; the name appears next to each change in the activity log and in notifications.
-- **Clashes never overwrite silently.** Upload-only visitors always get a free name (`report (1).pdf`). Visitors who see the folder are asked *Replace / Keep both / Skip*; *Replace* is offered only with the `replace` permission.
+- **Clashes never overwrite silently.** An upload-only visitor's file is stored under a free name (`report (1).pdf`), but the visitor is answered — and later shown in *my uploads* — the name they sent: a file request never tells what the folder holds. The author and the activity log see the stored name. Visitors who see the folder are asked *Replace / Keep both / Skip*; *Replace* is offered only with the `replace` permission.
 - **Deleting is final.** File servers have no recycle bin, so `delete` must be granted explicitly; the editor warns the author and visitors confirm with a check box (*I understand, delete for good*).
 - **Paths stay inside the link** (no `..`, backslashes, `:` or Windows-forbidden characters, checked in Node and the gateway). The link's own root cannot be renamed or deleted. Hidden and system items (and names starting with `.` or `~$`) are never listed, cannot be changed and cannot be created by visitors.
-- **Limits.** Per file: the link's maximum within the module's *Maximum upload size*; file types; the link's total (reserved atomically before each upload, so parallel uploads cannot overshoot it, and given back when an upload fails). Rate limits per visitor address and link: 600 uploads and 120 other changes per 15 minutes, and 3,000 changes per hour per link; wrong passwords: 10 per 15 minutes.
+- **Limits.** Per file: the link's maximum within the module's *Maximum upload size*; file types; the link's total (reserved atomically before each upload, so parallel uploads cannot overshoot it, and given back when an upload fails). Rate limits per visitor address and link: 600 uploads and 120 other changes per 15 minutes, and 3,000 changes per hour per link; wrong passwords: 10 per 15 minutes. Limits count per link (its id): the token and every letter case of the custom address share one budget.
+- **Views.** A view is the first load of the link page by a person in a browser tab. Crawlers, *Open as recipient* (`?preview=1`) and reloads in the same tab (`?repeat=1`, after an upload or F5) do not count.
 - **Uploads stream** through the gateway exactly like signed-in uploads (temporary file, rename at the end, dropped when the browser goes away).
 - **Notifications.** With *Notify me*, the author gets one notification per visitor burst (after 2 quiet minutes, at most 10 minutes after the first change): *Ivan uploaded 5 files via your link "Documents"*, with the names. Kind `drive.linkActivity` (*Activity on my links* in notification settings). Bursts are kept in memory; a restart in the middle of one loses that digest, never a file.
 
@@ -235,13 +237,13 @@ All under `/api/app/drive`, signed-in users only (`:id` = folder id, `path` = pa
 | GET | `/link-slugs/check?slug=[&linkId=]` | `{ slug, available, reason, suggestions }` (as in Files; 60 checks per minute per person) |
 | `*` | `/admin/…` | Servers, folders, order, test, all links (`drive.admin`) |
 
-Public (`X-Link-Token` header or `?t=` after unlocking; the session cookie counts for *Employees only*). `:token` is the token or the custom address, in any case:
+Public (`X-Link-Token` header; content URLs also take the read token in `?t=`; the session cookie counts for *Employees only*). `:token` is the token or the custom address, in any case:
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/api/d/:token/unlock` | Visitor session: `{ password?, name?, email? }` → `{ token, visitor }`; with a current token in `X-Link-Token` it keeps the session and adds the name |
-| GET | `/api/d/:token[?path=]` | The item, or a folder's contents inside the link; `link.permissions`, `link.limits`, `visitor`; `uploadOnly: true` and no entries for file requests |
-| GET | `/api/d/:token/mine` | What this visitor session uploaded |
+| POST | `/api/d/:token/unlock` | Visitor session: `{ password?, name?, email? }` → `{ token, readToken, visitor }`; with a current session token in `X-Link-Token` it keeps the session and adds the name (a read token there counts for nothing) |
+| GET | `/api/d/:token[?path=][&preview=1][&repeat=1]` | The item, or a folder's contents inside the link; `link.permissions`, `link.limits`, `visitor`; `uploadOnly: true` and no entries for file requests. With a visitor token in the header (never one from the address): `readToken` for content URLs and `visitorToken` replacing a token issued before scopes. `preview=1` / `repeat=1`: not counted as a view |
+| GET | `/api/d/:token/mine` | What this visitor session uploaded (file requests: under the names sent) |
 | GET | `/api/d/:token/file` · `/thumb` · `/preview.pdf` · `/cad` · `/zip` | Content (`view`; downloads need `download`) |
 | PUT | `/api/d/:token/upload?path=&name=&conflict=fail\|rename\|replace` | Raw body; `upload` (`replace` for overwriting); upload-only visitors always get `rename` into the link root |
 | PUT | `/api/d/:token/replace?path=` | New version of an existing file (`replace`; the file itself for a file link) |
@@ -250,6 +252,8 @@ Public (`X-Link-Token` header or `?t=` after unlocking; the session cookie count
 | POST | `/api/d/:token/delete` | `{ paths }`, up to 100 (`delete`) |
 
 All changes need the visitor session in the `X-Link-Token` header. The bundled `nginx.conf` streams `/api/d/<token>/upload` and `/replace` like signed-in Drive uploads (10 GB, no buffering).
+
+`PASSWORD_REQUIRED`, `SIGN_IN_REQUIRED` and `UPLOADS_DISABLED` carry no details: the link's name and kind are shown only once it opens.
 
 Visitor error codes: `NOT_FOUND`, `REVOKED`, `EXPIRED`, `OWNER_INACTIVE`, `OWNER_NO_ACCESS`, `GONE`, `UNAVAILABLE` (`info.reason`: `credentials` or `server`), `LINKS_DISABLED`, `UPLOADS_DISABLED`, `SIGN_IN_REQUIRED`, `PASSWORD_REQUIRED`, `WRONG_PASSWORD`, `NO_DOWNLOAD`, `NO_PERMISSION`, `SESSION_REQUIRED`, `VISITOR_REQUIRED`, `NAME_REQUIRED`, `EMAIL_REQUIRED`, `EMAIL_INVALID`, `FILE_TOO_LARGE` (`info.maxMb`), `EXT_NOT_ALLOWED`, `LINK_QUOTA_EXCEEDED`, `WRITE_DENIED`, `ITEM_GONE`, `EXISTS`, `INVALID_NAME`, `INVALID_PATH`, `RATE_LIMITED`.
 

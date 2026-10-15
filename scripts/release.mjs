@@ -9,6 +9,7 @@
  *   node scripts/release.mjs 1.0.0        set an exact version
  *   node scripts/release.mjs --dry-run    show what would happen, change nothing
  *   node scripts/release.mjs --no-push    commit and tag locally only
+ *   node scripts/release.mjs --push-only  only push what is not on origin yet (branch, release tags)
  *
  * Classification of each commit since the last `v*` tag (the highest wins):
  *   major  "BREAKING CHANGE" in the message, or a Conventional Commit with "!" (feat!: …)
@@ -16,6 +17,11 @@
  *   patch  everything else: fix:, perf:, refactor:, docs:, chore:, style:, test:, plain fixes
  * Release commits themselves ("chore(release): …") are ignored. With no new commits
  * since the last tag nothing is released (exit code 0, message "Nothing to release").
+ *
+ * A push that failed earlier (network, credentials) is never lost: every run that
+ * may push first checks origin — the branch ahead of its upstream, or the last
+ * release tag missing there — and pushes what is missing (`make deploy` releases
+ * with --no-push and calls --push-only once the new version is up and healthy).
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -26,6 +32,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const noPush = args.includes('--no-push');
+const pushOnly = args.includes('--push-only');
 const explicit = args.find((arg) => !arg.startsWith('--'));
 
 const git = (...params) => execFileSync('git', params, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -112,7 +119,58 @@ function repoUrl() {
   }
 }
 
+/**
+ * The git pushes that bring origin up to date (pure, unit-tested):
+ *   ahead       commits on the branch that origin does not have (null: unknown,
+ *               e.g. no upstream yet — then the branch is pushed)
+ *   tag         the last release tag (or null)
+ *   tagOnRemote whether origin has that tag
+ * Annotated release tags on the pushed commits go along (--follow-tags); the
+ * last tag is also pushed by name when the branch itself is up to date.
+ */
+export function pushPlan({ branch, ahead, tag, tagOnRemote }) {
+  const plan = [];
+  if (!branch || branch === 'HEAD') return plan;
+  if (ahead === null || ahead === undefined || ahead > 0) plan.push(['push', '--follow-tags', 'origin', branch]);
+  if (tag && !tagOnRemote) plan.push(['push', 'origin', `refs/tags/${tag}`]);
+  return plan;
+}
+
+/** What origin is missing: { branch, ahead, tag, tagOnRemote } (network: git ls-remote). */
+export function remoteState(tag, run = git) {
+  const branch = run('rev-parse', '--abbrev-ref', 'HEAD');
+  let ahead = null;
+  try {
+    ahead = Number(run('rev-list', '--count', '@{u}..HEAD'));
+  } catch {
+    ahead = null; // no upstream: push the branch (it sets nothing up, origin just gets it)
+  }
+  let tagOnRemote = true;
+  if (tag) {
+    try {
+      tagOnRemote = Boolean(run('ls-remote', '--tags', 'origin', `refs/tags/${tag}`));
+    } catch {
+      tagOnRemote = false;
+    }
+  }
+  return { branch, ahead: Number.isFinite(ahead) ? ahead : null, tag, tagOnRemote };
+}
+
+/** Pushes whatever origin is missing; returns the number of pushes made. */
+function pushPending(tag) {
+  const state = remoteState(tag);
+  const plan = pushPlan(state);
+  for (const step of plan) git(...step);
+  if (plan.length) console.log(`Pushed to origin: ${state.branch}${state.tag && !state.tagOnRemote ? ` and ${state.tag}` : ''}.`);
+  return plan.length;
+}
+
 function main() {
+  if (pushOnly) {
+    const pushed = pushPending(lastTag());
+    if (!pushed) console.log('Origin is up to date.');
+    return;
+  }
   if (!dryRun && git('status', '--porcelain', '--untracked-files=no')) {
     console.error('The working tree has uncommitted changes: commit them first.');
     process.exit(1);
@@ -123,6 +181,12 @@ function main() {
   const commits = commitsSince(tag);
   if (tag && !commits.length && !explicit) {
     console.log(`Nothing to release: no changes since ${tag}.`);
+    // A release whose push failed earlier is pushed now (not with --no-push or --dry-run).
+    if (!noPush && !dryRun) pushPending(tag);
+    else if (dryRun) {
+      const plan = pushPlan(remoteState(tag));
+      if (plan.length) console.log(`Not on origin yet: ${plan.map((step) => step.at(-1)).join(', ')}`);
+    }
     return;
   }
 
@@ -154,12 +218,7 @@ function main() {
   git('commit', '-m', `chore(release): v${version}`);
   git('tag', '-a', `v${version}`, '-m', `v${version}`);
   console.log(`Released v${version}.`);
-  if (!noPush) {
-    const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
-    git('push', 'origin', branch);
-    git('push', 'origin', `v${version}`);
-    console.log(`Pushed ${branch} and v${version}.`);
-  }
+  if (!noPush) pushPending(`v${version}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();

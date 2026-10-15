@@ -74,8 +74,14 @@ browser / crawler ──► nginx  ── built file exists? (assets, sw.js, ver
   Drive link get the page at once. Responses for link pages carry
   `Vary: User-Agent`.
 - Models are memoised for 60 s (the page and its picture are fetched together);
-  settings changes are picked up within the settings cache (5 s, dropped on
-  every save).
+  creating, changing (title, password, permissions, address), revoking or
+  deleting a Files or Drive link clears the memo at once
+  (`services/linkPreview/memo.js`), so a preview never shows a link's old
+  state; settings changes are picked up within the settings cache (5 s,
+  dropped on every save).
+- The page shell runs the IP rules itself (it is mounted before the IP guard):
+  an address the allow-list or block-list refuses gets the plain `index.html`
+  (as nginx would serve it) — no portal facts, no link looked up.
 
 ## Endpoints
 
@@ -88,13 +94,19 @@ browser / crawler ──► nginx  ── built file exists? (assets, sw.js, ver
 
 Limits: pictures and `/api/og/preview` — 60 per minute per address (plus the
 general API limit); link lookups for pages — 60 per minute per address, above
-that the page gets the generic portal card instead of an error.
+that the page gets the generic portal card instead of an error. At most two
+pictures are drawn at a time and 16 wait; beyond that a picture request is
+answered with the app icon (`302`, `no-store`) instead of queueing.
 
 ## Caching
 
 Pictures are stored as `uploads/.previews/og/<hash>.png`. The hash covers
 everything drawn (texts, colours, portal name, icon URL, thumbnail version,
 host), so a changed link, file or setting is a new file and a new `?v=`. The
+host drawn on the card is the configured address (`PUBLIC_URL`, else
+`FRONTEND_URL` unless it is a loopback default; none → no host on the card),
+never the request's `Host` header, so a forged `Host` can neither change a
+cached picture nor make the server draw new ones. The
 scheduled `storage:previews` job removes pictures nobody fetched for 30 days.
 
 Messengers cache previews on their side (Telegram: re-fetch with @WebpageBot,

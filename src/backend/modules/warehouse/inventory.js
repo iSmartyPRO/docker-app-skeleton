@@ -7,6 +7,7 @@ import {
   FREEZE_POLICIES,
   actLines,
   applyCountOp,
+  instancesTwice,
   areaProgress,
   cleanOp,
   nextDue,
@@ -102,8 +103,8 @@ async function categoryNames(ids) {
   return new Map(rows.map((row) => [row.id, row.name]));
 }
 
-async function areasOf(sessionId) {
-  const { rows } = await query(
+async function areasOf(sessionId, db = { query }) {
+  const { rows } = await db.query(
     `SELECT a.*, b.path, (SELECT COUNT(*)::int FROM wh_inv_counts c WHERE c.session_id = a.session_id AND COALESCE(c.bin_id, 0) = COALESCE(a.bin_id, 0) AND c.qty > 0) AS counted,
             (SELECT COUNT(DISTINCT c.counter_id)::int FROM wh_inv_counts c WHERE c.session_id = a.session_id AND COALESCE(c.bin_id, 0) = COALESCE(a.bin_id, 0) AND c.qty > 0) AS counters
      FROM wh_inv_areas a LEFT JOIN wh_bins b ON b.id = a.bin_id WHERE a.session_id = $1 ORDER BY a.bin_id IS NULL, b.path`,
@@ -124,46 +125,96 @@ const areaShape = (row, people) => ({
   counters: row.counters ?? 0,
 });
 
+/** Areas of many sessions in one query (with counted rows and counters per area). */
+async function areasOfMany(sessionIds) {
+  if (!sessionIds.length) return new Map();
+  const { rows } = await query(
+    `SELECT a.*, b.path, COALESCE(c.counted, 0)::int AS counted, COALESCE(c.counters, 0)::int AS counters
+     FROM wh_inv_areas a LEFT JOIN wh_bins b ON b.id = a.bin_id
+     LEFT JOIN (SELECT session_id, COALESCE(bin_id, 0) AS bk, COUNT(*) AS counted, COUNT(DISTINCT counter_id) AS counters FROM wh_inv_counts WHERE session_id = ANY($1::int[]) AND qty > 0 GROUP BY session_id, COALESCE(bin_id, 0)) c
+       ON c.session_id = a.session_id AND c.bk = COALESCE(a.bin_id, 0)
+     WHERE a.session_id = ANY($1::int[]) ORDER BY a.session_id, a.bin_id IS NULL, b.path`,
+    [sessionIds]
+  );
+  const out = new Map(sessionIds.map((id) => [id, []]));
+  for (const row of rows) out.get(row.session_id).push(row);
+  return out;
+}
+
+async function participantsOfMany(sessionIds) {
+  const out = new Map(sessionIds.map((id) => [id, []]));
+  if (!sessionIds.length) return out;
+  const { rows } = await query(
+    `SELECT session_id, user_id FROM wh_inv_people WHERE session_id = ANY($1::int[]) UNION SELECT session_id, assignee_id FROM wh_inv_areas WHERE session_id = ANY($1::int[]) AND assignee_id IS NOT NULL`,
+    [sessionIds]
+  );
+  for (const row of rows) if (!out.get(row.session_id).includes(row.user_id)) out.get(row.session_id).push(row.user_id);
+  return out;
+}
+
+/**
+ * Card shapes of sessions, loaded in bulk (lists ask for up to 200 at once):
+ * a fixed number of queries whatever the number of rows. `docs` (Map
+ * sessionId → { id, status, number } | null) skips loading the acts.
+ */
+async function sessionShapes(ctx, rows, { areas = null, people = null, docs = null } = {}) {
+  if (!rows.length) return [];
+  const ids = rows.map((row) => row.id);
+  const [{ rows: whs }, areaMap, peopleMap, { rows: docRows }, { rows: schedules }] = await Promise.all([
+    query(`SELECT id, name, bins_enabled FROM wh_warehouses WHERE id = ANY($1::int[])`, [[...new Set(rows.map((row) => row.warehouse_id))]]),
+    areas ? new Map([[rows[0].id, areas]]) : areasOfMany(ids),
+    people ? new Map([[rows[0].id, people]]) : participantsOfMany(ids),
+    docs ? { rows: [] } : query(`SELECT id, number, status FROM wh_docs WHERE id = ANY($1::int[])`, [rows.map((row) => row.doc_id).filter(Boolean)]),
+    query(`SELECT id, title, every_days FROM wh_inv_schedules WHERE id = ANY($1::int[])`, [rows.map((row) => row.schedule_id).filter(Boolean)]),
+  ]);
+  const whOf = new Map(whs.map((w) => [w.id, w]));
+  const docOf = new Map(docRows.map((d) => [d.id, d]));
+  const scheduleOf = new Map(schedules.map((sc) => [sc.id, sc]));
+  const users = await usersByIds(rows.flatMap((row) => [...(peopleMap.get(row.id) || []), row.created_by, row.finished_by, ...(areaMap.get(row.id) || []).flatMap((a) => [a.assignee_id, a.done_by])]));
+  const paths = await binPaths(rows.flatMap((row) => row.bin_roots || []));
+  const cats = await categoryNames(rows.flatMap((row) => row.category_roots || []));
+  return rows.map((row) => {
+    const wh = whOf.get(row.warehouse_id);
+    const list = areaMap.get(row.id) || [];
+    const who = peopleMap.get(row.id) || [];
+    const docRow = docs ? docs.get(row.id) ?? null : row.doc_id ? docOf.get(row.doc_id) || null : null;
+    const schedule = row.schedule_id ? scheduleOf.get(row.schedule_id) || null : null;
+    return {
+      id: row.id,
+      number: row.number,
+      title: row.title || '',
+      status: row.status,
+      warehouse: wh ? { id: wh.id, name: wh.name, binsEnabled: wh.bins_enabled } : { id: row.warehouse_id, name: '' },
+      blind: row.blind,
+      freezePolicy: row.freeze_policy,
+      freezes: sessionFreezes(row, docRow?.status || null),
+      scope: {
+        bins: (row.bin_roots || []).map((id) => ({ id, path: paths.get(id) || `#${id}` })),
+        categories: (row.category_roots || []).map((id) => ({ id, name: cats.get(id) || `#${id}` })),
+        partial: Boolean((row.bin_roots || []).length || (row.category_roots || []).length),
+      },
+      comment: row.comment || '',
+      createdBy: row.created_by ? users.get(row.created_by) || null : null,
+      createdAt: row.created_at,
+      startedAt: row.started_at,
+      closedAt: row.closed_at,
+      finishedAt: row.finished_at,
+      finishedBy: row.finished_by ? users.get(row.finished_by) || null : null,
+      cancelledAt: row.cancelled_at,
+      doc: docRow ? { id: docRow.id, number: docRow.number, status: docRow.status, url: `/app/warehouse/documents/${docRow.id}` } : null,
+      schedule: schedule ? { id: schedule.id, title: schedule.title || '', everyDays: schedule.every_days } : null,
+      progress: areaProgress(list),
+      people: who.map((id) => users.get(id) || { id, name: '' }),
+      url: `/app/warehouse/inventory/${row.id}`,
+      _users: users,
+      _areas: list,
+    };
+  });
+}
+
 async function sessionShape(ctx, row, { areas = null, people = null, doc = undefined } = {}) {
-  const [wh] = (await query(`SELECT id, name, bins_enabled FROM wh_warehouses WHERE id = $1`, [row.warehouse_id])).rows;
-  const list = areas || (await areasOf(row.id));
-  const ids = people || (await participants(row.id));
-  const users = await usersByIds([...ids, row.created_by, row.finished_by, ...list.flatMap((a) => [a.assignee_id, a.done_by])]);
-  const paths = await binPaths(row.bin_roots || []);
-  const cats = await categoryNames(row.category_roots || []);
-  const docRow = doc === undefined ? await docStatusOf(row.doc_id) : doc;
-  let schedule = null;
-  if (row.schedule_id) schedule = (await query(`SELECT id, title, every_days FROM wh_inv_schedules WHERE id = $1`, [row.schedule_id])).rows[0] || null;
-  return {
-    id: row.id,
-    number: row.number,
-    title: row.title || '',
-    status: row.status,
-    warehouse: wh ? { id: wh.id, name: wh.name, binsEnabled: wh.bins_enabled } : { id: row.warehouse_id, name: '' },
-    blind: row.blind,
-    freezePolicy: row.freeze_policy,
-    freezes: sessionFreezes(row, docRow?.status || null),
-    scope: {
-      bins: (row.bin_roots || []).map((id) => ({ id, path: paths.get(id) || `#${id}` })),
-      categories: (row.category_roots || []).map((id) => ({ id, name: cats.get(id) || `#${id}` })),
-      partial: Boolean((row.bin_roots || []).length || (row.category_roots || []).length),
-    },
-    comment: row.comment || '',
-    createdBy: row.created_by ? users.get(row.created_by) || null : null,
-    createdAt: row.created_at,
-    startedAt: row.started_at,
-    closedAt: row.closed_at,
-    finishedAt: row.finished_at,
-    finishedBy: row.finished_by ? users.get(row.finished_by) || null : null,
-    cancelledAt: row.cancelled_at,
-    doc: docRow ? { id: docRow.id, number: docRow.number, status: docRow.status, url: `/app/warehouse/documents/${docRow.id}` } : null,
-    schedule: schedule ? { id: schedule.id, title: schedule.title || '', everyDays: schedule.every_days } : null,
-    progress: areaProgress(list),
-    people: ids.map((id) => users.get(id) || { id, name: '' }),
-    url: `/app/warehouse/inventory/${row.id}`,
-    _users: users,
-    _areas: list,
-  };
+  const [shape] = await sessionShapes(ctx, [row], { areas, people, docs: doc === undefined ? null : new Map([[row.id, doc]]) });
+  return shape;
 }
 
 const publicShape = (shape) => {
@@ -203,8 +254,9 @@ export async function listSessions(req, input = {}) {
   }
   const { rows } = await query(`SELECT s.* FROM wh_inv_sessions s WHERE ${where.join(' AND ')} ORDER BY (s.status IN ('counting', 'review', 'draft')) DESC, s.created_at DESC LIMIT 200`, params);
   const out = [];
-  for (const row of rows) {
-    const shape = await sessionShape(ctx, row);
+  const shapes = await sessionShapes(ctx, rows);
+  for (const [index, row] of rows.entries()) {
+    const shape = shapes[index];
     const mine = shape._areas.filter((a) => a.assignee_id === ctx.userId);
     out.push({ ...publicShape(shape), mine: { areas: mine.length, done: mine.filter((a) => a.status === 'done').length }, my: sessionActions(row, { manage: ctx.can('inventory', row.warehouse_id), counter: shape.people.some((p) => p.id === ctx.userId), docStatus: shape.doc?.status }) });
   }
@@ -230,8 +282,9 @@ export async function activeSessions(req, input = {}) {
   );
   const visible = rows.filter((row) => ctx.sees(row.warehouse_id));
   const out = [];
-  for (const row of visible) {
-    const shape = publicShape(await sessionShape(ctx, row, { doc: row.doc_id ? { id: row.doc_id, status: row.doc_status, number: '' } : null }));
+  const shapes = await sessionShapes(ctx, visible, { docs: new Map(visible.map((row) => [row.id, row.doc_id ? { id: row.doc_id, status: row.doc_status, number: '' } : null])) });
+  for (const [index, row] of visible.entries()) {
+    const shape = publicShape(shapes[index]);
     out.push({ id: shape.id, number: shape.number, title: shape.title, status: shape.status, warehouse: shape.warehouse, freezePolicy: shape.freezePolicy, freezes: shape.freezes, scope: shape.scope, progress: shape.progress, startedAt: shape.startedAt, canOpen: ctx.can('inventory', row.warehouse_id) || shape.people.some((p) => p.id === ctx.userId) });
   }
   return { sessions: out };
@@ -373,7 +426,8 @@ export async function reopenSession(req, id) {
   const { session } = await managedSession(req, id);
   const doc = await docStatusOf(session.doc_id);
   if (session.status === 'review') await setStatus(req, id, ['review'], 'counting', ', closed_at = NULL');
-  else if (session.status === 'finished' && ['rejected', 'cancelled', 'reversed'].includes(doc?.status)) await setStatus(req, id, ['finished'], 'review', ', doc_id = NULL, finished_at = NULL, finished_by = NULL');
+  // A deleted act (a draft that failed to post) leaves doc_id NULL: the session is reviewed again too.
+  else if (session.status === 'finished' && (!doc || ['rejected', 'cancelled', 'reversed'].includes(doc.status))) await setStatus(req, id, ['finished'], 'review', ', doc_id = NULL, finished_at = NULL, finished_by = NULL');
   else throw httpError(409, 'Not possible in this status', 'BAD_TRANSITION', { status: session.status });
   return getSession(req, id);
 }
@@ -512,6 +566,9 @@ async function applyOp(client, ctx, session, op) {
     const { rows } = await client.query(`SELECT item_id FROM wh_instances WHERE id = $1`, [instanceId]);
     if (!rows[0] || rows[0].item_id !== item.id) throw httpError(400, 'The instance belongs to another item', 'BAD_INSTANCE');
   } else instanceId = null;
+  // Serial items are counted by their pieces: scan the instance (add), or take one specific instance back (set 0).
+  if (item.tracking === 'serial' && !instanceId) throw httpError(400, `${item.name}: scan the label of each piece`, 'SERIAL_SCAN_INSTANCE', { itemId: item.id });
+  if (instanceId && op.kind === 'set' && !(op.qty === 0 || op.qty === 1)) throw httpError(400, 'One instance is one piece', 'INSTANCE_QTY');
   const factor = unitFactor(item, op.unit || item.base_unit);
   if (!factor) throw httpError(400, `Unknown unit «${op.unit}» for ${item.name}`, 'BAD_UNIT');
   let baseQty = q4(op.qty * factor);
@@ -527,10 +584,10 @@ async function applyOp(client, ctx, session, op) {
   else await client.query(`INSERT INTO wh_inv_counts (session_id, counter_id, bin_id, item_id, instance_id, qty) VALUES ($1, $2, $3, $4, $5, $6)`, [session.id, ctx.userId, op.binId || null, item.id, instanceId, next]);
   // A recount asked for this item (or the whole bin): the new count replaces everyone's earlier rows.
   const { rows: open } = await client.query(`SELECT id, item_id FROM wh_inv_recounts WHERE session_id = $1 AND COALESCE(bin_id, 0) = $2 AND done_at IS NULL AND item_id = $3`, [session.id, op.binId || 0, item.id]);
-  if (open.length || op.recount) {
+  if (open.length) {
     await client.query(`DELETE FROM wh_inv_counts WHERE session_id = $1 AND COALESCE(bin_id, 0) = $2 AND item_id = $3 AND counter_id <> $4`, [session.id, op.binId || 0, item.id, ctx.userId]);
     await client.query(`DELETE FROM wh_inv_finals WHERE session_id = $1 AND COALESCE(bin_id, 0) = $2 AND item_id = $3`, [session.id, op.binId || 0, item.id]);
-    if (open.length) await client.query(`UPDATE wh_inv_recounts SET done_at = NOW() WHERE id = ANY($1::int[])`, [open.map((r) => r.id)]);
+    await client.query(`UPDATE wh_inv_recounts SET done_at = NOW() WHERE id = ANY($1::int[])`, [open.map((r) => r.id)]);
   }
   if (area.status === 'todo') await client.query(`UPDATE wh_inv_areas SET status = 'counting', updated_at = NOW() WHERE id = $1`, [area.id]);
 }
@@ -593,23 +650,26 @@ async function unitCosts(warehouseId, itemIds) {
   return out;
 }
 
-/** Everything the reconciliation and the act are computed from. */
-async function reviewData(ctx, session, { withCost }) {
+/** Everything the reconciliation and the act are computed from (`db`: the finish's transaction, after its lock). */
+async function reviewData(ctx, session, { withCost, db = null }) {
   const binScope = session.bin_ids || [];
   const catScope = session.category_ids || [];
-  const [{ rows: book }, { rows: counts }, { rows: finals }, areas] = await Promise.all([
-    query(
+  const q = db || { query };
+  // One client runs one statement at a time: inside a transaction the reads go one after another.
+  const all = db ? async (list) => { const out = []; for (const f of list) out.push(await f()); return out; } : (list) => Promise.all(list.map((f) => f()));
+  const [{ rows: book }, { rows: counts }, { rows: finals }, areas] = await all([
+    () => q.query(
       `SELECT s.bin_id, s.item_id, s.instance_id, SUM(s.qty) AS qty FROM wh_stock s JOIN wh_items i ON i.id = s.item_id
        WHERE s.warehouse_id = $1 AND s.holder_type = 'warehouse' AND (cardinality($2::int[]) = 0 OR s.bin_id = ANY($2::int[])) AND (cardinality($3::int[]) = 0 OR i.category_id = ANY($3::int[]))
        GROUP BY s.bin_id, s.item_id, s.instance_id HAVING SUM(s.qty) <> 0`,
       [session.warehouse_id, binScope, catScope]
     ),
-    query(`SELECT bin_id, item_id, instance_id, counter_id, qty FROM wh_inv_counts WHERE session_id = $1 AND qty > 0`, [session.id]),
-    query(`SELECT bin_id, item_id, instance_id, qty FROM wh_inv_finals WHERE session_id = $1`, [session.id]),
-    areasOf(session.id),
+    () => q.query(`SELECT bin_id, item_id, instance_id, counter_id, qty FROM wh_inv_counts WHERE session_id = $1 AND qty > 0`, [session.id]),
+    () => q.query(`SELECT bin_id, item_id, instance_id, qty FROM wh_inv_finals WHERE session_id = $1`, [session.id]),
+    () => areasOf(session.id, q),
   ]);
   const itemIds = [...new Set([...book.map((b) => b.item_id), ...counts.map((c) => c.item_id), ...finals.map((f) => f.item_id)])];
-  const { rows: itemRows } = itemIds.length ? await query(`SELECT * FROM wh_items WHERE id = ANY($1::int[])`, [itemIds]) : { rows: [] };
+  const { rows: itemRows } = itemIds.length ? await q.query(`SELECT * FROM wh_items WHERE id = ANY($1::int[])`, [itemIds]) : { rows: [] };
   const items = new Map(itemRows.map((row) => [row.id, row]));
   const costs = withCost ? await unitCosts(session.warehouse_id, itemIds) : null;
   const rows = reconcile({ book, counts, finals, areas, items, costs });
@@ -618,7 +678,7 @@ async function reviewData(ctx, session, { withCost }) {
   const elsewhere = new Set();
   if (scanned.length) {
     const inScopeKeys = new Set(book.filter((b) => b.instance_id).map((b) => b.instance_id));
-    const { rows: held } = await query(`SELECT DISTINCT instance_id FROM wh_stock WHERE instance_id = ANY($1::int[]) AND qty > 0`, [scanned]);
+    const { rows: held } = await q.query(`SELECT DISTINCT instance_id FROM wh_stock WHERE instance_id = ANY($1::int[]) AND qty > 0`, [scanned]);
     for (const h of held) if (!inScopeKeys.has(h.instance_id)) elsewhere.add(h.instance_id);
   }
   return { rows, items, areas, elsewhere, book, counts };
@@ -733,6 +793,7 @@ export async function setFinal(req, id, input = {}) {
   } else {
     const qty = Number(String(input.qty).replace(',', '.'));
     if (!Number.isFinite(qty) || qty < 0 || qty > 1e9) throw httpError(400, 'Invalid quantity', 'BAD_QTY');
+    if (instanceId && qty > 1) throw httpError(400, 'One instance is one piece', 'INSTANCE_QTY');
     const { rows: area } = await query(`SELECT 1 FROM wh_inv_areas WHERE session_id = $1 AND COALESCE(bin_id, 0) = $2`, [session.id, binId || 0]);
     if (!area.length) throw httpError(400, 'This bin is not in the inventory', 'NOT_IN_SCOPE');
     await query(
@@ -753,15 +814,24 @@ export async function setFinal(req, id, input = {}) {
 export async function finishSession(req, id, input = {}) {
   const { ctx, session } = await managedSession(req, id);
   if (!COUNTING.includes(session.status)) throw httpError(409, 'Not possible in this status', 'BAD_TRANSITION', { status: session.status });
-  const { rows, areas, elsewhere } = await reviewData(ctx, session, { withCost: false });
-  const notDone = areas.filter((a) => a.status !== 'done');
-  if (notDone.length && input.force !== true) throw httpError(409, `${notDone.length} bins are not counted yet`, 'AREAS_NOT_DONE', { count: notDone.length });
-  const lines = actLines(rows, { elsewhere });
-  if (!lines.length) throw httpError(400, 'Nothing was counted', 'NOTHING_COUNTED');
   const { createDoc, postDoc } = await import('./documents.js');
   const docId = await withTransaction(async (client) => {
+    // The lock first, then the counts: a phone's sync holds the session FOR SHARE, so the act sees every op committed before it.
     const current = await loadSession(session.id, client, 'FOR UPDATE');
     if (!COUNTING.includes(current.status)) throw httpError(409, 'The inventory has changed, reload it', 'STALE');
+    const { rows, areas, elsewhere, book, items } = await reviewData(ctx, current, { withCost: false, db: client });
+    const notDone = areas.filter((a) => a.status !== 'done');
+    if (notDone.length && input.force !== true) throw httpError(409, `${notDone.length} bins are not counted yet`, 'AREAS_NOT_DONE', { count: notDone.length });
+    const lines = actLines(rows, { elsewhere, book });
+    if (!lines.length) throw httpError(400, 'Nothing was counted', 'NOTHING_COUNTED');
+    // More pieces of a serial item than the book, without their instances (a manager's decision): which ones?
+    const unnamed = lines.find((line) => !line.instanceId && items.get(line.itemId)?.tracking === 'serial' && line.countedQty > line.bookQty + EPS);
+    if (unnamed) throw httpError(409, `${items.get(unnamed.itemId).name}: a found piece of a serial item is recorded by its instance (scan its label)`, 'SERIAL_INSTANCE_REQUIRED', { itemId: unnamed.itemId });
+    const twice = instancesTwice(lines);
+    if (twice.length) {
+      const { rows: inst } = await client.query(`SELECT inventory_no FROM wh_instances WHERE id = ANY($1::int[]) ORDER BY inventory_no`, [twice]);
+      throw httpError(409, `Counted in two places: ${inst.map((i) => i.inventory_no).join(', ')} — decide where it is`, 'INSTANCE_TWICE', { instanceIds: twice, inventoryNos: inst.map((i) => i.inventory_no), inventoryNo: inst[0]?.inventory_no || '' });
+    }
     const comment = [current.number, current.title].filter(Boolean).join(' · ');
     const doc = await createDoc(req, { type: 'inventory', warehouseId: current.warehouse_id, comment }, { client });
     const { rows: itemRows } = await client.query(`SELECT id, base_unit FROM wh_items WHERE id = ANY($1::int[])`, [[...new Set(lines.map((l) => l.itemId))]]);

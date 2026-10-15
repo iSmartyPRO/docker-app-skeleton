@@ -6,8 +6,8 @@ import { getSettings, parseSettings } from '../../services/settings.js';
 import { LEVEL, contextFromRequest, httpError, intId, listSubjects, wrap } from '../shared/acl.js';
 import { officePreview, sendBlob, sendPdf, storagePath } from '../shared/storage.js';
 import { requireNode } from './access.js';
-import { slugCheckLimiter } from '../shared/linkSlug.js';
-import { checkLinkSlug, countView, createLink, deleteLink, linkActivity, listLinks, nodeInLink, resolveLink, startSession, unlockLink, updateLink, visitorLinkShape } from './links.js';
+import { linkRateKey, slugCheckLimiter } from '../shared/linkSlug.js';
+import { checkLinkSlug, countView, createLink, deleteLink, linkActivity, listLinks, nodeInLink, pageTokens, resolveLink, startSession, unlockLink, updateLink, visitorLinkShape } from './links.js';
 import { sessionUploads, visitorDelete, visitorFolderTree, visitorMkdir, visitorReplace, visitorUpdate, visitorUpload } from './linkWrites.js';
 import {
   createFolder,
@@ -175,20 +175,26 @@ export function privateRoutes() {
 
 // ── Public links: /api/l/<token or slug> ────────────────────────────────────
 
+// Every budget below counts per link (its id: the token and every letter case of its slug share one).
+const linkOf = (req) => linkRateKey('files', req.params.token);
+
 const unlockLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${req.ip}:${String(req.params.token).toLowerCase()}`,
+  keyGenerator: async (req) => `fs-u:${req.ip}:${await linkOf(req)}`,
   handler: (req, res) => res.status(429).json({ success: false, error: 'Too many attempts. Try again later.', code: 'RATE_LIMITED' }),
 });
 
 /*
  * Visitor writes (upload, folders, rename/move, replace, delete) are limited
- * per IP and link and per link overall, on top of the general guest budget.
- * Anonymous POSTs pass the same Origin check as every other API write
- * (server.js): a page on another site cannot drive a visitor's browser.
+ * per IP and link and per link overall. Uploads and replacements (one request
+ * per file, so a folder upload makes hundreds) have their own, larger
+ * budgets and are not counted by the general guest limiter (server.js); the
+ * other changes count there too. Anonymous POSTs pass the same Origin check
+ * as every other API write (server.js): a page on another site cannot drive
+ * a visitor's browser.
  */
 const writeLimiter = (windowMs, max, key) =>
   rateLimit({
@@ -200,20 +206,29 @@ const writeLimiter = (windowMs, max, key) =>
     handler: (req, res) => res.status(429).json({ success: false, error: 'Too many changes through this link. Try again later.', code: 'RATE_LIMITED' }),
   });
 const visitorWrites = [
-  writeLimiter(10 * 60 * 1000, 300, (req) => `fs-w:${req.ip}:${req.params.token}`),
-  writeLimiter(10 * 60 * 1000, 1500, (req) => `fs-w:${req.params.token}`),
+  writeLimiter(10 * 60 * 1000, 300, async (req) => `fs-w:${req.ip}:${await linkOf(req)}`),
+  writeLimiter(10 * 60 * 1000, 1500, async (req) => `fs-w:${await linkOf(req)}`),
 ];
-const sessionLimiter = writeLimiter(15 * 60 * 1000, 30, (req) => `fs-s:${req.ip}:${req.params.token}`);
+const visitorUploads = [
+  writeLimiter(15 * 60 * 1000, 600, async (req) => `fs-up:${req.ip}:${await linkOf(req)}`),
+  writeLimiter(60 * 60 * 1000, 3000, async (req) => `fs-up:${await linkOf(req)}`),
+];
+const sessionLimiter = writeLimiter(15 * 60 * 1000, 30, async (req) => `fs-s:${req.ip}:${await linkOf(req)}`);
 
-// Reads accept ?t= (file URLs in <img>/<video>); writes take the header only, so tokens stay out of URLs and logs.
-const visitorToken = (req) => req.get('x-link-token') || req.query.t || '';
-const writeToken = (req) => req.get('x-link-token') || '';
+/*
+ * Tokens: reads take the X-Link-Token header, or a read token in ?t= (file
+ * URLs in <img>/<video>/PDF viewers; links.js readVisitor); changes and new
+ * sessions take the header only, and never a read token, so what can end up
+ * in an address or a log cannot change anything.
+ */
 async function openLink(req, res, { write = false } = {}) {
+  const header = req.get('x-link-token') || '';
+  const [token, from] = write ? [header, 'write'] : header ? [header, 'header'] : [String(req.query.t || ''), 'url'];
   try {
-    return await resolveLink(req.params.token, write ? writeToken(req) : visitorToken(req));
+    return await resolveLink(req.params.token, token, { from });
   } catch (err) {
     if (err.code === 'PASSWORD_REQUIRED') {
-      res.status(401).json({ success: false, code: err.code, error: err.message, info: err.details });
+      res.status(401).json({ success: false, code: err.code, error: err.message });
       return null;
     }
     throw err;
@@ -230,9 +245,10 @@ export function publicRoutes() {
   router.get('/:token', wrap(async (req, res) => {
     const link = await openLink(req, res);
     if (!link) return;
-    if (!req.query.folder && req.query.preview !== '1' && countsAsView(req)) await countView(link);
+    // A view: the first load of the page by a person (not the author's preview, not a reload after a change).
+    if (!req.query.folder && req.query.preview !== '1' && req.query.repeat !== '1' && countsAsView(req)) await countView(link);
     const conversion = parseSettings(await getSettings()).integrations.documents;
-    const common = { link: visitorLinkShape(link), conversion: Boolean(conversion?.enabled && conversion?.serverUrl) };
+    const common = { link: visitorLinkShape(link), conversion: Boolean(conversion?.enabled && conversion?.serverUrl), ...pageTokens(link) };
     // Upload-only: the folder's name and the visitor's own uploads, never its contents.
     if (!link.perms.includes('view')) {
       const { node } = await nodeInLink(link, link.node_id);
@@ -260,7 +276,7 @@ export function publicRoutes() {
     res.json({ success: true, ...startSession(link, req.body || {}) });
   }));
 
-  router.post('/:token/upload', visitorWrites, wrap(async (req, res) => {
+  router.post('/:token/upload', visitorUploads, wrap(async (req, res) => {
     const link = await openLink(req, res, { write: true });
     if (!link) return;
     res.status(201).json({ success: true, items: await visitorUpload(link, req, res) });
@@ -284,7 +300,7 @@ export function publicRoutes() {
     res.json({ success: true, node: await visitorUpdate(link, intId(req.params.id), req.body || {}, req.ip) });
   }));
 
-  router.post('/:token/nodes/:id/replace', visitorWrites, wrap(async (req, res) => {
+  router.post('/:token/nodes/:id/replace', visitorUploads, wrap(async (req, res) => {
     const link = await openLink(req, res, { write: true });
     if (!link) return;
     res.json({ success: true, node: await visitorReplace(link, intId(req.params.id), req, res) });

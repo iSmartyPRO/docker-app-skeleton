@@ -75,14 +75,18 @@ export function registerWarehouseApproval() {
       if (!row) return null;
       const settings = await warehouseSettings();
       const name = TYPE_NAMES[row.type] || { ru: row.type };
+      // The approvals service shows `amount` to every participant (inbox, card, notifications) and has
+      // no per-viewer hook, while warehouse sums are only for people with warehouse.cost: the sum is
+      // not published. Route conditions still get it through `fields.amount`; the document card
+      // shows it to those who may see it.
       return {
         title: `${name.ru} · ${row.reason_text || row.comment || ''}`.replace(/ · $/, ''),
         number: row.number,
-        amount: row.total === null ? null : Number(row.total),
-        currency: settings.currency,
+        amount: null,
+        currency: null,
         author: { id: row.author_id || row.created_by },
         url: docUrl(row.id),
-        fields: { docType: row.type, reason: row.reason, warehouse: row.warehouse_id },
+        fields: { amount: row.total === null ? null : Number(row.total), currency: settings.currency, docType: row.type, reason: row.reason, warehouse: row.warehouse_id },
       };
     },
     onStatus: async (docId, status, info) => {

@@ -8,6 +8,7 @@ import BarcodeScanner, { useScannerInput } from '../../../components/ui/BarcodeS
 import { whApi } from '../api';
 import { useWh } from '../WhContext';
 import { formatQty, readStore, scanFeedback, whError, writeStore } from '../lib';
+import { createBurstDetector, isScanCharKey } from '../../../lib/scanBurst';
 
 const WH_KEY = 'wh.m.warehouse';
 
@@ -221,6 +222,31 @@ export function useResolver(warehouseId) {
   );
 }
 
+/**
+ * A keyboard-wedge scanner aimed at a focused quantity field types the code
+ * into it and presses Enter. This guard (onKeyDown of the field) sees such a
+ * burst: Enter is swallowed, the field gets back the value it had before the
+ * burst (`restore(value)`), and the code goes to `onCode(code, value)`. People
+ * typing a quantity are far slower than a scanner and are not affected.
+ */
+export function useQtyScanGuard({ value, restore, onCode }) {
+  const detector = useRef(null);
+  if (!detector.current) detector.current = createBurstDetector();
+  const before = useRef(value);
+  const latest = useRef({ value, restore, onCode });
+  latest.current = { value, restore, onCode };
+  return useCallback((event) => {
+    const prior = latest.current.value;
+    const code = detector.current.push({ key: event.key, time: event.timeStamp || performance.now(), ctrlKey: event.ctrlKey, metaKey: event.metaKey, altKey: event.altKey });
+    if (isScanCharKey(event) && detector.current.length === 1) before.current = prior;
+    if (!code) return;
+    event.preventDefault();
+    event.stopPropagation();
+    latest.current.restore?.(before.current);
+    latest.current.onCode?.(code, before.current);
+  }, []);
+}
+
 /** Units of an item for the switch: base first, then packs (factor = base units in one). */
 export function unitList(item) {
   if (!item) return [];
@@ -231,10 +257,11 @@ export function unitList(item) {
  * The quantity sheet after a scan (spec §2): big − / + buttons, the unit switch
  * pack ↔ base with «2 уп. = 48 шт», the stock hint, a repeat scan adds one.
  */
-export function QtySheet({ open, item, qty, unit, onChange, onSubmit, onClose, onRemove, title, hint, submitLabel, extra, allowZero = false, busy = false }) {
+export function QtySheet({ open, item, qty, unit, onChange, onSubmit, onClose, onRemove, onScanCode, title, hint, submitLabel, extra, allowZero = false, busy = false }) {
   const { t, locale } = useLocale();
   const units = unitList(item);
   const current = units.find((u) => u.code === unit) || units[0];
+  const guard = useQtyScanGuard({ value: qty, restore: (value) => onChange({ qty: value, unit: current?.code }), onCode: (code, value) => onScanCode?.(code, { qty: value }) });
   const serial = item?.tracking === 'serial';
   const n = Number(qty) || 0;
   const step = (delta) => onChange({ qty: Math.max(0, Math.round((n + delta) * 1e4) / 1e4), unit: current?.code });
@@ -285,6 +312,7 @@ export function QtySheet({ open, item, qty, unit, onChange, onSubmit, onClose, o
             onChange({ qty: raw === '' ? '' : raw, unit: current?.code });
           }}
           onFocus={(e) => e.target.select()}
+          onKeyDown={guard}
           aria-label={t('whm.qty.quantity')}
         />
         <button type="button" className="whm-qty__btn is-plus" onClick={() => step(1)} aria-label={t('whm.qty.more')}>

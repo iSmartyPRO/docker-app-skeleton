@@ -24,6 +24,7 @@ import { errorMessage } from '../../lib/errors';
 import { formatDateTime, formatRelative } from '../../lib/format';
 import { UserAvatar } from '../shared/People';
 import { asViewerItem, formatBytes, linkApi, linkSource } from './api';
+import { markViewCounted, viewCounted } from '../../lib/linkVisit';
 import { canPickFolders, collectDrop, collectPicked } from './folderUpload';
 import NodeList, { NodeIcon } from './components/NodeList';
 import NodeViewer from './components/NodeViewer';
@@ -200,7 +201,6 @@ export default function PublicLink() {
   const { settings } = useSettings();
   const { message, modal } = App.useApp();
   const visitorRef = useRef(readVisitor(token));
-  const [visitor, setVisitorState] = useState(visitorRef.current);
   const [folderId, setFolderId] = useState(null);
   const [data, setData] = useState(null);
   const [state, setState] = useState('loading');
@@ -222,13 +222,15 @@ export default function PublicLink() {
   const setVisitor = (value) => {
     visitorRef.current = value || '';
     storeVisitor(token, value);
-    setVisitorState(value || '');
   };
 
   const load = useCallback(() => {
     linkApi
-      .open(token, { folder: folderId, visitor: visitorRef.current, preview })
+      .open(token, { folder: folderId, visitor: visitorRef.current, preview, repeat: viewCounted('files', token) })
       .then((res) => {
+        if (!folderId) markViewCounted('files', token);
+        // A session token from before read tokens existed is swapped for a new one (same session and name).
+        if (res.data.visitorToken) setVisitor(res.data.visitorToken);
         setData(res.data);
         setState('ready');
       })
@@ -236,6 +238,7 @@ export default function PublicLink() {
         const code = err?.response?.data?.code;
         setState(code === 'PASSWORD_REQUIRED' ? 'locked' : code === 'EXPIRED' ? 'expired' : code === 'LINK_DISABLED' ? 'disabled' : 'missing');
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, folderId, preview]);
 
   useEffect(() => {
@@ -265,7 +268,8 @@ export default function PublicLink() {
     }
   };
 
-  const src = useMemo(() => linkSource(token, visitor, data?.link.allowDownload), [token, visitor, data]);
+  // File addresses carry the read token only (the session token never goes into a URL).
+  const src = useMemo(() => linkSource(token, data?.readToken || '', data?.link.allowDownload), [token, data]);
   const link = data?.link;
   const can = (key) => Boolean(link?.permissions?.includes(key));
   const uploadOnly = Boolean(link) && can('upload') && !can('view');

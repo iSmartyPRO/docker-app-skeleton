@@ -1,8 +1,8 @@
 import { query, withTransaction } from '../../config/database.js';
 import { emitEvent } from '../../api/events.js';
 import { notify } from '../../services/notifications.js';
-import { startOfDay } from '../../services/datetime.js';
-import { requestRegional } from '../../services/regional.js';
+import { isoDay, startOfDay } from '../../services/datetime.js';
+import { portalRegional, requestRegional } from '../../services/regional.js';
 import { getProcess, startApproval } from '../approvals/api.js';
 import { APPROVAL_TYPE, Params, canSeeDoc, costOn, docVisibleSql, intOrNull, isoDayOf, logEvent, text, usersByIds, whContext, warehouseSettings } from './access.js';
 import {
@@ -24,6 +24,7 @@ import {
   num,
   q4,
   rateOf,
+  stripEventCost,
   unitFactor,
 } from './logic.js';
 import { applyDiscrepancy, applyDocument, applyStorno, linesOf, lockDoc } from './posting.js';
@@ -241,19 +242,23 @@ export async function getDoc(req, id) {
   const backdate = row.warehouse_id || row.to_warehouse_id ? ctx.can('backdate', row.warehouse_id || row.to_warehouse_id) : false;
   // The act of an inventory session links back to it.
   const session = row.type === 'inventory' ? (await query(`SELECT id, number FROM wh_inv_sessions WHERE doc_id = $1 LIMIT 1`, [row.id])).rows[0] || null : null;
+  const cost = costOn(ctx, docWarehouses(row));
   return {
     document: { ...shape, base: base ? { id: base.id, number: base.number, type: base.type } : null, derived: derived.map((d) => ({ id: d.id, number: d.number, type: d.type, status: d.status })), inventorySession: session ? { id: session.id, number: session.number, url: `/app/warehouse/inventory/${session.id}` } : null },
     lines,
     files,
-    approval: process,
-    my: { ...actions, backdate, cost: costOn(ctx, docWarehouses(row)), shortages: lines.some((line) => line.short) },
+    // The process may carry the document's sum (older processes stored it): hidden without cost rights here.
+    approval: process && !cost ? { ...process, amount: null, currency: null } : process,
+    my: { ...actions, backdate, cost, shortages: lines.some((line) => line.short) },
   };
 }
 
 export async function history(req, id) {
-  const { row } = await visibleDoc(req, id);
+  const { ctx, row } = await visibleDoc(req, id);
   const { rows } = await query(`SELECT e.*, COALESCE(u.display_name, u.username) AS actor_name FROM wh_events e LEFT JOIN users u ON u.id = e.actor_id WHERE e.entity_type = 'doc' AND e.entity_id = $1 ORDER BY e.id`, [row.id]);
-  const items = rows.map((e) => ({ id: `w${e.id}`, action: e.action, data: e.data, actor: e.actor_id ? { id: e.actor_id, name: e.actor_name } : null, at: e.created_at }));
+  // Events keep the posted sum (`total`): shown only to those who see sums on the document's warehouses.
+  const cost = costOn(ctx, docWarehouses(row));
+  const items = rows.map((e) => ({ id: `w${e.id}`, action: e.action, data: cost ? e.data : stripEventCost(e.data || {}), actor: e.actor_id ? { id: e.actor_id, name: e.actor_name } : null, at: e.created_at }));
   const process = row.approval_status ? await getProcess(APPROVAL_TYPE, String(row.id), req).catch(() => null) : null;
   for (const h of process?.history || []) items.push({ id: `a${h.at}${h.action}`, action: `approval.${h.action}`, data: { comment: h.comment || '', stage: h.stageName || '' }, actor: h.actor || null, at: h.at });
   items.sort((a, b) => new Date(a.at) - new Date(b.at));
@@ -386,9 +391,10 @@ async function checkDate(ctx, req, value, warehouseId) {
   return date;
 }
 
-function assertOpenPeriod(settings, date) {
+/** The closed period is a calendar day in the portal's time zone (not UTC: a document at 01:00 local stays in its day). */
+async function assertOpenPeriod(settings, date) {
   if (!settings.closedUntil || !date) return;
-  const d = new Date(date).toISOString().slice(0, 10);
+  const d = isoDay(new Date(date), (await portalRegional()).timeZone);
   if (d <= settings.closedUntil) throw httpError(409, `The period up to ${settings.closedUntil} is closed`, 'PERIOD_CLOSED', { closedUntil: settings.closedUntil });
 }
 
@@ -442,7 +448,9 @@ async function cleanHeader(ctx, req, type, input, current = {}) {
   if (has('date')) {
     const wid = out.warehouse_id ?? current.warehouse_id ?? out.to_warehouse_id ?? current.to_warehouse_id;
     out.doc_date = input.date ? await checkDate(ctx, req, input.date, wid) : new Date();
-    assertOpenPeriod(ctx.settings, out.doc_date);
+    // A date chosen by the person stays; otherwise the document is dated when it is posted (postInClient).
+    out.date_fixed = Boolean(input.date);
+    await assertOpenPeriod(ctx.settings, out.doc_date);
   }
   // Shape rules per type.
   const merged = { ...current, ...out, type };
@@ -642,7 +650,7 @@ export async function addLine(req, id, input = {}) {
   let raw = { ...input };
   if (input.code && !input.itemId) {
     const { resolveCode } = await import('./items.js');
-    const found = await resolveCode(req, input.code, { warehouse: row.warehouse_id || row.to_warehouse_id });
+    const found = await resolveCode(req, input.code, { warehouse: row.warehouse_id || row.to_warehouse_id, checkAccess: false });
     if (!found.item) throw httpError(400, 'This code is not an item', 'NOT_AN_ITEM', { kind: found.kind });
     raw = { ...raw, itemId: found.item.id, unit: input.unit || found.unit, batchId: input.batchId || found.batch?.id, instanceId: input.instanceId || found.instance?.id };
     if (found.unit !== found.item.baseUnit && input.qty === undefined) raw.qty = 1;
@@ -729,11 +737,24 @@ function assertReady(row) {
  * callback). Writes the status and the event; side effects run after commit.
  */
 export async function postInClient(client, row, { actorId, settings, mode = 'post' }) {
-  assertOpenPeriod(settings, row.doc_date);
+  await redateOnPost(client, row);
+  await assertOpenPeriod(settings, row.doc_date);
   const result = await applyDocument(client, row, { mode, actorId, settings });
   await client.query(`UPDATE wh_docs SET status = 'posted', posted_at = NOW(), posted_by = $2, total = $3, updated_at = NOW() WHERE id = $1`, [row.id, actorId || null, result.total]);
   await logEvent(client, 'doc', row.id, actorId, 'posted', { total: result.total });
   return result;
+}
+
+/**
+ * A draft whose date nobody chose is dated when it moves goods: an old draft
+ * posted today must not put its movements into the day it was created.
+ * Mutates `row` (the locked document) and the stored date.
+ */
+export async function redateOnPost(client, row) {
+  if (row.date_fixed) return;
+  const now = new Date();
+  await client.query(`UPDATE wh_docs SET doc_date = $2 WHERE id = $1`, [row.id, now]);
+  row.doc_date = now;
 }
 
 /** Estimates the value of a document by posting it and rolling back (exact, also checks the stock). */
@@ -815,7 +836,8 @@ export async function shipDoc(req, id) {
   await withTransaction(async (client) => {
     const current = await lockDoc(client, row.id);
     if (!EDITABLE.includes(current.status)) throw httpError(409, 'The document has changed, reload it', 'STALE');
-    assertOpenPeriod(settings, current.doc_date);
+    await redateOnPost(client, current);
+    await assertOpenPeriod(settings, current.doc_date);
     const result = await applyDocument(client, current, { mode: 'ship', actorId: ctx.userId, settings });
     await client.query(`UPDATE wh_docs SET status = 'shipped', transfer_state = 'shipped', shipped_at = NOW(), shipped_by = $2, total = $3, updated_at = NOW() WHERE id = $1`, [row.id, ctx.userId, result.total]);
     await logEvent(client, 'doc', row.id, ctx.userId, 'shipped', { total: result.total });
@@ -844,8 +866,10 @@ export async function receiveDoc(req, id, input = {}) {
   for (const raw of Array.isArray(input.lines) ? input.lines : []) {
     const lineId = intOrNull(raw?.lineId);
     if (!lineId) continue;
-    const qty = num(raw.receivedQty);
-    if (qty !== null) {
+    // A line sent without `receivedQty` arrived as shipped; one sent with an empty value is a mistake, not «all».
+    if (Object.prototype.hasOwnProperty.call(raw, 'receivedQty')) {
+      const qty = num(raw.receivedQty);
+      if (qty === null) throw httpError(400, 'Enter the received quantity of every line', 'QTY_REQUIRED', { lineId });
       if (qty < 0) throw httpError(400, 'The quantity cannot be negative', 'BAD_QTY');
       received.set(lineId, qty);
     }
@@ -903,9 +927,11 @@ export async function stornoDoc(req, id, input = {}) {
     const current = await lockDoc(client, row.id);
     if (!['posted', 'shipped'].includes(current.status)) throw httpError(409, 'The document has changed, reload it', 'STALE');
     const now = new Date();
-    assertOpenPeriod(settings, now);
+    await assertOpenPeriod(settings, now);
     // A received transfer's discrepancy act goes back with it.
     const acts = current.type === 'transfer' ? (await client.query(`SELECT * FROM wh_docs WHERE base_doc_id = $1 AND type = 'discrepancy' AND status = 'posted' FOR UPDATE`, [current.id])).rows : [];
+    // Reversing changes the closed period's figures too: a document (or its act) dated there stays.
+    for (const base of [current, ...acts]) await assertOpenPeriod(settings, base.doc_date);
     const made = [];
     for (const base of [...acts, current]) {
       const doc = await createDoc(req, { type: 'storno', warehouseId: base.warehouse_id, toWarehouseId: base.to_warehouse_id, reasonText: reason, baseDocId: base.id }, { client, system: true });
@@ -920,6 +946,11 @@ export async function stornoDoc(req, id, input = {}) {
   });
   const fresh = await loadDoc(row.id);
   webhook('warehouse.document.reversed', fresh, ctx.userId, { storno: { id: storno.id, number: storno.number }, reason });
+  // A reversed receipt «from a purchase request» takes its delivery mark back (Procurement may be off: then nothing).
+  if (fresh.type === 'receipt' && fresh.proc_request_id) {
+    const { revertProcurementDelivery } = await import('./procurement.js');
+    await revertProcurementDelivery(fresh, ctx.userId).catch((err) => console.warn('[warehouse] procurement delivery revert failed:', err.message));
+  }
   return getDoc(req, storno.id);
 }
 
@@ -949,7 +980,11 @@ export async function declineHandover(req, id, input = {}) {
   const holder = row.from_holder_type === 'employee' && row.from_holder_id === ctx.userId;
   if (!recipient && !holder) throw httpError(403, 'Only the people of the hand-over decline it', 'FORBIDDEN');
   await withTransaction(async (client) => {
-    await client.query(`UPDATE wh_docs SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [row.id]);
+    // The recipient may have confirmed meanwhile: only a hand-over still waiting is cancelled.
+    const current = await lockDoc(client, row.id);
+    if (!current || !['pending', 'draft'].includes(current.status)) throw httpError(409, 'The document has changed, reload it', 'STALE');
+    const { rowCount } = await client.query(`UPDATE wh_docs SET status = 'cancelled', updated_at = NOW() WHERE id = $1 AND status IN ('pending', 'draft')`, [row.id]);
+    if (!rowCount) throw httpError(409, 'The document has changed, reload it', 'STALE');
     await logEvent(client, 'doc', row.id, ctx.userId, recipient ? 'declined' : 'withdrawn', { comment: text(input.comment, 1000) });
   });
   if (recipient) {

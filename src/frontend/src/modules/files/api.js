@@ -55,8 +55,9 @@ const visitorHeaders = (visitor) => (visitor ? { 'X-Link-Token': visitor } : {})
 
 /** /api/l/<token>: what visitors of a public link may read and (per its permissions) change. */
 export const linkApi = {
-  open: (token, { folder, visitor, preview } = {}) =>
-    api.get(`/l/${enc(token)}`, { params: { ...(folder ? { folder } : {}), ...(preview ? { preview: 1 } : {}) }, headers: visitorHeaders(visitor) }),
+  /** `preview`: the author looking (not a view); `repeat`: a reload of a page already counted. */
+  open: (token, { folder, visitor, preview, repeat } = {}) =>
+    api.get(`/l/${enc(token)}`, { params: { ...(folder ? { folder } : {}), ...(preview ? { preview: 1 } : {}), ...(repeat ? { repeat: 1 } : {}) }, headers: visitorHeaders(visitor) }),
   unlock: (token, password) => api.post(`/l/${enc(token)}/unlock`, { password }),
   session: (token, visitor, payload = {}) => api.post(`/l/${enc(token)}/session`, payload, { headers: visitorHeaders(visitor) }),
   upload: (token, visitor, folder, files, onProgress, signal) => {
@@ -97,10 +98,15 @@ export function nodeSource() {
   };
 }
 
-export function linkSource(token, visitor, allowDownload) {
+/**
+ * File addresses of a public link. `reader` is the read token the page got
+ * from the server (never the visitor session, which stays in the header):
+ * addresses end up in history and logs.
+ */
+export function linkSource(token, reader, allowDownload) {
   const q = (extra) => {
     const params = new URLSearchParams();
-    if (visitor) params.set('t', visitor);
+    if (reader) params.set('t', reader);
     Object.entries(extra || {}).forEach(([key, value]) => params.set(key, value));
     const text = params.toString();
     return text ? `?${text}` : '';

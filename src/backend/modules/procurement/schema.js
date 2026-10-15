@@ -107,6 +107,9 @@ export async function ensureProcurementSchema() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS proc_deliveries_request_idx ON proc_deliveries (request_id)`);
+  // Deliveries recorded by another module (the Warehouse receipt): where from and which document, so a storno can take them back.
+  await query(`ALTER TABLE proc_deliveries ADD COLUMN IF NOT EXISTS source VARCHAR(20)`);
+  await query(`ALTER TABLE proc_deliveries ADD COLUMN IF NOT EXISTS reference VARCHAR(80)`);
   await query(`
     CREATE TABLE IF NOT EXISTS proc_documents (
       id SERIAL PRIMARY KEY,

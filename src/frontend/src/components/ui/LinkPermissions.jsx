@@ -13,7 +13,11 @@ import {
   UnlockOutlined,
 } from '@ant-design/icons';
 import { useLocale } from '../../context/LocaleContext';
+import { FILE_KEYS, PERMISSION_KEYS, WRITE_KEYS, normalizePermissions } from '../../lib/linkPermissions';
 import './linkPermissions.css';
+
+// The rule itself lives in lib/linkPermissions.js (the same as the server's).
+export { PERMISSION_KEYS, WRITE_KEYS, normalizePermissions };
 
 /*
  * Permission picker for public share links, shared by Files and Drive.
@@ -31,9 +35,6 @@ import './linkPermissions.css';
  * every key on every route.
  */
 
-export const PERMISSION_KEYS = ['view', 'download', 'upload', 'mkdir', 'rename', 'replace', 'delete'];
-export const WRITE_KEYS = ['upload', 'mkdir', 'rename', 'replace', 'delete'];
-const FOLDER_ONLY = new Set(['upload', 'mkdir', 'rename', 'delete']);
 
 export const PERMISSION_ICONS = {
   view: <EyeOutlined />,
@@ -54,19 +55,6 @@ export const PERMISSION_PRESETS = [
   { id: 'full', icon: <UnlockOutlined />, keys: PERMISSION_KEYS },
   { id: 'custom', icon: <SlidersOutlined />, keys: null },
 ];
-
-/**
- * Cleans a permission list: known keys only, folder-only keys dropped for
- * files, and everything except upload needs view. An empty result falls back
- * to view.
- */
-export function normalizePermissions(perms, isFolder = true) {
-  const set = new Set((Array.isArray(perms) ? perms : []).filter((key) => PERMISSION_KEYS.includes(key)));
-  if (!isFolder) FOLDER_ONLY.forEach((key) => set.delete(key));
-  if (!set.has('view')) ['download', 'mkdir', 'rename', 'replace', 'delete'].forEach((key) => set.delete(key));
-  if (!set.size) set.add('view');
-  return PERMISSION_KEYS.filter((key) => set.has(key));
-}
 
 /** The preset id matching a permission list, or 'custom'. */
 export function presetOf(perms, isFolder = true) {
@@ -150,7 +138,7 @@ export function LinkPermissionsPicker({ value, onChange, allowed = PERMISSION_KE
   const [customMode, setCustomMode] = useState(false);
   const presets = PERMISSION_PRESETS.filter((preset) => !preset.folderOnly || isFolder);
   const presetAllowed = (preset) => !preset.keys || normalizePermissions(preset.keys, isFolder).every((key) => allowedSet.has(key));
-  const keysHere = PERMISSION_KEYS.filter((key) => isFolder || !FOLDER_ONLY.has(key));
+  const keysHere = PERMISSION_KEYS.filter((key) => isFolder || FILE_KEYS.includes(key));
   const customOpen = current === 'custom' || customMode;
   const writes = perms.some((key) => key === 'upload' || key === 'replace');
 

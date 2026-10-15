@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { App, Button, Checkbox, Input, Modal, Radio, Skeleton, Spin } from 'antd';
 import { CloudUploadOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, FolderAddOutlined, SwapOutlined, UserOutlined } from '@ant-design/icons';
 import BrandMark from '../../components/BrandMark';
@@ -13,6 +13,7 @@ import { formatDateTime, formatRelative } from '../../lib/format';
 import DocumentViewer from '../kb/viewers/DocumentViewer';
 import { FolderUploadError, canPickFolders, collectDrop, collectPicked } from '../files/folderUpload';
 import { CAD, asViewerItem, driveError, formatBytes, linkSource, publicDriveApi } from './api';
+import { markViewCounted, viewCounted } from '../../lib/linkVisit';
 import EntryList, { EntryIcon } from './components/EntryList';
 import DriveViewer from './components/DriveViewer';
 import { VisitorUploadList, useVisitorQueue } from './components/VisitorUploads';
@@ -236,6 +237,9 @@ function ConflictDialog({ state, onResolve }) {
 /** /d/:token — a file or folder from the company's file servers, shared by link. */
 export default function PublicDrive() {
   const { token } = useParams();
+  const location = useLocation();
+  // "Open as recipient" from the share dialog: the author looking, not a view.
+  const preview = new URLSearchParams(location.search).get('preview') === '1';
   const { t, locale } = useLocale();
   const { message } = App.useApp();
   const { settings } = useSettings();
@@ -263,8 +267,15 @@ export default function PublicDrive() {
 
   const load = useCallback(() => {
     publicDriveApi
-      .open(token, { path, visitor })
+      .open(token, { path, visitor, preview, repeat: viewCounted('drive', token) })
       .then((res) => {
+        if (!path) markViewCounted('drive', token);
+        // A session token from before read tokens existed is swapped for a new one (same session and name).
+        if (res.data.visitorToken) {
+          storeVisitor(token, res.data.visitorToken);
+          visitorRef.current = res.data.visitorToken;
+          setVisitor(res.data.visitorToken);
+        }
         setData(res.data);
         setState({ kind: 'ready' });
       })
@@ -272,7 +283,7 @@ export default function PublicDrive() {
         const body = err?.response?.data || {};
         setState({ kind: 'error', code: body.code || 'UNAVAILABLE', info: body.info });
       });
-  }, [token, path, visitor]);
+  }, [token, path, visitor, preview]);
 
   useEffect(() => {
     load();
@@ -571,7 +582,8 @@ export default function PublicDrive() {
     }
   };
 
-  const src = useMemo(() => linkSource(token, visitor, link?.allowDownload), [token, visitor, link]);
+  // File addresses carry the read token only (the session token never goes into a URL).
+  const src = useMemo(() => linkSource(token, data?.readToken || '', link?.allowDownload), [token, data, link]);
 
   const pickers = (
     <>
@@ -617,7 +629,7 @@ export default function PublicDrive() {
     body = (
       <div className="dv-notice">
         <div className="dv-notice__icon">🔐</div>
-        <span className="dv-notice__eyebrow">{state.info?.name}</span>
+        <span className="dv-notice__eyebrow">{t('drive.public.eyebrow')}</span>
         <h1>{t('kb.public.protected')}</h1>
         <p>{t('kb.public.passwordLead')}</p>
         <div className="share-gate">
@@ -631,7 +643,7 @@ export default function PublicDrive() {
     body = (
       <div className="dv-notice">
         <div className="dv-notice__icon">🏢</div>
-        <span className="dv-notice__eyebrow">{state.info?.name}</span>
+        <span className="dv-notice__eyebrow">{t('drive.public.eyebrow')}</span>
         <h1>{t('drive.public.SIGN_IN_REQUIRED.title')}</h1>
         <p>{t('drive.public.SIGN_IN_REQUIRED.text', { app: settings?.appName || '' })}</p>
         <Link to={`/login?next=${encodeURIComponent(`/d/${token}`)}`}>

@@ -75,7 +75,9 @@ const linkBase = (token) => `/d/${encodeURIComponent(token)}`;
  * unlock().
  */
 export const publicDriveApi = {
-  open: (token, { path, visitor } = {}) => api.get(linkBase(token), { params: path ? { path } : {}, headers: linkHeaders(visitor) }),
+  /** `preview`: the author looking (not a view); `repeat`: a reload of a page already counted. */
+  open: (token, { path, visitor, preview, repeat } = {}) =>
+    api.get(linkBase(token), { params: { ...(path ? { path } : {}), ...(preview ? { preview: 1 } : {}), ...(repeat ? { repeat: 1 } : {}) }, headers: linkHeaders(visitor) }),
   /** Opens a visitor session: { password?, name?, email? } → { token, visitor }. */
   unlock: (token, body = {}, visitor) => api.post(`${linkBase(token)}/unlock`, body, { headers: linkHeaders(visitor) }),
   mine: (token, visitor) => api.get(`${linkBase(token)}/mine`, { headers: linkHeaders(visitor) }),
@@ -118,9 +120,14 @@ export function shareSource(shareId) {
   };
 }
 
-export function linkSource(token, visitor, allowDownload) {
+/**
+ * File addresses of a public link. `reader` is the read token the page got
+ * from the server (never the visitor session, which stays in the header):
+ * addresses end up in history and logs.
+ */
+export function linkSource(token, reader, allowDownload) {
   const root = `/api/d/${encodeURIComponent(token)}`;
-  const auth = visitor ? { t: visitor } : {};
+  const auth = reader ? { t: reader } : {};
   return {
     file: (entry, { download } = {}) => `${root}/file${qs({ path: entry.path, download: download ? 1 : undefined, ...auth })}`,
     preview: (entry) => `${root}/preview.pdf${qs({ path: entry.path, ...auth })}`,

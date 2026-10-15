@@ -37,7 +37,8 @@ ensureUploadDirs();
 // Every request carries an id (and the browser's session id) for incident lookup.
 app.use(requestIds);
 // Page navigations handed over by nginx: index.html with link-preview tags
-// (services/linkPreview). Before helmet and the IP guard, like the static file.
+// (services/linkPreview). Before helmet and the IP guard, like the static file;
+// it runs the IP check itself (a refused address gets the plain page, no lookup).
 app.use(shellMiddleware());
 // /api/v1/* is the stable address for integrations (same handlers as /api/*).
 app.use(versionPrefix);
@@ -197,7 +198,8 @@ async function start() {
   // The tab icon and the manifest are fetched by the browser on every page load.
   const FREE_READS = new Set(['/setup/status', '/settings', '/status', '/apps', '/notifications/unread', '/pwa/icon', '/pwa/manifest.webmanifest']);
   const STREAM = /\/(app\/chat\/(stream|files\/\d+)|items\/\d+\/(file|preview\.pdf|attachments\/\d+(\/preview\.pdf)?)|nodes\/\d+\/(file|preview\.pdf)|shares\/\d+\/(file|thumb|preview\.pdf|cad)|d\/[\w-]+\/(file|thumb|preview\.pdf|cad)|res\/icons\/[\w.]+)$/;
-  const LINK_UPLOAD = /^\/d\/[\w-]+\/(upload|replace)$/;
+  // Uploads through public links: Drive (PUT /d/…/upload|replace) and Files (POST /l/…/upload, /l/…/nodes/:id/replace).
+  const LINK_UPLOAD = { PUT: /^\/d\/[\w-]+\/(upload|replace)$/, POST: /^\/l\/[\w-]+\/(upload|nodes\/\d+\/replace)$/ };
   // API tokens are checked before the general limiter; they have their own per-token limit.
   app.use('/api', tokenGate);
   app.use(
@@ -217,8 +219,9 @@ async function start() {
       standardHeaders: 'draft-7',
       legacyHeaders: false,
       // Sign-in has its own brute-force limiters; a busy guest IP must never block signing in.
-      // Uploads through drive links have their own per-link limits (modules/drive/routes.js).
-      skip: (req) => Boolean(req.apiToken) || req.path.startsWith('/auth/') || (req.method === 'GET' && (FREE_READS.has(req.path) || STREAM.test(req.path))) || (req.method === 'PUT' && LINK_UPLOAD.test(req.path)),
+      // Uploads through public links (one request per file) have their own per-link
+      // limits (modules/drive/routes.js, modules/files/routes.js).
+      skip: (req) => Boolean(req.apiToken) || req.path.startsWith('/auth/') || (req.method === 'GET' && (FREE_READS.has(req.path) || STREAM.test(req.path))) || Boolean(LINK_UPLOAD[req.method]?.test(req.path)),
       handler: (req, res, next, options) => {
         res.status(options.statusCode).json({
           success: false,

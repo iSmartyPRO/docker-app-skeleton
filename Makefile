@@ -167,20 +167,31 @@ DB_CONTAINER ?= postgres-18
 # Compose names the image <project dir>-app (e.g. portal-app)
 APP_IMAGE    ?= $(notdir $(patsubst %/,%,$(PROJECT_ROOT)))-app
 BACKUP_DIR   ?= /root/db-backups
-backup: ## Dump the app database to $(BACKUP_DIR)/<db>-<timestamp>.dump (skipped if $(DB_CONTAINER) is not running)
-	@if docker ps --format '{{.Names}}' | grep -qx "$(DB_CONTAINER)"; then \
+backup: ## Dump the app database to $(BACKUP_DIR)/<db>-<timestamp>.dump (skipped if $(DB_CONTAINER) is not running; BACKUP_REQUIRED=1 fails instead; BACKUP=skip skips)
+	@if [ "$(BACKUP)" = "skip" ]; then echo "Backup skipped (BACKUP=skip)"; exit 0; fi; \
+	if docker ps --format '{{.Names}}' | grep -qx "$(DB_CONTAINER)"; then \
 		db=$$(grep '^POSTGRES_DB=' "$(PROJECT_ROOT).env" | cut -d= -f2-); user=$$(grep '^POSTGRES_USER=' "$(PROJECT_ROOT).env" | cut -d= -f2-); \
 		mkdir -p "$(BACKUP_DIR)"; f="$(BACKUP_DIR)/$$db-$$(date +%Y%m%d-%H%M%S).dump"; \
 		docker exec -e PGPASSWORD="$$(grep '^POSTGRES_PASSWORD=' "$(PROJECT_ROOT).env" | cut -d= -f2-)" "$(DB_CONTAINER)" pg_dump -h 127.0.0.1 -U "$$user" -Fc "$$db" > "$$f" && test -s "$$f" && echo "Backup: $$f ($$(du -h "$$f" | cut -f1))" || { echo "Backup failed"; rm -f "$$f"; exit 1; }; \
+	elif [ "$(BACKUP_REQUIRED)" = "1" ]; then \
+		echo "Backup failed: container $(DB_CONTAINER) is not running. Start it (or set DB_CONTAINER=…), or deploy without a backup: make deploy BACKUP=skip"; exit 1; \
 	else echo "Backup skipped: container $(DB_CONTAINER) is not running"; fi
 
-deploy: ## Release (if anything changed) → backup → tag previous image → rebuild → wait until ready
-	@node "$(PROJECT_ROOT)scripts/release.mjs" $(BUMP)
-	@$(MAKE) --no-print-directory backup
+# Deploy order: nothing is published before the new version runs. The release
+# commit and tag are made locally (--no-push), then backup, rebuild and the
+# health check (the new VERSION must answer); only then are the branch and the
+# tag pushed (GitHub publishes the release from the tag). A failed step stops
+# the deploy with the release unpublished — see docs/operations.md, "Failed deploy".
+deploy: ## Release locally (if anything changed) → backup (required; BACKUP=skip to skip) → tag previous image → rebuild → wait until healthy → push branch and tag
+	@node "$(PROJECT_ROOT)scripts/release.mjs" $(BUMP) --no-push
+	@$(MAKE) --no-print-directory backup BACKUP_REQUIRED=1
 	@docker image inspect $(APP_IMAGE) >/dev/null 2>&1 && docker tag $(APP_IMAGE) $(APP_IMAGE):previous && echo "Tagged $(APP_IMAGE):previous" || true
 	@$(MAKE) --no-print-directory rebuild
-	@for i in $$(seq 1 60); do curl -fsS "$(HEALTH_URL)" 2>/dev/null | grep -q '"status":"ok"' && break; sleep 3; done; \
-	curl -fsS "$(HEALTH_URL)" && echo && echo "Deployed v$$(cat "$(PROJECT_ROOT)VERSION")"
+	@v="$$(tr -d '[:space:]' < "$(PROJECT_ROOT)VERSION")"; ok=; \
+	for i in $$(seq 1 60); do curl -fsS "$(HEALTH_URL)" 2>/dev/null | grep -q "\"version\":\"$$v\"" && { ok=1; break; }; sleep 3; done; \
+	if [ -z "$$ok" ]; then echo "Deploy failed: $(HEALTH_URL) does not answer healthy with v$$v. Nothing was pushed (see docs/operations.md, Failed deploy)."; exit 1; fi; \
+	curl -fsS "$(HEALTH_URL)"; echo; echo "Deployed v$$v"
+	@node "$(PROJECT_ROOT)scripts/release.mjs" --push-only
 
 # ── Production (docker-compose.yml) ─────────────────────────────────────────
 build: ## Build production image

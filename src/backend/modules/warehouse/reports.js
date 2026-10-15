@@ -168,7 +168,8 @@ export async function byObject(req, input = {}) {
   const s = p.add(start);
   const e = p.add(end);
   const visible = ctx.visibleIds();
-  const whSql = visible === null || type === 'employee' ? '' : ` AND m.warehouse_id = ANY(${p.add(visible)}::int[])`;
+  // My own holdings in full; anyone else's only from the warehouses I see.
+  const whSql = visible === null || (type === 'employee' && id === ctx.userId) ? '' : ` AND m.warehouse_id = ANY(${p.add(visible)}::int[])`;
   const { rows } = await query(
     `SELECT m.item_id, i.name, i.sku, i.base_unit, array_agg(DISTINCT m.warehouse_id) AS warehouses,
             COALESCE(SUM(m.qty) FILTER (WHERE m.qty > 0 AND m.moved_at >= ${s} AND m.moved_at < ${e}), 0) AS issued_q,

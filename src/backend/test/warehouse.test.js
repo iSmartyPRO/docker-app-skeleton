@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { MODULE_CATALOG, WAREHOUSE_DEFAULTS, resolveModules, sanitizeWarehouse } from '../modules/catalog.js';
 import {
   COST_KEYS,
+  INSTANCE_STATES,
+  stripEventCost,
   averageAfter,
   cleanUnits,
   convertFromBase,
@@ -146,6 +148,9 @@ test('warehouse: cost keys are stripped from any payload', () => {
   const out = stripCost(payload);
   assert.deepEqual(out, { items: [{ qty: 5, item: { name: 'x' } }], total: 3, document: {} });
   assert.ok(COST_KEYS.has('amount') && !COST_KEYS.has('total') && !COST_KEYS.has('value'));
+  // History events keep the posted sum as `total`: stripped there explicitly (lists use `total` for counts).
+  assert.deepEqual(stripEventCost({ total: 600, number: 'СП-1', amount: 5 }), { number: 'СП-1' });
+  assert.ok(INSTANCE_STATES.includes('lost'));
 });
 
 test('warehouse: scan codes and barcodes', () => {

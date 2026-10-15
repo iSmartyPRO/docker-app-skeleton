@@ -11,22 +11,34 @@ import {
   normalizePerms,
   quotaBytes,
   requirePerm,
+  storedPermissions,
   ungrantable,
   visitorName,
 } from '../modules/drive/linkPerms.js';
 import { digest, flushLinkNotifications, noteLinkChange, renderDigest, setLinkNotifySender } from '../modules/drive/linkNotify.js';
 
-test('drive link permissions: normalised per kind, dependencies added', () => {
-  assert.deepEqual(normalizePerms(['download']), ['view', 'download']);
+test('drive link permissions: normalised per kind with the rule shared with Files', () => {
+  // Everything except upload needs view and is dropped without it (never upgraded to a read link).
+  assert.deepEqual(normalizePerms(['download']), ['view']);
   assert.deepEqual(normalizePerms(['upload']), ['upload'], 'a file request does not see the folder');
-  assert.deepEqual(normalizePerms(['upload', 'mkdir']), ['view', 'upload', 'mkdir']);
-  assert.deepEqual(normalizePerms(['delete']), ['view', 'delete']);
-  assert.deepEqual(normalizePerms(['rename', 'bogus', 'upload']), ['view', 'upload', 'rename']);
+  assert.deepEqual(normalizePerms(['upload', 'download']), ['upload'], 'still a drop box, as in Files');
+  assert.deepEqual(normalizePerms(['upload', 'mkdir']), ['upload']);
+  assert.deepEqual(normalizePerms(['view', 'upload', 'mkdir']), ['view', 'upload', 'mkdir']);
+  assert.deepEqual(normalizePerms(['delete']), ['view']);
+  assert.deepEqual(normalizePerms(['view', 'rename', 'bogus', 'upload']), ['view', 'upload', 'rename']);
   assert.deepEqual(normalizePerms([]), ['view']);
   assert.deepEqual(normalizePerms('view'), ['view'], 'not an array');
   // File links: view, download and replace only.
-  assert.deepEqual(normalizePerms(['upload', 'mkdir', 'rename', 'delete', 'replace'], 'file'), ['view', 'replace']);
+  assert.deepEqual(normalizePerms(['view', 'upload', 'mkdir', 'rename', 'delete', 'replace'], 'file'), ['view', 'replace']);
   assert.deepEqual(normalizePerms(['view', 'download', 'upload', 'mkdir', 'rename', 'replace', 'delete']), ['view', 'download', 'upload', 'mkdir', 'rename', 'replace', 'delete']);
+});
+
+test('drive link permissions: stored lists keep their meaning', () => {
+  // Saved by the earlier rule (view added to a dependent key): read the same way.
+  assert.deepEqual(storedPermissions({ kind: 'dir', permissions: ['download', 'upload'] }), ['view', 'download', 'upload']);
+  assert.deepEqual(storedPermissions({ kind: 'dir', permissions: ['upload'] }), ['upload']);
+  assert.deepEqual(storedPermissions({ kind: 'file', permissions: ['replace'] }), ['view', 'replace']);
+  assert.deepEqual(effectivePerms({ kind: 'dir', permissions: ['download', 'upload'], password_hash: 'x' }), ['view', 'download', 'upload']);
 });
 
 test('drive link permissions: existing links keep exactly what they had', () => {

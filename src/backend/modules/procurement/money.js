@@ -1,5 +1,7 @@
 import { query, withTransaction } from '../../config/database.js';
+import { isoDay } from '../../services/datetime.js';
 import { notify } from '../../services/notifications.js';
+import { portalRegional } from '../../services/regional.js';
 import { removeBlob } from '../shared/storage.js';
 import { rolesOn } from './access.js';
 import { acceptedFiles, discardUploads, insertDocuments, runUpload } from './files.js';
@@ -181,12 +183,13 @@ export async function addDelivery(req, res, id) {
 export async function recordExternalDelivery({ requestId, actorId, partial = false, note = null, deliveredOn = null, source = 'warehouse', reference = null }) {
   const id = Number(requestId);
   if (!Number.isInteger(id) || id < 1) return { skipped: 'NOT_FOUND' };
-  const day = deliveredOn || new Date().toISOString().slice(0, 10);
+  // «Today» of the portal's zone, not UTC (a receipt at 01:00 local is still that local day).
+  const day = deliveredOn || isoDay(new Date(), (await portalRegional()).timeZone);
   const result = await withTransaction(async (client) => {
     const current = await lockRequest(client, id);
     if (!current) return { skipped: 'NOT_FOUND' };
     if (!['to_pay', 'partially_paid', 'paid'].includes(current.status)) return { skipped: current.status };
-    await client.query(`INSERT INTO proc_deliveries (request_id, delivered_on, partial, note, created_by) VALUES ($1, $2, $3, $4, $5)`, [id, day, Boolean(partial), text(note, 1000), actorId || null]);
+    await client.query(`INSERT INTO proc_deliveries (request_id, delivered_on, partial, note, created_by, source, reference) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [id, day, Boolean(partial), text(note, 1000), actorId || null, text(source, 20), text(reference, 80)]);
     const next = await recompute(client, id);
     await logEvent(client, id, actorId, 'delivered', { partial: Boolean(partial), deliveredOn: day, status: next.status, source, reference });
     return { status: next.status };
@@ -197,6 +200,35 @@ export async function recordExternalDelivery({ requestId, actorId, partial = fal
   notify({ userIds: [fresh.author_id, fresh.responsible_id], kind: 'procurement.delivered', module: 'procurement', link: requestUrl(id), actorId, render: procurementMessage('delivered', { doc: docOf(fresh), partial: Boolean(partial), actor }) }).catch(() => {});
   webhook('procurement.delivered', fresh, actorId, { delivery: { deliveredOn: day, partial: Boolean(partial), note: text(note, 1000), source, reference } });
   return result;
+}
+
+/**
+ * Takes back the deliveries another module recorded under `reference` (a
+ * reversed Warehouse receipt). Deliveries recorded before the reference
+ * column existed are matched by their note «Склад: <number>». `partial`
+ * (when given) is the module's view of what is still to come: the remaining
+ * deliveries from that source become partial, so a request is «delivered»
+ * only while everything arrived. Status and history follow; closed or
+ * cancelled requests are left alone → { skipped }.
+ */
+export async function revertExternalDelivery({ requestId, actorId, reference, source = 'warehouse', partial = null }) {
+  const id = Number(requestId);
+  const ref = text(reference, 80);
+  if (!Number.isInteger(id) || id < 1 || !ref) return { skipped: 'NOT_FOUND' };
+  return withTransaction(async (client) => {
+    const current = await lockRequest(client, id);
+    if (!current) return { skipped: 'NOT_FOUND' };
+    if (['closed', 'cancelled'].includes(current.status)) return { skipped: current.status };
+    const { rows } = await client.query(
+      `DELETE FROM proc_deliveries WHERE request_id = $1 AND (reference = $2 OR (reference IS NULL AND note = $3)) RETURNING id`,
+      [id, ref, `Склад: ${ref}`]
+    );
+    if (!rows.length) return { skipped: 'NO_DELIVERY' };
+    if (partial === true) await client.query(`UPDATE proc_deliveries SET partial = TRUE WHERE request_id = $1 AND (source = $2 OR (source IS NULL AND note LIKE 'Склад: %'))`, [id, text(source, 20)]);
+    const next = await recompute(client, id);
+    await logEvent(client, id, actorId, 'delivery_removed', { status: next.status, source, reference: ref });
+    return { status: next.status, removed: rows.length };
+  });
 }
 
 /** DELETE /deliveries/:id. */

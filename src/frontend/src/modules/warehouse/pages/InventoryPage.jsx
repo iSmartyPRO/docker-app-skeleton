@@ -424,7 +424,7 @@ function SessionView({ id }) {
       onOk: async () => {
         const out = await act('finish', { force: notDone > 0 });
         if (!out) return;
-        if (out.postError) message.warning(whError({ response: { data: { code: out.postError.code, error: out.postError.message } } }, t));
+        if (out.postError) message.warning(whError({ response: { data: { code: out.postError.code, error: out.postError.message, info: out.postError.info } } }, t));
         else message.success(out.session.doc?.status === 'pending' ? t('whm.inv.finishedApproval', { number: out.session.doc.number }) : t('whm.inv.finishedPosted', { number: out.session.doc?.number }));
       },
     });

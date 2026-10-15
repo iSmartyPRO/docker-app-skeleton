@@ -123,6 +123,11 @@ function FilesForm({ settings, save }) {
             <Switch disabled={!links || writeLinks === false} />
           </Form.Item>
         </SettingRow>
+        <SettingRow label={t('filesSettings.linkQuota')} description={t('filesSettings.linkQuotaDesc')}>
+          <Form.Item name="linkQuotaMb" noStyle>
+            <InputNumber min={0} max={10000000} disabled={!links || writeLinks === false} addonAfter="MB" style={{ width: 180 }} />
+          </Form.Item>
+        </SettingRow>
       </SettingsSection>
       <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={reset} />
     </Form>

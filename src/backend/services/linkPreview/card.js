@@ -357,9 +357,19 @@ let running = 0;
 const waiting = [];
 const inflight = new Map();
 
-async function slot(job) {
-  // At most two pictures are drawn at a time; the rest wait their turn.
-  if (running >= 2) await new Promise((resolveTurn) => waiting.push(resolveTurn));
+/** Pictures that may wait for their turn; beyond that a request is refused (RENDER_BUSY) instead of queued. */
+export const MAX_WAITING = 16;
+
+export async function renderSlot(job) {
+  // At most two pictures are drawn at a time; the rest wait their turn, up to MAX_WAITING.
+  if (running >= 2) {
+    if (waiting.length >= MAX_WAITING) {
+      const error = new Error('Too many pictures are being drawn');
+      error.code = 'RENDER_BUSY';
+      throw error;
+    }
+    await new Promise((resolveTurn) => waiting.push(resolveTurn));
+  }
   running += 1;
   try {
     return await job();
@@ -373,7 +383,7 @@ async function slot(job) {
 export async function renderPng(svg) {
   const Resvg = await renderer();
   if (!Resvg) throw new Error('Picture renderer unavailable');
-  return slot(async () => {
+  return renderSlot(async () => {
     const instance = new Resvg(svg, {
       fitTo: { mode: 'width', value: WIDTH },
       font: { fontFiles: [FONTS.regular, FONTS.bold], loadSystemFonts: false, defaultFontFamily: 'Inter' },

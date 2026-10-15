@@ -1,4 +1,5 @@
 import { httpError } from '../shared/acl.js';
+import { LINK_FILE_PERMISSIONS, LINK_NEEDS_VIEW, LINK_PERMISSIONS, LINK_WRITE_PERMISSIONS, normalizeLinkPermissions } from '../shared/linkPermissions.js';
 
 /*
  * What a public link lets its visitors do. Pure helpers (no database, no SMB)
@@ -13,29 +14,37 @@ import { httpError } from '../shared/acl.js';
  *   delete    delete files and folders (file servers have no recycle bin)
  *
  * A file link can only grant view, download and replace. Everything except
- * upload needs view (one must see what one changes); the shared picker
- * (components/ui/LinkPermissions.jsx) follows the same rules.
+ * upload needs view (one must see what one changes) and is dropped without
+ * it: the rule is shared with Files and the picker (shared/linkPermissions.js).
  * "Upload" without "view" is a file request: visitors never see the folder,
  * only what they uploaded themselves in this browser session.
  */
 
-export const PERMS = ['view', 'download', 'upload', 'mkdir', 'rename', 'replace', 'delete'];
-export const WRITE_PERMS = ['upload', 'mkdir', 'rename', 'replace', 'delete'];
-export const FILE_PERMS = ['view', 'download', 'replace'];
+export const PERMS = LINK_PERMISSIONS;
+export const WRITE_PERMS = LINK_WRITE_PERMISSIONS;
+export const FILE_PERMS = LINK_FILE_PERMISSIONS;
 
 /** Links created before permissions existed: view, plus download when it was allowed. */
 export function legacyPerms(allowDownload) {
   return allowDownload === false ? ['view'] : ['view', 'download'];
 }
 
-/** A clean, ordered permission list for a link of `kind` ('file' | 'dir'). */
+/** A clean, ordered permission list for a link of `kind` ('file' | 'dir'), from the author's input. */
 export function normalizePerms(input, kind = 'dir') {
-  const allowed = kind === 'file' ? FILE_PERMS : PERMS;
-  const set = new Set((Array.isArray(input) ? input : []).map((item) => String(item)).filter((item) => allowed.includes(item)));
-  if (['download', 'mkdir', 'rename', 'replace', 'delete'].some((perm) => set.has(perm))) set.add('view');
-  // A link that grants nothing would be useless: it shows the item at least.
-  if (!set.size) set.add('view');
-  return PERMS.filter((perm) => set.has(perm));
+  return normalizeLinkPermissions(input, kind !== 'file');
+}
+
+/**
+ * The permission list a stored link has. Lists saved before the shared rule
+ * added view to a view-dependent key (['download', 'upload'] was saved as
+ * ['view', 'download', 'upload']); a stored list missing view is read the same
+ * way, so existing links keep doing what they did.
+ */
+export function storedPermissions(row) {
+  const stored = Array.isArray(row.permissions) && row.permissions.length ? row.permissions : legacyPerms(row.allow_download);
+  const list = stored.map(String);
+  if (!list.includes('view') && list.some((perm) => LINK_NEEDS_VIEW.includes(perm))) list.push('view');
+  return normalizePerms(list, row.kind);
 }
 
 export const hasWrite = (perms) => perms.some((perm) => WRITE_PERMS.includes(perm));
@@ -47,7 +56,7 @@ export const hasWrite = (perms) => perms.some((perm) => WRITE_PERMS.includes(per
  */
 export function effectivePerms(row, settings = {}) {
   const stored = Array.isArray(row.permissions) && row.permissions.length ? row.permissions : legacyPerms(row.allow_download);
-  let perms = normalizePerms(stored, row.kind);
+  let perms = storedPermissions(row);
   const writesOff = settings.linkWrite === false || (settings.requireWritePassword && !row.password_hash);
   if (writesOff) perms = perms.filter((perm) => !WRITE_PERMS.includes(perm));
   if (!perms.length) perms = ['view'];

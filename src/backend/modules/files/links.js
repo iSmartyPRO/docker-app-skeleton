@@ -2,10 +2,12 @@ import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import config from '../../config/app.js';
-import { query } from '../../config/database.js';
+import { query, withTransaction } from '../../config/database.js';
 import { requestAs } from '../../api/events.js';
 import { LEVEL, avatarOf, contextFromRequest, httpError } from '../shared/acl.js';
 import { addressMatch, addressOrder, checkSlug, claimSlug, clearHold, freshToken, releaseSlug, rethrowSlugConflict } from '../shared/linkSlug.js';
+import { LINK_PERMISSIONS, LINK_WRITE_PERMISSIONS, normalizeLinkPermissions } from '../shared/linkPermissions.js';
+import { forgetPreviews } from '../../services/linkPreview/memo.js';
 import { chainOf, nodeAccess, requireNode } from './access.js';
 import { filesSettings } from './service.js';
 
@@ -30,25 +32,25 @@ import { filesSettings } from './service.js';
  *
  * Visitor tokens are JWTs bound to the link id and its version. Changing the
  * password or revoking bumps the version, so every token already issued (and
- * with it every visitor session) stops working.
+ * with it every visitor session) stops working. There are two kinds:
+ *   - the visitor session (scope "w"): sent in the X-Link-Token header only,
+ *     needed for every change;
+ *   - a read token (scope "r", no session id): the only kind accepted in the
+ *     address (?t=, for <img>/<video>/PDF sources), so what reaches access
+ *     logs can open files but never change anything or start a session.
+ * Tokens issued before scopes existed are upgraded on the next page load
+ * (GET /l/<token> answers with a fresh session token).
  */
 
 const DAY = 24 * 60 * 60 * 1000;
 const secret = () => `${config.auth.jwtSecret || 'dev-secret'}:files-link`;
 
-export const PERMISSION_KEYS = ['view', 'download', 'upload', 'mkdir', 'rename', 'replace', 'delete'];
-export const WRITE_KEYS = ['upload', 'mkdir', 'rename', 'replace', 'delete'];
+export const PERMISSION_KEYS = LINK_PERMISSIONS;
+export const WRITE_KEYS = LINK_WRITE_PERMISSIONS;
 const FOLDER_ONLY = new Set(['upload', 'mkdir', 'rename', 'delete']);
-const NEEDS_VIEW = ['download', 'mkdir', 'rename', 'replace', 'delete'];
 
-/** Known keys only; folder-only keys dropped for files; all but upload need view; never empty. */
-export function normalizePermissions(perms, isFolder = true) {
-  const set = new Set((Array.isArray(perms) ? perms : []).filter((key) => PERMISSION_KEYS.includes(key)));
-  if (!isFolder) FOLDER_ONLY.forEach((key) => set.delete(key));
-  if (!set.has('view')) NEEDS_VIEW.forEach((key) => set.delete(key));
-  if (!set.size) set.add('view');
-  return PERMISSION_KEYS.filter((key) => set.has(key));
-}
+/** Known keys only; folder-only keys dropped for files; all but upload need view; never empty (shared/linkPermissions.js). */
+export const normalizePermissions = (perms, isFolder = true) => normalizeLinkPermissions(perms, isFolder);
 
 export const hasWrites = (perms) => perms.some((key) => WRITE_KEYS.includes(key));
 
@@ -222,29 +224,35 @@ export async function createLink(ctx, nodeId, input = {}) {
   const options = optionsFrom(input, settings);
   const expiresAt = parseExpiry(input.expiresAt, settings.maxLinkDays);
   const slug = await claimSlug('files', input.slug, { authorId: ctx.userId });
-  const { rows } = await query(
-    `INSERT INTO fs_links (node_id, token, password_hash, expires_at, allow_download, permissions, title, max_file_mb, extensions, quota_mb,
-                           require_name, require_email, notify, created_by, slug)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
-    [
-      scope.access.node.id,
-      await freshToken('files', 9),
-      password ? await bcrypt.hash(password.slice(0, 200), 10) : null,
-      expiresAt,
-      permissions.includes('download'),
-      permissions,
-      options.title ?? null,
-      options.max_file_mb ?? null,
-      options.extensions ?? null,
-      options.quota_mb ?? null,
-      options.require_name ?? false,
-      options.require_email ?? false,
-      options.notify ?? false,
-      ctx.userId,
-      slug,
-    ]
-  ).catch((err) => rethrowSlugConflict('files', err, slug));
-  if (slug) await clearHold('files', slug);
+  const token = await freshToken('files', 9);
+  const passwordHash = password ? await bcrypt.hash(password.slice(0, 200), 10) : null;
+  const rows = await withTransaction(async (client) => {
+    const { rows: inserted } = await client.query(
+      `INSERT INTO fs_links (node_id, token, password_hash, expires_at, allow_download, permissions, title, max_file_mb, extensions, quota_mb,
+                             require_name, require_email, notify, created_by, slug)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
+      [
+        scope.access.node.id,
+        token,
+        passwordHash,
+        expiresAt,
+        permissions.includes('download'),
+        permissions,
+        options.title ?? null,
+        options.max_file_mb ?? null,
+        options.extensions ?? null,
+        options.quota_mb ?? null,
+        options.require_name ?? false,
+        options.require_email ?? false,
+        options.notify ?? false,
+        ctx.userId,
+        slug,
+      ]
+    );
+    if (slug) await clearHold('files', slug, client);
+    return inserted;
+  }).catch((err) => rethrowSlugConflict('files', err, slug));
+  forgetPreviews();
   return linkById(rows[0].id, ctx.userId);
 }
 
@@ -300,18 +308,25 @@ export async function updateLink(ctx, id, input = {}) {
     if (slug !== (link.slug || null)) set('slug = ?', slug);
   }
   if (bump) sets.push('version = version + 1');
-  if (sets.length) await query(`UPDATE fs_links SET ${sets.join(', ')} WHERE id = $1`, values).catch((err) => rethrowSlugConflict('files', err, slug));
-  if (slug !== (link.slug || null)) {
-    await releaseSlug('files', link.slug, link.created_by);
-    await clearHold('files', slug);
-  }
+  // The change and the hold on the old address commit together.
+  await withTransaction(async (client) => {
+    if (sets.length) await client.query(`UPDATE fs_links SET ${sets.join(', ')} WHERE id = $1`, values);
+    if (slug !== (link.slug || null)) {
+      await releaseSlug('files', link.slug, link.created_by, client);
+      await clearHold('files', slug, client);
+    }
+  }).catch((err) => rethrowSlugConflict('files', err, slug));
+  forgetPreviews();
   return linkById(link.id, ctx.userId);
 }
 
 export async function deleteLink(ctx, id) {
   const { link } = await ownLink(ctx, id);
-  await query(`DELETE FROM fs_links WHERE id = $1`, [link.id]);
-  await releaseSlug('files', link.slug, link.created_by);
+  await withTransaction(async (client) => {
+    await client.query(`DELETE FROM fs_links WHERE id = $1`, [link.id]);
+    await releaseSlug('files', link.slug, link.created_by, client);
+  });
+  forgetPreviews();
 }
 
 /** Is this custom address free for the person (for their link `linkId` when editing)? */
@@ -350,25 +365,43 @@ export async function linkActivity(ctx, id) {
 // ── Visitors ────────────────────────────────────────────────────────────────
 
 /**
- * A visitor token: { lid, v, sid, pw, n, e }. `sid` names the visitor's
- * session (their own uploads, one notice per session), `pw` that it was
- * issued after the password, `n`/`e` the name and e-mail they gave.
+ * A visitor session token: { lid, v, s: 'w', sid, pw, n, e }. `sid` names
+ * the visitor's session (their own uploads, one notice per session), `pw`
+ * that it was issued after the password, `n`/`e` the name and e-mail they gave.
  */
 export function issueVisitor(link, { sid, pw = false, name = null, email = null } = {}) {
   return jwt.sign(
-    { lid: link.id, v: link.version, sid: sid || randomBytes(12).toString('base64url'), pw: Boolean(pw), ...(name ? { n: name } : {}), ...(email ? { e: email } : {}) },
+    { lid: link.id, v: link.version, s: 'w', sid: sid || randomBytes(12).toString('base64url'), pw: Boolean(pw), ...(name ? { n: name } : {}), ...(email ? { e: email } : {}) },
     secret(),
     { expiresIn: '12h' }
   );
 }
 
-/** The payload of a visitor token for this link and its current version, or null. */
-export function readVisitor(link, visitorToken) {
+/** A read token for file addresses: { lid, v, s: 'r', pw } — no session, no name, no changes. */
+export function issueReader(link, { pw = false } = {}) {
+  return jwt.sign({ lid: link.id, v: link.version, s: 'r', pw: Boolean(pw) }, secret(), { expiresIn: '12h' });
+}
+
+const SCOPES = { r: 'read', w: 'write' };
+
+/**
+ * The payload of a visitor token for this link and its current version, or
+ * null; `scope` is 'read', 'write' or 'legacy' (issued before scopes). `from`
+ * says where the token came from:
+ *   'url'    — the address: read tokens (and legacy ones, for pages opened
+ *              before the upgrade) only;
+ *   'header' — X-Link-Token on a read request: any kind;
+ *   'write'  — X-Link-Token on a change or a new session: never a read token.
+ */
+export function readVisitor(link, visitorToken, { from = 'header' } = {}) {
   if (!visitorToken) return null;
   try {
     const payload = jwt.verify(String(visitorToken), secret());
     if (payload.lid !== link.id || payload.v !== link.version) return null;
-    return payload;
+    const scope = SCOPES[payload.s] || 'legacy';
+    if (from === 'url' && scope === 'write') return null;
+    if (from === 'write' && scope === 'read') return null;
+    return { ...payload, scope };
   } catch {
     return null;
   }
@@ -380,7 +413,7 @@ export function readVisitor(link, visitorToken) {
  * Adds `perms` (effective permissions), `visitor` (token payload or null),
  * `authorCtx` (the author's access context, used for writes) and `owner`.
  */
-export async function resolveLink(token, visitorToken) {
+export async function resolveLink(token, visitorToken, { from = 'header' } = {}) {
   const settings = await filesSettings();
   const { rows } = await query(
     `SELECT l.*, n.kind, n.name, u.is_active AS author_active, u.is_blocked AS author_blocked,
@@ -405,15 +438,13 @@ export async function resolveLink(token, visitorToken) {
   }
   const chain = await chainOf(link.node_id);
   if (chain.some((row) => row.deleted_at)) throw httpError(404, 'This link does not exist', 'NOT_FOUND');
-  const visitor = readVisitor(link, visitorToken);
-  if (link.password_hash && !visitor?.pw) {
-    const error = httpError(401, 'This link is protected by a password', 'PASSWORD_REQUIRED');
-    error.details = { name: link.kind === 'folder' ? link.name : null };
-    throw error;
-  }
+  const visitor = readVisitor(link, visitorToken, { from });
+  // Nothing about the link (name, kind) before the password.
+  if (link.password_hash && !visitor?.pw) throw httpError(401, 'This link is protected by a password', 'PASSWORD_REQUIRED');
   link.perms = effectivePermissions(link, authorAccess.level, settings);
   if (!link.perms.length) throw httpError(403, 'This link no longer allows anything', 'LINK_DISABLED');
   link.visitor = visitor;
+  link.visitorFrom = visitor ? from : null;
   link.authorCtx = authorCtx;
   link.owner = { name: link.author_name || '', avatarUrl: avatarOf(link.author_avatar) };
   return link;
@@ -425,7 +456,7 @@ export async function unlockLink(token, password) {
   if (!link || !link.created_by) throw httpError(404, 'This link does not exist', 'NOT_FOUND');
   if (!link.password_hash) return { token: null };
   if (!(await bcrypt.compare(String(password || ''), link.password_hash))) throw httpError(401, 'Wrong password', 'WRONG_PASSWORD');
-  return { token: issueVisitor(link, { pw: true }) };
+  return { token: issueVisitor(link, { pw: true }), readToken: issueReader(link, { pw: true }) };
 }
 
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
@@ -436,16 +467,35 @@ const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
  * required when the link asks for them.
  */
 export function startSession(link, input = {}) {
-  const name = String(input.name || '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
-  const email = String(input.email || '').trim().slice(0, 160);
-  if (link.require_name && !name) throw httpError(400, 'Enter your name', 'VISITOR_NAME');
-  if (email && !EMAIL.test(email)) throw httpError(400, 'Enter a valid e-mail', 'VISITOR_EMAIL');
-  if (link.require_name && link.require_email && !email) throw httpError(400, 'Enter your e-mail', 'VISITOR_EMAIL');
   const current = link.visitor;
+  const given = String(input.name || '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+  const givenEmail = String(input.email || '').trim().slice(0, 160);
+  if (givenEmail && !EMAIL.test(givenEmail)) throw httpError(400, 'Enter a valid e-mail', 'VISITOR_EMAIL');
+  // A visitor who already introduced themselves keeps their name (e.g. a session renewed after an upgrade).
+  const name = given || current?.n || '';
+  const email = givenEmail || current?.e || '';
+  if (link.require_name && !name) throw httpError(400, 'Enter your name', 'VISITOR_NAME');
+  if (link.require_name && link.require_email && !email) throw httpError(400, 'Enter your e-mail', 'VISITOR_EMAIL');
   return {
-    token: issueVisitor(link, { sid: current?.sid, pw: current?.pw, name: name || current?.n || null, email: email || current?.e || null }),
-    visitor: { name: name || current?.n || null, email: email || current?.e || null },
+    token: issueVisitor(link, { sid: current?.sid, pw: current?.pw, name: name || null, email: email || null }),
+    readToken: issueReader(link, { pw: current?.pw }),
+    visitor: { name: name || null, email: email || null },
   };
+}
+
+/**
+ * Tokens for the page that opened the link: a read token for file addresses
+ * (when the visitor holds any token), and a fresh session token in place of
+ * one issued before scopes existed (the upgrade is automatic and keeps the
+ * session, the password mark and the name).
+ */
+export function pageTokens(link) {
+  const visitor = link.visitor;
+  // Only for a token the page sent in the header: one found in an address (a log) is never renewed.
+  if (!visitor || link.visitorFrom !== 'header') return {};
+  const out = { readToken: issueReader(link, { pw: visitor.pw }) };
+  if (visitor.scope === 'legacy') out.visitorToken = issueVisitor(link, { sid: visitor.sid, pw: visitor.pw, name: visitor.n || null, email: visitor.e || null });
+  return out;
 }
 
 export async function countView(link) {
@@ -477,6 +527,7 @@ export function visitorLinkShape(link) {
     quotaMb: link.quota_mb || null,
     requireName: link.require_name,
     requireEmail: link.require_email,
-    visitor: link.visitor ? { name: link.visitor.n || null, email: link.visitor.e || null, session: true } : null,
+    // `session`: the visitor holds a session token (a legacy one is replaced on this load, see pageTokens()).
+    visitor: link.visitor && link.visitor.scope !== 'read' ? { name: link.visitor.n || null, email: link.visitor.e || null, session: true } : null,
   };
 }

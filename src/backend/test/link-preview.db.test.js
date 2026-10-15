@@ -149,6 +149,34 @@ after(async () => {
 
 // ── Files ───────────────────────────────────────────────────────────────────
 
+test('page shell: an address the IP rules refuse gets the plain page, no link facts', { skip: skipFiles, timeout: 60000 }, async () => {
+  const links = await import('../modules/files/links.js');
+  const service = await import('../modules/files/service.js');
+  const { getUserAccess } = await import('../services/rbac.js');
+  const { contextFromRequest } = await import('../modules/shared/acl.js');
+  const { rows } = await db.query(`SELECT id FROM users WHERE username = 'plainuser'`);
+  const ctx = contextFromRequest({ user: { id: rows[0].id }, access: await getUserAccess(rows[0].id) }, 'files.admin');
+  const folder = await service.createFolder(ctx, { name: `Allow-list check ${Date.now()}` });
+  cleanup.fsRoots.push(folder.id);
+  const shared = await links.createLink(ctx, folder.id, { permissions: ['view'], title: 'Board minutes' });
+  cleanup.fsLinks.push(shared.id);
+  const visit = (ip) => fetch(`${base}/l/${shared.token}`, { headers: { 'User-Agent': WHATSAPP, 'X-Portal-Shell': '1', 'X-Forwarded-For': ip } }).then((res) => res.text());
+  assert.ok((await visit('203.0.113.7')).includes('Board minutes'), 'allowed: the link card');
+  const saved = await mods.settings.getSetting('security', null);
+  const security = JSON.parse(saved || '{}');
+  await mods.settings.setSetting('security', JSON.stringify({ ...security, whitelistEnabled: true }));
+  try {
+    const refused = await visit('203.0.113.7');
+    assert.ok(!refused.includes('Board minutes'), 'no link facts for a refused address');
+    assert.ok(refused.includes('<title>Портал</title>'), 'the static page as it is');
+    assert.ok(!refused.includes('og:title'));
+  } finally {
+    if (saved === null) await db.query(`DELETE FROM app_settings WHERE key = 'security'`);
+    else await mods.settings.setSetting('security', saved);
+    mods.preview.clearPreviewMemo();
+  }
+});
+
 test('files links: page tags per link state, no leaks, no view counting', { skip: skipFiles, timeout: 60000 }, async () => {
   const { getUserAccess } = await import('../services/rbac.js');
   const { contextFromRequest } = await import('../modules/shared/acl.js');

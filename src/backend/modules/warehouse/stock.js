@@ -235,11 +235,15 @@ async function listByHolder(ctx, input) {
  * Hints for document lines: per item at a warehouse { qty, reserved, available,
  * inTransit }, or at a holder { qty } (returns, hand-overs).
  */
-export async function stockHints(ctx, { warehouseId = null, holderType = null, holderId = null, itemIds = [] }) {
+export async function stockHints(ctx, { warehouseId = null, holderType = null, holderId = null, itemIds = [], warehouseIds = null }) {
   const out = new Map();
   if (!itemIds.length) return out;
   if (holderType && holderType !== 'warehouse') {
-    const { rows } = await query(`SELECT item_id, SUM(qty) AS qty FROM wh_stock WHERE holder_type = $1 AND holder_id = $2 AND item_id = ANY($3::int[]) GROUP BY item_id`, [holderType, holderId, itemIds]);
+    // warehouseIds: only what came from these warehouses (null = all).
+    const { rows } = await query(
+      `SELECT item_id, SUM(qty) AS qty FROM wh_stock WHERE holder_type = $1 AND holder_id = $2 AND item_id = ANY($3::int[]) AND ($4::int[] IS NULL OR warehouse_id = ANY($4::int[])) GROUP BY item_id`,
+      [holderType, holderId, itemIds, warehouseIds]
+    );
     for (const row of rows) out.set(row.item_id, { qty: q4(row.qty), reserved: 0, available: q4(row.qty) });
     return out;
   }
@@ -263,8 +267,12 @@ export async function hintsFor(req, input = {}) {
   const holderType = ['employee', 'object', 'project'].includes(input.holderType) ? input.holderType : null;
   const holderId = intOrNull(input.holderId);
   if (holderType === 'employee' && holderId !== ctx.userId && !ctx.canAny('operate')) throw httpError(403, 'Not your holdings', 'FORBIDDEN');
+  if (!warehouseId && !holderType) return {};
+  // Someone else's holdings (a person, an object, a project): only what came from the warehouses I see.
+  const mine = holderType === 'employee' && holderId === ctx.userId;
+  if (holderType && !mine && !ctx.canAny('view')) throw httpError(403, 'You have no access to the warehouse', 'FORBIDDEN');
   const itemIds = String(input.items || '').split(',').map(intOrNull).filter(Boolean).slice(0, 500);
-  const hints = await stockHints(ctx, { warehouseId, holderType, holderId, itemIds });
+  const hints = await stockHints(ctx, { warehouseId, holderType, holderId, itemIds, warehouseIds: holderType && !mine ? ctx.visibleIds() : null });
   return Object.fromEntries(hints);
 }
 

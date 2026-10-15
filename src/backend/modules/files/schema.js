@@ -127,6 +127,8 @@ export async function ensureFilesSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // The name an upload-only visitor sent, when the stored one differs ("x (2).pdf"): shown back to them only.
+  await query(`ALTER TABLE fs_link_events ADD COLUMN IF NOT EXISTS sent_name VARCHAR(255)`);
   await query(`CREATE INDEX IF NOT EXISTS fs_link_events_link_idx ON fs_link_events (link_id, session_id)`);
   await query(`CREATE INDEX IF NOT EXISTS fs_link_events_node_idx ON fs_link_events (node_id) WHERE node_id IS NOT NULL`);
   await query(`CREATE INDEX IF NOT EXISTS fs_link_events_pending_idx ON fs_link_events (created_at) WHERE notified = FALSE`);

@@ -62,7 +62,7 @@ function ToolCard({ id, onClose, onChanged }) {
   };
   const tool = data?.tool;
   return (
-    <Drawer open onClose={onClose} width={screens.md ? 640 : '100%'} className="wh-card" destroyOnClose mask={!screens.md} title={tool ? <div className="wh-card__head"><div><div className="wh-card__eyebrow"><span className="wh-card__no">{tool.inventoryNo}</span><span className={`wh-flag ${tool.state === 'repair' ? 'is-amber' : tool.state === 'written_off' ? 'is-red' : 'is-green'}`}>{t(`wh.instanceStates.${tool.state}`)}</span></div><h2 className="wh-card__title">{tool.item.name}</h2><div className="wh-card__facts">{tool.serialNo && <span>S/N {tool.serialNo}</span>}<Money amount={tool.cost} /></div></div></div> : <Skeleton.Input active size="small" />}>
+    <Drawer open onClose={onClose} width={screens.md ? 640 : '100%'} className="wh-card" destroyOnClose mask={!screens.md} title={tool ? <div className="wh-card__head"><div><div className="wh-card__eyebrow"><span className="wh-card__no">{tool.inventoryNo}</span><span className={`wh-flag ${tool.state === 'repair' ? 'is-amber' : ['written_off', 'lost'].includes(tool.state) ? 'is-red' : 'is-green'}`}>{t(`wh.instanceStates.${tool.state}`)}</span></div><h2 className="wh-card__title">{tool.item.name}</h2><div className="wh-card__facts">{tool.serialNo && <span>S/N {tool.serialNo}</span>}<Money amount={tool.cost} /></div></div></div> : <Skeleton.Input active size="small" />}>
       {error ? (
         <Result status="404" title={t('wh.tools.notFound')} />
       ) : !data ? (
@@ -164,7 +164,7 @@ export default function ToolsPage() {
     { key: 'inv', title: t('wh.tools.inventoryNo'), width: 140, render: (_, tool) => <span className="wh-no">{tool.inventoryNo}</span> },
     { key: 'item', title: t('wh.fields.item'), render: (_, tool) => <span className="wh-item-cell"><strong>{tool.item.name}</strong><em>{tool.serialNo ? `S/N ${tool.serialNo}` : ''}</em></span> },
     { key: 'where', title: t('wh.tools.whereNow'), width: 230, render: (_, tool) => <WhereNow where={tool.where} /> },
-    { key: 'state', title: t('wh.fields.status'), width: 120, render: (_, tool) => <span className={`wh-flag ${tool.state === 'repair' ? 'is-amber' : tool.state === 'written_off' ? 'is-red' : 'is-green'}`}>{t(`wh.instanceStates.${tool.state}`)}</span> },
+    { key: 'state', title: t('wh.fields.status'), width: 120, render: (_, tool) => <span className={`wh-flag ${tool.state === 'repair' ? 'is-amber' : ['written_off', 'lost'].includes(tool.state) ? 'is-red' : 'is-green'}`}>{t(`wh.instanceStates.${tool.state}`)}</span> },
     { key: 'service', title: t('wh.tools.nextService'), width: 150, render: (_, tool) => <ServiceBadge tool={tool} /> },
   ];
   return (

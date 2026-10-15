@@ -8,7 +8,7 @@ import { useWh } from '../WhContext';
 import { formatQty, readStore, scanFeedback, whError, writeStore } from '../lib';
 import { parseOwnCode } from './codes';
 import { useCountQueue } from './offlineQueue';
-import { BottomBar, MobileTop, QtySheet, ScanBar, unitList } from './parts';
+import { BottomBar, MobileTop, QtySheet, ScanBar, Sheet, unitList } from './parts';
 
 const AREA_COLORS = { todo: '#94A3B8', counting: '#0EA5E9', done: '#10B981', recount: '#F59E0B' };
 const CODES_KEY = 'wh.inv.codes';
@@ -49,6 +49,14 @@ function baseOf(item, qty, unit) {
 function SyncBadge({ queue }) {
   const { t } = useLocale();
   const n = queue.pending.length;
+  if (queue.blocked && n) {
+    // Signed out or refused for a moment: the counts stay on the phone and go when it works again.
+    return (
+      <button type="button" className="whm-sync is-off" onClick={queue.flush} role="status">
+        <DisconnectOutlined /> {t(queue.blocked === 401 || queue.blocked === 'UNAUTHORIZED' ? 'whm.inv.signIn' : 'whm.inv.paused', { n })}
+      </button>
+    );
+  }
   if (!queue.online) {
     return (
       <span className="whm-sync is-off" role="status">
@@ -199,6 +207,7 @@ function AreaCount({ id, bin }) {
   const [view, setView] = useState(() => readStore(`wh.inv.area.${id}.${binId || 0}`, null));
   const [error, setError] = useState(null);
   const [sheet, setSheet] = useState(null);
+  const [pieces, setPieces] = useState(null);
   const [camera, setCamera] = useState(false);
   const sheetRef = useRef(null);
   sheetRef.current = sheet;
@@ -233,19 +242,34 @@ function AreaCount({ id, bin }) {
     for (const op of queue.pending) {
       if ((op.binId || 0) !== (binId || 0) || !op.itemId || !op._item) continue;
       const entry = map.get(op.itemId) || { item: op._item, qty: 0, instances: [], pending: true };
-      entry.qty = op.kind === 'set' ? op._base : Math.max(0, Math.round((entry.qty + op._base) * 1e4) / 1e4);
-      if (op.instanceId && op._instance) entry.instances = [...entry.instances.filter((i) => i.id !== op.instanceId), op._instance];
+      if (op.instanceId) {
+        // A piece of a serial item: scanned (add) or taken back (set 0); the quantity is the number of pieces.
+        const others = entry.instances.filter((i) => i.id !== op.instanceId);
+        entry.instances = op.kind === 'set' && !op._base ? others : [...others, op._instance || { id: op.instanceId, inventoryNo: '' }];
+        entry.qty = entry.instances.length;
+      } else {
+        entry.qty = op.kind === 'set' ? op._base : Math.max(0, Math.round((entry.qty + op._base) * 1e4) / 1e4);
+      }
       entry.pending = true;
       map.set(op.itemId, entry);
     }
     return [...map.values()].filter((e) => e.qty > 0 || e.pending);
   }, [view, queue.pending, binId]);
   const doneQueued = queue.pending.some((op) => op.kind === 'done' && (op.binId || 0) === (binId || 0));
-  const recountItems = new Set((view?.recounts || []).map((r) => r.itemId).filter(Boolean));
 
   const send = (kind, item, qty, unit, extra = {}) => {
-    queue.add({ kind, binId, itemId: item.id, qty, unit, ...(recountItems.has(item.id) ? { recount: true } : {}), ...extra, _item: { id: item.id, name: item.name, sku: item.sku, baseUnit: item.baseUnit, units: item.units, tracking: item.tracking }, _base: baseOf(item, qty, unit) });
+    // A recount is decided by the server (the manager's open recount), not by a flag from the phone.
+    queue.add({ kind, binId, itemId: item.id, qty, unit, ...extra, _item: { id: item.id, name: item.name, sku: item.sku, baseUnit: item.baseUnit, units: item.units, tracking: item.tracking }, _base: baseOf(item, qty, unit) });
     scanFeedback(true);
+  };
+  /** Serial items are counted piece by piece: the label of each tool, not a quantity. */
+  const askInstance = (item) => {
+    scanFeedback(false);
+    message.warning({ content: t('whm.inv.scanInstance', { name: item.name }), key: 'whm-scan' });
+  };
+  const openSheet = (next) => {
+    if (next.item?.tracking === 'serial') askInstance(next.item);
+    else setSheet(next);
   };
   const commit = () => {
     const s = sheetRef.current;
@@ -299,9 +323,18 @@ function AreaCount({ id, bin }) {
       setSheet({ ...current, qty: (Number(current.qty) || 0) + 1 });
       return;
     }
+    if (found.item.tracking === 'serial') {
+      askInstance(found.item);
+      return;
+    }
     if (current) commit();
     scanFeedback(true);
     setSheet({ mode: 'add', item: found.item, qty: 1, unit: found.unit || found.item.baseUnit, title: t('whm.qty.scanned') });
+  };
+  const removePiece = (entry, instance) => {
+    send('set', entry.item, 0, entry.item.baseUnit, { instanceId: instance.id, _instance: instance });
+    const left = entry.instances.filter((i) => i.id !== instance.id);
+    setPieces(left.length ? { ...entry, instances: left } : null);
   };
   const markDone = () => {
     commit();
@@ -325,13 +358,13 @@ function AreaCount({ id, bin }) {
       )}
       {done && <div className="wh-banner is-green whm-banner">{t('whm.inv.doneBanner')}</div>}
       {view.others > 0 && <div className="wh-banner whm-banner">{t('whm.inv.others', { n: view.others })}</div>}
-      <ScanBar onCode={onCode} onPickItem={(item) => setSheet({ mode: 'add', item, qty: 1, unit: item.baseUnit, title: t('whm.qty.found') })} enabled={view.canCount} title={area.path || view.session.number} hint={t('whm.inv.scanItemsHint')} cameraOpen={camera} setCameraOpen={setCamera} />
+      <ScanBar onCode={onCode} onPickItem={(item) => openSheet({ mode: 'add', item, qty: 1, unit: item.baseUnit, title: t('whm.qty.found') })} enabled={view.canCount} title={area.path || view.session.number} hint={t('whm.inv.scanItemsHint')} cameraOpen={camera} setCameraOpen={setCamera} />
       <section className="whm-card">
         <h3 className="whm-h3">{t('whm.inv.countedByMe')}</h3>
         {mine.length ? (
           <div className="whm-lines">
             {mine.map((m) => (
-              <button key={m.item.id} type="button" className={`whm-line${m.pending ? ' is-pending' : ''}`} onClick={() => view.canCount && setSheet({ mode: 'set', item: m.item, qty: m.qty, unit: m.item.baseUnit, title: t('whm.qty.correct') })} data-testid="whm-count">
+              <button key={m.item.id} type="button" className={`whm-line${m.pending ? ' is-pending' : ''}`} onClick={() => view.canCount && (m.item.tracking === 'serial' ? setPieces(m) : setSheet({ mode: 'set', item: m.item, qty: m.qty, unit: m.item.baseUnit, title: t('whm.qty.correct') }))} data-testid="whm-count">
                 <span className="whm-line__main">
                   <strong>{m.item.name}</strong>
                   <em>{[m.item.sku, ...m.instances.map((i) => i.inventoryNo)].filter(Boolean).join(' · ')}</em>
@@ -355,7 +388,7 @@ function AreaCount({ id, bin }) {
           <ul className="whm-expected">
             {view.expected.map((e) => (
               <li key={e.item.id} className={countedIds.has(e.item.id) ? 'is-counted' : ''}>
-                <button type="button" onClick={() => view.canCount && setSheet({ mode: 'add', item: e.item, qty: 1, unit: e.item.baseUnit, title: t('whm.qty.found') })}>
+                <button type="button" onClick={() => view.canCount && openSheet({ mode: 'add', item: e.item, qty: 1, unit: e.item.baseUnit, title: t('whm.qty.found') })}>
                   <span>{e.item.name}</span>
                   <strong>{formatQty(e.book, locale)} {e.item.baseUnit}</strong>
                   {countedIds.has(e.item.id) && <CheckOutlined />}
@@ -379,10 +412,28 @@ function AreaCount({ id, bin }) {
         extra={area.path}
         onChange={(next) => setSheet((s) => ({ ...s, ...next }))}
         onSubmit={commit}
+        onScanCode={(code, { qty }) => {
+          // A wedge scanner typed into the quantity: the quantity stays as it was, the code is a scan.
+          if (sheetRef.current) sheetRef.current = { ...sheetRef.current, qty };
+          onCode(code);
+        }}
         onClose={() => setSheet(null)}
         submitLabel={sheet?.mode === 'set' ? t('whm.qty.save') : t('whm.qty.add')}
         allowZero={sheet?.mode === 'set'}
       />
+      <Sheet open={Boolean(pieces)} onClose={() => setPieces(null)} title={pieces?.item?.name}>
+        <p className="whm-muted">{t('whm.inv.piecesHint')}</p>
+        <div className="whm-list">
+          {(pieces?.instances || []).map((instance) => (
+            <div key={instance.id} className="whm-row">
+              <span className="whm-row__main">
+                <strong>{instance.inventoryNo || `#${instance.id}`}</strong>
+              </span>
+              <Button danger onClick={() => removePiece(pieces, instance)} data-testid="whm-piece-remove">{t('whm.inv.removePiece')}</Button>
+            </div>
+          ))}
+        </div>
+      </Sheet>
     </div>
   );
 }

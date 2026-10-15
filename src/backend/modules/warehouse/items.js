@@ -190,12 +190,39 @@ export async function getItem(req, id) {
     })),
     norms: norms.map((n) => ({ warehouseId: n.warehouse_id, warehouseName: n.warehouse_name, minQty: n.min_qty === null ? null : Number(n.min_qty), reorderQty: n.reorder_qty === null ? null : Number(n.reorder_qty) })),
     batches: batches.map((b) => ({ id: b.id, number: b.number, expiresOn: isoDayOf(b.expires_on), producedOn: isoDayOf(b.produced_on), supplier: b.supplier_name || '', unitCost: ctx.costAny && b.unit_cost !== null ? Number(b.unit_cost) : null })),
-    instances: instances.length ? await toolsByIds(ctx, instances.map((i) => i.id)) : [],
+    instances: instances.length ? (await toolsByIds(ctx, instances.map((i) => i.id))).filter((tool) => toolVisible(ctx, tool)) : [],
     reserves: reserves.filter((r) => ctx.sees(r.warehouse_id)).map((r) => ({ id: r.id, warehouse: { id: r.warehouse_id, name: r.warehouse_name }, qty: Number(r.qty), targetType: r.target_type, targetLabel: r.target_label || '', expiresOn: isoDayOf(r.expires_on) })),
     files: files.map((f) => ({ id: f.id, kind: f.kind, name: f.name, url: `/api/app/warehouse/files/${f.id}/file` })),
     moves: moves.map((m) => ({ id: m.id, docId: m.doc_id, number: m.number, type: m.type, warehouse: { id: m.warehouse_id, name: m.warehouse_name }, qty: q4(m.qty), amount: cost(m.warehouse_id) ? Number(m.amount) : null, movedAt: m.moved_at })),
     my: { canEdit: canEditItems(ctx), canAdmin: ctx.canAny('admin'), canNorms: ctx.canAny('admin') },
   };
+}
+
+/**
+ * May the person see where this tool is? On a warehouse they see (also
+ * when issued from it), or on them. A tool off the books (written off,
+ * lost) has no place and shows.
+ */
+export function toolVisible(ctx, tool) {
+  const where = tool?.where;
+  if (!where) return true;
+  if (where.type === 'employee' && where.id === ctx.userId) return true;
+  const warehouseId = where.type === 'warehouse' ? where.id : where.warehouse?.id;
+  return ctx.sees(warehouseId);
+}
+
+/** People who may scan codes: warehouse viewers, counters of a running inventory, holders of goods (their tools). */
+async function assertMayResolve(ctx) {
+  if (ctx.canAny('view')) return;
+  if (ctx.userId) {
+    const { rows } = await query(
+      `SELECT 1 FROM wh_inv_sessions s WHERE s.status IN ('counting', 'review') AND (EXISTS (SELECT 1 FROM wh_inv_people p WHERE p.session_id = s.id AND p.user_id = $1) OR EXISTS (SELECT 1 FROM wh_inv_areas a WHERE a.session_id = s.id AND a.assignee_id = $1))
+       UNION ALL SELECT 1 FROM wh_stock WHERE holder_type = 'employee' AND holder_id = $1 AND qty > 0 LIMIT 1`,
+      [ctx.userId]
+    );
+    if (rows.length) return;
+  }
+  throw httpError(403, 'You have no access to the warehouse', 'FORBIDDEN');
 }
 
 // ── Writing ─────────────────────────────────────────────────────────────────
@@ -431,6 +458,8 @@ export async function resolveCode(req, rawCode, input = {}) {
   const ctx = await whContext(req);
   const code = String(rawCode || '').trim().slice(0, 200);
   if (!code) throw httpError(400, 'Scan or type a code', 'CODE_REQUIRED');
+  // A document line added by its code was already checked by the document's rights.
+  if (input.checkAccess !== false) await assertMayResolve(ctx);
   const warehouseId = intOrNull(input.warehouse);
   const itemOut = async (row, extra = {}) => {
     const [item] = await hydrateItems([row]);
@@ -449,7 +478,8 @@ export async function resolveCode(req, rawCode, input = {}) {
       const { toolsByIds } = await import('./tools.js');
       const [tool] = await toolsByIds(ctx, [rows[0].id]);
       const out = await itemOut(await loadItem(rows[0].item_id));
-      return { ...out, kind: 'instance', instance: tool };
+      // The piece is known; where it is (and who holds it) only for those who may see that place.
+      return { ...out, kind: 'instance', instance: toolVisible(ctx, tool) ? tool : { ...tool, where: null, since: null, cost: null, hidden: true } };
     }
   }
   if (own?.kind === 'bin') {

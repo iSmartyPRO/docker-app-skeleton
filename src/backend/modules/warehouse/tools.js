@@ -1,6 +1,6 @@
 import { query, withTransaction } from '../../config/database.js';
 import { notify } from '../../services/notifications.js';
-import { Params, intOrNull, isoDayOf, logEvent, text, todayFor, usersByIds, whContext } from './access.js';
+import { Params, intOrNull, isoDayOf, logEvent, portalToday, text, todayFor, usersByIds, whContext } from './access.js';
 import { INSTANCE_STATES, addDays, day, httpError, num, ownCode, q4 } from './logic.js';
 import { holderLabels } from './stock.js';
 import { createDoc, docUrl, getDoc, insertHandoverLines, webhook } from './documents.js';
@@ -26,7 +26,8 @@ export async function toolsByIds(ctx, ids) {
     [ids]
   );
   const labels = await holderLabels(rows.filter((row) => row.holder_type && row.holder_type !== 'warehouse'));
-  const today = new Date().toISOString().slice(0, 10);
+  // «Today» in the person's zone (the portal's for system calls), not UTC.
+  const today = ctx.req ? await todayFor(ctx.req) : await portalToday();
   const soon = addDays(today, ctx.settings.serviceWarnDays ?? 7);
   return rows.map((row) => {
     const next = isoDayOf(row.next_service_on);

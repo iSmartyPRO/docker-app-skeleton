@@ -185,12 +185,16 @@ test('database: public drive link permissions', { skip, timeout: 120000 }, async
   assert.equal(res.body.code, 'SESSION_REQUIRED', 'the session must come in the header, not the address');
   res = await call('PUT', `/${request.token}/upload`, { token: visitor, query: { name: 'a.txt', conflict: 'replace', path: 'Acme' }, bytes: 'mine' });
   assert.equal(res.status, 200, JSON.stringify(res.body));
-  assert.equal(res.body.entry.name, 'a (1).txt', 'a clash is renamed, never overwritten');
-  assert.equal(res.body.entry.path, 'a (1).txt', 'path and conflict are ignored for file requests');
+  // Stored as "a (1).txt" (a clash is renamed, never overwritten), but the visitor gets back the
+  // name they sent: "a (1)" would tell them that the folder they cannot see holds "a.txt".
+  assert.equal(res.body.entry.name, 'a.txt', 'the name the visitor sent');
+  assert.equal(res.body.entry.path, 'a.txt', 'path and conflict are ignored for file requests');
+  assert.equal(res.body.replaced, false);
   assert.equal(readFileSync(share('Clients', 'a.txt'), 'utf8'), 'hello');
   assert.equal(readFileSync(share('Clients', 'a (1).txt'), 'utf8'), 'mine');
   res = await call('GET', `/${request.token}/mine`, { token: visitor });
-  assert.deepEqual(res.body.uploads.map((item) => item.name), ['a (1).txt']);
+  assert.deepEqual(res.body.uploads.map((item) => item.name), ['a.txt']);
+  assert.deepEqual(res.body.uploads.map((item) => item.path), ['a.txt'], 'no stored path either');
   const otherVisitor = await session(request.token);
   assert.deepEqual((await call('GET', `/${request.token}/mine`, { token: otherVisitor })).body.uploads, [], 'another browser sees nothing');
   for (const [method, route, json] of [['POST', 'folders', { name: 'New' }], ['PUT', 'rename', { path: 'a.txt', name: 'b.txt' }], ['POST', 'delete', { paths: ['a.txt'] }]]) {

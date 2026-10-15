@@ -45,9 +45,10 @@ Every update gets a version automatically: [Semantic Versioning](https://semver.
 - **on GitHub:** the tag `v1.2.3` and a release whose notes are that section of [CHANGELOG.md](../CHANGELOG.md) (published by `.github/workflows/release.yml` when the tag is pushed).
 
 ```bash
-make deploy              # release (if anything changed) → backup → tag image :previous → rebuild → wait for /health
-make release-dry         # how the next release would be classified
+make deploy              # release locally (if anything changed) → backup → tag image :previous → rebuild → healthy → push
+make release-dry         # how the next release would be classified (and what is not on origin yet)
 make release             # release only: bump, CHANGELOG, commit, tag, push
+make deploy BACKUP=skip  # deploy without a database backup (only when you mean it)
 make deploy BUMP=minor   # force the level (major | minor | patch) or an exact version (BUMP=2.0.0)
 ```
 
@@ -63,9 +64,26 @@ Write commit subjects as [Conventional Commits](https://www.conventionalcommits.
 
 1. writes the new number to `VERSION`, both `package.json` and both lock files;
 2. turns `## [Unreleased]` in `CHANGELOG.md` into `## [x.y.z] - date` (if the section is empty, the commit subjects are used) and opens a new empty `[Unreleased]`;
-3. commits `chore(release): vx.y.z`, creates the annotated tag and pushes both.
+3. commits `chore(release): vx.y.z`, creates the annotated tag and pushes both (`make release`).
 
-With no commits since the last tag, nothing is released and `make deploy` just redeploys the same version. `make backup` (also part of `make deploy`) dumps the database from `DB_CONTAINER` (default `postgres-18`) to `BACKUP_DIR` (default `/root/db-backups`).
+With no commits since the last tag, nothing is released and `make deploy` just redeploys the same version. A push that failed earlier (network, credentials) is not lost: every run that may push checks origin first (`git rev-list @{u}..HEAD`, `git ls-remote --tags`) and pushes the branch and the release tag when origin does not have them; `make release-dry` lists what is still missing there.
+
+**`make deploy` publishes only what runs.** The order is:
+
+1. release commit and tag **locally** (`release.mjs --no-push`);
+2. `make backup` — required: when `DB_CONTAINER` (default `postgres-18`) is not running the deploy stops (`make deploy BACKUP=skip` deploys without a backup, deliberately); the dump goes to `BACKUP_DIR` (default `/root/db-backups`);
+3. the running image is tagged `:previous`, then `make rebuild`;
+4. `/health` must answer `ok` with the new version within 3 minutes;
+5. only then the branch and the tag are pushed (`release.mjs --push-only`), and GitHub publishes the release.
+
+### Failed deploy
+
+A deploy that stops at step 2–4 leaves nothing published: the release commit and tag exist only locally.
+
+- **Fix forward** (usual): fix the problem, commit, run `make deploy` again. The next release counts the new commits since the local tag; once it is healthy both tags are pushed (the failed one stays in history with its CHANGELOG section).
+- **Drop the unpublished release** instead: `git tag -d vX.Y.Z && git reset --hard HEAD~1` (only while that release commit is the last commit and unpushed; it restores `VERSION`, the package files and `CHANGELOG.md`).
+- **Bring the old version back** while you fix it: `docker tag <image>:previous <image> && docker compose -f docker-compose.yml up -d --no-build` (the image is `portal-app` for this checkout), or check out the previous tag and `make rebuild`.
+- A deploy that failed only at the push (step 5): `make release` (or `node scripts/release.mjs --push-only`) pushes what origin is missing.
 
 ## Upgrading a running installation
 

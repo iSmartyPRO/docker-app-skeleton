@@ -388,6 +388,17 @@ export async function ensureWarehouseSchema() {
     )
   `);
 
+  // Later columns (idempotent).
+  // date_fixed: the person chose the document's date; otherwise posting dates it (an old draft is not backdated).
+  const hadDateFixed = (await query(`SELECT 1 FROM information_schema.columns WHERE table_name = 'wh_docs' AND column_name = 'date_fixed'`)).rows.length > 0;
+  await query(`ALTER TABLE wh_docs ADD COLUMN IF NOT EXISTS date_fixed BOOLEAN NOT NULL DEFAULT FALSE`);
+  // Once, when the column appears: drafts whose date differs from their creation were dated on purpose — keep that date.
+  if (!hadDateFixed) await query(`UPDATE wh_docs SET date_fixed = TRUE WHERE status IN ('draft', 'requested', 'pending', 'approved') AND ABS(EXTRACT(EPOCH FROM (doc_date - created_at))) > 120`);
+  // reserve_taken: how much of the line's reserve the posting consumed (a storno gives it back).
+  await query(`ALTER TABLE wh_doc_lines ADD COLUMN IF NOT EXISTS reserve_taken NUMERIC(18,4)`);
+  // Approval processes do not publish warehouse sums (approval.js): clear what older ones stored.
+  await query(`UPDATE approval_processes SET amount = NULL, currency = NULL WHERE type = 'warehouse.document' AND amount IS NOT NULL`).catch(() => {});
+
   await ensureInventorySchema();
 
   // Low-stock digest, expiring batches, tool service and overdue tools, expired reserves.

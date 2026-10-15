@@ -104,6 +104,7 @@ export function LinkRow({ link, onChange, onEdit, showItem, showOwner, fresh }) 
     <LinkListRow
       testId="drive-link-row"
       url={url}
+      previewUrl={`${url}?preview=1`}
       host={window.location.host}
       path={PATH}
       address={link.slug || link.token}
@@ -395,6 +396,7 @@ export default function LinkDialog({ open, shareId, entry, config, onClose }) {
     body = (
       <LinkCreated
         url={url}
+        previewUrl={`${url}?preview=1`}
         host={window.location.host}
         path={PATH}
         address={view.link.slug || view.link.token}

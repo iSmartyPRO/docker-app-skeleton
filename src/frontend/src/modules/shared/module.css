@@ -1060,6 +1060,11 @@ body:has(.mh-dock) .upload-panel {
   bottom: calc(76px + var(--safe-bottom, 0px));
 }
 
+/* …and the end of the page scrolls clear of it (the dock is about 70px plus the safe area). */
+body:has(.mh-dock) .mod-shell__main {
+  padding-bottom: calc(112px + var(--safe-bottom, 0px));
+}
+
 .mh[data-size='phone'] .mh-toolbar.is-searching .mh-toolbar__start {
   flex-wrap: wrap;
   row-gap: 2px;

@@ -1,5 +1,7 @@
 import { DOC_TYPES, EPS, cents, httpError, q4, takeCost, toBaseMoney, averageAfter } from './logic.js';
 import { assertNotFrozen } from './freeze.js';
+import { isoDay } from '../../services/datetime.js';
+import { portalRegional } from '../../services/regional.js';
 
 /*
  * The posting engine (spec §5.1). Every function here runs inside the
@@ -102,6 +104,7 @@ export class Register {
         (source.exactBin ? (r.bin_id || null) === (source.bin_id || null) : !source.bin_id || r.bin_id === source.bin_id) &&
         (!source.batch_id || r.batch_id === source.batch_id) &&
         (!source.instance_id || r.instance_id === source.instance_id) &&
+        (!source.nullInstance || !r.instance_id) &&
         r.qty > EPS
     );
     // FEFO for batches; a preferred warehouse first for holders; then the oldest row.
@@ -192,7 +195,17 @@ export class Register {
          WHERE s.id = ANY($1::bigint[]) AND s.qty < -0.00005 AND NOT (s.holder_type = 'warehouse' AND w.allow_negative)`,
         [touched]
       );
-      if (rows.length) throw httpError(409, 'Not enough stock', 'INSUFFICIENT', { shortages: rows.map((row) => ({ itemId: row.item_id, warehouseId: row.warehouse_id, short: q4(-Number(row.qty)) })) });
+      if (rows.length) {
+        // The same shape as throwShortages, so the client names the item («need 5, available 3»).
+        const shortages = rows.map((row) => {
+          const item = this.items.get(row.item_id);
+          const mine = [...this.rows.values()].filter((r) => r.item_id === row.item_id && r.warehouse_id === row.warehouse_id && r.holder_type === row.holder_type);
+          const need = q4(-mine.reduce((sum, r) => sum + Math.min(0, r.dq), 0));
+          return { itemId: row.item_id, warehouseId: row.warehouse_id, name: item?.name || `#${row.item_id}`, sku: item?.sku || null, unit: item?.base_unit || '', need, available: q4(Math.max(0, need + Number(row.qty))), short: q4(-Number(row.qty)) };
+        });
+        const first = shortages[0];
+        throw httpError(409, `Not enough stock: ${first.name} — need ${first.need}, available ${first.available}`, 'INSUFFICIENT', { shortages });
+      }
     }
     for (const move of this.moves) {
       if (Math.abs(move.qty) < EPS && Math.abs(move.amount) < 0.005) continue;
@@ -304,6 +317,8 @@ async function createInstances(client, item, line, doc, unitCost) {
   const count = Math.round(Number(line.base_qty));
   if (Math.abs(count - Number(line.base_qty)) > EPS) throw httpError(400, `${item.name}: serial items are counted in whole pieces`, 'SERIAL_WHOLE', { lineId: line.id });
   const serials = Array.isArray(line.serials) ? line.serials : [];
+  // The purchase day in the portal's zone (a receipt at 01:00 local is not «yesterday»).
+  const purchasedOn = isoDay(new Date(doc.doc_date), (await portalRegional()).timeZone);
   const ids = [];
   for (let i = 0; i < count; i += 1) {
     const s = serials[i] || {};
@@ -313,7 +328,7 @@ async function createInstances(client, item, line, doc, unitCost) {
     const { rows } = await client.query(
       `INSERT INTO wh_instances (item_id, inventory_no, serial_no, purchased_on, cost, warranty_until, next_service_on, service_interval_days, doc_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-      [item.id, inventoryNo.slice(0, 60), s.serialNo ? String(s.serialNo).slice(0, 120) : null, new Date(doc.doc_date).toISOString().slice(0, 10), unitCost, s.warrantyUntil || null, s.nextServiceOn || null, item.service_interval_days || null, doc.id]
+      [item.id, inventoryNo.slice(0, 60), s.serialNo ? String(s.serialNo).slice(0, 120) : null, purchasedOn, unitCost, s.warrantyUntil || null, s.nextServiceOn || null, item.service_interval_days || null, doc.id]
     );
     ids.push(rows[0].id);
   }
@@ -365,6 +380,17 @@ export async function applyDocument(client, doc, { mode = 'post', actorId, setti
 
   // The act of an inventory session counts per area: a line without a bin is the stock without a bin only.
   const exactBin = doc.type === 'inventory' && (await client.query(`SELECT 1 FROM wh_inv_sessions WHERE doc_id = $1 LIMIT 1`, [doc.id]).catch(() => ({ rows: [] }))).rows.length > 0;
+  // Counts and corrections of serial items: what pieces leave, what they cost, which turn up.
+  const counting = ['inventory', 'correction'].includes(doc.type);
+  const instanceTaken = new Map(); // instance id → amount this document took off the books
+  const instanceCost = new Map();
+  const lostCheck = new Set();
+  const found = new Set();
+  const instanceLineKeys = new Set(lines.filter((line) => line.instance_id).map((line) => `${line.item_id}|${line.bin_id || 0}`));
+  if (counting && instanceLineKeys.size) {
+    const { rows } = await client.query(`SELECT id, cost FROM wh_instances WHERE id = ANY($1::int[])`, [[...new Set(lines.map((line) => line.instance_id).filter(Boolean))]]);
+    for (const row of rows) if (row.cost !== null) instanceCost.set(row.id, Number(row.cost));
+  }
 
   for (const line of lines) {
     const item = reg.items.get(line.item_id);
@@ -437,6 +463,8 @@ export async function applyDocument(client, doc, { mode = 'post', actorId, setti
           reserveQty = Math.min(qty, reserve.left);
           reserve.left = q4(reserve.left - reserveQty);
         }
+        // Remembered on the line: a storno gives the reserve back.
+        if (line.reserve_id) await client.query(`UPDATE wh_doc_lines SET reserve_taken = $2 WHERE id = $1`, [line.id, q4(reserveQty)]);
         const portions = reg.take({ item_id: item.id, warehouse_id: doc.warehouse_id, ...narrow }, qty, { lineId: line.id, reserveQty });
         for (const p of portions) reg.put({ ...p.key, bin_id: null, holder_type: doc.to_holder_type, holder_id: doc.to_holder_id }, p.qty, p.amount, line.id);
         const amount = portions.reduce((sum, p) => sum + p.amount, 0);
@@ -461,8 +489,9 @@ export async function applyDocument(client, doc, { mode = 'post', actorId, setti
         break;
       }
       case 'writeoff': {
+        // From a holder: only what came from the document's warehouse (the write-off right is checked there).
         const source = doc.from_holder_type
-          ? { item_id: item.id, holder_type: doc.from_holder_type, holder_id: doc.from_holder_id, batch_id: narrow.batch_id, instance_id: narrow.instance_id }
+          ? { item_id: item.id, holder_type: doc.from_holder_type, holder_id: doc.from_holder_id, warehouse_id: doc.warehouse_id || null, batch_id: narrow.batch_id, instance_id: narrow.instance_id }
           : { item_id: item.id, warehouse_id: doc.warehouse_id, ...narrow };
         const portions = reg.take(source, qty, { lineId: line.id });
         const amount = portions.reduce((sum, p) => sum + p.amount, 0);
@@ -473,30 +502,50 @@ export async function applyDocument(client, doc, { mode = 'post', actorId, setti
       }
       case 'correction':
       case 'inventory': {
+        const serial = item.tracking === 'serial';
+        // A serial line without an instance, in an act that lists instances of this item here, covers the stock without an instance only.
+        const nullInstance = serial && !line.instance_id && instanceLineKeys.has(`${item.id}|${line.bin_id || 0}`);
         const key = { item_id: item.id, warehouse_id: doc.warehouse_id, bin_id: line.bin_id || null, batch_id: line.batch_id || null, instance_id: line.instance_id || null, holder_type: 'warehouse', holder_id: 0 };
         let delta = qty;
         if (line.counted_qty !== null && line.counted_qty !== undefined) {
           // Counted: the book becomes the fact (spec §6.4), whatever moved since the count started.
           const counted = q4(Number(line.counted_qty) * Number(line.factor || 1));
+          if (line.instance_id && (counted < -EPS || counted > 1 + EPS)) throw httpError(400, `${item.name}: one instance is one piece`, 'INSTANCE_QTY', { lineId: line.id, instanceId: line.instance_id });
           let book = 0;
           for (const r of reg.rows.values()) {
-            if (r.item_id === item.id && r.warehouse_id === doc.warehouse_id && r.holder_type === 'warehouse' && (exactBin ? (r.bin_id || null) === (line.bin_id || null) : !line.bin_id || r.bin_id === line.bin_id) && (!line.batch_id || r.batch_id === line.batch_id) && (!line.instance_id || r.instance_id === line.instance_id)) book += r.qty;
+            if (r.item_id === item.id && r.warehouse_id === doc.warehouse_id && r.holder_type === 'warehouse' && (exactBin ? (r.bin_id || null) === (line.bin_id || null) : !line.bin_id || r.bin_id === line.bin_id) && (!line.batch_id || r.batch_id === line.batch_id) && (!line.instance_id || r.instance_id === line.instance_id) && (!nullInstance || !r.instance_id)) book += r.qty;
           }
           delta = q4(counted - book);
           await client.query(`UPDATE wh_doc_lines SET book_qty = $2 WHERE id = $1`, [line.id, q4(book)]);
         }
+        if (line.instance_id && delta > 1 + EPS) throw httpError(400, `${item.name}: one instance is one piece`, 'INSTANCE_QTY', { lineId: line.id, instanceId: line.instance_id });
         if (delta < -EPS) {
-          const portions = reg.take({ item_id: item.id, warehouse_id: doc.warehouse_id, ...narrow, exactBin }, -delta, { lineId: line.id, reserveQty: Infinity });
+          const portions = reg.take({ item_id: item.id, warehouse_id: doc.warehouse_id, ...narrow, exactBin, nullInstance }, -delta, { lineId: line.id, reserveQty: Infinity });
+          for (const p of portions) {
+            if (!p.key.instance_id) continue;
+            instanceTaken.set(p.key.instance_id, cents((instanceTaken.get(p.key.instance_id) || 0) + p.amount));
+            lostCheck.add(p.key.instance_id);
+          }
           const amount = portions.reduce((sum, p) => sum + p.amount, 0);
           addLine(line.id, -amount);
           total -= amount;
         } else if (delta > EPS) {
+          // A piece of a serial item exists only as an instance: a surplus «by quantity» would be a piece nobody can find.
+          if (serial && !line.instance_id) throw httpError(400, `${item.name}: a found piece of a serial item is recorded by its instance (scan its label)`, 'SERIAL_INSTANCE_REQUIRED', { lineId: line.id, itemId: item.id });
+          if (item.tracking === 'batch' && !line.batch_id) {
+            const batch = await surplusBatch(client, reg, item, doc, line);
+            key.batch_id = batch.id;
+            key.expires = batch.expires;
+          }
           const given = lineBaseAmount(line, doc, settings);
           const avg = reg.costs.get(`${item.id}|${doc.warehouse_id}`) ?? Number(item.last_price) ?? 0;
           const pool = reg.pool(item.id, doc.warehouse_id);
           const unit = pool.qty > EPS ? pool.amount / pool.qty : avg;
-          const amount = given !== null && line.counted_qty === null ? Math.abs(given) : cents(delta * unit);
+          // A found instance keeps its own value: what this act took off elsewhere, else its card's cost.
+          const instanceAmount = line.instance_id ? instanceTaken.get(line.instance_id) ?? instanceCost.get(line.instance_id) ?? null : null;
+          const amount = given !== null && line.counted_qty === null ? Math.abs(given) : instanceAmount !== null ? cents(instanceAmount) : cents(delta * unit);
           reg.put(key, delta, amount, line.id);
+          if (line.instance_id) found.add(line.instance_id);
           addLine(line.id, amount);
           total += amount;
         }
@@ -507,6 +556,7 @@ export async function applyDocument(client, doc, { mode = 'post', actorId, setti
     }
   }
   throwShortages(reg, lines);
+  if (counting) await settleInstances(client, reg, doc, { touched: new Set([...lostCheck, ...found, ...lines.map((line) => line.instance_id).filter(Boolean)]), lostCheck, found });
 
   // Reserves: what issue lines took out of them.
   for (const reserve of reserves.values()) {
@@ -521,6 +571,41 @@ export async function applyDocument(client, doc, { mode = 'post', actorId, setti
   // Gross value: what moved either way (an inventory surplus does not hide a shortage from the approval threshold).
   const gross = cents([...lineAmounts.values()].reduce((sum, amount) => sum + Math.abs(amount), 0));
   return { total: cents(total), gross, discrepancy, register: reg };
+}
+
+/**
+ * After a count or a correction: every instance is one piece at one place at
+ * most (two counters, two bins, a found piece also booked elsewhere → 409
+ * INSTANCE_QTY, nothing is written); pieces the act took off the books are
+ * «lost» (a storno of the act brings them back), lost pieces found again are «ok».
+ */
+async function settleInstances(client, reg, doc, { touched, lostCheck, found }) {
+  if (!touched.size) return;
+  const ids = [...touched];
+  const totals = new Map(ids.map((id) => [id, 0]));
+  for (const r of reg.rows.values()) if (r.instance_id && totals.has(r.instance_id)) totals.set(r.instance_id, q4(totals.get(r.instance_id) + r.qty));
+  const { rows: other } = await client.query(`SELECT instance_id, SUM(qty) AS qty FROM wh_stock WHERE instance_id = ANY($1::int[]) AND warehouse_id <> $2 GROUP BY instance_id`, [ids, doc.warehouse_id]);
+  for (const row of other) totals.set(row.instance_id, q4(totals.get(row.instance_id) + Number(row.qty)));
+  const twice = ids.filter((id) => totals.get(id) > 1 + EPS);
+  if (twice.length) {
+    const { rows } = await client.query(`SELECT id, inventory_no FROM wh_instances WHERE id = ANY($1::int[])`, [twice]);
+    const no = rows[0]?.inventory_no || `#${twice[0]}`;
+    throw httpError(409, `Instance ${no} would be in two places at once`, 'INSTANCE_QTY', { instanceIds: twice, inventoryNo: no });
+  }
+  for (const id of ids) {
+    const qty = totals.get(id);
+    if (lostCheck.has(id) && qty <= EPS) await client.query(`UPDATE wh_instances SET state = 'lost', written_off_doc_id = $2, updated_at = NOW() WHERE id = $1 AND state IN ('ok', 'repair')`, [id, doc.id]);
+    else if (found.has(id) && qty >= 1 - EPS) await client.query(`UPDATE wh_instances SET state = 'ok', written_off_doc_id = NULL, updated_at = NOW() WHERE id = $1 AND state = 'lost'`, [id]);
+  }
+}
+
+/** A surplus of a batch item counted without a batch: the newest batch at that place, else at the warehouse, else a new one named after the act. */
+async function surplusBatch(client, reg, item, doc, line) {
+  const rows = [...reg.rows.values()].filter((r) => r.item_id === item.id && r.warehouse_id === doc.warehouse_id && r.holder_type === 'warehouse' && r.batch_id);
+  const newest = (list) => list.sort((a, b) => b.batch_id - a.batch_id)[0] || null;
+  const pick = newest(rows.filter((r) => (r.bin_id || null) === (line.bin_id || null))) || newest(rows);
+  if (pick) return { id: pick.batch_id, expires: pick.expires };
+  return batchFor(client, item, { ...line, batch_id: null, batch_number: null }, doc, 0);
 }
 
 /**
@@ -547,7 +632,38 @@ export async function applyDiscrepancy(client, act, transfer, items, { actorId, 
   return cents(total);
 }
 
-/** Storno (spec §5.1): the exact opposite of every movement of the document, at the same places. */
+/** The value adjustments of a storno (see applyStorno): warehouse places left with money but no goods, or negative money on goods. */
+function costAdjustments(reg, touched) {
+  const pools = new Map();
+  for (const r of touched) {
+    if (r.holder_type !== 'warehouse') continue;
+    const item = reg.items.get(r.item_id);
+    // Quantity items share one moving-average pool per warehouse; batches and instances are valued per row.
+    const key = item?.tracking === 'quantity' ? `${r.item_id}|${r.warehouse_id}` : `row:${keyOf(r)}`;
+    if (!pools.has(key)) pools.set(key, key.startsWith('row:') ? [r] : [...reg.rows.values()].filter((x) => x.item_id === r.item_id && x.warehouse_id === r.warehouse_id && x.holder_type === 'warehouse'));
+  }
+  for (const rows of pools.values()) {
+    const qty = q4(rows.reduce((sum, r) => sum + r.qty, 0));
+    const amount = cents(rows.reduce((sum, r) => sum + r.amount, 0));
+    if (Math.abs(amount) < 0.005) continue;
+    if (Math.abs(qty) < EPS) {
+      for (const r of rows) if (Math.abs(r.amount) >= 0.005) reg.change(r, 0, -r.amount, null);
+    } else if (qty > EPS && amount < 0) {
+      const biggest = [...rows].sort((a, b) => b.qty - a.qty)[0];
+      reg.change(biggest, 0, -amount, null);
+    }
+  }
+}
+
+/**
+ * Storno (spec §5.1): the exact opposite of every movement of the document,
+ * at the same places and at the same cost. When goods of the document were
+ * used meanwhile at the moving average, the exact reversal can leave value
+ * without quantity (a pool at 0 pcs worth −50) or a negative value on
+ * positive stock: the storno then adds a cost adjustment — a movement with
+ * quantity 0 that brings that place's value to zero — so the register never
+ * holds money without goods. Reserves a reversed issue consumed are given back.
+ */
 export async function applyStorno(client, storno, base, { actorId, movedAt }) {
   const { rows: moves } = await client.query(`SELECT * FROM wh_moves WHERE doc_id = $1 ORDER BY id`, [base.id]);
   if (!moves.length) throw httpError(409, 'The document has no movements to reverse', 'NOTHING_TO_REVERSE');
@@ -568,7 +684,18 @@ export async function applyStorno(client, storno, base, { actorId, movedAt }) {
     }
   }
   throwShortages(reg);
+  costAdjustments(reg, touched);
   await reg.flush();
+  // An issue that consumed reserves gives them back (a reserve released or expired meanwhile stays so).
+  if (base.type === 'issue') {
+    const { rows: taken } = await client.query(`SELECT reserve_id, SUM(reserve_taken) AS qty FROM wh_doc_lines WHERE doc_id = $1 AND reserve_id IS NOT NULL AND reserve_taken > 0 GROUP BY reserve_id ORDER BY reserve_id`, [base.id]);
+    for (const row of taken) {
+      await client.query(
+        `UPDATE wh_reserves SET qty = qty + $2, status = 'active', closed_at = NULL WHERE id = $1 AND (status = 'active' OR (status = 'consumed' AND (expires_on IS NULL OR expires_on >= CURRENT_DATE)))`,
+        [row.reserve_id, Number(row.qty)]
+      );
+    }
+  }
   // Instances follow: a reversed write-off brings the tool back; a reversed receipt retires what it created.
   await client.query(`UPDATE wh_instances SET state = 'ok', written_off_doc_id = NULL, updated_at = NOW() WHERE written_off_doc_id = $1`, [base.id]);
   if (['receipt', 'opening'].includes(base.type)) await client.query(`UPDATE wh_instances SET state = 'written_off', written_off_doc_id = $2, updated_at = NOW() WHERE doc_id = $1`, [base.id, storno.id]);

@@ -264,7 +264,10 @@ test('database: warehouse end to end', { skip, timeout: 120000 }, async (t) => {
     assert.equal((await pool(cement.id, whA.id)).q, before);
     const process = await approvals.getProcess('warehouse.document', String(big.document.id));
     assert.equal(process.status, 'pending');
-    assert.ok(process.amount > 500);
+    // The approvals service shows its amount to everyone in the process: warehouse sums stay on the document (cost rights).
+    assert.equal(process.amount, null);
+    assert.ok((await docs.getDoc(await as(boss), big.document.id)).document.sum > 500);
+    assert.equal((await docs.getDoc(await as(keeperA), big.document.id)).document.sum, null);
     await approvals.decide(await as(boss), { type: 'warehouse.document', docId: String(big.document.id) }, { action: 'approve', round: process.round, stage: process.currentStage });
     assert.equal((await docs.getDoc(await as(keeperA), big.document.id)).document.status, 'posted');
     assert.equal((await pool(cement.id, whA.id)).q, before - 2500);

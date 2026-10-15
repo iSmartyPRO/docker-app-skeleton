@@ -8,8 +8,11 @@ import { REGIONAL_DEFAULTS } from '../datetime.js';
 import { filesPreview } from '../../modules/files/preview.js';
 import { drivePreview } from '../../modules/drive/preview.js';
 import { kbPreview } from '../../modules/kb/preview.js';
+import { evaluateIpAccess } from '../security.js';
+import { clientIp } from '../../middleware/ipGuard.js';
 import { cardKey, cardPng, HEIGHT, logoDataUrl, rasterDataUrl, rendererAvailable, WIDTH } from './card.js';
 import { describe, headTags, injectHead, isBot, previewLocale, siteInfo } from './meta.js';
+import { forgetPreviews, memoGet, memoSet } from './memo.js';
 
 /*
  * Rich link previews for every page of the app.
@@ -55,9 +58,7 @@ export function parseRoute(pathname) {
 }
 
 // ── Models (memoised briefly: the page and its picture are fetched together) ─
-
-const MEMO_MS = 60 * 1000;
-const memo = new Map();
+// The memo lives in memo.js: link changes (update, revoke, delete, new slug) clear it.
 
 async function resolveModel(route, { facts }) {
   const parsed = parseSettings(await getSettings());
@@ -71,19 +72,18 @@ async function resolveModel(route, { facts }) {
 export async function previewModel(route, { facts = false } = {}) {
   if (!route) return { state: 'site' };
   const key = `${route.path}|${facts ? 1 : 0}`;
-  const hit = memo.get(key);
-  if (hit && hit.until > Date.now()) return hit.value;
+  const hit = memoGet(key);
+  if (hit) return hit.value;
   // A fact-less request may use what a crawler request found.
-  const richer = !facts && memo.get(`${route.path}|1`);
-  if (richer && richer.until > Date.now()) return richer.value;
+  const richer = !facts && memoGet(`${route.path}|1`);
+  if (richer) return richer.value;
   const value = await resolveModel(route, { facts });
-  if (memo.size > 2000) memo.clear();
-  memo.set(key, { value, until: Date.now() + MEMO_MS });
+  memoSet(key, value);
   return value;
 }
 
 export function clearPreviewMemo() {
-  memo.clear();
+  forgetPreviews();
 }
 
 // ── Shared pieces ───────────────────────────────────────────────────────────
@@ -102,6 +102,24 @@ export function originOf(req) {
 // The host name drawn on the card (no port: API requests reach the app with the bare host).
 const hostOf = (origin) => origin.replace(/^https?:\/\//, '').replace(/:\d+$/, '');
 
+const LOOPBACK = /^(localhost|127(\.\d{1,3}){3}|\[::1\]|0\.0\.0\.0)(:\d+)?$/i;
+
+/**
+ * The portal's configured address (PUBLIC_URL, else FRONTEND_URL unless it
+ * is a loopback default), never the Host header of a request. It names the
+ * portal on the card and is part of the picture's cache key, so a forged Host
+ * can neither change a cached picture nor make the server draw new ones.
+ * Without a configured address the card shows no host.
+ */
+export function canonicalOrigin() {
+  for (const value of [process.env.PUBLIC_URL, process.env.FRONTEND_URL]) {
+    const origin = String(value || '').trim().replace(/\/+$/, '');
+    const match = /^https?:\/\/([^\s/]+)$/i.exec(origin);
+    if (match && !LOOPBACK.test(match[1])) return origin;
+  }
+  return '';
+}
+
 const logoFileOf = (url) => (url ? join(logoDir, basename(url)) : null);
 
 /** The texts and picture key of a page: everything both the page and the picture need. */
@@ -112,9 +130,10 @@ async function pagePreview(req, route, { facts }) {
   const model = await previewModel(route, { facts });
   const text = describe(model, { site, locale, regional: parsed.regional || REGIONAL_DEFAULTS });
   const origin = originOf(req);
+  const host = hostOf(canonicalOrigin());
   const logoUrl = site.iconUrl || site.logoUrl;
-  const key = cardKey({ card: text.card, site, host: hostOf(origin), logoKey: logoUrl, thumbKey: model.thumb?.key });
-  return { parsed, locale, site, model, text, origin, logoUrl, key };
+  const key = cardKey({ card: text.card, site, host, logoKey: logoUrl, thumbKey: model.thumb?.key });
+  return { parsed, locale, site, model, text, origin, host, logoUrl, key };
 }
 
 // ── The page: index.html with the tags ──────────────────────────────────────
@@ -171,6 +190,14 @@ export function shellMiddleware() {
       html = null;
     }
     if (!html) return next();
+    // An address the IP rules refuse gets the plain page (as nginx would serve
+    // it): no portal facts, no link looked up. The API refuses it as usual.
+    const verdict = await evaluateIpAccess(clientIp(req)).catch(() => ({ allowed: false }));
+    if (!verdict.allowed) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.send(html);
+    }
     let body = html;
     try {
       const ua = req.get('user-agent');
@@ -225,7 +252,7 @@ export function previewImageRoutes() {
     try {
       const path = String(req.query.path || '/').slice(0, 200);
       const route = parseRoute(path);
-      const { text, site, origin, key } = await pagePreview(req, route, { facts: true });
+      const { text, site, origin, host, key } = await pagePreview(req, route, { facts: true });
       res.setHeader('Cache-Control', 'no-store');
       res.json({
         success: true,
@@ -233,7 +260,7 @@ export function previewImageRoutes() {
           siteName: site.name,
           title: text.title,
           description: text.description,
-          host: hostOf(origin),
+          host: host || hostOf(origin),
           image: (await rendererAvailable()) ? `/api/og/${route ? route.path.slice(1) : 'site'}.png?v=${key}` : null,
           width: WIDTH,
           height: HEIGHT,
@@ -250,11 +277,11 @@ export function previewImageRoutes() {
       const route = page === 'site' ? null : parseRoute(`/${page}`);
       if (page !== 'site' && !route) return res.status(404).json({ success: false, error: 'Not found' });
       if (!(await rendererAvailable())) return res.redirect(302, '/pwa/icon-512.png');
-      const { text, site, origin, logoUrl, key, model } = await pagePreview(req, route, { facts: true });
+      const { text, site, host, logoUrl, key, model } = await pagePreview(req, route, { facts: true });
       const file = await cardPng(key, {
         card: text.card,
         site,
-        host: hostOf(origin),
+        host,
         load: async () => ({ logo: await logoDataUrl(logoFileOf(logoUrl)), thumb: await thumbData(model.thumb) }),
       });
       res.setHeader('Content-Type', 'image/png');
@@ -263,6 +290,8 @@ export function previewImageRoutes() {
       res.setHeader('Cache-Control', req.query.v === key ? 'public, max-age=86400' : 'public, max-age=300');
       res.sendFile(file);
     } catch (err) {
+      // Too many pictures waiting to be drawn: the generic icon now, the card on a later fetch.
+      if (err?.code === 'RENDER_BUSY') return res.set('Cache-Control', 'no-store').redirect(302, '/pwa/icon-512.png');
       next(err);
     }
   });

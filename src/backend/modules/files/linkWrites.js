@@ -1,6 +1,7 @@
 import { query } from '../../config/database.js';
 import { notify } from '../../services/notifications.js';
 import { LEVEL, httpError } from '../shared/acl.js';
+import { originalName } from '../shared/storage.js';
 import { nodeInLink } from './links.js';
 import {
   createFolder,
@@ -13,6 +14,7 @@ import {
   replaceContent,
   resolveTarget,
   runUpload,
+  safeName,
   storeUploads,
   trashNode,
 } from './service.js';
@@ -38,9 +40,13 @@ export function requirePerm(link, key) {
   if (!link.perms.includes(key)) throw httpError(403, 'This link does not allow this action', 'LINK_FORBIDDEN');
 }
 
-/** Writes need a visitor session, and the name (and e-mail) when the link asks for them. */
+/**
+ * Writes need a visitor session token (scope "w": never a read token, nor one
+ * issued before scopes, which the page swaps for a new one on its next load),
+ * and the name (and e-mail) when the link asks for them.
+ */
 export function requireSession(link) {
-  if (!link.visitor?.sid) throw httpError(401, 'Start a visitor session first', 'VISITOR_SESSION');
+  if (!link.visitor?.sid || link.visitor.scope !== 'write') throw httpError(401, 'Start a visitor session first', 'VISITOR_SESSION');
   if (link.require_name && !link.visitor.n) throw httpError(400, 'Enter your name', 'VISITOR_NAME');
   if (link.require_name && link.require_email && !link.visitor.e) throw httpError(400, 'Enter your e-mail', 'VISITOR_EMAIL');
 }
@@ -60,11 +66,16 @@ async function folderInLink(link, id) {
   return node;
 }
 
-export async function logEvent(client, link, ip, { action, node = null, name = null, bytes = 0 }) {
+/**
+ * One row of the link's activity. `name` is what the owner sees (the stored
+ * name); `sentName` the name the visitor sent, when it differs (shown back to
+ * an upload-only visitor, who must not learn that the folder held that name).
+ */
+export async function logEvent(client, link, ip, { action, node = null, name = null, bytes = 0, sentName = null }) {
   if (!EVENT_ACTIONS.includes(action)) return;
   await (client || { query }).query(
-    `INSERT INTO fs_link_events (link_id, link_title, node_id, owner_id, action, name, bytes, session_id, visitor_name, visitor_email, ip, notified)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    `INSERT INTO fs_link_events (link_id, link_title, node_id, owner_id, action, name, bytes, session_id, visitor_name, visitor_email, ip, notified, sent_name)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
     [
       link.id,
       (link.title || link.name || '').slice(0, 255),
@@ -78,6 +89,7 @@ export async function logEvent(client, link, ip, { action, node = null, name = n
       link.visitor?.e || null,
       ip ? String(ip).slice(0, 64) : null,
       !link.notify,
+      sentName && sentName !== name ? String(sentName).slice(0, 255) : null,
     ]
   );
 }
@@ -88,9 +100,21 @@ async function linkBytes(client, linkId) {
   return Number(rows[0].used);
 }
 
-/** The link's own total quota, checked under a per-link lock inside the write's transaction. */
-function quotaHook(link) {
-  const quota = (link.quota_mb || 0) * MB;
+/**
+ * The total a link may take in: its own quota, else the module's default for
+ * links without one (linkQuotaMb, 0 = unlimited). Uploads and replacements
+ * both count (a replacement also keeps the old version in the owner's trash).
+ */
+export function linkQuotaBytes(link, settings = {}) {
+  const own = Number(link.quota_mb) || 0;
+  if (own > 0) return own * MB;
+  const fallback = Number(settings.linkQuotaMb) || 0;
+  return fallback > 0 ? fallback * MB : 0;
+}
+
+/** The link's total quota, checked under a per-link lock inside the write's transaction. */
+function quotaHook(link, settings) {
+  const quota = linkQuotaBytes(link, settings);
   if (!quota) return null;
   return async (client, file) => {
     await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`fs-link:${link.id}`]);
@@ -99,8 +123,8 @@ function quotaHook(link) {
 }
 
 /** Early refusal before the body is read, when the request alone cannot fit the link quota. */
-async function precheckQuota(link, req) {
-  const quota = (link.quota_mb || 0) * MB;
+async function precheckQuota(link, req, settings) {
+  const quota = linkQuotaBytes(link, settings);
   if (!quota) return;
   const length = Number(req.get('content-length')) || 0;
   const used = await linkBytes({ query }, link.id);
@@ -117,20 +141,34 @@ function uploaderFor(link, settings, { field = 'files', maxFiles = 20 } = {}) {
   });
 }
 
-/** POST /upload — new files into a folder of the link (upload-only links: its root). */
+/**
+ * POST /upload — new files into a folder of the link (upload-only links: its
+ * root). A name already taken gets "name (2)" as usual; a visitor who cannot
+ * see the folder is answered with the name they sent, so a drop box never
+ * reveals what it holds (the owner sees the stored names).
+ */
 export async function visitorUpload(link, req, res) {
   requirePerm(link, 'upload');
   requireSession(link);
-  const folder = await folderInLink(link, link.perms.includes('view') ? req.query.folder : null);
+  const canView = link.perms.includes('view');
+  const folder = await folderInLink(link, canView ? req.query.folder : null);
   const target = await resolveTarget(link.authorCtx, { parentId: folder.id });
-  await precheckQuota(link, req);
   const settings = await filesSettings();
+  await precheckQuota(link, req, settings);
   await runUpload(await uploaderFor(link, settings), req, res);
+  const sent = new Map();
   const rows = await storeUploads(link.authorCtx, target, req.files || [], {
-    before: quotaHook(link),
-    after: (client, row) => logEvent(client, link, req.ip, { action: 'upload', node: row, name: row.name, bytes: row.size }),
+    before: quotaHook(link, settings),
+    after: (client, row, file) => {
+      const sentName = safeName(originalName(file));
+      sent.set(row.id, sentName);
+      return logEvent(client, link, req.ip, { action: 'upload', node: row, name: row.name, bytes: row.size, sentName });
+    },
   });
-  return rows.map((row) => nodeShape(row, LEVEL.view));
+  return rows.map((row) => {
+    const shape = nodeShape(row, LEVEL.view);
+    return canView ? shape : { ...shape, name: sent.get(row.id) || shape.name };
+  });
 }
 
 /** POST /nodes/:id/replace — a new version of a file (the old one goes to the owner's trash). */
@@ -139,13 +177,13 @@ export async function visitorReplace(link, id, req, res) {
   requireSession(link);
   const { node } = await nodeInLink(link, id);
   if (node.kind !== 'file') throw httpError(400, 'Choose a file', 'NOT_FILE');
-  await precheckQuota(link, req);
   const settings = await filesSettings();
+  await precheckQuota(link, req, settings);
   await runUpload(await uploaderFor(link, settings, { field: 'file', maxFiles: 1 }), req, res);
   const file = (req.files || [])[0];
   if (!file) throw httpError(400, 'Choose a file', 'FILE_MISSING');
   const row = await replaceContent(link.authorCtx, node.id, file, {
-    before: quotaHook(link),
+    before: quotaHook(link, settings),
     after: (client, updated) => logEvent(client, link, req.ip, { action: 'replace', node: updated, name: updated.name, bytes: updated.size }),
   });
   return nodeShape(row, LEVEL.view);
@@ -167,7 +205,7 @@ export async function visitorFolderTree(link, input, ip) {
   requirePerm(link, 'mkdir');
   requireSession(link);
   const parent = await folderInLink(link, input?.parentId);
-  const quota = (link.quota_mb || 0) * MB;
+  const quota = linkQuotaBytes(link, await filesSettings());
   if (quota && Number(input?.bytes) > 0 && (await linkBytes({ query }, link.id)) + Number(input.bytes) > quota) {
     throw httpError(413, 'The upload limit of this link is reached', 'LINK_QUOTA');
   }
@@ -204,11 +242,11 @@ export async function visitorDelete(link, id, ip) {
   await logEvent(null, link, ip, { action: 'delete', node, name: node.name });
 }
 
-/** Upload-only visitors see what they sent in this session, and nothing else. */
+/** Upload-only visitors see what they sent in this session (under the names they sent), and nothing else. */
 export async function sessionUploads(link) {
   if (!link.visitor?.sid) return [];
   const { rows } = await query(
-    `SELECT n.id, n.name, n.size, n.ext, n.mime, e.created_at
+    `SELECT n.id, COALESCE(e.sent_name, n.name) AS name, n.size, n.ext, n.mime, e.created_at
      FROM fs_link_events e JOIN fs_nodes n ON n.id = e.node_id
      WHERE e.link_id = $1 AND e.session_id = $2 AND e.action = 'upload'
        AND n.deleted_at IS NULL AND n.parent_id = $3
