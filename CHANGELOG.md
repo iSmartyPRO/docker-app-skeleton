@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-15
+
 ### Added
 
 - **Contracts: deposit, payment schedule and payments** for companies that sell (White Hills cottages and apartments). A contract with a client (or of the «Купли-продажи» / new «Продажа объекта» type, or any contract that already has one) gets the «Оплаты» tab: the deposit — «Задаток» or «Аванс» with a one-line legal hint, amount and currency, due day, refund / forfeit terms, document; finance confirms the receipt (who and when), credits it to the price, returns (double for a задаток) or retains it. A payment schedule from the amount — 100 % or installments (first payment %, months, first day, day of month), prefilled from the linked Masterplan object's price grid, whole amounts with the last payment absorbing the difference, the deposit as its own row counted toward the first payment, rows editable before saving. Payments received are allocated to the oldest rows first (partial payments too) with «оплачено N %», remaining, overdue (red) and upcoming (amber) by the person's day. See [docs/contracts.md](docs/contracts.md#deposit-and-payments).
@@ -473,7 +475,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.2.0
 [1.1.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.1.0
 [1.0.3]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.3
 [1.0.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.2
