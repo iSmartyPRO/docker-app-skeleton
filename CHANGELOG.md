@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-15
+
 ### Versions and releases
 
 - Every deploy is versioned automatically: `make deploy` classifies the commits since the last tag (major / minor / patch, Conventional Commits), bumps `VERSION`, both `package.json` and lock files, closes the CHANGELOG section, tags `vX.Y.Z`, pushes, backs up the database and rebuilds. The tag becomes a GitHub release with the CHANGELOG notes (`.github/workflows/release.yml`). The version shows in the app footer, `/version.json`, `/health` and on GitHub. The project starts at **1.0.0**.
@@ -412,5 +414,6 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.0
 [0.0.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v0.0.1
