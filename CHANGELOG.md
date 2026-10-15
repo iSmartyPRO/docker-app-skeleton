@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-15
+
 ### Added
 
 - **Folder access («Доступ к папкам»)** — who can open which folder on the file server, through the Active Directory security groups `sg_<org>_<name>_full|read` (org codes `co` and the old `wh`). Folders list with search and «Требует проверки» for names and descriptions that do not match; folder card with both groups' members (name, login, department, active / disabled); person card with every folder; add and remove, move between full and read access in one step, copy access from a colleague, revoke all. Every change runs with the acting administrator's own AD account (domain password reused from the File server or asked for and checked), is journalled (who, AD account, IP, before → after, result; filters, CSV, undo) and recorded as a security event. New permission `folderaccess.groups` for system administrators (no protected root groups, people only); superadministrators also create group pairs, edit descriptions and delete groups. NTFS permissions come in the next stage. See [docs/folder-access.md](docs/folder-access.md).
@@ -480,7 +482,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.3.0
 [1.2.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.2.0
 [1.1.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.1.0
 [1.0.3]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.3
