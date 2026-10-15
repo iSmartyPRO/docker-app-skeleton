@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-15
+
 ### Fixed
 
 - Warehouse: two people scanning one tool count it once; a tool found in another bin is moved by the inventory act instead of being in two places; a tool counted in two bins stops the finish until the manager decides; serial items are counted per tool label on the phone (a counted piece can be removed one by one); batch surpluses go into an existing batch; tools not found become «Не найден» and come back with a storno.
@@ -446,7 +448,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.2
 [1.0.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.1
 [1.0.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.0
 [0.0.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v0.0.1
