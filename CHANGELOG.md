@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-10-15
+
 ### Changed
 
 - Dashboard «Быстрый доступ»: app tiles use the launcher's colour icons; columns follow the card's width (4 on most phones, 3 on narrow ones), labels take at most two lines, and apps that do not fit go behind an «Ещё N» tile that opens the rest with a link to all apps. Nothing is cut off at the card's edge any more; a card too low for tiles shows a list.
@@ -455,7 +457,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.3
 [1.0.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.2
 [1.0.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.1
 [1.0.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.0.0
