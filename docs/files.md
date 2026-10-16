@@ -15,6 +15,10 @@ A [module](modules.md) for personal and shared files. Every user has **My files*
 - **Viewers**: the same ones as the Knowledge Base (pdf.js, image gallery, Word, Excel, Office → PDF via [document conversion](integrations.md#document-conversion-collabora--libreoffice), text, Markdown, video, audio).
 - **Each file has its own page** (`/app/files/v/<id>`) by default, with ‹ › through the folder's files and a *Link* button. *Opening files* in the Files settings switches to a modal over the folder. PDFs can be viewed as slides or presented full screen.
 
+## Folder README
+
+A `README.md` (any letter case; `README.markdown` too) in *My files*, a space or a folder is shown **above the listing** as a collapsed, rendered preview (*Показать полностью / Свернуть*, hide for this folder, remembered per device; *⋯ → Показывать README папок* turns them off everywhere). Actions: open in the viewer, download, copy link. GitHub-flavoured Markdown is rendered and sanitized (see [Drive → Folder README](drive.md#folder-readme)); relative links and pictures (`plan.pdf`, `../Images/logo.png`) are found by walking folders by name with the person's own listing rights. The text is read through `GET /nodes/<id>/file` (view access), loaded after the listing and cached per version; over 512 KB → a note with *Open*. Public folder links that allow viewing show it too, read-only.
+
 ## Uploading folders
 
 Drag a folder from Explorer / Finder onto a folder view, or pick one with *Upload ▾ → Upload folder* (not offered on iOS and Android, which cannot pick folders). The portal recreates the folder tree in the current place and uploads every file into its folder:

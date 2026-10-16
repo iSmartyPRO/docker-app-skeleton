@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { App, Button, Modal, Progress, Skeleton } from 'antd';
+import { App, Button, Checkbox, Modal, Progress, Skeleton } from 'antd';
 import { DeleteOutlined, EditOutlined, ExportOutlined, FolderAddOutlined, TeamOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -17,6 +17,9 @@ import TransferPanel from '../components/TransferPanel';
 import { useUploadActions } from '../components/UploadButton';
 import ModuleHeader, { SelectionBar, ViewToggle } from '../../shared/ModuleHeader';
 import { FolderUploadError, batchLabel, collectDrop, collectPicked, useFolderUploads } from '../folderUpload';
+import ReadmeCard, { useReadmesHidden } from '../../../components/readme/ReadmeCard';
+import { pickReadme } from '../../../lib/readme';
+import { nodeResolver } from '../readmeLinks';
 
 const VIEW_KEY = 'files_view';
 const RANK = { none: 0, view: 1, edit: 2, manage: 3 };
@@ -80,6 +83,7 @@ export default function Browser({ place }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [view, setView] = useView();
+  const [readmesHidden, setReadmesHidden] = useReadmesHidden();
   const [selected, setSelected] = useState(new Set());
   const [dialog, setDialog] = useState(null);
   const [viewing, setViewing] = useState(null);
@@ -131,6 +135,19 @@ export default function Browser({ place }) {
   const trash = place.type === 'trash';
   const items = data?.items || [];
   const src = useMemo(() => nodeSource(), []);
+
+  // ── The folder's README.md (my files, a space, a folder), shown above the listing ──
+  // The places from the top down to this folder: README links like "../Docs/plan.pdf" walk them.
+  const chain = useMemo(() => {
+    if (!data || !['folder', 'space', 'my'].includes(place.type)) return null;
+    const root = data.root?.type === 'space' ? { key: `space:${data.root.space.id}`, type: 'space', id: data.root.space.id } : data.root?.type === 'my' ? { key: 'my', type: 'my' } : null;
+    if (place.type !== 'folder') return root ? [root] : null;
+    return [...(root ? [root] : []), ...(data.crumbs || []).map((crumb) => ({ key: `folder:${crumb.id}`, type: 'folder', id: crumb.id })), { key: `folder:${place.id}`, type: 'folder', id: place.id }];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, placeKey]);
+  const readme = useMemo(() => (chain ? pickReadme(items, { isDir: (node) => node.kind !== 'file' }) : null), [chain, items]);
+  const resolver = useMemo(() => (chain ? nodeResolver({ chain, items, list: async (at) => (await loadPlace(at)).items }) : null), [chain, items]);
+  const placeUrl = (at) => (at.type === 'folder' ? `/app/files/f/${at.id}` : at.type === 'space' ? `/app/files/space/${at.id}` : '/app/files');
 
   const reload = () => {
     load().catch(setError);
@@ -404,8 +421,8 @@ export default function Browser({ place }) {
               }),
           },
         ]}
-        more={
-          space && space.level === 'manage'
+        more={[
+          ...(space && space.level === 'manage'
             ? [
                 { key: 'edit', icon: <EditOutlined />, label: t('files.editSpace'), onClick: () => setDialog({ type: 'space', space }) },
                 { key: 'access', icon: <TeamOutlined />, label: t('kb.accessMenu'), onClick: () => setDialog({ type: 'access', space }) },
@@ -434,8 +451,11 @@ export default function Browser({ place }) {
                     }),
                 },
               ]
-            : null
-        }
+            : []),
+          // View option: folder READMEs on or off (everywhere, on this device).
+          chain && space?.level === 'manage' && { type: 'divider' },
+          chain && { key: 'readme', label: <Checkbox checked={!readmesHidden}>{t('readme.showAll')}</Checkbox>, onClick: () => setReadmesHidden(!readmesHidden) },
+        ].filter(Boolean)}
         selection={
           selectedNodes.length > 0 && (
             <SelectionBar
@@ -455,6 +475,36 @@ export default function Browser({ place }) {
         status={data && items.length > 0 && !selectedNodes.length ? t('files.itemsN', { n: items.length }) : null}
         tools={<ViewToggle value={view} onChange={setView} />}
       />
+
+      {readme && resolver && (
+        <ReadmeCard
+          key={`${placeKey}:${readme.id}`}
+          file={{ name: readme.name, size: readme.file?.size, modified: readme.updatedAt }}
+          url={src.file(readme)}
+          version={readme.updatedAt || ''}
+          folderKey={`files:${placeKey}`}
+          resolveLink={(target) => {
+            const here = resolver.local(target);
+            if (here) return { href: here.kind === 'folder' ? `/app/files/f/${here.id}` : `/app/files/v/${here.id}`, open: () => open(here) };
+            return {
+              open: () =>
+                resolver.resolve(target).then((found) => {
+                  if (!found) message.info(t('readme.notFound'));
+                  else if (found.kind === 'file') open(found);
+                  else navigate(found.kind === 'folder' ? `/app/files/f/${found.id}` : placeUrl(found));
+                }),
+            };
+          }}
+          resolveImage={(target) => {
+            const here = resolver.local(target);
+            if (here) return here.kind === 'file' ? src.file(here) : null;
+            return resolver.resolve(target).then((found) => (found?.kind === 'file' ? src.file(found) : null));
+          }}
+          onOpen={() => (config?.openMode === 'modal' ? setViewing(readme) : navigate(`/app/files/v/${readme.id}`))}
+          downloadUrl={src.file(readme, { download: true })}
+          linkUrl={`${window.location.origin}/app/files/v/${readme.id}`}
+        />
+      )}
 
       {!data ? (
         <Skeleton active paragraph={{ rows: 6 }} />

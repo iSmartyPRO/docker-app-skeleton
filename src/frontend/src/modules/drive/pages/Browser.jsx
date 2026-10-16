@@ -8,8 +8,10 @@ import TransferPanel from '../../files/components/TransferPanel';
 import { useUploadActions } from '../../files/components/UploadButton';
 import ModuleHeader, { PathChip, SelectionBar, SortButton, ViewToggle } from '../../shared/ModuleHeader';
 import { FolderUploadError, batchLabel, collectDrop, collectPicked, useFolderUploads } from '../../files/folderUpload';
-import { copyText, driveApi, driveError, editUrl, fileUrl, folderUrl, shareSource } from '../api';
+import { EDITABLE, copyText, driveApi, driveError, editUrl, fileUrl, folderUrl, shareSource } from '../api';
 import { editorMode, opensInEditor } from '../../office/editable';
+import ReadmeCard, { useReadmesHidden } from '../../../components/readme/ReadmeCard';
+import { joinRelative, pickReadme } from '../../../lib/readme';
 
 /** A file's extension (the server sends `ext`; the name is the fallback). */
 const extOf = (entry) => entry?.ext || (String(entry?.name || '').includes('.') ? String(entry.name).split('.').pop().toLowerCase() : '');
@@ -87,6 +89,7 @@ export default function Browser() {
     }
   }).join('/');
   const [prefs, setPrefs] = usePrefs();
+  const [readmesHidden, setReadmesHidden] = useReadmesHidden();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(new Set());
@@ -157,6 +160,8 @@ export default function Browser() {
   const selectedEntries = entries.filter((entry) => selected.has(entry.path));
   const uncOf = (entry) => `${(share?.unc || data?.share?.unc || '').replace(/\\+$/, '')}\\${entry.path.replace(/\//g, '\\')}`;
   const reload = () => load().catch((err) => setError(err));
+  // The folder's README.md, shown above the listing (not over search results).
+  const readme = useMemo(() => (data && !results ? pickReadme(data.entries) : null), [data, results]);
 
   const fail = (err) => message.error(driveError(err, t));
 
@@ -472,6 +477,7 @@ export default function Browser() {
           config?.canAudit && { key: 'activity', icon: <HistoryOutlined />, label: t('driveActivity.folderHistory'), onClick: () => navigate(`/app/drive/activity?shares=${shareId}${path ? `&path=${encodeURIComponent(path)}` : ''}&period=30`) },
           { type: 'divider' },
           { key: 'hidden', label: <Checkbox checked={prefs.hidden}>{t('drive.showHidden')}</Checkbox>, onClick: () => setPrefs({ hidden: !prefs.hidden }) },
+          { key: 'readme', label: <Checkbox checked={!readmesHidden}>{t('readme.showAll')}</Checkbox>, onClick: () => setReadmesHidden(!readmesHidden) },
           { key: 'refresh', icon: <ReloadOutlined />, label: t('drive.refresh'), onClick: reload },
         ].filter(Boolean)}
         moreLabel={t('drive.actions')}
@@ -511,6 +517,33 @@ export default function Browser() {
           </>
         }
       />
+
+      {readme && (
+        <ReadmeCard
+          key={`${shareId}:${path}`}
+          file={{ name: readme.name, size: readme.size, modified: readme.mtime }}
+          url={src.file(readme)}
+          version={readme.mtime || ''}
+          folderKey={`drive:${shareId}:${path}`}
+          resolveLink={(target) => {
+            const to = joinRelative(path, target);
+            if (to === null) return null;
+            const here = data.entries.find((entry) => entry.path === to);
+            if (here) return { href: here.dir ? folderUrl(shareId, to) : fileUrl(shareId, to), open: () => open(here) };
+            // Elsewhere in the share: the file page sends folders on to the folder view.
+            const href = target.dir ? folderUrl(shareId, to) : fileUrl(shareId, to);
+            return to || target.dir ? { href, open: () => navigate(href) } : null;
+          }}
+          resolveImage={(target) => {
+            const to = joinRelative(path, target);
+            return to ? src.file({ path: to }) : null;
+          }}
+          onOpen={() => (config?.openMode === 'modal' ? setViewing(readme) : navigate(fileUrl(shareId, readme.path)))}
+          onEdit={canWrite && !readme.readonly && EDITABLE.has(extOf(readme)) ? () => navigate(`${fileUrl(shareId, readme.path)}?edit=1`) : null}
+          downloadUrl={src.file(readme, { download: true })}
+          linkUrl={`${window.location.origin}${fileUrl(shareId, readme.path)}`}
+        />
+      )}
 
       {!data ? (
         <Skeleton active paragraph={{ rows: 6 }} />

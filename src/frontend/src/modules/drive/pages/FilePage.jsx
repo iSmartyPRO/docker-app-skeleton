@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button, Result, Spin, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { driveApi, driveError, editUrl, fileUrl, folderUrl, shareSource } from '../api';
@@ -32,6 +32,7 @@ export default function FilePage() {
   const { t } = useLocale();
   const navigate = useNavigate();
   const params = useParams();
+  const [search] = useSearchParams();
   const shareId = Number(params.shareId);
   const path = decodePath(params['*']);
   const parent = path.split('/').slice(0, -1).join('/');
@@ -130,6 +131,7 @@ export default function FilePage() {
         unc={data.unc}
         conversion={config?.conversion}
         canEdit={canWrite}
+        startEditing={search.get('edit') === '1'}
         onChanged={() => {}}
         onShare={config?.publicLinks && share?.allowLinks ? setLinkEntry : null}
         lead={

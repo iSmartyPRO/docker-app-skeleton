@@ -15,6 +15,8 @@ import { FolderUploadError, canPickFolders, collectDrop, collectPicked } from '.
 import { CAD, asViewerItem, driveError, formatBytes, linkSource, publicDriveApi } from './api';
 import { markViewCounted, viewCounted } from '../../lib/linkVisit';
 import EntryList, { EntryIcon } from './components/EntryList';
+import ReadmeCard from '../../components/readme/ReadmeCard';
+import { joinRelative, pickReadme } from '../../lib/readme';
 import DriveViewer from './components/DriveViewer';
 import { VisitorUploadList, useVisitorQueue } from './components/VisitorUploads';
 import '../kb/kb.css';
@@ -582,6 +584,29 @@ export default function PublicDrive() {
     }
   };
 
+  /** Where a link of the README goes: a folder or file of this link (never above it). */
+  const readmeLink = (target, entries) => {
+    const to = joinRelative(path, target);
+    if (to === null) return null;
+    const here = entries.find((item) => item.path === to);
+    if (here) return { open: () => (here.dir ? setPath(here.path) : setViewing(here)) };
+    if (target.dir) return { open: () => setPath(to) };
+    const parent = to.split('/').slice(0, -1).join('/');
+    const name = to.split('/').pop();
+    return {
+      open: () =>
+        publicDriveApi
+          .open(token, { path: parent, visitor: visitorRef.current, preview, repeat: true })
+          .then((res) => {
+            const found = (res.data.entries || []).find((item) => item.name === name);
+            if (!found) throw new Error('not found');
+            if (found.dir) setPath(found.path);
+            else setViewing(found);
+          })
+          .catch(() => message.info(t('readme.notFound'))),
+    };
+  };
+
   // File addresses carry the read token only (the session token never goes into a URL).
   const src = useMemo(() => linkSource(token, data?.readToken || '', link?.allowDownload), [token, data, link]);
 
@@ -711,6 +736,8 @@ export default function PublicDrive() {
     const entry = data.entry;
     const isFile = link.kind === 'file';
     const writes = perms.some((perm) => !['view', 'download'].includes(perm));
+    // The folder's README.md, shown above the listing (only to visitors who can see the folder).
+    const readme = !isFile && can('view') ? pickReadme(entries) : null;
     body = (
       <div className="kb-page dv-public" {...(isFile ? {} : dropZone)}>
         <header className="share-hero dv-public__hero">
@@ -787,6 +814,22 @@ export default function PublicDrive() {
           </div>
         ) : (
           <>
+            {readme && (
+              <ReadmeCard
+                key={`${token}:${path}`}
+                file={{ name: readme.name, size: readme.size, modified: readme.mtime }}
+                url={src.file(readme)}
+                version={readme.mtime || ''}
+                folderKey={`d:${token}:${path}`}
+                resolveLink={(target) => readmeLink(target, entries)}
+                resolveImage={(target) => {
+                  const to = joinRelative(path, target);
+                  return to ? src.file({ path: to }) : null;
+                }}
+                onOpen={() => setViewing(readme)}
+                downloadUrl={link.allowDownload ? src.file(readme, { download: true }) : null}
+              />
+            )}
             {can('upload') && <p className="dv-public__drophint">⤒ {t('drive.public.dropHint')}{limitsLine && <> · {limitsLine}</>}</p>}
             <EntryList
               entries={entries}

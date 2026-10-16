@@ -27,6 +27,9 @@ import { asViewerItem, formatBytes, linkApi, linkSource } from './api';
 import { markViewCounted, viewCounted } from '../../lib/linkVisit';
 import { canPickFolders, collectDrop, collectPicked } from './folderUpload';
 import NodeList, { NodeIcon } from './components/NodeList';
+import ReadmeCard from '../../components/readme/ReadmeCard';
+import { pickReadme } from '../../lib/readme';
+import { nodeResolver } from './readmeLinks';
 import NodeViewer from './components/NodeViewer';
 import DocumentViewer from '../kb/viewers/DocumentViewer';
 import '../kb/kb.css';
@@ -274,6 +277,20 @@ export default function PublicLink() {
   const can = (key) => Boolean(link?.permissions?.includes(key));
   const uploadOnly = Boolean(link) && can('upload') && !can('view');
   const maxBytes = link?.maxFileMb ? link.maxFileMb * 1024 * 1024 : 0;
+
+  // The folder's README.md, shown above the listing when the link lets the visitor see the folder.
+  const readme = data && can('view') && data.node?.kind === 'folder' ? pickReadme(data.items, { isDir: (node) => node.kind !== 'file' }) : null;
+  const readmeResolver = useMemo(() => {
+    if (!data || data.node?.kind !== 'folder') return null;
+    const chain = [...(data.crumbs || []), data.node].map((node) => ({ key: `folder:${node.id}`, type: 'folder', id: node.id }));
+    const list = async (at) => (await linkApi.open(token, { folder: at.id === data.link.rootId ? null : at.id, visitor: visitorRef.current, preview, repeat: true })).data.items || [];
+    return nodeResolver({ chain, items: data.items || [], list });
+  }, [data, token, preview]);
+  const goToNode = (found) => {
+    if (!found) message.info(t('readme.notFound'));
+    else if (found.kind === 'file') setViewing(found);
+    else setFolderId(found.id === link?.rootId ? null : found.id);
+  };
 
   /** A visitor session for changes; asks the name first when the link wants it. */
   const ensureSession = async () => {
@@ -714,6 +731,26 @@ export default function PublicLink() {
         )}
         {isFolder && can('upload') && rules.length > 0 && <div className="pl-rules is-left">{rules.join(' · ')}</div>}
         {uploadList}
+        {readme && readmeResolver && (
+          <ReadmeCard
+            key={`${token}:${node.id}:${readme.id}`}
+            file={{ name: readme.name, size: readme.file?.size, modified: readme.updatedAt }}
+            url={src.file(readme)}
+            version={readme.updatedAt || ''}
+            folderKey={`l:${token}:${node.id}`}
+            resolveLink={(target) => {
+              const here = readmeResolver.local(target);
+              return { open: () => (here ? goToNode(here) : readmeResolver.resolve(target).then(goToNode)) };
+            }}
+            resolveImage={(target) => {
+              const here = readmeResolver.local(target);
+              if (here) return here.kind === 'file' ? src.file(here) : null;
+              return readmeResolver.resolve(target).then((found) => (found?.kind === 'file' ? src.file(found) : null));
+            }}
+            onOpen={() => setViewing(readme)}
+            downloadUrl={can('download') ? src.file(readme, { download: true }) : null}
+          />
+        )}
         {isFolder ? (
           <div className="pl-browser">
             {can('upload') && (

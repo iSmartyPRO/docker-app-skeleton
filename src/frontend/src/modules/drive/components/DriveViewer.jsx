@@ -121,7 +121,7 @@ function TextEditor({ entry, src, shareId, onSaved, onCancel }) {
  * in the document viewers (PDF, Word, Excel, Office via conversion, media).
  * Used both in the modal and on the file's own page (`lead` / `onClose`).
  */
-export function DriveFileView({ entry, src, shareId, unc, conversion, canEdit, onChanged, onShare, onEditing, lead, extra, onClose }) {
+export function DriveFileView({ entry, src, shareId, unc, conversion, canEdit, startEditing = false, onChanged, onShare, onEditing, lead, extra, onClose }) {
   const { t, locale } = useLocale();
   const { message } = App.useApp();
   const [editing, setEditingState] = useState(false);
@@ -133,10 +133,11 @@ export function DriveFileView({ entry, src, shareId, unc, conversion, canEdit, o
     },
     [onEditing]
   );
+  // `startEditing`: opened with "Edit" (a folder's README card) — straight into the text editor.
   useEffect(() => {
     setCurrent(entry);
-    setEditing(false);
-  }, [entry, setEditing]);
+    setEditing(Boolean(startEditing && canEdit && entry && EDITABLE.has(entry.ext)));
+  }, [entry, setEditing, startEditing, canEdit]);
 
   if (!current) return null;
 

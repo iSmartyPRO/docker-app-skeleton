@@ -40,6 +40,17 @@ The module is **off by default**. Turn it on under *Settings → Modules → Fil
 - **Public links** (see below) and **My links** with the state and permissions of each one; links can be edited later.
 - **Connections**: which account opens each server, and a way to sign in or switch accounts.
 
+## Folder README
+
+A folder that holds a `README.md` (any letter case; `README.markdown` too — `README.md` wins when there are several) shows it **above the listing**, rendered, so people see what the folder is for without opening the file:
+
+- A **collapsed preview** with a soft fade and *Показать полностью / Свернуть*; the card can be **hidden for one folder** (it shrinks to a slim bar with *Показать*). The choice is remembered per folder on the device, and *⋯ → Показывать README папок* turns READMEs off everywhere (shared with Files).
+- The header shows the name and modification time with *Open in viewer*, *Edit* (Markdown, for people who may write here — opens the file page in the text editor), *Download* and *Copy link*.
+- **GitHub-flavoured Markdown**: headings with anchors, lists, read-only task lists, tables (scroll sideways), quotes, code blocks with a language label and *Copy*, pictures (click to zoom). Everything is sanitized against a strict allowlist (no scripts, handlers, styles, frames or `javascript:` links); external links open in a new tab with `rel="noopener noreferrer"`.
+- **Relative links** (`plan.pdf`, `../Шаблоны/`, `/Общее/README.md`) open the file page or folder of the same share, and **relative pictures** load through the usual file address — never outside the share.
+- The text is read through the normal file address (`GET …/file`, the person's own rights on the server; it shows up as a *view* in the activity log, folded like any repeated read), loaded after the listing, cached per path and version, and decoded as UTF-8 or, failing that, Windows-1251. Files over 512 KB show a note with *Open* instead.
+- **Public links** that let the visitor see the folder show its README the same way (read-only; download only when the link allows it; links stay inside the shared folder).
+
 ## Uploading folders
 
 Dropping a folder (or picking one with *Upload ▾ → Upload folder*; not offered on iOS / Android) recreates its tree on the share and uploads every file into place:
