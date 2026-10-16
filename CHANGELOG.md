@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-10-16
+
 ### Fixed
 
 - `make prune-build` (run after every rebuild/deploy) really trims the Docker build cache now: entries older than 2 days go and the rest is capped at 6 GB. Before, it removed only dangling records and the cache grew by about 1 GB per deploy.
@@ -511,7 +513,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.2
 [1.4.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.1
 [1.4.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.0
 [1.3.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.3.0
