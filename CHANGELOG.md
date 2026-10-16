@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-16
+
 ### Changed
 
 - **Folder access is now part of the File server** («Доступ»). The separate «Доступ к папкам» app is gone: in the File server every folder has a **«Доступ»** button (toolbar, and a subfolder's menu) that opens a side panel for that folder — *Группы доступа* (every group pair that opens it, members with add / remove / move, inherited access from the folders above, «Создать пару групп») and *Права NTFS* (superadministrators, the existing ACL editor). The sidebar gets a «Доступ» section: folders and groups **by project**, person card, access journal, mismatch report. Its settings are a block «Управление доступом» with its own switch in the File server settings; the permission is `drive.access` (was `folderaccess.groups`); the API moved to `/api/app/drive/access/…`. See [docs/drive-access.md](docs/drive-access.md).
@@ -505,7 +507,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.1
 [1.4.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.0
 [1.3.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.3.0
 [1.2.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.2.0
