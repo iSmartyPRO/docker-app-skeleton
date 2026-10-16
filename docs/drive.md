@@ -4,6 +4,8 @@ A [module](modules.md) that turns the company's Windows file servers (SMB 2/3, S
 
 The module is **off by default**. Turn it on under *Settings → Modules → File server*, then add a server.
 
+**Access management («Доступ»).** A block of the File server settings with its own switch: who can open a folder through Active Directory security groups (`sg_<project>_<name>_full|read`), and the folders' NTFS permissions — a «Доступ» panel on every folder, an overview by project, person cards, a journal and a mismatch report, for superadministrators and holders of `drive.access`. See [File server: access management](drive-access.md).
+
 ## What people get
 
 - **Overview**: the drive's name and subtitle, a tile per folder with the person's rights (*Read & write* or *Read only*) and free space, plus favourites and recent files.
@@ -116,13 +118,16 @@ The credential used for a person is chosen in this order:
 - an optional sub-folder, so you can publish `\\fs01\Data\Departments\Accounting` as *Accounting*;
 - the path shown to people, for example a DFS path;
 - portal groups that see it (empty = everyone);
-- *Allow public links*.
+- *Allow public links*;
+- *Path in AD group descriptions* — one or more path prefixes (`W:`, `G:\ПРБ-2\_DocArch`) that tie the access groups' descriptions to this folder ([access management](drive-access.md#how-folders-map-to-groups)).
 
 Folders can be reordered.
 
 **All public links** lists every link with its author, state and views, and lets you turn any of them off.
 
 Permission: `drive.admin`. With it you manage servers and folders and see all links, and you see every folder regardless of portal groups. What you can open inside a folder is still decided by the file server.
+
+**Управление доступом** (the access block: switch, group naming, OUs, NTFS rights per access type) is described in [File server: access management](drive-access.md#settings); its permission is `drive.access`.
 
 ## Public links (`/d/<token>` or `/d/<slug>`)
 
@@ -204,7 +209,7 @@ Reactivating the author's account makes their links work again. Deleting the acc
 - **Caches are checked on every use.** Thumbnails, Office PDFs and DWG conversions are cached in `UPLOAD_DIR/.previews/` by path, size and modification time. Each request first checks access on the server with the person's own credentials. Before a cached copy (or one being made for someone else) is served, the file is also opened for reading (a one-byte read), since listing a folder alone does not grant reading its files; a positive answer is remembered for 5 minutes per credential and file. Cached copies unused for 30 days are removed by the daily `storage:previews` job.
 - **Moving a server drops its secrets.** When an administrator changes a server's host or port, the stored service-account password and the accounts people saved for that server ("Connect as…") are cleared; the service password has to be typed again. *Test* with a changed host or port never uses secrets saved for the old machine.
 - **DWG conversions** stream the drawing to disk (never into memory), run at most two at a time, and requests for the same drawing share one conversion.
-- **NTFS permissions** (Folder access) are read and changed through the same gateway (`acl_get`, `acl_set`, `acl_restore`, `acl_propagate`), always with the acting administrator's own domain account. See [NTFS permissions](ntfs-permissions.md).
+- **NTFS permissions** («Доступ», [access management](drive-access.md)) are read and changed through the same gateway (`acl_get`, `acl_set`, `acl_restore`, `acl_propagate`), always with the acting administrator's own domain account. See [NTFS permissions](ntfs-permissions.md).
 
 ## Operations
 

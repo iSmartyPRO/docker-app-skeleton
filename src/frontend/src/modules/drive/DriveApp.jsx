@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation, useMatch } from 'react-router-dom';
 import { Button, Drawer, Result, Spin } from 'antd';
 import Chrome from '../../components/Chrome';
@@ -16,11 +16,15 @@ import Connections from './pages/Connections';
 import FilePage from './pages/FilePage';
 import EditPage from './pages/EditPage';
 import Activity from './pages/Activity';
+import { AccessProvider } from './access/AccessContext';
 import '../shared/module.css';
 import '../kb/kb.css';
 import '../files/files.css';
 import './drive.css';
 import SideRail from '../shared/SideRail';
+
+// «Доступ» (folder access groups, NTFS): loaded only for the people who get it.
+const AccessSection = lazy(() => import('./access/AccessSection'));
 
 /** The drive's name: chosen by the administrator ("iSmarty Drive") or the default. */
 export function useDriveTitle() {
@@ -91,6 +95,19 @@ function Sidebar({ onNavigate }) {
         ))}
         {shares && !shares.length && <div className="mod-side__empty">{t('drive.noSharesShort')}</div>}
       </nav>
+      {config?.access && (
+        <>
+          <div className="mod-side__label">
+            <span>{t('folderAccess.nav.section')}</span>
+          </div>
+          <nav className="mod-nav">
+            {link('/app/drive/access', 'lock', t('folderAccess.nav.folders'), true)}
+            {link('/app/drive/access/people', 'people', t('folderAccess.nav.people'))}
+            {link('/app/drive/access/journal', 'file', t('folderAccess.nav.journal'))}
+            {config.access.role === 'superadmin' && link('/app/drive/access/report', 'shield', t('folderAccess.nav.report'))}
+          </nav>
+        </>
+      )}
       <nav className="mod-nav fs-side__bottom">
         {link('/app/drive/connections', 'key', t('drive.connections'), false, problems)}
         {config?.canAudit && link('/app/drive/activity', 'chart', t('driveActivity.title'))}
@@ -137,7 +154,7 @@ function Shell() {
       </Routes>
     );
   }
-  return (
+  const shell = (
     <div className="mod-shell">
       <SideRail moduleKey="drive">
         <Sidebar />
@@ -158,15 +175,29 @@ function Shell() {
             <Route path="links" element={<MyLinks />} />
             <Route path="connections" element={<Connections />} />
             <Route path="activity" element={config?.canAudit ? <Activity /> : <Navigate to="/app/drive" replace />} />
+            <Route
+              path="access/*"
+              element={
+                config?.access ? (
+                  <Suspense fallback={<div className="boot-screen"><Spin /></div>}>
+                    <AccessSection />
+                  </Suspense>
+                ) : (
+                  <Navigate to="/app/drive" replace />
+                )
+              }
+            />
             <Route path="*" element={<Navigate to="/app/drive" replace />} />
           </Routes>
         </PageTransition>
       </main>
     </div>
   );
+  // «Доступ»: its state (role, credential) and the password prompt for the whole File server.
+  return config.access ? <AccessProvider>{shell}</AccessProvider> : shell;
 }
 
-/** Drive app: /app/drive, /s/:shareId/<path>, /v/:shareId/<file>, /recent, /favorites, /links, /connections. */
+/** Drive app: /app/drive, /s/:shareId/<path>, /v/:shareId/<file>, /recent, /favorites, /links, /connections, /access/…. */
 export default function DriveApp() {
   return (
     <div className="shell">

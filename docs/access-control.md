@@ -65,7 +65,7 @@ Built-in roles are inserted once by key and never overwritten, so permission cha
 | `companies.admin` | Change any company or contact card, delete for good, configure the Counterparties module and its DaData key |
 | `resources.admin` | Add, edit and order online resources and choose who sees each one |
 | `drive.admin` | Manage file servers and drive folders, see every folder regardless of portal groups and every public link. Content rights stay with the file server |
-| `folderaccess.groups` | *System administrator* in [Folder access](folder-access.md): add and remove people in the folder security groups (`sg_…`) except protected root groups. Changes run with the person's own AD account. Everything else in that section is for superadministrators (`*`) |
+| `drive.access` | *System administrator* in the File server's [«Доступ»](drive-access.md) (when its access block is on): add and remove people in the folder security groups (`sg_…`) except protected root groups. Changes run with the person's own AD account. Everything else there (NTFS permissions, group pairs, mismatch report) is for superadministrators (`*`). Until v1.4 this permission was `folderaccess.groups`; roles that have it also get `drive.access` at start-up (the old one stays for a rollback) |
 | `files.admin` | Create shared spaces (when restricted to administrators) and *manage* every space. Personal files stay private |
 | `kb.admin` | *Manage* on everything in the Knowledge Base, whatever its access rules |
 | `tasks.admin` | *Manage* on every task project |

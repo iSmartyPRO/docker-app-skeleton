@@ -354,7 +354,7 @@ const EVENT_KINDS = new Set([
   'directory_password_removed',
   // A stored secret could not be decrypted (encryption key changed, see services/crypto.js).
   'secret_unreadable',
-  // Folder access (modules/folderaccess): AD group membership, group pairs, the acting admin's domain password.
+  // File server «Доступ» (modules/drive/access; formerly Folder access): AD group membership, group pairs, the acting admin's domain password.
   'folder_access_changed',
   'folder_group_changed',
   'folder_access_password',

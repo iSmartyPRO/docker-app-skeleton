@@ -235,7 +235,17 @@ export function forgetProbes(userId) {
   for (const key of probes.keys()) if (key.startsWith(`${userId}:`)) probes.delete(key);
 }
 
-export async function home(ctx) {
+/**
+ * Folders the home page lists: with «hide folders without access» on, denied / missing ones are left out,
+ * except for drive administrators and (`keepDenied`) people who manage folder access: they reach the
+ * folder's «Доступ» panel from there. Others never see them.
+ */
+export function shownShares(shares, { hideDenied, isAdmin, keepDenied = false }) {
+  if (!hideDenied || isAdmin || keepDenied) return shares;
+  return shares.filter((share) => share.state !== 'denied' && share.state !== 'missing');
+}
+
+export async function home(ctx, { keepDenied = false } = {}) {
   const settings = await driveSettings();
   const items = (await sharesWithServers()).filter((item) => canSee(ctx, item.share));
   const servers = new Map();
@@ -270,10 +280,7 @@ export async function home(ctx) {
     })
   );
   const order = new Map(items.map((item, index) => [item.share.id, index]));
-  const shares = byServer
-    .flat()
-    .filter((share) => !(settings.hideDenied && !ctx.isAdmin && (share.state === 'denied' || share.state === 'missing')))
-    .sort((a, b) => order.get(a.id) - order.get(b.id));
+  const shares = shownShares(byServer.flat(), { hideDenied: settings.hideDenied, isAdmin: ctx.isAdmin, keepDenied }).sort((a, b) => order.get(a.id) - order.get(b.id));
   return {
     drive: { title: settings.title, tagline: settings.tagline },
     shares,

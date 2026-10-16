@@ -5,6 +5,8 @@ import rateLimit from 'express-rate-limit';
 import { optionalAuth } from '../../middleware/auth.js';
 import { httpError, intId, listSubjects, wrap } from '../shared/acl.js';
 import { connectionStatus, driveSettings, forgetCredential, saveCredential } from './credentials.js';
+import { accessRoutes } from './access/routes.js';
+import { accessSummary } from './access/service.js';
 import { linkRateKey, slugCheckLimiter } from '../shared/linkSlug.js';
 import {
   allLinks,
@@ -102,9 +104,13 @@ export function privateRoutes() {
   const target = (req) => openTarget(req.drive, req.params.id);
 
   router.get('/', wrap(async (req, res) => {
-    const data = await home(req.drive);
+    // «Доступ» (folder access groups, NTFS): shown to superadministrators and drive.access holders,
+    // who also keep seeing folders they cannot open (to fix their access from the panel).
+    const access = await accessSummary(req).catch(() => null);
+    const data = await home(req.drive, { keepDenied: Boolean(access) });
     // Online editing (Collabora): which extensions open in the editor.
     data.config.editor = await editorClientConfig().catch(() => ({ enabled: false, edit: [], view: [] }));
+    data.config.access = access;
     res.json({ success: true, ...data });
   }));
 
@@ -281,6 +287,9 @@ export function privateRoutes() {
     res.json({ success: true });
     return row;
   }));
+
+  // «Доступ»: folder access groups in AD and NTFS permissions (access/routes.js; own gate and roles).
+  router.use('/access', accessRoutes());
 
   // Administration (drive.admin)
   router.get('/admin', wrap(async (req, res) => {

@@ -4,6 +4,8 @@ import { onDirectoryCredential, onDirectorySignIn } from '../../services/hooks.j
 import { cleanupCredentials, rememberLoginCredential, storeDirectoryCredential } from './credentials.js';
 import { pruneActivity } from './activity.js';
 import { ensureSlugSchema } from '../shared/linkSlug.js';
+import { ensureJournalTable } from './access/journal.js';
+import { migrateFolderAccess } from './access/migrate.js';
 
 /*
  * Drive: the company's file servers (SMB) as one network drive.
@@ -15,6 +17,7 @@ import { ensureSlugSchema } from '../shared/linkSlug.js';
  *   drive_links        public links; they act with their author's credentials
  *   drive_recent / drive_favorites   per-user shortcuts
  *   drive_activity     who did what (activity log, read with drive.audit)
+ *   drive_access_journal  changes made in «Доступ» (AD groups, NTFS; access/journal.js)
  *
  * Access to content is decided by the file server (share permissions and NTFS
  * ACLs, i.e. Active Directory security groups); the portal only chooses which
@@ -186,6 +189,12 @@ export async function ensureDriveSchema() {
       UNIQUE (share_id, path_key)
     )
   `);
+
+  // «Доступ»: how people write this folder's path in AD group descriptions ("G:\ПРБ-2\_DocArch", "W:").
+  await query(`ALTER TABLE drive_shares ADD COLUMN IF NOT EXISTS path_prefixes TEXT[] NOT NULL DEFAULT '{}'`);
+  // The former «Доступ к папкам» module: journal, settings and permission move here (idempotent).
+  await migrateFolderAccess();
+  await ensureJournalTable();
 
   onDirectorySignIn(rememberLoginCredential);
   onDirectoryCredential(storeDirectoryCredential);

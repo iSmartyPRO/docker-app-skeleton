@@ -146,18 +146,6 @@ export const MODULE_REGISTRY = [
     App: lazy(() => import('./drive/DriveApp')),
     Settings: lazy(() => import('./drive/DriveSettings')),
   },
-  {
-    // «Доступ к папкам»: AD security groups that open folders on the file server (docs/folder-access.md).
-    id: 'folderaccess',
-    path: '/app/folderaccess',
-    icon: 'lock',
-    labelKey: 'apps.folderaccess.name',
-    descKey: 'apps.folderaccess.desc',
-    // Superadministrators (*) and system administrators only.
-    permission: 'folderaccess.groups',
-    App: lazy(() => import('./folderaccess/FolderAccessApp')),
-    Settings: lazy(() => import('./folderaccess/FolderAccessSettings')),
-  },
 ];
 
 /**

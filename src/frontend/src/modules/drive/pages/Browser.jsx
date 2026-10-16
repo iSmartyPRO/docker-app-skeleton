@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { App, Button, Checkbox, Modal, Radio, Skeleton, Tooltip } from 'antd';
-import { CopyOutlined, DeleteOutlined, DownloadOutlined, ExportOutlined, FolderAddOutlined, HistoryOutlined, LinkOutlined, ReloadOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, DownloadOutlined, ExportOutlined, FolderAddOutlined, HistoryOutlined, LinkOutlined, ReloadOutlined, SafetyOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { NameDialog } from '../../files/components/dialogs';
 import TransferPanel from '../../files/components/TransferPanel';
@@ -24,8 +24,19 @@ import ConnectDialog from '../components/ConnectDialog';
 import { useDriveTitle } from '../DriveApp';
 import { sortEntries, usePrefs } from '../prefs';
 
+// «Доступ» of a folder (access groups, NTFS): only for superadministrators and drive.access holders.
+const AccessDrawer = lazy(() => import('../access/AccessDrawer'));
+
+const parseFix = (value) => {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+};
+
 /** Shown instead of the listing when the server refuses or the folder is gone. */
-function Problem({ code, share, onConnect }) {
+function Problem({ code, share, onConnect, onAccess }) {
   const { t } = useLocale();
   const navigate = useNavigate();
   const kind = ['CREDENTIALS_REQUIRED', 'CREDENTIALS_FAILED'].includes(code)
@@ -43,6 +54,7 @@ function Problem({ code, share, onConnect }) {
       <p>{t(`drive.problem.${kind}Text`)}</p>
       <div className="dv-problem__actions">
         {kind === 'auth' && <Button type="primary" onClick={onConnect}>{t('drive.signIn')}</Button>}
+        {onAccess && <Button icon={<SafetyOutlined />} onClick={onAccess}>{t('folderAccess.panel.action')}</Button>}
         {share && kind !== 'auth' && <Button onClick={() => navigate(folderUrl(share.id))}>{share.title}</Button>}
         <Button onClick={() => navigate('/app/drive')}>{t('drive.toDrive')}</Button>
       </div>
@@ -102,6 +114,10 @@ export default function Browser() {
   const [searching, setSearching] = useState(false);
   const [conflict, setConflict] = useState(null);
   const [favorite, setFavorite] = useState(false);
+  // «Доступ» panel: of the open folder (?access=groups|ntfs[&fix=…], so it can be linked) or of a subfolder from its menu.
+  const [accessOf, setAccessOf] = useState(null);
+  // A subfolder's panel belongs to the folder it was opened in: another folder (Back / Forward, a link) closes it.
+  useEffect(() => setAccessOf(null), [shareId, path]);
   const fileInput = useRef(null);
   const src = useMemo(() => shareSource(shareId), [shareId]);
   const share = shares?.find((item) => item.id === shareId) || data?.share;
@@ -360,6 +376,7 @@ export default function Browser() {
       config?.publicLinks && share?.allowLinks && { key: 'link', label: t('drive.shareLink'), onClick: () => setDialog({ type: 'link', entry }) },
       { key: 'path', label: t('drive.copyPath'), onClick: () => copyPath(entry) },
       { key: 'pin', label: t('drive.pin'), onClick: () => toggleFavorite(entry, false) },
+      entry.dir && config?.access && { key: 'access', icon: <SafetyOutlined />, label: t('folderAccess.panel.action'), onClick: () => openAccess(entry) },
       config?.canAudit && { key: 'activity', label: t('driveActivity.history'), onClick: () => navigate(`/app/drive/activity?shares=${shareId}&path=${encodeURIComponent(entry.path)}&period=90`) },
       canWrite && { type: 'divider' },
       canWrite && { key: 'rename', label: t('drive.rename'), onClick: () => setDialog({ type: 'rename', entry }) },
@@ -368,6 +385,27 @@ export default function Browser() {
       canDelete && { key: 'delete', danger: true, label: t('common.delete'), onClick: () => remove([entry]) },
     ].filter(Boolean);
   };
+
+  const accessTab = config?.access ? search.get('access') : null;
+  const accessFix = useMemo(() => parseFix(search.get('fix')), [search]);
+  const panel = accessOf || (accessTab ? { path, tab: accessTab } : null);
+  const closeAccess = () => {
+    setAccessOf(null);
+    if (search.has('access') || search.has('fix')) {
+      search.delete('access');
+      search.delete('fix');
+      setSearch(search, { replace: true });
+    }
+  };
+  const accessTabChange = (tab) => {
+    if (accessOf) setAccessOf({ ...accessOf, tab });
+    else {
+      search.set('access', tab);
+      search.delete('fix');
+      setSearch(search, { replace: true });
+    }
+  };
+  const openAccess = (entry) => (entry && entry.path !== path ? setAccessOf({ path: entry.path, tab: 'groups' }) : accessTabChange('groups'));
 
   const toggle = (entry) =>
     setSelected((prev) => {
@@ -399,11 +437,32 @@ export default function Browser() {
   const crumbs = data?.crumbs || [];
   const title = path ? path.split('/').pop() : share?.title;
   const errorCode = error?.response?.data?.code;
+  // The «Доступ» panel, also over the error page: a folder this account cannot list is where it is needed most.
+  const accessDrawer = config?.access && panel && (
+    <Suspense fallback={null}>
+      <AccessDrawer
+        open
+        shareId={shareId}
+        path={panel.path}
+        title={[share?.title, ...String(panel.path || '').split('/').filter(Boolean)].filter(Boolean).join(' / ')}
+        tab={panel.tab}
+        fix={accessOf ? null : accessFix}
+        onTab={accessTabChange}
+        onFixUsed={() => {
+          if (search.has('fix')) {
+            search.delete('fix');
+            setSearch(search, { replace: true });
+          }
+        }}
+        onClose={closeAccess}
+      />
+    </Suspense>
+  );
 
   if (error) {
     return (
       <>
-        <Problem code={errorCode} share={path ? share : null} onConnect={() => setDialog({ type: 'connect' })} />
+        <Problem code={errorCode} share={path ? share : null} onConnect={() => setDialog({ type: 'connect' })} onAccess={config?.access && errorCode !== 'SHARE_NOT_FOUND' ? () => openAccess(null) : null} />
         <ConnectDialog
           open={dialog?.type === 'connect'}
           connection={connection || (error?.response?.data?.info && { serverId: error.response.data.info.serverId, serverName: error.response.data.info.serverName, status: errorCode === 'CREDENTIALS_FAILED' ? error.response.data.info.reason : 'missing' })}
@@ -415,6 +474,7 @@ export default function Browser() {
             }
           }}
         />
+        {accessDrawer}
       </>
     );
   }
@@ -469,6 +529,7 @@ export default function Browser() {
         actions={[
           ...(canWrite ? uploadActions : []),
           canWrite && { key: 'folder', icon: <FolderAddOutlined />, label: t('files.newFolder'), onClick: () => setDialog({ type: 'folder' }) },
+          config?.access && { key: 'access', icon: <SafetyOutlined />, label: t('folderAccess.panel.action'), tooltip: t('folderAccess.panel.actionHint'), onClick: () => openAccess(null) },
         ]}
         more={[
           { key: 'zip', icon: <DownloadOutlined />, label: <a href={src.zip([path])}>{t('drive.downloadFolderZip')}</a> },
@@ -627,6 +688,7 @@ export default function Browser() {
         }}
       />
       <LinkDialog open={dialog?.type === 'link'} shareId={shareId} entry={dialog?.entry} config={config || {}} onClose={() => setDialog(null)} />
+      {accessDrawer}
     </div>
   );
 }

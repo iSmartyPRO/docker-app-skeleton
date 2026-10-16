@@ -11,6 +11,7 @@ import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
 import { driveApi, driveError } from './api';
 import { LinkRow } from './components/LinkDialog';
 import { HintLabel } from '../../help/Hint';
+import AccessSettingsFields from './access/AccessSettings';
 import './drive.css';
 import '../files/files.css';
 
@@ -133,6 +134,7 @@ function GeneralForm({ settings, save }) {
           </Form.Item>
         </SettingRow>
       </SettingsSection>
+      <AccessSettingsFields form={form} />
       <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={reset} />
     </Form>
   );
@@ -298,7 +300,7 @@ function ShareDialog({ open, server, share, preset, groups, onClose }) {
 
   useEffect(() => {
     if (!open) return;
-    form.setFieldsValue(share || { title: '', share: '', rootPath: '', description: '', color: COLORS[0], uncDisplay: '', groupIds: [], allowLinks: true, ...(preset || {}) });
+    form.setFieldsValue(share || { title: '', share: '', rootPath: '', description: '', color: COLORS[0], uncDisplay: '', groupIds: [], allowLinks: true, pathPrefixes: [], ...(preset || {}) });
     setAvailable(null);
     setBrowseUser({ username: '', password: '' });
     browse();
@@ -388,6 +390,10 @@ function ShareDialog({ open, server, share, preset, groups, onClose }) {
         </Form.Item>
         <Form.Item name="allowLinks" valuePropName="checked" label={t('driveSettings.allowLinks')} extra={t('driveSettings.allowLinksHint')}>
           <Switch />
+        </Form.Item>
+        {/* «Доступ»: how this folder's path is written in AD group descriptions (G:\ПРБ-2\_DocArch, W:). */}
+        <Form.Item name="pathPrefixes" label={t('driveSettings.pathPrefixes')} extra={t('driveSettings.pathPrefixesHint')}>
+          <Select mode="tags" open={false} tokenSeparators={[';', '\n']} placeholder="W:  ·  G:\ПРБ-2\_DocArch" />
         </Form.Item>
       </Form>
     </Modal>
@@ -511,6 +517,11 @@ function ServersManager() {
                     </Tooltip>
                   )}
                   {!share.allowLinks && <Tag bordered={false}>{t('driveSettings.noLinks')}</Tag>}
+                  {(share.pathPrefixes || []).map((prefix) => (
+                    <Tooltip key={prefix} title={t('driveSettings.pathPrefixes')}>
+                      <Tag bordered={false} className="dv-prefix-tag">{prefix}</Tag>
+                    </Tooltip>
+                  ))}
                 </span>
                 <span className="dv-sharerow__order">
                   <Button size="small" type="text" disabled={index === 0} onClick={() => move(server, index, -1)}>↑</Button>

@@ -1,0 +1,649 @@
+/* ── Folder access ────────────────────────────────────────────────────────── */
+
+.fa-page {
+  position: relative;
+  max-width: 1500px;
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fa-page .fs-side__bottom,
+.mod-side .fs-side__bottom {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--da-hairline);
+}
+
+.fa-brand {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+}
+
+.fa-mode {
+  margin: 4px 12px 10px;
+}
+
+/* "Группы доступа" / "Права NTFS" do not fit one line in the side rail: wrap instead of "Группы дос…". */
+.fa-mode .ant-segmented-item-label {
+  white-space: normal;
+  text-overflow: clip;
+  line-height: 1.25;
+  padding-block: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-align: center;
+}
+
+.fa-mode .ant-segmented-item {
+  display: flex;
+}
+
+.fa-muted {
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+.fa-note {
+  margin: 14px 0 0;
+  color: var(--da-muted);
+  font-size: 12.5px;
+}
+
+.fa-danger {
+  color: var(--da-error);
+  font-size: 12.5px;
+}
+
+.fa-notice {
+  border-radius: var(--da-radius);
+}
+
+.fa-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.fa-row {
+  cursor: pointer;
+}
+
+.fa-lock {
+  color: var(--da-muted);
+}
+
+.fa-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.fa-folder-cell,
+.fa-person-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fa-folder-cell .fa-muted,
+.fa-person-cell .fa-muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fa-code {
+  font-size: 12.5px;
+  word-break: break-all;
+}
+
+.fa-option {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.fa-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fa-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.fa-preview {
+  padding: 10px 12px;
+  border-radius: var(--da-radius-sm);
+  background: var(--da-tint);
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
+/* Two groups of a folder side by side, stacked on narrow screens. */
+.fa-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.fa-cols.is-single {
+  grid-template-columns: 1fr;
+}
+
+.fa-col__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--da-hairline);
+}
+
+.fa-col__head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.fa-col__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.fa-col__count {
+  min-width: 32px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--da-tint-strong);
+  text-align: center;
+  font-weight: 600;
+}
+
+.fa-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+}
+
+.fa-selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--da-tint);
+}
+
+.fa-row-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.fa-panel {
+  padding: 4px 0 0;
+}
+
+.fa-panel h3 {
+  margin: 12px 16px 0;
+  font-size: 14px;
+}
+
+.fa-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.fa-filter-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.fa-filter-select {
+  min-width: 160px;
+  max-width: 100%;
+}
+
+.fa-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--da-muted);
+}
+
+.fa-map {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.fa-map__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .fa-add > .ant-select {
+    min-width: 100% !important;
+  }
+}
+
+/* ── NTFS mode ───────────────────────────────────────────────────────────── */
+
+.fa-ntfs {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.fa-ntfs-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  max-height: calc(100vh - 180px);
+  overflow: auto;
+  position: sticky;
+  top: 12px;
+}
+
+.fa-ntfs-tree .ant-tree {
+  background: transparent;
+}
+
+.fa-ntfs-hidden {
+  opacity: 0.6;
+}
+
+.fa-ntfs-main {
+  min-width: 0;
+}
+
+.fa-ntfs-editor__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--da-hairline);
+}
+
+.fa-ntfs-editor__head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.fa-ntfs-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--da-hairline);
+}
+
+.fa-ntfs-new td {
+  background: var(--da-tint) !important;
+}
+
+.fa-ntfs-draftbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--da-hairline);
+  background: var(--da-surface, var(--da-bg, #fff));
+}
+
+.fa-ntfs-draftbar > span {
+  flex: 1;
+  font-weight: 500;
+}
+
+.fa-ntfs-empty {
+  padding: 12px;
+}
+
+.fa-ntfs-diff {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fa-ntfs-diff__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.fa-ntfs-diff__sign {
+  width: 16px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.fa-ntfs-diff__line.is-add .fa-ntfs-diff__sign {
+  color: var(--da-success, #16a34a);
+}
+
+.fa-ntfs-diff__line.is-remove .fa-ntfs-diff__sign {
+  color: var(--da-error);
+}
+
+.fa-ntfs-loss {
+  padding: 10px 12px;
+  border-radius: var(--da-radius-sm);
+  background: var(--da-tint);
+}
+
+.fa-ntfs-loss ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.fa-ntfs-loss__title {
+  font-weight: 600;
+}
+
+.fa-ntfs-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fa-ntfs-counters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.fa-ntfs-counters > div {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: var(--da-radius-sm);
+  background: var(--da-tint);
+}
+
+@media (max-width: 860px) {
+  .fa-ntfs {
+    grid-template-columns: 1fr;
+  }
+
+  .fa-ntfs-tree {
+    position: static;
+    max-height: 320px;
+  }
+}
+
+/* ── File server «Доступ»: pairs, inherited access, the folder panel, projects ── */
+
+.fa-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fa-pair + .fa-pair {
+  margin-top: 6px;
+}
+
+.fa-pair__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.fa-pair__name {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.fa-col__desc {
+  word-break: break-word;
+}
+
+.fa-cols.is-compact {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 12px;
+}
+
+.fa-col.is-compact .fa-col__head {
+  padding: 12px 14px 8px;
+}
+
+.fa-col.is-compact .fa-add {
+  padding: 8px 14px;
+}
+
+.fa-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.fa-inherited {
+  padding: 14px 16px;
+  border: 1px dashed var(--da-hairline);
+  border-radius: var(--da-radius);
+  background: var(--da-tint);
+}
+
+.fa-inherited h4 {
+  margin: 0 0 2px;
+  font-size: 14px;
+}
+
+.fa-inherited p {
+  margin: 0 0 10px;
+}
+
+.fa-inherited ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fa-inherited li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fa-inherited__path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.fa-inherited__groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.fa-inherited__group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.fa-inherited__group code {
+  font-size: 12.5px;
+}
+
+.fa-drawer .ant-drawer-body {
+  padding: 8px 20px 24px;
+}
+
+.fa-drawer__title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.fa-drawer__title > div {
+  min-width: 0;
+}
+
+.fa-drawer__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--da-tint-strong);
+  color: var(--da-primary);
+  font-size: 18px;
+}
+
+.fa-drawer__heading {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.fa-drawer__folder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+}
+
+.fa-drawer__tabs .ant-tabs-nav {
+  margin-bottom: 14px;
+}
+
+.fa-drawer__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fa-drawer__paths {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.fa-drawer__paths code {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--da-tint);
+}
+
+.fa-drawer__card {
+  margin-left: auto;
+  font-size: 12.5px;
+}
+
+.fa-drawer__empty {
+  padding: 24px 16px;
+}
+
+.fa-drawer__hint {
+  margin-top: 8px;
+}
+
+.fa-drawer__more {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.fa-project {
+  overflow: hidden;
+}
+
+.fa-project__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--da-hairline);
+}
+
+.fa-project__name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.fa-share-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fa-settings-note {
+  margin: 4px 0 0;
+}
+
+@media (max-width: 640px) {
+  .fa-drawer .ant-drawer-body {
+    padding: 6px 12px 20px;
+  }
+
+  .fa-drawer__card {
+    margin-left: 0;
+  }
+}
+
+.fa-pairs-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--da-muted);
+  font-size: 13px;
+}
+
+.fa-pairs-note .anticon {
+  color: var(--da-primary);
+}
+
+.fa-create-where {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}

@@ -4,6 +4,7 @@ import { HEX, clean, httpError, intId } from '../shared/acl.js';
 import { credentialFor, directoryDomain, serverParams } from './credentials.js';
 import { gateCall } from './gate.js';
 import { cleanPath } from './paths.js';
+import { cleanPrefixes } from './access/naming.js';
 
 /*
  * Administration of file servers and the folders ("shares") people see.
@@ -26,6 +27,8 @@ export function shareShape(row) {
     uncDisplay: row.unc_display || '',
     groupIds: row.group_ids || [],
     allowLinks: row.allow_links,
+    // «Доступ»: how this folder's path is written in AD group descriptions ("W:", "G:\\ПРБ-2\\_DocArch").
+    pathPrefixes: row.path_prefixes || [],
     sort: row.sort,
   };
 }
@@ -160,6 +163,7 @@ function shareInput(input, current = {}) {
     uncDisplay: clean(input.uncDisplay ?? current.unc_display ?? '', 400) || null,
     groupIds,
     allowLinks: typeof input.allowLinks === 'boolean' ? input.allowLinks : current.allow_links ?? true,
+    pathPrefixes: input.pathPrefixes !== undefined ? cleanPrefixes(input.pathPrefixes) : current.path_prefixes || [],
   };
 }
 
@@ -172,16 +176,16 @@ export async function saveShare(serverId, input = {}, id = null) {
     current = rows[0];
   }
   const v = shareInput(input, current);
-  const params = [v.title, v.share, v.rootPath, v.description, v.color, v.uncDisplay, v.groupIds, v.allowLinks];
+  const params = [v.title, v.share, v.rootPath, v.description, v.color, v.uncDisplay, v.groupIds, v.allowLinks, v.pathPrefixes];
   const { rows } = id
     ? await query(
         `UPDATE drive_shares SET title = $1, share = $2, root_path = $3, description = $4, color = $5, unc_display = $6,
-           group_ids = $7, allow_links = $8, updated_at = NOW() WHERE id = $9 RETURNING *`,
+           group_ids = $7, allow_links = $8, path_prefixes = $9, updated_at = NOW() WHERE id = $10 RETURNING *`,
         [...params, current.id]
       )
     : await query(
-        `INSERT INTO drive_shares (title, share, root_path, description, color, unc_display, group_ids, allow_links, server_id, sort)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, (SELECT COALESCE(MAX(sort), 0) + 1 FROM drive_shares)) RETURNING *`,
+        `INSERT INTO drive_shares (title, share, root_path, description, color, unc_display, group_ids, allow_links, path_prefixes, server_id, sort)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, (SELECT COALESCE(MAX(sort), 0) + 1 FROM drive_shares)) RETURNING *`,
         [...params, server.id]
       );
   return shareShape(rows[0]);

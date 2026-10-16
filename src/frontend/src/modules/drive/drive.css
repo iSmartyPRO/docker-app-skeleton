@@ -2627,3 +2627,9 @@
     justify-content: flex-start;
   }
 }
+
+/* «Доступ»: a folder's path prefixes (how AD group descriptions write it) in the servers list. */
+.dv-prefix-tag {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+}

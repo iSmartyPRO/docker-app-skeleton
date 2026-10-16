@@ -5,6 +5,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **Folder access is now part of the File server** («Доступ»). The separate «Доступ к папкам» app is gone: in the File server every folder has a **«Доступ»** button (toolbar, and a subfolder's menu) that opens a side panel for that folder — *Группы доступа* (every group pair that opens it, members with add / remove / move, inherited access from the folders above, «Создать пару групп») and *Права NTFS* (superadministrators, the existing ACL editor). The sidebar gets a «Доступ» section: folders and groups **by project**, person card, access journal, mismatch report. Its settings are a block «Управление доступом» with its own switch in the File server settings; the permission is `drive.access` (was `folderaccess.groups`); the API moved to `/api/app/drive/access/…`. See [docs/drive-access.md](docs/drive-access.md).
+- **Any company's AD layout**: any project code after `sg_` (optional allow-list instead of the fixed `co`/`wh`), folder name parts with underscores (`sg_prb2_qaqc_styajka_full`), the group description decides the folder and access type (spaces, commas, Cyrillic), groups searched in every project OU under the base (or a list of OUs), the project shown is the first OU below the search base, `OU=Groups` skipped (`ПРБ-2`; a group right in the base has none), `sgManager_*`, `adm_*` and distribution lists ignored. Several pairs may open one folder.
+- **Path prefixes per File server folder** replace the drive-letter map: a folder's descriptions are matched by the longest prefix (`G:\ПРБ-2\_DocArch`, `W:`), set in the folder's editor. New group pairs go to the Groups OU of the folder's project (fallback: the configured OU).
+
+### Migration
+
+- At start-up (idempotent, non-destructive): the old block is copied to the settings key `legacy_folderaccess`, then converted into `modules.drive.settings.access` in one locked transaction (switch carried over; drive letters become path prefixes of their folders, e.g. `W` → «ЦО» gets `W:`; extra org codes become aliases, `wh` → `co`); `modules.folderaccess` is kept for a rollback; roles with `folderaccess.groups` also get `drive.access`; the journal table `fa_journal` is renamed `drive_access_journal` with its rows, indexes and sequence in one transaction.
+- **Project code aliases** (`wh=co`): new group pairs next to `sg_wh_*` groups are named `sg_co_*`; the create dialog shows the OU, the project and where they come from.
+- The «Доступ» panel also opens on a folder the File server cannot list (button on the error page); File server folders without access stay listed for people with «Доступ» when *Hide folders without access* is on. The standalone NTFS editor's endpoints `GET /ntfs` and `GET /ntfs/tree` are removed.
+- The API reference lists nested routers, so every `/app/drive/access/…` route is in it.
+
+### Fixed
+
+- The person column of the access tables showed nothing (a duplicate translation key).
+
 ## [1.4.0] - 2026-10-16
 
 ### Added
@@ -15,7 +32,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- **Folder access («Доступ к папкам»)** — who can open which folder on the file server, through the Active Directory security groups `sg_<org>_<name>_full|read` (org codes `co` and the old `wh`). Folders list with search and «Требует проверки» for names and descriptions that do not match; folder card with both groups' members (name, login, department, active / disabled); person card with every folder; add and remove, move between full and read access in one step, copy access from a colleague, revoke all. Every change runs with the acting administrator's own AD account (domain password reused from the File server or asked for and checked), is journalled (who, AD account, IP, before → after, result; filters, CSV, undo) and recorded as a security event. New permission `folderaccess.groups` for system administrators (no protected root groups, people only); superadministrators also create group pairs, edit descriptions and delete groups. NTFS permissions come in the next stage. See [docs/folder-access.md](docs/folder-access.md).
+- **Folder access («Доступ к папкам»)** — who can open which folder on the file server, through the Active Directory security groups `sg_<org>_<name>_full|read` (org codes `co` and the old `wh`). Folders list with search and «Требует проверки» for names and descriptions that do not match; folder card with both groups' members (name, login, department, active / disabled); person card with every folder; add and remove, move between full and read access in one step, copy access from a colleague, revoke all. Every change runs with the acting administrator's own AD account (domain password reused from the File server or asked for and checked), is journalled (who, AD account, IP, before → after, result; filters, CSV, undo) and recorded as a security event. New permission `folderaccess.groups` for system administrators (no protected root groups, people only); superadministrators also create group pairs, edit descriptions and delete groups. NTFS permissions come in the next stage. See [docs/drive-access.md](docs/drive-access.md).
 - Modules can name a permission in the frontend registry: the launcher, «Все приложения» and the quick-actions widget list Folder access only for people with `folderaccess.groups` (or `*`).
 
 ## [1.2.0] - 2026-10-15

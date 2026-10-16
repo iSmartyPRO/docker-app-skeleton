@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { App, Button, Skeleton, Tooltip } from 'antd';
+import { SafetyOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { useAuth } from '../../../context/AuthContext';
 import { formatRelative } from '../../../lib/format';
@@ -32,7 +33,7 @@ function Volume({ volume }) {
   );
 }
 
-function ShareTile({ share, onConnect }) {
+function ShareTile({ share, onConnect, canManageAccess }) {
   const { t } = useLocale();
   const { message } = App.useApp();
   const navigate = useNavigate();
@@ -65,6 +66,8 @@ function ShareTile({ share, onConnect }) {
           <Volume volume={share.volume} />
         ) : share.state === 'auth' ? (
           <Button size="small" type="primary" onClick={(event) => { event.stopPropagation(); onConnect(share.serverId); }}>{t('drive.signIn')}</Button>
+        ) : canManageAccess && (share.state === 'denied' || share.state === 'missing') ? (
+          <Button size="small" icon={<SafetyOutlined />} onClick={(event) => { event.stopPropagation(); navigate(`${folderUrl(share.id)}?access=groups`); }}>{t('folderAccess.panel.action')}</Button>
         ) : (
           <span className="dv-tile__problem">{t(`drive.stateText.${share.state}`)}</span>
         )}
@@ -176,7 +179,7 @@ export default function Home({ landing }) {
       ) : shares.length ? (
         <div className="dv-tiles">
           {shares.map((share) => (
-            <ShareTile key={share.id} share={share} onConnect={(serverId) => setConnecting(connections.find((item) => item.serverId === serverId))} />
+            <ShareTile key={share.id} share={share} canManageAccess={Boolean(config?.access)} onConnect={(serverId) => setConnecting(connections.find((item) => item.serverId === serverId))} />
           ))}
         </div>
       ) : (

@@ -37,7 +37,7 @@ import {
   withGroups,
 } from '../modules/drive/acl.js';
 import { attachGroups } from '../modules/drive/aclHook.js';
-import { finishNtfsAttach, startNtfsAttach } from '../modules/folderaccess/ntfsJournal.js';
+import { finishNtfsAttach, startNtfsAttach } from '../modules/drive/access/ntfsJournal.js';
 
 const { OI, CI, NP, IO, INHERITED } = ACE_FLAGS;
 const SYSTEM = 'S-1-5-18';
@@ -432,7 +432,7 @@ test('propagation job: cancel keeps the resume marker; gateway errors are mapped
   }
 });
 
-test('addGroupsToFolder grants the pair and propagates; the Folder access hook adapts it', async () => {
+test('addGroupsToFolder grants the pair and propagates; the access section hook adapts it', async () => {
   let acl = CURRENT;
   const gw = fakeGateway((op, _params, body) => {
     if (op === 'acl_get') return acl;
@@ -771,7 +771,7 @@ test('running propagation jobs block writes on the folder, above and below it', 
 });
 
 test('create folder group pair: the ntfs_attach row (undo copy) is journalled before the NTFS write and completed after', async () => {
-  // The same wiring as folderaccess/service.js createGroupPair, with a fake gateway and a fake journal.
+  // The same wiring as drive/access/service.js createGroupPair, with a fake gateway and a fake journal.
   const pair = [
     { type: 'full', name: 'sg_co_hr_full', sid: HR_FULL },
     { type: 'read', name: 'sg_co_hr_read', sid: HR_READ },

@@ -12,10 +12,32 @@ import { DOCS, SECTIONS } from './reference.js';
  * by "METHOD /path".
  */
 
+/**
+ * The path a nested router is mounted at (`router.use('/access', sub)`), from Express 4's layer
+ * regexp: /^\/access\/?(?=\/|$)/i → "/access", parameters back as ":name". null when unreadable.
+ */
+export function mountPathOf(layer) {
+  if (layer.regexp?.fast_slash) return '';
+  let source = String(layer.regexp?.source || '');
+  if (!source.startsWith('^') || !source.endsWith('\\/?(?=\\/|$)')) return null;
+  source = source.slice(1, -'\\/?(?=\\/|$)'.length);
+  const keys = [...(layer.keys || [])];
+  source = source.replace(/\(\?:\\\/\(\[\^\/\]\+\?\)\)/g, () => `/:${keys.shift()?.name ?? 'param'}`);
+  const path = source.replace(/\\\//g, '/').replace(/\\([.-])/g, '$1');
+  return /^(\/[\w:.-]+)+$/.test(path) ? path : null;
+}
+
 function routesOf(router, prefix) {
   const out = [];
   for (const layer of router.stack || []) {
-    if (!layer.route) continue;
+    if (!layer.route) {
+      // A nested router (e.g. the File server's /access): its routes under the mount path.
+      if (Array.isArray(layer.handle?.stack)) {
+        const mount = mountPathOf(layer);
+        if (mount !== null) out.push(...routesOf(layer.handle, `${prefix}${mount}`));
+      }
+      continue;
+    }
     const paths = Array.isArray(layer.route.path) ? layer.route.path : [layer.route.path];
     for (const path of paths) {
       if (typeof path !== 'string') continue;

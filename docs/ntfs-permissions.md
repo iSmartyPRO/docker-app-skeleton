@@ -1,16 +1,16 @@
 # NTFS permissions engine
 
-Folder access (superadministrators, "NTFS permissions" mode) reads and changes the NTFS permissions of folders on the file servers. The work runs in the Drive module's SMB gateway:
+The File server's [access management](drive-access.md) (superadministrators, the folder panel's "NTFS permissions" tab) reads and changes the NTFS permissions of folders on the file servers. The work runs in the Drive module's SMB gateway:
 
 - `modules/drive/gateway/ntacl.py` handles security descriptors, SDDL, inheritance and the propagation walk. It contains no SMB code.
 - `modules/drive/gateway/smbgate.py` adds the `acl_*` operations.
 - `modules/drive/acl.js` is the Node API. It provides pure helpers, the gateway calls and the propagation jobs.
-- `modules/drive/aclHook.js` registers the engine with `folderaccess/ntfsHook.js`, which is used for "create folder group pair".
+- `modules/drive/aclHook.js` registers the engine with `drive/access/ntfsHook.js`, which is used for "create folder group pair".
 
 **Identity.** Every call uses the acting administrator's **own** domain credential:
 
 - either their drive credential (`credentialFor`);
-- or an explicit `{ userId, credential }` passed by Folder access.
+- or an explicit `{ userId, credential }` passed by the access section.
 
 The engine never falls back to a server's service account; it answers `CREDENTIALS_REQUIRED` instead. Windows enforces the rights. A credential the server rejects is parked, the same as in Drive.
 
@@ -80,7 +80,7 @@ SYSTEM (`S-1-5-18`) and Administrators (`S-1-5-32-544`) must keep their access. 
 - `previewAcl(actor, server, share, path, change, { actorSids })` returns `{ before, after, guards, inheritableChanged }`. It writes nothing.
 - `setAcl(actor, server, share, path, { revision, aces, protected, owner?, inherit? }, { actorSids, confirmSelfRemoval, onBeforeWrite })` returns `{ previous, acl, guards, inheritableChanged }`. `onBeforeWrite(previous)` runs after the guards passed, right before the write (pinned to that revision); if it throws, nothing is written. Folder access journals the undo copy there.
 - `restoreAcl(actor, server, share, path, { sd } | { sddl }, { revision, owner, inherit, onBeforeWrite })` is undo. Without `revision` the write is pinned to the revision its own dry run read.
-- `runningJob(server, share, path)` / `refuseWhileJobRuns(…)`: the unfinished propagation (not a dry run) on the folder, above or below it on the same share / `409 JOB_RUNNING`. Folder access refuses apply and undo with it.
+- `runningJob(server, share, path)` / `refuseWhileJobRuns(…)`: the unfinished propagation (not a dry run) on the folder, above or below it on the same share / `409 JOB_RUNNING`. The access section refuses apply and undo with it.
 
 **Propagation jobs:**
 

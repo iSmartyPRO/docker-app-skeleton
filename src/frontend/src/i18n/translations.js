@@ -4,7 +4,7 @@ import { linkPermsEn, linkPermsRu } from './linkPerms.js';
 import { linkShareEn, linkShareRu } from './linkShare.js';
 import { officeEn, officeRu } from './office.js';
 import { driveEn, driveRu } from './drive.js';
-import { folderAccessEn, folderAccessRu } from './folderAccess.js';
+import { folderAccessEn, folderAccessRu } from './driveAccess.js';
 import { readmeEn, readmeRu } from './readme.js';
 import { resourcesEn, resourcesRu } from './resources.js';
 import { companiesEn, companiesRu } from './companies.js';

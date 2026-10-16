@@ -15,7 +15,7 @@ import { loadServer } from './servers.js';
  *   actor = userId              → the person's drive credential (credentialFor),
  *                                 refused when it would be the server's service account;
  *   actor = { userId, credential: { username, domain, password } }
- *                               → that credential as is (Folder access passes its own).
+ *                               → that credential as is (the access section passes its own).
  * Windows decides; codes the callers get:
  *   ACCESS_DENIED (403)  no right to read / change permissions (READ_CONTROL / WRITE_DAC)
  *   STALE (409)          the permissions changed since they were read (re-read, show diff)
@@ -1017,7 +1017,7 @@ export async function waitForJob(id) {
   return getJob(id);
 }
 
-// ── For the Folder access module ────────────────────────────────────────────
+// ── For the access section («Доступ») ────────────────────────────────────────────
 
 /**
  * "Create folder group pair": grants groups on a folder, e.g.

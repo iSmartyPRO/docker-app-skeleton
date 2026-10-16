@@ -18,7 +18,6 @@ import approvals from './approvals/index.js';
 import contracts from './contracts/index.js';
 import procurement from './procurement/index.js';
 import warehouse from './warehouse/index.js';
-import folderaccess from './folderaccess/index.js';
 
 /*
  * Module platform.
@@ -40,9 +39,8 @@ import folderaccess from './folderaccess/index.js';
 // Masterplan after CRM: units point at CRM deals and Counterparties.
 // Procurement after the modules it links to (Counterparties, CRM, Masterplan, Files, Chat).
 // Warehouse after Procurement and Masterplan (receipts from purchase requests, issues to objects).
-// Folder access after Drive: it reads drive_credentials and drive_shares.
 // Approvals first: modules register their document types against it at import time and its tables must exist for theirs.
-export const MODULES = [approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, masterplan, procurement, warehouse, dashboard, assistant, contracts, folderaccess];
+export const MODULES = [approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, masterplan, procurement, warehouse, dashboard, assistant, contracts];
 
 async function moduleState(id) {
   const parsed = parseSettings(await getSettings());

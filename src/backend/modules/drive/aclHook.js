@@ -1,9 +1,9 @@
-import { registerNtfsAttach } from '../folderaccess/ntfsHook.js';
+import { registerNtfsAttach } from './access/ntfsHook.js';
 import { addGroupsToFolder, resolveDriveFolder } from './acl.js';
 
 /*
- * Plugs the NTFS engine (acl.js) into Folder access: "create folder group
- * pair" grants the new groups on the folder (see folderaccess/ntfsHook.js for
+ * Plugs the NTFS engine (acl.js) into the access section: "create folder group
+ * pair" grants the new groups on the folder (see access/ntfsHook.js for
  * the contract). Runs with the acting administrator's own credential.
  */
 
