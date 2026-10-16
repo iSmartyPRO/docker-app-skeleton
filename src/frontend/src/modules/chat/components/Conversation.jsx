@@ -49,7 +49,7 @@ const G = {
   down: 'M12 5v14M5 12l7 7 7-7',
 };
 
-export function RoomAvatar({ room, size = 40 }) {
+export function RoomAvatar({ room, size = 40, shape }) {
   if (room.kind === 'direct' && room.other) {
     return (
       <span className="cr-avatar" style={{ width: size, height: size }}>
@@ -60,7 +60,7 @@ export function RoomAvatar({ room, size = 40 }) {
   }
   const color = room.entityInfo?.color || room.color || (room.kind === 'entity' ? '#10B981' : '#6366F1');
   return (
-    <Avatar size={size} style={{ background: `linear-gradient(140deg, ${color}, color-mix(in srgb, ${color} 65%, #000))`, flexShrink: 0, fontWeight: 650, fontSize: size * 0.38 }}>
+    <Avatar size={size} shape={shape} style={{ background: `linear-gradient(140deg, ${color}, color-mix(in srgb, ${color} 65%, #000))`, flexShrink: 0, fontWeight: 650, fontSize: size * 0.38 }}>
       {room.kind === 'entity' ? '✓' : initials(room.title)}
     </Avatar>
   );

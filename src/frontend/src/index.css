@@ -3255,6 +3255,18 @@ h4,
   overflow: hidden;
 }
 
+/* Phones: header popovers (notifications, chats) span the screen, whatever icon opened them. */
+@media (max-width: 600px) {
+  .ant-dropdown.bell {
+    left: 12px !important;
+    right: 12px !important;
+  }
+
+  .bell .bell__panel {
+    width: 100%;
+  }
+}
+
 .bell__head {
   display: flex;
   align-items: center;
