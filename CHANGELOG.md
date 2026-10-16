@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-16
+
 ### Added
 
 - **Org structure** (core service, spec platform-2.0 §3, [docs/org-structure.md](docs/org-structure.md)): a tree of units with configurable types (Компания linked to a legal entity, Центральный офис, Филиал, Отдел, Объект), code, head (employee or portal account), address, time zone inherited from above, status, order and purposes (`warehouse`, `construction`, `sales`…). Settings → Org structure: tree editor with drag and drop, undo, history of every move (also in the activity log), loops refused; org chart with heads and headcount (zoom, list mode on phones); types and purposes. Core API for modules `orgUnits()`, `unitOf()`, `managerOf()`, `descendants()`, `unitsByPurpose()`, `colleaguesOf()` (`modules/org/api.js`); `UnitSelect` and `OrgChart` for any module. Portal accounts get an optional unit and position (Users → a person → «Оргструктура»), so it works without the Employees module. Permission `org.manage`. Demo «ООО «Пример»» and a tour.
@@ -546,7 +548,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.5.0
 [1.4.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.2
 [1.4.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.1
 [1.4.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.0
