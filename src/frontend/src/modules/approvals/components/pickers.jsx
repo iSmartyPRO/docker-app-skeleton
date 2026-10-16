@@ -71,8 +71,21 @@ export function PersonSelect({ value, onChange, exclude = [], placeholder, style
 export function ApproverSelect({ value = [], onChange, placeholder }) {
   const { t } = useLocale();
   const subjects = useSubjects();
-  const encode = (item) => `${item.kind}:${item.id ?? item.key}`;
+  const encode = (item) => (item.kind === 'manager' ? `manager:${item.level || 1}` : `${item.kind}:${item.id ?? item.key}`);
   const options = [
+    {
+      label: t('approvals.manager.group'),
+      options: [1, 2].map((level) => ({
+        value: `manager:${level}`,
+        label: (
+          <span className="apr-option">
+            <span className="apr-option__glyph">★</span>
+            {t(`approvals.manager.level${level}`)}
+          </span>
+        ),
+        search: t(`approvals.manager.level${level}`).toLowerCase(),
+      })),
+    },
     { label: t('approvals.pick.people'), options: (subjects?.users || []).map((user) => ({ value: `user:${user.id}`, label: userLabel(user), search: user.name.toLowerCase() })) },
     { label: t('approvals.pick.roles'), options: (subjects?.roles || []).map((role) => ({ value: `role:${role.id}`, label: <span className="apr-option"><span className="apr-option__glyph">◆</span>{role.name}</span>, search: role.name.toLowerCase() })) },
     { label: t('approvals.pick.groups'), options: (subjects?.groups || []).map((group) => ({ value: `group:${group.id}`, label: <span className="apr-option"><span className="apr-option__glyph">👥</span>{group.name}</span>, search: group.name.toLowerCase() })) },
@@ -88,7 +101,7 @@ export function ApproverSelect({ value = [], onChange, placeholder }) {
           ...permissionValues,
           ...list.map((entry) => {
             const [kind, id] = entry.split(':');
-            return { kind, id: Number(id) };
+            return kind === 'manager' ? { kind, level: Number(id) || 1 } : { kind, id: Number(id) };
           }),
         ])
       }

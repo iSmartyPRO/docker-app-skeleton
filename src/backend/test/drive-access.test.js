@@ -98,8 +98,8 @@ test('group names: prefix, any project code, name part with underscores, type', 
   assert.deepEqual([co.prefixed, co.project, co.stem, co.type, co.issues], [true, 'co', 'hr', 'full', []]);
   const wh = parseGroupName('SG_WH_06-accounting_read', SETTINGS);
   assert.deepEqual([wh.project, wh.stem, wh.type, wh.issues], ['wh', '06-accounting', 'read', []]);
-  const multi = parseGroupName('sg_prb2_qaqc_styajka_full', SETTINGS);
-  assert.deepEqual([multi.project, multi.stem, multi.type], ['prb2', 'qaqc_styajka', 'full']);
+  const multi = parseGroupName('sg_obj2_qaqc_styajka_full', SETTINGS);
+  assert.deepEqual([multi.project, multi.stem, multi.type], ['obj2', 'qaqc_styajka', 'full']);
   // Any project code by default; an allow-list is a setting.
   assert.deepEqual(parseGroupName('sg_xx_hr_full', SETTINGS).issues, []);
   assert.deepEqual(parseGroupName('sg_xx_hr_full', { ...SETTINGS, projects: ['co', 'wh'] }).issues, ['project_unknown']);
@@ -108,9 +108,9 @@ test('group names: prefix, any project code, name part with underscores, type', 
   const other = parseGroupName('nextcloud_users', SETTINGS);
   assert.equal(other.prefixed, false);
   assert.deepEqual(other.issues, []);
-  // sgManager_prb2 starts with "sg" but not with "sg_": not an access group.
-  assert.equal(parseGroupName('sgManager_prb2', SETTINGS).prefixed, false);
-  assert.equal(parseGroupName('adm_prb2', SETTINGS).prefixed, false);
+  // sgManager_obj2 starts with "sg" but not with "sg_": not an access group.
+  assert.equal(parseGroupName('sgManager_obj2', SETTINGS).prefixed, false);
+  assert.equal(parseGroupName('adm_obj2', SETTINGS).prefixed, false);
 });
 
 test('descriptions: path;access, root, separators, UNC, mistakes', () => {
@@ -135,53 +135,53 @@ test('descriptions: path;access, root, separators, UNC, mistakes', () => {
 test('paths map to File server folders by the longest prefix (case, \\ or /)', () => {
   const map = [
     { shareId: 1, prefix: 'G:\\' },
-    { shareId: 2, prefix: 'g:/ПРБ-2/_DocArch' },
+    { shareId: 2, prefix: 'g:/ОБЪЕКТ-2/_DocArch' },
     { shareId: 3, prefix: '\\\\fs\\data' },
   ];
-  assert.deepEqual(mapPath('G:\\ПРБ-2\\_DocArch\\10-BUH', map), { shareId: 2, relPath: '10-BUH', prefix: 'G:\\ПРБ-2\\_DocArch' });
-  assert.deepEqual(mapPath('G:\\прб-2\\_docarch', map), { shareId: 2, relPath: '', prefix: 'G:\\ПРБ-2\\_DocArch' });
-  assert.deepEqual(mapPath('G:\\ПРБ-2', map), { shareId: 1, relPath: 'ПРБ-2', prefix: 'G:' });
+  assert.deepEqual(mapPath('G:\\ОБЪЕКТ-2\\_DocArch\\10-BUH', map), { shareId: 2, relPath: '10-BUH', prefix: 'G:\\ОБЪЕКТ-2\\_DocArch' });
+  assert.deepEqual(mapPath('G:\\объект-2\\_docarch', map), { shareId: 2, relPath: '', prefix: 'G:\\ОБЪЕКТ-2\\_DocArch' });
+  assert.deepEqual(mapPath('G:\\ОБЪЕКТ-2', map), { shareId: 1, relPath: 'ОБЪЕКТ-2', prefix: 'G:' });
   // A prefix matches whole path parts only.
-  assert.deepEqual(mapPath('G:\\ПРБ-2\\_DocArchive', map), { shareId: 1, relPath: 'ПРБ-2/_DocArchive', prefix: 'G:' });
+  assert.deepEqual(mapPath('G:\\ОБЪЕКТ-2\\_DocArchive', map), { shareId: 1, relPath: 'ОБЪЕКТ-2/_DocArchive', prefix: 'G:' });
   assert.deepEqual(mapPath('\\\\FS\\Data\\a', map), { shareId: 3, relPath: 'a', prefix: '\\\\fs\\data' });
   assert.equal(mapPath('W:\\HR', map), null);
   assert.equal(mapPath('\\\\fs\\other', map), null);
-  assert.deepEqual(userPaths(['W:', 'G:\\ПРБ-2\\_DocArch'], '06-HR/Archive'), ['W:\\06-HR\\Archive', 'G:\\ПРБ-2\\_DocArch\\06-HR\\Archive']);
+  assert.deepEqual(userPaths(['W:', 'G:\\ОБЪЕКТ-2\\_DocArch'], '06-HR/Archive'), ['W:\\06-HR\\Archive', 'G:\\ОБЪЕКТ-2\\_DocArch\\06-HR\\Archive']);
   assert.deepEqual(userPaths(['W:'], ''), ['W:']);
-  assert.deepEqual(cleanPrefixes(['w:', 'W:\\', ' G:/ПРБ-2/_DocArch/ ', 'nonsense', '', '\\\\fs']), ['W:', 'G:\\ПРБ-2\\_DocArch']);
+  assert.deepEqual(cleanPrefixes(['w:', 'W:\\', ' G:/ОБЪЕКТ-2/_DocArch/ ', 'nonsense', '', '\\\\fs']), ['W:', 'G:\\ОБЪЕКТ-2\\_DocArch']);
   assert.deepEqual(cleanPrefixes('W:\nG:\\X'), ['W:', 'G:\\X']);
 });
 
 test('projects: the first OU below the search base, "Groups" skipped', () => {
-  const gescons = ['OU=Accounts,DC=gescons,DC=ru'];
-  assert.deepEqual(projectOf('CN=sg_prb2_buh_full,OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru', gescons), {
-    groupsOu: 'OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru',
-    project: 'ПРБ-2',
-    projectDn: 'OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru',
+  const example = ['OU=Accounts,DC=corp,DC=example'];
+  assert.deepEqual(projectOf('CN=sg_obj2_buh_full,OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example', example), {
+    groupsOu: 'OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example',
+    project: 'ОБЪЕКТ-2',
+    projectDn: 'OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example',
   });
   // Nested OU inside the project's Groups OU: still the project (was "Groups").
-  const nested = projectOf('CN=sg_prb2_x_full,OU=Sec,OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru', gescons);
-  assert.equal(nested.project, 'ПРБ-2');
-  assert.equal(nested.projectDn, 'OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru');
-  assert.equal(nested.groupsOu, 'OU=Sec,OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru');
+  const nested = projectOf('CN=sg_obj2_x_full,OU=Sec,OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example', example);
+  assert.equal(nested.project, 'ОБЪЕКТ-2');
+  assert.equal(nested.projectDn, 'OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example');
+  assert.equal(nested.groupsOu, 'OU=Sec,OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example');
   // Right in the base, or in a Groups OU right under it: no project (was "Accounts" / "Groups").
-  assert.deepEqual(projectOf('CN=sg_x_y_full,OU=Accounts,DC=gescons,DC=ru', gescons), { groupsOu: 'OU=Accounts,DC=gescons,DC=ru', project: null, projectDn: null });
-  assert.equal(projectOf('CN=sg_x_y_full,OU=Groups,OU=Accounts,DC=gescons,DC=ru', gescons).project, null);
+  assert.deepEqual(projectOf('CN=sg_x_y_full,OU=Accounts,DC=corp,DC=example', example), { groupsOu: 'OU=Accounts,DC=corp,DC=example', project: null, projectDn: null });
+  assert.equal(projectOf('CN=sg_x_y_full,OU=Groups,OU=Accounts,DC=corp,DC=example', example).project, null);
   // A group right in a project OU under the base: that OU.
   assert.equal(projectOf('CN=sg_it_x_full,OU=IT,OU=Accounts,DC=c,DC=ru', ['OU=Accounts,DC=c,DC=ru']).project, 'IT');
   // The broadest base decides: an OU list of Groups OUs plus the AD base DN.
-  assert.equal(projectOf('CN=sg_prb2_buh_full,OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru', ['OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru', ...gescons]).project, 'ПРБ-2');
+  assert.equal(projectOf('CN=sg_obj2_buh_full,OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example', ['OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example', ...example]).project, 'ОБЪЕКТ-2');
   // Only the project's Groups OU as base: the project above it.
-  assert.equal(projectOf('CN=sg_prb2_buh_full,OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru', ['ou=groups, ou=ПРБ-2,ou=accounts,dc=gescons,dc=ru']).project, 'ПРБ-2');
-  // White Hills (base OU=Accounts), and without a base / with the domain root: the OU holding "Groups".
-  assert.equal(projectOf('CN=sg_wh_hr_full,OU=Groups,OU=CO,OU=Accounts,DC=whitehills,DC=kg', ['OU=Accounts,DC=whitehills,DC=kg']).project, 'CO');
-  assert.equal(projectOf('CN=sg_co_hr_full,OU=Groups,OU=CO,OU=Accounts,DC=whitehills,DC=kg').project, 'CO');
-  assert.equal(projectOf('CN=sg_co_hr_full,OU=Sec,OU=Groups,OU=CO,OU=Accounts,DC=whitehills,DC=kg', ['DC=whitehills,DC=kg']).project, 'CO');
+  assert.equal(projectOf('CN=sg_obj2_buh_full,OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example', ['ou=groups, ou=ОБЪЕКТ-2,ou=accounts,dc=corp,dc=example']).project, 'ОБЪЕКТ-2');
+  // Example (base OU=Accounts), and without a base / with the domain root: the OU holding "Groups".
+  assert.equal(projectOf('CN=sg_wh_hr_full,OU=Groups,OU=CO,OU=Accounts,DC=example,DC=com', ['OU=Accounts,DC=example,DC=com']).project, 'CO');
+  assert.equal(projectOf('CN=sg_co_hr_full,OU=Groups,OU=CO,OU=Accounts,DC=example,DC=com').project, 'CO');
+  assert.equal(projectOf('CN=sg_co_hr_full,OU=Sec,OU=Groups,OU=CO,OU=Accounts,DC=example,DC=com', ['DC=example,DC=com']).project, 'CO');
   assert.equal(projectOf('CN=sg_it_x_full,OU=IT,OU=Accounts,DC=c,DC=ru', ['DC=c,DC=ru']).project, 'IT');
   assert.equal(projectOf('CN=g,DC=c,DC=ru').project, null);
   assert.equal(projectOf('CN=g,CN=Users,DC=c,DC=ru').project, null);
   // A base that does not hold the group is ignored.
-  assert.equal(projectOf('CN=sg_co_hr_full,OU=Groups,OU=CO,OU=Accounts,DC=whitehills,DC=kg', ['OU=Other,DC=whitehills,DC=kg']).project, 'CO');
+  assert.equal(projectOf('CN=sg_co_hr_full,OU=Groups,OU=CO,OU=Accounts,DC=example,DC=com', ['OU=Other,DC=example,DC=com']).project, 'CO');
   assert.deepEqual(splitDn('CN=Ivanov\\, Ivan,OU=Users,DC=corp'), ['CN=Ivanov\\, Ivan', 'OU=Users', 'DC=corp']);
 });
 
@@ -241,59 +241,59 @@ test('groups pair up, and pairs group into folders by their description', () => 
   assert.equal(folders.at(-1).kind, 'other');
 });
 
-test('gescons: the second company\'s groups (projects, nested and shared folders, inheritance)', () => {
-  const settings = { ...SETTINGS, shareMap: [{ shareId: 7, prefix: 'G:\\ПРБ-2\\_DocArch' }, { shareId: 8, prefix: 'G:\\ПРБ-2' }], bases: ['OU=Accounts,DC=gescons,DC=ru'] };
-  const ou = 'OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru';
+test('example: the second company\'s groups (projects, nested and shared folders, inheritance)', () => {
+  const settings = { ...SETTINGS, shareMap: [{ shareId: 7, prefix: 'G:\\ОБЪЕКТ-2\\_DocArch' }, { shareId: 8, prefix: 'G:\\ОБЪЕКТ-2' }], bases: ['OU=Accounts,DC=corp,DC=example'] };
+  const ou = 'OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example';
   const g = (name, description) => describeGroup({ dn: `CN=${name},${ou}`, name, description, members: [] }, settings);
   const groups = [
-    g('sg_prb2_buh_full', 'G:\\ПРБ-2\\_DocArch\\10-BUH;Full Access'),
-    g('sg_prb2_buh_read', 'G:\\ПРБ-2\\_DocArch\\10-BUH;Read Only'),
-    g('sg_prb2_qaqc_styajka_full', 'G:\\ПРБ-2\\_DocArch\\3-QA,QC\\СТЯЖКА;Full Access'),
-    g('sg_prb2_qaqc_full', 'G:\\ПРБ-2\\_DocArch\\3-QA,QC;Full Access'),
-    g('sg_prb2_specification_full', 'G:\\ПРБ-2\\_DocArch\\3-QA,QC;Full Access'),
-    g('sg_prb2_technicaloffice_full', 'G:\\ПРБ-2\\_DocArch\\13-TECHNICAL OFFICE;Full Access'),
-    g('sg_prb2_root_full', 'G:\\ПРБ-2;Full Access'),
+    g('sg_obj2_buh_full', 'G:\\ОБЪЕКТ-2\\_DocArch\\10-BUH;Full Access'),
+    g('sg_obj2_buh_read', 'G:\\ОБЪЕКТ-2\\_DocArch\\10-BUH;Read Only'),
+    g('sg_obj2_qaqc_styajka_full', 'G:\\ОБЪЕКТ-2\\_DocArch\\3-QA,QC\\СТЯЖКА;Full Access'),
+    g('sg_obj2_qaqc_full', 'G:\\ОБЪЕКТ-2\\_DocArch\\3-QA,QC;Full Access'),
+    g('sg_obj2_specification_full', 'G:\\ОБЪЕКТ-2\\_DocArch\\3-QA,QC;Full Access'),
+    g('sg_obj2_technicaloffice_full', 'G:\\ОБЪЕКТ-2\\_DocArch\\13-TECHNICAL OFFICE;Full Access'),
+    g('sg_obj2_root_full', 'G:\\ОБЪЕКТ-2;Full Access'),
   ];
   const [buh, , styajka] = groups;
-  assert.deepEqual([buh.project, buh.code, buh.stem, buh.shareId, buh.relPath], ['ПРБ-2', 'prb2', 'buh', 7, '10-BUH']);
+  assert.deepEqual([buh.project, buh.code, buh.stem, buh.shareId, buh.relPath], ['ОБЪЕКТ-2', 'obj2', 'buh', 7, '10-BUH']);
   // Underscore in the name part, a nested Cyrillic folder, a comma in the path.
-  assert.deepEqual([styajka.stem, styajka.type, styajka.path, styajka.relPath, styajka.issues.filter((issue) => issue !== 'pair_incomplete')], ['qaqc_styajka', 'full', 'G:\\ПРБ-2\\_DocArch\\3-QA,QC\\СТЯЖКА', '3-QA,QC/СТЯЖКА', []]);
+  assert.deepEqual([styajka.stem, styajka.type, styajka.path, styajka.relPath, styajka.issues.filter((issue) => issue !== 'pair_incomplete')], ['qaqc_styajka', 'full', 'G:\\ОБЪЕКТ-2\\_DocArch\\3-QA,QC\\СТЯЖКА', '3-QA,QC/СТЯЖКА', []]);
   const tech = groups[5];
   assert.deepEqual([tech.relPath, tech.issues], ['13-TECHNICAL OFFICE', []]);
   const root = groups[6];
   assert.deepEqual([root.root, root.protected, root.shareId, root.relPath], [true, true, 8, '']);
   const folders = buildFolders(groups);
-  const qaqc = folders.find((folder) => folder.pathKey === 'g:\\прб-2\\_docarch\\3-qa,qc');
+  const qaqc = folders.find((folder) => folder.pathKey === 'g:\\объект-2\\_docarch\\3-qa,qc');
   // Two different pairs open the same folder.
-  assert.deepEqual(qaqc.pairs.map((pair) => pair.key), ['prb2_qaqc', 'prb2_specification']);
-  assert.equal(qaqc.project, 'ПРБ-2');
+  assert.deepEqual(qaqc.pairs.map((pair) => pair.key), ['obj2_qaqc', 'obj2_specification']);
+  assert.equal(qaqc.project, 'ОБЪЕКТ-2');
   // Inherited access: the folders above with groups, nearest first.
-  assert.deepEqual(ancestorFolders(folders, ['g:\\прб-2\\_docarch\\3-qa,qc\\стяжка']).map((folder) => folder.path), ['G:\\ПРБ-2\\_DocArch\\3-QA,QC', 'G:\\ПРБ-2']);
-  assert.deepEqual(ancestorFolders(folders, ['g:\\прб-2']), []);
+  assert.deepEqual(ancestorFolders(folders, ['g:\\объект-2\\_docarch\\3-qa,qc\\стяжка']).map((folder) => folder.path), ['G:\\ОБЪЕКТ-2\\_DocArch\\3-QA,QC', 'G:\\ОБЪЕКТ-2']);
+  assert.deepEqual(ancestorFolders(folders, ['g:\\объект-2']), []);
   // Non-access groups of the same OU: sgManager_ and adm_ are not prefixed; a distribution list is skipped on read.
-  assert.equal(describeGroup({ dn: `CN=sgManager_prb2,${ou}`, name: 'sgManager_prb2', description: '' }, settings).kind, 'other');
+  assert.equal(describeGroup({ dn: `CN=sgManager_obj2,${ou}`, name: 'sgManager_obj2', description: '' }, settings).kind, 'other');
   assert.equal(isSecurityGroup('-2147483646'), true);
   assert.equal(isSecurityGroup('2'), false);
   assert.equal(isSecurityGroup(undefined), true);
 });
 
 test('a new pair takes its project code and OU from the folder or the folder above, else the settings', () => {
-  const ou = 'OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru';
-  const settings = { ...SETTINGS, defaultProject: 'co', newGroupOu: 'OU=Groups,OU=CO,OU=Accounts,DC=gescons,DC=ru', bases: ['OU=Accounts,DC=gescons,DC=ru'] };
+  const ou = 'OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example';
+  const settings = { ...SETTINGS, defaultProject: 'co', newGroupOu: 'OU=Groups,OU=CO,OU=Accounts,DC=corp,DC=example', bases: ['OU=Accounts,DC=corp,DC=example'] };
   const folders = buildFolders([
-    describeGroup({ dn: `CN=sg_prb2_root_full,${ou}`, name: 'sg_prb2_root_full', description: 'G:\\ПРБ-2;Full Access' }, settings),
-    describeGroup({ dn: `CN=sg_prb2_buh_full,${ou}`, name: 'sg_prb2_buh_full', description: 'G:\\ПРБ-2\\_DocArch\\10-BUH;Full Access' }, settings),
+    describeGroup({ dn: `CN=sg_obj2_root_full,${ou}`, name: 'sg_obj2_root_full', description: 'G:\\ОБЪЕКТ-2;Full Access' }, settings),
+    describeGroup({ dn: `CN=sg_obj2_buh_full,${ou}`, name: 'sg_obj2_buh_full', description: 'G:\\ОБЪЕКТ-2\\_DocArch\\10-BUH;Full Access' }, settings),
   ]);
   const plan = (overrides) => ({ derivedCode: null, fromPath: null, source: 'settings', ...overrides });
-  assert.deepEqual(creationPlan(settings, folders, 'G:\\ПРБ-2\\_DocArch\\10-BUH\\Акты'), plan({ project: 'ПРБ-2', code: 'prb2', ou, from: 'prb2_buh', fromPath: 'G:\\ПРБ-2\\_DocArch\\10-BUH', source: 'folder' }));
-  assert.deepEqual(creationPlan(settings, folders, 'G:\\ПРБ-2\\_DocArch\\11-NEW'), plan({ project: 'ПРБ-2', code: 'prb2', ou, from: 'prb2_root', fromPath: 'G:\\ПРБ-2', source: 'folder' }));
+  assert.deepEqual(creationPlan(settings, folders, 'G:\\ОБЪЕКТ-2\\_DocArch\\10-BUH\\Акты'), plan({ project: 'ОБЪЕКТ-2', code: 'obj2', ou, from: 'obj2_buh', fromPath: 'G:\\ОБЪЕКТ-2\\_DocArch\\10-BUH', source: 'folder' }));
+  assert.deepEqual(creationPlan(settings, folders, 'G:\\ОБЪЕКТ-2\\_DocArch\\11-NEW'), plan({ project: 'ОБЪЕКТ-2', code: 'obj2', ou, from: 'obj2_root', fromPath: 'G:\\ОБЪЕКТ-2', source: 'folder' }));
   assert.deepEqual(creationPlan(settings, folders, 'W:\\07-LEGAL'), plan({ project: null, code: 'co', ou: settings.newGroupOu, from: null }));
   assert.deepEqual(creationPlan({ ...settings, defaultProject: '', newGroupOu: '' }, folders, 'W:\\07-LEGAL'), plan({ project: null, code: null, ou: null, from: null }));
 });
 
 test('new group names follow the template and refuse odd names', () => {
   assert.deepEqual(newGroupNames('Legal', SETTINGS, 'co'), { full: 'sg_co_legal_full', read: 'sg_co_legal_read' });
-  assert.deepEqual(newGroupNames('qaqc_styajka', SETTINGS, 'prb2'), { full: 'sg_prb2_qaqc_styajka_full', read: 'sg_prb2_qaqc_styajka_read' });
+  assert.deepEqual(newGroupNames('qaqc_styajka', SETTINGS, 'obj2'), { full: 'sg_obj2_qaqc_styajka_full', read: 'sg_obj2_qaqc_styajka_read' });
   // The old {org} token still works.
   assert.deepEqual(newGroupNames('07-legal', { ...SETTINGS, nameTemplate: 'grp-{org}-{name}-{type}' }, 'co'), { full: 'grp-co-07-legal-full', read: 'grp-co-07-legal-read' });
   // The default project when none is given; none at all → no names.
@@ -313,7 +313,7 @@ test('globs, DNs, SIDs and account flags', () => {
   assert.deepEqual(globToSubstring('a*b*c'), { initial: 'a', any: ['b'], final: 'c' });
   assert.deepEqual(globToSubstring('exact'), { equal: 'exact' });
   assert.equal(cnOf('CN=Ivanov\\, Ivan,OU=Users,DC=corp'), 'Ivanov, Ivan');
-  assert.equal(domainRoot('OU=Accounts,DC=whitehills,DC=kg'), 'DC=whitehills,DC=kg');
+  assert.equal(domainRoot('OU=Accounts,DC=example,DC=com'), 'DC=example,DC=com');
   // S-1-5-21-1-2-3-1105
   const sid = Buffer.from([1, 5, 0, 0, 0, 0, 0, 5, 21, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 0x51, 0x04, 0, 0]);
   assert.equal(sidToString(sid), 'S-1-5-21-1-2-3-1105');
@@ -328,23 +328,23 @@ test('globs, DNs, SIDs and account flags', () => {
 test('access settings are sanitised, live in the File server settings and are off by default', () => {
   const next = sanitizeDriveAccess(DRIVE_ACCESS_DEFAULTS, {
     prefix: 'SG_',
-    projects: ['co', 'PRB2', 'bad code'],
+    projects: ['co', 'OBJ2', 'bad code'],
     defaultProject: 'xx',
     nameTemplate: '{org}_{name}',
     newGroupOu: 'OU=Groups,OU=CO,DC=corp,DC=kg',
     groupsBase: 'not a dn',
-    groupOus: ['OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru', 'nonsense'],
+    groupOus: ['OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example', 'nonsense'],
     typeMap: { full: 'full_control', read: 'everything' },
     protectedGroups: ['sg_*_root_*', '*', 'bad pattern!'],
     driveMap: [{ letter: 'W', shareId: 1 }],
   });
   assert.equal(next.prefix, 'sg_');
-  assert.deepEqual(next.projects, ['co', 'prb2']);
+  assert.deepEqual(next.projects, ['co', 'obj2']);
   assert.equal(next.defaultProject, 'xx');
   assert.equal(next.nameTemplate, DRIVE_ACCESS_DEFAULTS.nameTemplate);
   assert.equal(next.newGroupOu, 'OU=Groups,OU=CO,DC=corp,DC=kg');
   assert.equal(next.groupsBase, '');
-  assert.deepEqual(next.groupOus, ['OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru']);
+  assert.deepEqual(next.groupOus, ['OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example']);
   assert.deepEqual(next.typeMap, { full: 'full_control', read: 'read_execute' });
   assert.deepEqual(next.protectedGroups, ['sg_*_root_*']);
   assert.equal(next.driveMap, undefined);
@@ -622,9 +622,9 @@ test('the NTFS hook is pending until the engine registers', async () => {
   registerNtfsAttach(null);
 });
 
-test('project aliases: pairs under the White Hills root (sg_wh_root_*) are offered as co', () => {
-  const ou = 'OU=Groups,OU=CO,OU=Accounts,DC=whitehills,DC=kg';
-  const settings = { ...SETTINGS, projects: ['co', 'wh'], defaultProject: 'co', projectAliases: { wh: 'co' }, newGroupOu: ou, bases: ['OU=Accounts,DC=whitehills,DC=kg'] };
+test('project aliases: pairs under the Example root (sg_wh_root_*) are offered as co', () => {
+  const ou = 'OU=Groups,OU=CO,OU=Accounts,DC=example,DC=com';
+  const settings = { ...SETTINGS, projects: ['co', 'wh'], defaultProject: 'co', projectAliases: { wh: 'co' }, newGroupOu: ou, bases: ['OU=Accounts,DC=example,DC=com'] };
   const folders = buildFolders([
     describeGroup({ dn: `CN=sg_wh_root_full,${ou}`, name: 'sg_wh_root_full', description: 'W:;Full Access' }, settings),
     describeGroup({ dn: `CN=sg_wh_hr_full,${ou}`, name: 'sg_wh_hr_full', description: 'W:\\06-HR;Full Access' }, settings),
@@ -635,7 +635,7 @@ test('project aliases: pairs under the White Hills root (sg_wh_root_*) are offer
   // No aliases: the derived code as before.
   assert.equal(creationPlan({ ...settings, projectAliases: {} }, folders, 'W:\\07-LEGAL').code, 'wh');
   assert.equal(aliasCode({ projectAliases: { wh: 'co' } }, 'WH'), 'co');
-  assert.equal(aliasCode({ projectAliases: { wh: 'co' } }, 'prb2'), 'prb2');
+  assert.equal(aliasCode({ projectAliases: { wh: 'co' } }, 'obj2'), 'obj2');
   assert.equal(aliasCode({}, ''), null);
   assert.equal(aliasCode({ projectAliases: {} }, 'constructor'), 'constructor');
 });

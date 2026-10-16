@@ -119,3 +119,7 @@ registerJob({ name: 'tasks:reminders', everyMs: 5 * 60 * 1000, run: runReminders
 The key is `ENCRYPTION_KEY`, or one derived from `JWT_SECRET` when that is not set. To change either without losing these values, list the old one in `ENCRYPTION_KEY_PREVIOUS` / `JWT_SECRET_PREVIOUS` — see [security.md → Rotating secrets](security.md#rotating-secrets). Values opened with an old key are re-sealed with the new one.
 
 If the VAPID private key can be opened with no known key, new VAPID keys are generated, every stored device subscription is dropped (they belong to the old key), and administrators get a *Stored secret cannot be decrypted* security event. Devices that already allowed notifications re-subscribe silently on their next visit. An unreadable Google token is **not** treated as revoked: the connection is kept and calls fail with `GOOGLE_KEY` until the old key is restored or the person reconnects.
+
+## Tour
+
+- Tour `notifications` (`tour/content/notifications.js`, texts `tour.notifications.*` in `i18n/coreTours.js`) of Account → Notifications: the bell, channels, «Проверить», quiet hours, the event × channel matrix, subscriptions, history. Started from the page's «Тур» button (it is not a module, so it never starts on its own). Anchors: `header.notifications`, `np.channels`, `np.test`, `np.quiet`, `np.events`, `np.subs`, `np.history`.

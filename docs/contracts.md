@@ -20,6 +20,7 @@ The module is **off by default** (Settings → Modules → Contracts).
 - [Notifications and webhooks](#notifications-and-webhooks)
 - [Data model](#data-model)
 - [API](#api)
+- [Demo data and tour](#demo-data-and-tour)
 - [Code map and tests](#code-map-and-tests)
 
 ## Screens
@@ -228,6 +229,11 @@ Numbers are taken under `pg_advisory_xact_lock`, so two contracts created at onc
 | POST | `/jobs/daily`, `/jobs/payments` | Run the expiry job / the payment reminders now (`contracts.admin`) |
 
 Sending to approval and decisions use the approvals API: `POST /api/app/approvals/process/contracts.contract/:id/start` etc. Errors: `NOT_FOUND`, `FORBIDDEN`, `LOCKED`, `BAD_TRANSITION`, `STALE`, `IN_APPROVAL`, `COMMENT_REQUIRED`, `VERSION_REQUIRED`, `TITLE_REQUIRED`, `BAD_TYPE`, `BAD_DATES`, `INVALID_DATE`, `BAD_AMOUNT`, `BAD_USER`, `BAD_COMPANY`, `BAD_LEGAL_ENTITY`, `BAD_DEAL`, `BAD_OBJECT`, `FILE_CONTENT`, `FILE_TOO_LARGE`, `NO_FILE`; money: `AMOUNT_REQUIRED`, `BAD_KIND`, `BAD_METHOD`, `BAD_ROWS`, `SAME_STATUS`, `DEPOSIT_RECEIVED`, `HAS_PAYMENTS`.
+
+## Demo data and tour
+
+- `modules/contracts/demo.js` (after Masterplan, CRM, Counterparties, Org, Employees): 8 contracts through the real process — two property sales of Masterplan demo cottages (deposit received → the unit «Задаток», signed → «Договор» with the number; a payment schedule with payments, one instalment overdue), a supply contract with three risks and two versions, services expiring in two weeks, an office lease with auto-prolongation, works waiting for the director's approval, an NDA draft and a completed supply. Files are generated `.docx` / `.pdf`. A demo route «Юрист → Директор» is added only when none is saved for `contracts.contract`. Purge removes files, processes, chats and rows and puts the Masterplan units back into «Бронь».
+- Tour `contracts` (`modules/contracts/tour.js`, texts `tour.contracts.*`): the registry, «Создать», registry chips, the card and its tabs, «Ждут меня», calendar, payments (finance). Anchors `ctr.create`, `ctr.chips`, `ctr.list`, `ctr.nav.<view>`, `ctr.nav.calendar`, `ctr.nav.payments`.
 
 ## Code map and tests
 

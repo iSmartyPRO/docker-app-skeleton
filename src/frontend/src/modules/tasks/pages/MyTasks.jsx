@@ -127,7 +127,7 @@ export default function MyTasks({ openRef }) {
 
   return (
     <div className="tasks-page">
-      <header className="mod-hero tasks-hero tasks-hero--my">
+      <header className="mod-hero tasks-hero tasks-hero--my" data-tour="tasks.hero">
         <div className="mod-hero__text">
           <h1>{t('tasks.myTitle')}</h1>
           <p>{t('tasks.myLead', { name })}</p>
@@ -143,11 +143,11 @@ export default function MyTasks({ openRef }) {
             </button>
           )}
         </div>
-        <div className="mod-hero__actions">
+        <div className="mod-hero__actions" data-tour="tasks.create">
           <CreateButton size="large" onQuick={() => editor.openQuick()} onFull={() => editor.openFull()} onTemplate={(draft) => editor.openFull(draft)} />
         </div>
       </header>
-      <div className="mod-toolbar">
+      <div className="mod-toolbar" data-tour="tasks.roles">
         <Segmented
           value={role}
           onChange={(next) => {

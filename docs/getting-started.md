@@ -8,7 +8,7 @@ This skeleton is meant to become **your** product: copy the repo, connect Postgr
 - PostgreSQL 14+ reachable from the app container
 - A Docker network named `docker-lan` (compose uses it as `external`)
 
-Optional: the helper Makefile at `/dockers/postgres` if you run the shared iSmarty PostgreSQL stack. It is **not** required. Any Postgres host works.
+Optional: the helper Makefile at `/dockers/postgres` if you run the shared PostgreSQL stack. It is **not** required. Any Postgres host works.
 
 ## 1. Clone and name the project
 

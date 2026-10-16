@@ -25,6 +25,8 @@ function loadCollapsed() {
 
 /** The most specific sidebar entry that owns the current path. */
 function selectedKey(pathname) {
+  // Module docs (/admin/modules/<id>/docs) belong to Settings → Modules.
+  if (pathname.startsWith('/admin/modules')) return '/admin/settings';
   const match = ADMIN_PAGES.filter(
     (page) => pathname === page.key || (page.key !== '/admin' && pathname.startsWith(`${page.key}/`))
   ).sort((a, b) => b.key.length - a.key.length)[0];

@@ -18,7 +18,7 @@ import { parseRoute } from '../services/linkPreview/index.js';
 import { cardKey, cardSvg, imageSize, layoutTitle, wrapText } from '../services/linkPreview/card.js';
 import { loadMetrics } from '../services/linkPreview/fontMetrics.js';
 
-const site = { name: 'White Hills', description: 'Корпоративный портал', color: '#1E3A6E', iconUrl: null, logoUrl: null };
+const site = { name: 'Example', description: 'Корпоративный портал', color: '#1E3A6E', iconUrl: null, logoUrl: null };
 const regional = { timeZone: 'Asia/Bishkek', dateFormat: 'DD.MM.YYYY', timeFormat: '24' };
 const ru = (model) => describePreview(model, { site, locale: 'ru', regional });
 
@@ -118,9 +118,9 @@ test('link preview: site card and skeleton defaults', () => {
   assert.equal(previewLocale({ defaultLocale: 'auto' }), 'ru');
   assert.equal(previewLocale({ defaultLocale: 'en' }), 'en');
   const text = describePreview({ state: 'site' }, { site, locale: 'ru' });
-  assert.equal(text.title, 'White Hills');
+  assert.equal(text.title, 'Example');
   const tags = headTags({ text, site, locale: 'ru', url: 'https://p.example/', image: null });
-  assert.ok(tags.includes('<title>White Hills</title>'));
+  assert.ok(tags.includes('<title>Example</title>'));
   assert.ok(tags.includes('og:locale" content="ru_RU"'));
   assert.ok(tags.includes('twitter:card" content="summary"'));
 });

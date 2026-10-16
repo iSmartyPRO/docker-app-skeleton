@@ -82,7 +82,7 @@ export default function ProjectsPage() {
       <Modal open={creating} title={t('mp.projects.create')} onCancel={() => setCreating(false)} onOk={create} okText={t('common.create')} cancelText={t('common.cancel')} destroyOnClose>
         <Form form={form} layout="vertical" initialValues={{ currency: settings.currency, status: 'sales' }}>
           <Form.Item name="name" label={t('mp.projects.name')} rules={[{ required: true, whitespace: true, message: t('mp.projects.nameRequired') }]}>
-            <Input maxLength={160} autoFocus placeholder="White Hills" />
+            <Input maxLength={160} autoFocus placeholder={t('mp.projects.namePlaceholder')} />
           </Form.Item>
           <div className="form-grid-2">
             <Form.Item name="code" label={t('mp.projects.code')}>

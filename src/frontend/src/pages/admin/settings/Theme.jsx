@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, App, ColorPicker, Form, Segmented } from 'antd';
+import { Alert, App, Button, Checkbox, ColorPicker, Form, Switch } from 'antd';
 import SaveBar from '../../../components/ui/SaveBar';
 import { SettingRow, SettingsSection } from '../../../components/ui/SettingsSection';
 import { THEME_TEMPLATES, resolveColors } from '../../../theme/templates';
@@ -7,7 +7,10 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useSettings } from '../../../context/SettingsContext';
 import { useThemeMode } from '../../../context/ThemeContext';
 import { errorMessage } from '../../../lib/errors';
-import { saveAdminSettings } from '../../../services/api';
+import api, { saveAdminSettings } from '../../../services/api';
+import ThemePicker from '../../../theme/ThemePicker';
+import { OPTIONAL_THEME_IDS, THEMES, themePolicy } from '../../../theme/themes';
+import { TourIcon } from '../../../tour/TourButton';
 import SettingsPageHeader from './SettingsPageHeader';
 
 const COLOR_FIELDS = [
@@ -47,6 +50,16 @@ function customDiff(templateId, values, mode) {
   return custom;
 }
 
+/** Employee theme rules from the form: every theme ticked is stored as "all" (an empty list). */
+function themesOf(values) {
+  const allowed = (values.allowed || []).filter((id) => OPTIONAL_THEME_IDS.includes(id));
+  return {
+    allowed: allowed.length === OPTIONAL_THEME_IDS.length ? [] : allowed,
+    allowCustom: values.allowCustom !== false,
+    allowMotion: values.allowMotion !== false,
+  };
+}
+
 function TemplatePicker({ value, onChange, mode }) {
   const { locale } = useLocale();
   return (
@@ -83,8 +96,8 @@ function TemplatePicker({ value, onChange, mode }) {
 }
 
 export default function ThemeSettings() {
-  const { t } = useLocale();
-  const { message } = App.useApp();
+  const { t, locale } = useLocale();
+  const { message, modal } = App.useApp();
   const { settings, refresh } = useSettings();
   const { mode, setPreview, clearPreview, isPreviewing, savedAppearance } = useThemeMode();
   const [form] = Form.useForm();
@@ -94,9 +107,13 @@ export default function ThemeSettings() {
 
   const initial = useMemo(() => {
     const colors = resolveColors(appearance, mode);
+    const policy = themePolicy(appearance);
     return {
       template: appearance.template || 'navy',
       defaultTheme: appearance.defaultTheme || 'light',
+      allowed: policy.allowed || OPTIONAL_THEME_IDS,
+      allowCustom: policy.allowCustom,
+      allowMotion: policy.allowMotion,
       ...Object.fromEntries(COLOR_FIELDS.map((key) => [key, colors[key]])),
     };
   }, [appearance, mode]);
@@ -112,6 +129,7 @@ export default function ThemeSettings() {
     setPreview({
       template: values.template,
       defaultTheme: values.defaultTheme,
+      themes: themesOf(values),
       customColors,
     });
   };
@@ -141,6 +159,7 @@ export default function ThemeSettings() {
         appearance: {
           template: values.template,
           defaultTheme: values.defaultTheme,
+          themes: themesOf(values),
           customColors: customDiff(values.template, values, mode),
         },
       });
@@ -172,15 +191,29 @@ export default function ThemeSettings() {
           </Form.Item>
         </SettingsSection>
         <SettingsSection>
-          <SettingRow label={t('settings.theme.mode')} description={t('settings.theme.modeDesc')}>
+          <SettingRow label={t('themes.admin.defaultTheme')} description={t('themes.admin.defaultThemeDesc')} stacked>
             <Form.Item name="defaultTheme" noStyle>
-              <Segmented
-                options={[
-                  { value: 'light', label: t('header.light') },
-                  { value: 'dark', label: t('header.dark') },
-                  { value: 'system', label: t('common.system') },
-                ]}
+              <ThemePicker compact themes={THEMES.filter((theme) => theme.kind !== 'custom').map((theme) => theme.id)} />
+            </Form.Item>
+          </SettingRow>
+        </SettingsSection>
+        <SettingsSection title={t('themes.admin.title')} description={t('themes.admin.desc')}>
+          <SettingRow label={t('themes.admin.allowed')} description={t('themes.admin.allowedDesc')} stacked>
+            <Form.Item name="allowed" noStyle>
+              <Checkbox.Group
+                className="ts-allowed"
+                options={THEMES.filter((theme) => OPTIONAL_THEME_IDS.includes(theme.id)).map((theme) => ({ value: theme.id, label: theme.name[locale] || theme.name.en }))}
               />
+            </Form.Item>
+          </SettingRow>
+          <SettingRow label={t('themes.admin.allowCustom')} description={t('themes.admin.allowCustomDesc')}>
+            <Form.Item name="allowCustom" valuePropName="checked" noStyle>
+              <Switch aria-label={t('themes.admin.allowCustom')} />
+            </Form.Item>
+          </SettingRow>
+          <SettingRow label={t('themes.admin.allowMotion')} description={t('themes.admin.allowMotionDesc')}>
+            <Form.Item name="allowMotion" valuePropName="checked" noStyle>
+              <Switch aria-label={t('themes.admin.allowMotion')} />
             </Form.Item>
           </SettingRow>
         </SettingsSection>
@@ -197,6 +230,29 @@ export default function ThemeSettings() {
           </div>
         </SettingsSection>
       </Form>
+      <SettingsSection title={t('themes.admin.toursTitle')} description={t('themes.admin.toursDesc')}>
+        <Button
+          icon={<TourIcon />}
+          onClick={() =>
+            modal.confirm({
+              title: t('themes.admin.reset'),
+              content: t('themes.admin.resetConfirm'),
+              okText: t('themes.admin.reset'),
+              cancelText: t('common.cancel'),
+              onOk: async () => {
+                try {
+                  const res = await api.post('/admin/tours/reset');
+                  message.success(t('themes.admin.resetDone', { n: res.data.removed }));
+                } catch (err) {
+                  message.error(errorMessage(err));
+                }
+              },
+            })
+          }
+        >
+          {t('themes.admin.reset')}
+        </Button>
+      </SettingsSection>
       <SaveBar
         visible={isPreviewing}
         saving={saving}

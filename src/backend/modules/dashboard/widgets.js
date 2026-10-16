@@ -32,6 +32,8 @@ export const WIDGETS = {
   links: { module: 'resources' },
   companies: { module: 'companies' },
   people: { permission: 'users.view', area: 'admin.users' },
+  // Birthdays and work anniversaries (Employees; the module's privacy setting applies).
+  employeesCelebrations: { module: 'employees' },
 };
 
 /** The starting dashboard; widgets of switched-off modules drop out, the grid closes the gaps. */

@@ -75,10 +75,10 @@ export function StockHint({ hint, unit, short }) {
 }
 
 /** Filter chips with counters. */
-export function Chips({ chips, counters, value, onChange, prefix, allKey = 'all' }) {
+export function Chips({ chips, counters, value, onChange, prefix, allKey = 'all', tour }) {
   const { t } = useLocale();
   return (
-    <div className="wh-chips" role="tablist">
+    <div className="wh-chips" role="tablist" data-tour={tour}>
       <button type="button" className={`wh-chip${!value ? ' is-active' : ''}`} onClick={() => onChange(undefined)}>
         {t(`${prefix}.all`)}
         {counters && counters[allKey] !== undefined && <em>{counters[allKey]}</em>}

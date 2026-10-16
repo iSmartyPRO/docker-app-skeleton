@@ -175,9 +175,9 @@ export default function StockPage() {
         </Button>
       </Hero>
 
-      <Chips chips={STOCK_CHIPS} counters={data?.counters} value={chip} onChange={(next) => setParam({ chip: next })} prefix="wh.stockChips" />
+      <Chips chips={STOCK_CHIPS} counters={data?.counters} value={chip} onChange={(next) => setParam({ chip: next })} prefix="wh.stockChips" tour="wh.chips" />
 
-      <div className="mod-toolbar wh-toolbar">
+      <div className="mod-toolbar wh-toolbar" data-tour="wh.toolbar">
         <Input allowClear prefix={<SearchOutlined />} value={q} onChange={(event) => setQ(event.target.value)} placeholder={t('wh.stock.search')} className="wh-search" />
         <WarehouseSelect value={warehouse} onChange={(id) => setParam({ warehouse: id || undefined })} allowClear placeholder={t('wh.stock.allWarehouses')} style={{ minWidth: 190 }} />
         {meta.categories.length > 0 && <TreeSelect allowClear value={category ?? undefined} onChange={(id) => setParam({ category: id })} treeData={categoryTree(meta.categories)} placeholder={t('wh.fields.category')} style={{ minWidth: 170 }} treeDefaultExpandAll />}

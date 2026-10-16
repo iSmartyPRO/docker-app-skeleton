@@ -167,14 +167,14 @@ export default function Manage() {
               <span>{t('resources.settings')}</span>
             </Button>
           </Link>
-          <Button className="mod-act" icon={<AppstoreAddOutlined />} onClick={() => setDialog({ type: 'modules' })} aria-label={t('resources.addModules')} title={t('resources.addModules')}>
+          <Button className="mod-act" data-tour="rs.modules" icon={<AppstoreAddOutlined />} onClick={() => setDialog({ type: 'modules' })} aria-label={t('resources.addModules')} title={t('resources.addModules')}>
             <span>{t('resources.addModules')}</span>
           </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setDialog({ type: 'item' })}>{t('resources.add')}</Button>
+          <Button type="primary" data-tour="rs.add" icon={<PlusOutlined />} onClick={() => setDialog({ type: 'item' })}>{t('resources.add')}</Button>
         </div>
       </header>
 
-      <section className="rs-cats">
+      <section className="rs-cats" data-tour="rs.cats">
         <span className="rs-cats__label">{t('resources.categories')}</span>
         {data.categories.map((category) => (
           <span key={category.id} className="rs-cat" style={{ '--c': category.color }}>

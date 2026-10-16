@@ -105,3 +105,8 @@ The `chat.admin` permission allows creating groups when that is restricted and m
 | PUT / DELETE | `/messages/:id` | Edit / delete |
 | POST | `/messages/:id/reactions` | `{ emoji }`: toggle |
 | GET | `/files/:id[?download=1]` | A file, for room members |
+
+## Demo data and tour
+
+- `modules/chat/demo.js` (after Org structure and Employees when they are seeded): three group chats — «Демо: Северный квартал», «Демо: офис», «Демо: закупки» — and three direct conversations of the administrator with demo colleagues (the director, IT, the foreman), a few days of history with replies, @mentions of the administrator and of colleagues, a site photo and a PDF sent in the chat; the administrator has unread messages in two of them. The history is written directly, backdated like an import, so nobody is notified. A direct conversation the administrator already has with that colleague is left alone. Purge removes the sent files from disk; the rooms take their members, messages and file rows with them.
+- Tour `chat` (`tour/content/chat.js`): the list, new chat, search, filters, the header icon. Anchors: `chat.list`, `chat.new`, `chat.search`, `chat.filters`, `header.chat`.

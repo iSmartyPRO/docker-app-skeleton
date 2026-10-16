@@ -123,8 +123,24 @@ export default {
       id: 'appearance',
       title: { ru: 'Оформление: язык и тема', en: 'Appearance: language and theme' },
       body: {
-        ru: 'В разделе [Оформление](/account/appearance):\n\n- **Язык** — «Как в портале» (язык по умолчанию, который выбрал администратор), «Русский» или «English»;\n- **Тема** — «Светлая», «Тёмная» или «Системная» (следует настройке телефона или компьютера: днём светлая, вечером тёмная, если так настроено).\n\nПосле «Сохранить» выбор хранится в учётной записи и применяется на всех устройствах, где вы вошли. Флажок и переключатель темы в шапке меняют вид только на время, в текущем браузере.',
-        en: 'In [Appearance](/account/appearance):\n\n- **Language** — “As the portal” (the default your administrator chose), “Русский” or “English”;\n- **Theme** — “Light”, “Dark” or “System” (follows your phone or computer: light by day, dark in the evening if set up that way).\n\nAfter “Save” the choice is kept in your account and applies on every device you sign in on. The flag and theme switch in the header change the look only for now, in the current browser.',
+        ru: 'В разделе [Оформление](/account/appearance):\n\n- **Язык** — «Как в портале» (язык по умолчанию, который выбрал администратор), «Русский» или «English»;\n- **Тема** — основные «Светлая», «Тёмная», «Как в системе» и готовые темы: «Графит», «Океан», «Лес», «Песок», «Полночь», «Лаванда», «Высокий контраст». Карточка темы сразу показывает портал в ней — это предпросмотр, пока вы не нажмёте «Сохранить».\n\nПосле «Сохранить» выбор хранится в учётной записи и применяется на всех устройствах. Переключатель солнце/луна в шапке меняет светлую и тёмную только в этом браузере. Какие темы доступны, решает администратор.',
+        en: 'In [Appearance](/account/appearance):\n\n- **Language** — “As the portal” (the default your administrator chose), “Русский” or “English”;\n- **Theme** — the basic “Light”, “Dark”, “As the system” and ready-made themes: Graphite, Ocean, Forest, Sand, Midnight, Lavender, High contrast. Picking a card previews the portal in it until you press “Save”.\n\nAfter “Save” the choice is kept in your account and applies on every device. The sun/moon switch in the header toggles light and dark in this browser only. Your administrator decides which themes are offered.',
+      },
+    },
+    {
+      id: 'themes',
+      title: { ru: 'Живые темы и своя картинка', en: 'Living themes and your own picture' },
+      body: {
+        ru: '**Живые темы** — «Рассвет», «Сияние», «Созвездие» — с очень медленно движущимся фоном. Анимация замирает, когда вкладка скрыта или вы ничего не делаете минуту, и не включается, если устройство просит уменьшить движение или оно слабое. Переключатель **«Без анимации»** оставляет фон неподвижным.\n\n**Своя тема**: выберите карточку «Своя», загрузите картинку (JPEG, PNG, WebP или GIF, до 8 МБ и 4096 × 4096 пикселей) и основной цвет. Сервер сожмёт картинку и сделает версию для телефона; её видите только вы. Под текстом картинка приглушается (ползунок «Затемнение»), панели остаются сплошными. Слишком светлый или тёмный цвет портал сам подправит, чтобы надписи читались.',
+        en: '**Living themes** — Dawn, Aurora, Constellation — have a very slowly moving background. It stops while the tab is hidden or after a minute without activity, and stays still when your device asks for reduced motion or is low-powered. The **“No animation”** switch keeps it still.\n\n**Your own theme**: pick the “Custom” card, upload a picture (JPEG, PNG, WebP or GIF, up to 8 MB and 4096 × 4096 pixels) and an accent colour. The server compresses the picture and makes a phone version; only you can see it. The picture is dimmed under text (the “Dimming” slider) and panels stay solid. A colour that would be hard to read is adjusted automatically.',
+      },
+    },
+    {
+      id: 'tours',
+      title: { ru: 'Туры по порталу', en: 'Guided tours' },
+      body: {
+        ru: 'При первом входе портал показывает короткий тур: меню приложений, «Ждёт меня», уведомления, чат, справку и профиль. У приложений — свой тур при первом открытии. Листайте кнопками «Далее» и «Назад» или стрелками на клавиатуре, Esc закрывает тур. В туре только то, что доступно вам.\n\nПовторить тур: кнопка «Тур» рядом с названием приложения или «Тур по разделу» в справке (клавиша «?»). Выключить автоматические туры: [Оформление → «Не показывать туры»](/account/appearance).',
+        en: 'On your first sign-in the portal shows a short tour: the apps menu, “Waiting for me”, notifications, chat, help and your profile. Each app has its own tour the first time you open it. Use “Next” and “Back” or the arrow keys; Esc closes the tour. A tour only shows what you have access to.\n\nTo replay a tour, use the “Tour” button next to an app’s name or “Tour of this section” in help (the “?” key). To stop tours from starting by themselves: [Appearance → “Do not show tours”](/account/appearance).',
       },
     },
     {
@@ -321,8 +337,8 @@ export default {
     theme: {
       title: { ru: 'Тема', en: 'Theme' },
       text: {
-        ru: '«Системная» повторяет настройку телефона или компьютера: светлая или тёмная.',
-        en: '“System” follows your phone or computer setting: light or dark.',
+        ru: '«Как в системе» повторяет настройку телефона или компьютера: светлая или тёмная. Готовые, живые темы и свою картинку выбирают здесь же.',
+        en: '“As the system” follows your phone or computer setting: light or dark. Ready-made and living themes and your own picture are chosen here too.',
       },
       more: 'appearance',
     },

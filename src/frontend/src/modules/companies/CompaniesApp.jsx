@@ -19,8 +19,8 @@ import SideRail from '../shared/SideRail';
 function Sidebar({ onNavigate }) {
   const { t } = useLocale();
   const { meta } = useCompanies();
-  const link = (to, icon, label, end) => (
-    <NavLink to={to} end={end} className="mod-nav__link" onClick={onNavigate}>
+  const link = (to, icon, label, end, tour) => (
+    <NavLink to={to} end={end} className="mod-nav__link" onClick={onNavigate} data-tour={tour}>
       <MenuIcon name={icon} variant="mono" />
       <span className="mod-nav__text">{label}</span>
     </NavLink>
@@ -32,15 +32,15 @@ function Sidebar({ onNavigate }) {
         <span>{t('apps.companies.name')}</span>
       </NavLink>
       <nav className="mod-nav">
-        {link('/app/companies', 'building', t('companies.companies'), true)}
-        {link('/app/companies/people', 'people', t('companies.people'))}
-        {link('/app/companies/mine', 'star', t('companies.myCompanies'))}
+        {link('/app/companies', 'building', t('companies.companies'), true, 'cmp.nav.companies')}
+        {link('/app/companies/people', 'people', t('companies.people'), false, 'cmp.nav.people')}
+        {link('/app/companies/mine', 'star', t('companies.myCompanies'), false, 'cmp.nav.mine')}
       </nav>
       <nav className="mod-nav fs-side__bottom">
-        {link('/app/companies/archive', 'archive', t('companies.archive'))}
+        {link('/app/companies/archive', 'archive', t('companies.archive'), false, 'cmp.nav.archive')}
         {link('/app/companies/people-archive', 'archive', t('companies.peopleArchive'))}
         {meta?.isAdmin && (
-          <NavLink to="/admin/settings/companies" className="mod-nav__link" onClick={onNavigate}>
+          <NavLink to="/admin/settings/companies" className="mod-nav__link" onClick={onNavigate} data-tour="cmp.nav.settings">
             <MenuIcon name="general" variant="mono" />
             <span className="mod-nav__text">{t('companies.settings')}</span>
           </NavLink>

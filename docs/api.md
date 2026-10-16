@@ -68,6 +68,11 @@ Every route requires `console.access`; the permission in brackets is checked in 
 | `DELETE` | `/api/admin/users/:id/telegram` | [`users.manage`] unlink Telegram |
 | `GET` | `/api/admin/overview` | Dashboard: user stats, recent sign-ins, 24h security summary, integrations |
 | `GET` | `/api/admin/system` | Version, Node, uptime, database info, rate limit |
+| `GET` | `/api/admin/system/report` | System report: checks, versions, modules, resources, counts, jobs, integrations, queues (`?fresh=1`; no secrets) |
+| `GET` | `/api/admin/modules` | Module manifests with state, requirements, links and demo data counts |
+| `GET` | `/api/admin/demo` | Demo data per module (superadministrators) |
+| `POST` | `/api/admin/demo/<module>/seed`, `/api/admin/demo/<module>/purge` | Fill / remove one module's demo data (superadministrators) |
+| `POST` | `/api/admin/demo/seed-all`, `/api/admin/demo/purge-all` | Demo of the whole portal / remove all demo data (superadministrators) |
 | `GET` / `PUT` | `/api/admin/settings` |
 | `POST` / `DELETE` | `/api/admin/settings/logo` |
 | `POST` | `/api/admin/integrations/:kind/test` | `email`, `telegram`, `whatsapp`, `wazzup`, `mattermost`, `activeDirectory`. Body: unsaved form values (blank secrets fall back to stored ones). `wazzup` also returns `channels` |
@@ -99,7 +104,7 @@ Safety rails (all return `400`/`409` with a readable `error`):
 | `GET` | `/api/res` | Online resources board for anyone (public tiles for guests) |
 | `*` | `/api/d/…` | Drive public links (anonymous or employees, token per link) |
 
-Full references: [Counterparties](companies.md#api), [Online resources](resources.md#api), [Drive](drive.md#api), [File server access](drive-access.md#api), [Files](files.md#api), [Knowledge Base](knowledge-base.md#api), [Tasks](tasks.md#api-apiapptasks-signed-in-users), [Calendar](calendar.md#api-apiappcalendar-signed-in-users).
+Full references: [Counterparties](companies.md#api), [Online resources](resources.md#api), [Drive](drive.md#api), [File server access](drive-access.md#api), [AD directory](directory.md#api) (sessions only, no API tokens), [Files](files.md#api), [Knowledge Base](knowledge-base.md#api), [Tasks](tasks.md#api-apiapptasks-signed-in-users), [Calendar](calendar.md#api-apiappcalendar-signed-in-users), [Org structure](org-structure.md#http-api) (`/api/app/org`, core), [Employees](employees.md#http-api) (`/api/app/employees`).
 
 ## Notifications, push, PWA
 

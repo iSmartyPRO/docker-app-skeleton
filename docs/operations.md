@@ -139,6 +139,34 @@ make rebuild
 
 Prefer merging security fixes in `middleware/` and `services/auth.js` even if you skip UI changes.
 
+## System page
+
+**Admin → Settings → System** (`settings.view` or `settings.system`; superadministrators have both) is the
+operator's console. Under the runtime and database cards and the API limits it shows a **report**
+(`GET /api/admin/system/report`, built in parallel and cached for 30 s; *Refresh* rebuilds it; folder sizes are
+cached for 10 minutes and walking stops at 200 000 entries — then marked *approximate*):
+
+| Block | What |
+|---|---|
+| Checks | HTTPS, `FRONTEND_URL`, `PUBLIC_URL`, `JWT_SECRET` strength, `ENCRYPTION_KEY`, setup wizard locked, secure cookies, time zones (server · portal · database), **last backup** — the newest file in `BACKUP_DIR` (ok ≤ 26 h, attention ≤ 7 days); without `BACKUP_DIR` it says *unknown*. Mount the host's backup folder read-only and set `BACKUP_DIR` to see it |
+| Versions | core `VERSION`, frontend build id and date (`dist/version.json`), Node.js, PostgreSQL, environment, time zone |
+| Resources | disk total / free of the uploads volume, uploads size, preview cache, process memory and uptime, load average, database size and the 10 largest tables |
+| Counts | users (active), active sessions, files (and their size) |
+| Integrations | AD, e-mail, Telegram, WhatsApp, Wazzup, Mattermost, Google, document server: *working / off / not filled in (which fields)* — no values |
+| Queues | webhook deliveries (waiting, failed / delivered in 24 h), notifications in 24 h and held back by quiet hours |
+| Modules | version, minimum core, on/off, the newest changelog line |
+| Background jobs | every `registerJob()` job: interval, last run, duration, last error (as seen by this process; tokens and passwords are scrubbed) |
+
+*Export report* downloads it as Markdown or JSON for support. The report never contains passwords,
+tokens, keys or integration addresses (`test/platform-modules.test.js`, `test/platform-demo.db.test.js`).
+
+## Demo data
+
+A superadministrator fills and removes demo data in **Settings → Modules → Demo data** (per module or
+«Демо всего портала»); see [extending.md](extending.md#demo-data). While any exists, administrators see a
+«Демо-режим» bar. Remove demo data before a portal goes live: records added *inside* demo projects or
+folders are removed with them. Fills and removals are in the activity log (`demo_data`).
+
 ## Sample users
 
 ```bash

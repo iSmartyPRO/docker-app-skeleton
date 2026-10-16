@@ -1,12 +1,14 @@
 import { X509Certificate } from 'crypto';
 import { unlink } from 'fs/promises';
 import { basename, join } from 'path';
-import { query } from '../config/database.js';
+import { getPool, query } from '../config/database.js';
 import { logoDir } from '../config/paths.js';
 import { APP_VERSION } from '../config/version.js';
 import { REGIONAL_DEFAULTS, resolveRegional, sanitizeRegional } from './datetime.js';
 import { MODULE_CATALOG, MODULE_IDS, resolveModules, sanitizeModules } from '../modules/catalog.js';
 import { EDITING_DEFAULTS, sanitizeEditing } from './office/editing.js';
+import { sanitizeDefaultTheme, sanitizeThemePolicy } from './themeCatalog.js';
+import { planModuleChanges } from '../modules/dependencies.js';
 
 export const DEFAULTS = {
   app_name: 'docker-app-skeleton',
@@ -260,6 +262,9 @@ export function parseSettings(raw) {
   appearance.appIconUrl = safeLogoUrl(appearance.appIconUrl);
   appearance.shortName = String(appearance.shortName || '').slice(0, 24);
   appearance.logoHeight = clampInt(appearance.logoHeight, 20, 64, 32);
+  // Themes (Account → Appearance): the portal default and which ones employees may choose.
+  appearance.defaultTheme = sanitizeDefaultTheme(appearance.defaultTheme);
+  appearance.themes = sanitizeThemePolicy(appearance.themes);
   // Merge stored groups over defaults so integrations added in later versions
   // appear in existing installations without a migration.
   const integrationDefaults = JSON.parse(DEFAULTS.integrations);
@@ -295,6 +300,8 @@ export function parseSettings(raw) {
       : '',
     // What "/" shows: the built-in landing page or a module (e.g. online resources).
     homePage: MODULE_IDS.includes(raw.home_page) ? raw.home_page : 'landing',
+    // Demo data present (services/demo.js keeps it): { active, modules, updatedAt }.
+    demo: parseJson(raw.demo_state, {}),
     // Interface language for people who have not chosen one: 'auto' = the browser's language.
     defaultLocale: ['ru', 'en'].includes(raw.default_locale) ? raw.default_locale : 'auto',
     // Time zone and date/time formats of the whole portal (services/datetime.js).
@@ -446,6 +453,8 @@ export function toPublicSettings(parsed) {
     appDescription: parsed.appDescription,
     accessMode: parsed.accessMode || 'closed',
     homePage: parsed.homePage,
+    // The «Demo mode» banner (administrators see it while demo data exists).
+    demo: { active: Boolean(parsed.demo?.active) },
     defaultLocale: parsed.defaultLocale,
     regional: parsed.regional,
     appearance: parsed.appearance,
@@ -453,7 +462,7 @@ export function toPublicSettings(parsed) {
     modules: Object.fromEntries(
       Object.entries(parsed.modules).map(([id, state]) => [
         id,
-        // A module may carry a display name chosen by the administrator (e.g. "iSmarty Drive").
+        // A module may carry a display name chosen by the administrator (e.g. "Company Drive").
         {
           enabled: state.enabled,
           ...(state.settings?.title ? { title: state.settings.title } : {}),
@@ -673,10 +682,41 @@ export function sanitizeWazzup(group = {}) {
   return next;
 }
 
-export async function updateAdminSettings(patch) {
-  const parsed = parseSettings(await getSettings());
+/*
+ * Switching modules on / off checks their requirements against the saved
+ * state, so it reads fresh settings under an advisory lock: two
+ * administrators (or app instances) cannot each pass the check and together
+ * leave a module on without the one it needs.
+ */
+async function withModulesLock(fn) {
+  const client = await getPool().connect();
+  try {
+    await client.query(`SELECT pg_advisory_lock(hashtext('settings:modules'))`);
+    try {
+      return await fn();
+    } finally {
+      await client.query(`SELECT pg_advisory_unlock(hashtext('settings:modules'))`).catch(() => {});
+    }
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateAdminSettings(patch, { locked = false } = {}) {
+  if (!locked && patch?.modules && typeof patch.modules === 'object') return withModulesLock(() => updateAdminSettings(patch, { locked: true }));
+  const parsed = parseSettings(await getSettings({ fresh: true }));
   // Checked before anything is written, so a refused patch saves nothing.
   if (patch.integrations) assertSecretsStayWithEndpoint(parsed.integrations, patch.integrations);
+  // Requirements between modules (modules/dependencies.js): refused with 409, or
+  // the required modules are switched on too when the patch says alsoEnable.
+  let modulesPatch = null;
+  if (patch.modules && typeof patch.modules === 'object') {
+    const current = Object.fromEntries(Object.entries(parsed.modules).map(([id, state]) => [id, Boolean(state.enabled)]));
+    const integrations = Object.fromEntries(Object.entries(parsed.integrations || {}).map(([key, value]) => [key, Boolean(value?.enabled)]));
+    const plan = planModuleChanges(current, patch.modules, { integrations, core: MODULE_CATALOG.filter((module) => module.core).map((module) => module.id) });
+    modulesPatch = { ...patch.modules };
+    for (const id of plan.autoEnabled) modulesPatch[id] = { ...(modulesPatch[id] || {}), enabled: true };
+  }
 
   if (patch.appName != null) await setSetting('app_name', String(patch.appName).slice(0, 80));
   if (patch.appDescription != null) {
@@ -729,6 +769,8 @@ export async function updateAdminSettings(patch) {
             },
           }
         : parsed.appearance.icons || { style: 'colored', menu: {} },
+      defaultTheme: sanitizeDefaultTheme(patch.appearance.defaultTheme ?? parsed.appearance.defaultTheme),
+      themes: sanitizeThemePolicy(patch.appearance.themes ?? parsed.appearance.themes),
     };
     await setSetting('appearance', JSON.stringify(nextAppearance));
   }
@@ -742,8 +784,8 @@ export async function updateAdminSettings(patch) {
     // The editor server may have changed: read its discovery again on next use.
     if (patch.integrations.documents) (await import('./office/discovery.js')).forgetDiscovery();
   }
-  if (patch.modules) {
-    await setSetting('modules', JSON.stringify(sanitizeModules(parsed.modules, patch.modules)));
+  if (modulesPatch) {
+    await setSetting('modules', JSON.stringify(sanitizeModules(parsed.modules, modulesPatch)));
   }
   if (patch.auth) {
     await setSetting(

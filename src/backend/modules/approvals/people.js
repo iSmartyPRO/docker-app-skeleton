@@ -198,17 +198,23 @@ export async function groupsById(ids) {
 
 /** Labels for approver entries ({ kind, id|key }) → { kind, id, key, name, avatarUrl, members? }. */
 export async function describeApprovers(entries) {
-  const users = await usersById(entries.filter((e) => e.kind === 'user').map((e) => e.id ?? e.ref_id));
+  const users = await usersById([...entries.filter((e) => e.kind === 'user').map((e) => e.id ?? e.ref_id), ...entries.filter((e) => e.kind === 'manager' && e.resolved).map((e) => e.resolved)]);
   const roles = await rolesById(entries.filter((e) => e.kind === 'role').map((e) => e.id ?? e.ref_id));
   const groups = await groupsById(entries.filter((e) => e.kind === 'group').map((e) => e.id ?? e.ref_id));
   return entries.map((entry) => {
     const id = entry.id ?? entry.ref_id ?? null;
     if (entry.kind === 'user') {
       const user = users.get(id);
-      return { kind: 'user', id, name: user?.name || `#${id}`, avatarUrl: user?.avatarUrl || null, missing: !user };
+      return { kind: 'user', id, name: user?.name || `#${id}`, avatarUrl: user?.avatarUrl || null, missing: !user, ...(entry.via ? { via: entry.via } : {}) };
+    }
+    if (entry.kind === 'manager') {
+      // «Руководитель подразделения автора»: the person is known once the stage opens (or for a sample author).
+      const level = entry.level || 1;
+      const person = entry.resolved ? users.get(entry.resolved) : null;
+      return { kind: 'manager', level, name: person?.name || '', resolved: person ? { id: person.id, name: person.name, avatarUrl: person.avatarUrl } : null, unresolved: entry.resolved === null };
     }
     if (entry.kind === 'role') return { kind: 'role', id, name: roles.get(id)?.name || `#${id}`, roleKey: roles.get(id)?.key || null, missing: !roles.get(id) };
     if (entry.kind === 'group') return { kind: 'group', id, name: groups.get(id)?.name || `#${id}`, missing: !groups.get(id) };
-    return { kind: 'permission', key: entry.key ?? entry.ref_key, name: entry.key ?? entry.ref_key };
+    return { kind: 'permission', key: entry.key ?? entry.ref_key, name: entry.key ?? entry.ref_key, ...(entry.via ? { via: entry.via } : {}) };
   });
 }

@@ -16,8 +16,8 @@ const OLD_SETTINGS = {
   orgCodes: ['co', 'wh'],
   nameTemplate: '{prefix}{org}_{name}_{type}',
   groupsBase: '',
-  newGroupOu: 'OU=Groups,OU=CO,OU=Accounts,DC=whitehills,DC=kg',
-  subjectsBase: 'DC=whitehills,DC=kg',
+  newGroupOu: 'OU=Groups,OU=CO,OU=Accounts,DC=example,DC=com',
+  subjectsBase: 'DC=example,DC=com',
   driveMap: [{ letter: 'W', shareId: 2 }, { letter: 'x', shareId: 9 }, { letter: 'Q', shareId: 0 }],
   typeMap: { full: 'modify', read: 'read_execute' },
   protectedGroups: ['sg_*_root_*'],
@@ -107,7 +107,7 @@ test('old settings convert: enabled, project codes, template, letters → share 
   assert.deepEqual(access.projectAliases, { wh: 'co' });
   assert.equal(access.nameTemplate, '{prefix}{project}_{name}_{type}');
   assert.equal(access.newGroupOu, OLD_SETTINGS.newGroupOu);
-  assert.equal(access.subjectsBase, 'DC=whitehills,DC=kg');
+  assert.equal(access.subjectsBase, 'DC=example,DC=com');
   assert.deepEqual(access.typeMap, OLD_SETTINGS.typeMap);
   assert.equal(access.driveMap, undefined);
   assert.equal(access.orgCodes, undefined);

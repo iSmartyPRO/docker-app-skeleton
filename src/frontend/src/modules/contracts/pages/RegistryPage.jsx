@@ -53,7 +53,7 @@ export function ChipRail({ children, label, active }) {
   }, [active]);
   const scroll = (dir) => ref.current?.scrollBy({ left: dir * Math.max(160, ref.current.clientWidth * 0.6), behavior: 'smooth' });
   return (
-    <div className={`ctr-rail${edges.start ? ' has-start' : ''}${edges.end ? ' has-end' : ''}`}>
+    <div className={`ctr-rail${edges.start ? ' has-start' : ''}${edges.end ? ' has-end' : ''}`} data-tour="ctr.chips">
       {edges.start && <button type="button" className="ctr-rail__btn is-start" onClick={() => scroll(-1)} aria-label={t('contracts.registry.chipsScroll')} tabIndex={-1}><LeftOutlined /></button>}
       <div ref={ref} className="ctr-chips" role="tablist" aria-label={label} onScroll={update}>
         {children}
@@ -318,7 +318,7 @@ export default function RegistryPage({ onCreate }) {
         description={t('contracts.registry.subtitle')}
         actions={[
           { key: 'export', icon: <DownloadOutlined />, label: 'CSV', tooltip: t('contracts.registry.export'), href: contractsApi.exportUrl({ view, search, sort, order, lang: document.documentElement.lang }) },
-          me.canCreate && { key: 'create', primary: true, icon: <PlusOutlined />, label: t('contracts.create'), onClick: onCreate },
+          me.canCreate && { key: 'create', primary: true, icon: <PlusOutlined />, label: t('contracts.create'), onClick: onCreate, tour: 'ctr.create' },
         ]}
         search={{ value: query, onChange: setQuery, onSearch: (value) => setParam({ q: value.trim(), page: 1 }), placeholder: t('contracts.registry.search'), loading }}
       />
@@ -339,13 +339,13 @@ export default function RegistryPage({ onCreate }) {
           action={!search && view === 'all' && me.canCreate ? <Button type="primary" onClick={onCreate} icon={<PlusOutlined />}>{t('contracts.create')}</Button> : null}
         />
       ) : mobile ? (
-        <div className="ctr-mlist">
+        <div className="ctr-mlist" data-tour="ctr.list">
           {items.map((item) => (
             <MobileRow key={item.id} item={item} active={String(item.id) === String(id)} onOpen={() => open(item.id)} />
           ))}
         </div>
       ) : (
-        <div className="ctr-table-wrap">
+        <div className="ctr-table-wrap" data-tour="ctr.list">
           <Table
             rowKey="id"
             size="middle"

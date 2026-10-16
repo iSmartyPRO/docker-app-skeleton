@@ -10,6 +10,7 @@ import { contractsApi } from '../api';
 import { useContracts } from '../ContractsContext';
 import { typeLabel } from '../lib';
 import { UserSelect } from './bits';
+import ModuleHint from '../../../components/ModuleHint';
 
 const DRAFT_KEY = (userId) => `ctr_form_draft:${userId || 0}`;
 const readDraft = (userId) => {
@@ -239,6 +240,7 @@ export default function ContractForm({ open, contract, onClose }) {
               <Input maxLength={300} placeholder={t('contracts.form.counterpartyPh')} />
             </Form.Item>
           )}
+          <ModuleHint module="companies" what={t('platform.hintWhat.contractsCounterparty')} />
         </Form.Item>
         {modules.companies && companyMode === 'company' && (
           <Form.Item name="counterparty" hidden>

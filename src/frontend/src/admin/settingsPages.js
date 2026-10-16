@@ -41,6 +41,9 @@ export const SETTINGS_PAGES = {
   contracts: lazy(() => import('../modules/contracts/ContractsSettings')),
   warehouse: lazy(() => import('../modules/warehouse/WarehouseSettings')),
   legalEntities: lazy(() => import('../pages/admin/settings/LegalEntities')),
+  org: lazy(() => import('../modules/org/OrgSettings')),
+  employees: lazy(() => import('../modules/employees/EmployeesSettings')),
+  directory: lazy(() => import('../modules/directory/DirectorySettings')),
   assistant: lazy(() => import('../modules/assistant/AssistantSettings')),
   calendar: lazy(() => import('../modules/calendar/CalendarSettings')),
 };

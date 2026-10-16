@@ -199,6 +199,7 @@ export default function FilterBar({ value, onChange, pipeline }) {
       <Popover open={open} onOpenChange={setOpen} trigger="click" placement="bottomLeft" content={content} overlayClassName="crm-filter-pop" arrow={false} destroyOnHidden>
         <div
           className={`crm-filterbar${open ? ' is-open' : ''}`}
+          data-tour="crm.filters"
           onClick={(event) => {
             if (event.target.tagName !== 'INPUT') setOpen(true);
           }}

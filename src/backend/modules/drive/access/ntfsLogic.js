@@ -78,7 +78,7 @@ export const confirmMatches = (folder, typed) => {
 };
 
 /**
- * How a folder is shown: its share's first path prefix + the path ("G:\ПРБ-2\_DocArch\10-BUH",
+ * How a folder is shown: its share's first path prefix + the path ("G:\ОБЪЕКТ-2\_DocArch\10-BUH",
  * "W:\06-HR"), else "\\host\share\path". `letter` (a bare drive letter) is the older form of `prefix`.
  */
 export function folderDisplay({ prefix, letter, host, share, rootPath = '', path = '' }) {

@@ -39,6 +39,12 @@
   height: 30px;
 }
 
+.kb-side__group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .kb-side__label {
   margin: 6px 6px -4px;
   font-size: 11px;

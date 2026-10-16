@@ -7,6 +7,7 @@ import { registerJob } from './scheduler.js';
 import { authAvailability, getSettings, invalidateSettings, localeFor, parseSettings, regionalFor } from './settings.js';
 import { isValidTimeZone, resolveRegional, zonedParts } from './datetime.js';
 import { eventInfo, NOTIFICATION_EVENTS, NOTIFICATION_GROUPS } from './notificationCatalog.js';
+import { demoSeedScope } from './demoScope.js';
 
 const KNOWN_KINDS = new Set(NOTIFICATION_EVENTS.map((event) => event.kind));
 
@@ -400,8 +401,15 @@ async function deliver(user, message, ready, appName, { force = false, portal = 
  * @param {string[]} [input.channels] only these external channels (still within each person's preferences)
  */
 export async function notify({ userIds, kind, module = null, link = null, actorId = null, render, external = true, channels = null }) {
-  const ids = [...new Set((userIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0 && id !== Number(actorId)))];
+  let ids = [...new Set((userIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0 && id !== Number(actorId)))];
   if (!ids.length) return 0;
+  // While demo data is being seeded only demo people hear about it, in the app only (services/demoScope.js).
+  if (demoSeedScope()) {
+    const { rows: demoPeople } = await query(`SELECT record_key FROM demo_records WHERE module = '_users' AND table_name = 'users' AND record_key = ANY($1::text[])`, [ids.map(String)]);
+    ids = demoPeople.map((row) => Number(row.record_key));
+    external = false;
+    if (!ids.length) return 0;
+  }
   const { rows: users } = await query(
     `SELECT ${DELIVERY_COLUMNS},
             (SELECT COUNT(*) FROM push_subscriptions p WHERE p.user_id = users.id)::int AS push_devices

@@ -11,7 +11,7 @@ export function Legend({ units, filter, onChange, layer = 'sales', caps }) {
   const counts = useMemo(() => countByStatus(units), [units]);
   if (layer === 'build') {
     return (
-      <div className="mp-legend is-build" aria-label={t('mp.layer.build')}>
+      <div className="mp-legend is-build" aria-label={t('mp.layer.build')} data-tour="mp.legend">
         <span className="mp-legend__scale" style={{ background: `linear-gradient(90deg, ${readinessColor(0)}, ${readinessColor(50)}, ${readinessColor(100)})` }} />
         <span className="mp-legend__ends"><span>0%</span><span>50%</span><span>100%</span></span>
       </div>
@@ -21,7 +21,7 @@ export function Legend({ units, filter, onChange, layer = 'sales', caps }) {
     const used = new Map();
     for (const node of units) if (node.type) used.set(node.type.category, (used.get(node.type.category) || 0) + 1);
     return (
-      <div className="mp-legend">
+      <div className="mp-legend" data-tour="mp.legend">
         {[...used].map(([category, n]) => (
           <span key={category} className="mp-legend__chip is-static" style={{ '--c': types.find((type) => type.category === category)?.color }}>
             <span className="mp-dot" />
@@ -37,7 +37,7 @@ export function Legend({ units, filter, onChange, layer = 'sales', caps }) {
     onChange({ ...filter, statuses: has ? filter.statuses.filter((item) => item !== status) : [...filter.statuses, status] });
   };
   return (
-    <div className="mp-legend" role="group" aria-label={t('mp.legend')}>
+    <div className="mp-legend" role="group" aria-label={t('mp.legend')} data-tour="mp.legend">
       {STATUSES.filter((status) => counts[status] || filter.statuses.includes(status)).map((status) => (
         <button
           key={status}

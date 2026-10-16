@@ -60,14 +60,16 @@ function useWidthMode() {
 
 /** A button that loses its text in the compact modes (the text moves into a tooltip). */
 function ActionButton({ action, iconOnly, block }) {
-  const { key, label, icon, onClick, href, primary, danger, loading, disabled, tooltip, menu } = action;
+  const { key, label, icon, onClick, href, primary, danger, loading, disabled, tooltip, menu, tour } = action;
   const showText = !iconOnly || !icon;
   const common = { type: primary ? 'primary' : 'default', danger, loading, disabled };
+  // `tour`: data-tour anchor of a guided tour step (docs/extending.md → «Guided tours»).
+  const anchor = tour ? { 'data-tour': tour } : {};
   let node;
   if (menu?.length) {
     node = (
       <Space.Compact className={`mh-split${block ? ' is-block' : ''}`}>
-        <Button {...common} icon={icon} onClick={onClick} href={href} aria-label={showText ? undefined : label}>
+        <Button {...common} {...anchor} icon={icon} onClick={onClick} href={href} aria-label={showText ? undefined : label}>
           {showText && <span className="mh-btn__text">{label}</span>}
         </Button>
         <Dropdown trigger={['click']} placement="bottomRight" menu={{ items: menu }}>
@@ -77,7 +79,7 @@ function ActionButton({ action, iconOnly, block }) {
     );
   } else {
     node = (
-      <Button {...common} icon={icon} onClick={onClick} href={href} aria-label={showText ? undefined : label} block={block}>
+      <Button {...common} {...anchor} icon={icon} onClick={onClick} href={href} aria-label={showText ? undefined : label} block={block}>
         {showText && <span className="mh-btn__text">{label}</span>}
       </Button>
     );

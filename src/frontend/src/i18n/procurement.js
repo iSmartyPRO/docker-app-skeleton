@@ -51,7 +51,7 @@ export const procurementEn = {
     add: 'Add a legal entity',
     edit: 'Legal entity',
     name: 'Full name',
-    namePlaceholder: 'LLC «White Hills»',
+    namePlaceholder: 'LLC «Example»',
     nameRequired: 'Enter the name',
     shortName: 'Short name',
     taxId: 'Tax ID',

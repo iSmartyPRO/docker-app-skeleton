@@ -46,8 +46,8 @@ function Sidebar({ onNavigate }) {
   const location = useLocation();
   const projectId = currentProjectId(location.pathname) || readStore(userKey(user, 'project'), null);
   const project = projects.find((item) => item.id === Number(projectId)) || projects[0] || null;
-  const link = (to, icon, label, extra) => (
-    <NavLink to={to} className="mod-nav__link" onClick={onNavigate}>
+  const link = (to, icon, label, extra, tour) => (
+    <NavLink to={to} className="mod-nav__link" onClick={onNavigate} data-tour={tour}>
       <MenuIcon name={icon} variant="mono" />
       <span className="mod-nav__text">{label}</span>
       {extra}
@@ -66,7 +66,7 @@ function Sidebar({ onNavigate }) {
           </div>
           <nav className="mod-nav">
             {PROJECT_VIEWS.filter((view) => (!view.cap || can(project.caps, view.cap)) && (!view.configure || project.canConfigure)).map((view) => (
-              <NavLink key={view.key} to={`/app/masterplan/p/${project.id}/${view.key}`} className="mod-nav__link" onClick={onNavigate}>
+              <NavLink key={view.key} to={`/app/masterplan/p/${project.id}/${view.key}`} className="mod-nav__link" onClick={onNavigate} data-tour={`mp.nav.${view.key}`}>
                 <MenuIcon name={view.icon} variant="mono" />
                 <span className="mod-nav__text">{t(`mp.nav.${view.key}`)}</span>
               </NavLink>
@@ -78,7 +78,7 @@ function Sidebar({ onNavigate }) {
         <span>{t('mp.nav.work')}</span>
       </div>
       <nav className="mod-nav">
-        {link('/app/masterplan/bookings', 'clock', t('mp.nav.bookings'))}
+        {link('/app/masterplan/bookings', 'clock', t('mp.nav.bookings'), null, 'mp.nav.bookings')}
         {link('/app/masterplan/projects', 'project', t('mp.nav.projects'), projects.length > 0 && <span className="mod-nav__count">{projects.length}</span>)}
       </nav>
       {projects.length > 1 && (

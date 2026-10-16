@@ -359,6 +359,16 @@ const EVENT_KINDS = new Set([
   'folder_group_changed',
   'folder_access_password',
   'folder_ntfs_changed',
+  // Demo data filled or removed (services/demo.js).
+  'demo_data',
+  // Org structure: units moved or deleted (modules/org).
+  'org_structure',
+  // Employees: a portal account created, linked, unlinked or blocked from an employee card (modules/employees).
+  'employee_account',
+  // AD directory (modules/directory): account changes, password resets, the acting admin's domain password.
+  'ad_changed',
+  'ad_password_reset',
+  'ad_credential',
 ]);
 
 /** Kinds recordSecurityEvent accepts (anything else is dropped). */

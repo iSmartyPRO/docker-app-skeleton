@@ -123,7 +123,7 @@ async function engineCall(actor, fn) {
   }
 }
 
-/** The shares with their path prefixes ("W:", "G:\\ПРБ-2\\_DocArch"); the first one is how folders are shown. */
+/** The shares with their path prefixes ("W:", "G:\\ОБЪЕКТ-2\\_DocArch"); the first one is how folders are shown. */
 async function sharesWithPrefixes() {
   const rows = await deps.loadShares();
   return rows.map((row) => ({ ...row, prefixes: row.path_prefixes || [], prefix: (row.path_prefixes || [])[0] || null }));

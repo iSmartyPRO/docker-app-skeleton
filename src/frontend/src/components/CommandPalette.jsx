@@ -7,6 +7,8 @@ import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
 import { MenuIcon } from './icons/menuIcons';
 import { matchesQuery } from '../lib/search';
+import { FEATURE_MODULES, MODULE_REGISTRY } from '../modules/registry';
+import { hasAdminDocs } from '../modules/manifest';
 
 function matches(entry, query) {
   return matchesQuery(`${entry.title} ${entry.subtitle || ''} ${entry.keywords || ''}`, query);
@@ -58,6 +60,20 @@ export default function CommandPalette({ open, onClose }) {
       icon: <MenuIcon slot={item.key} appearance={appearance} />,
       run: () => navigate(item.path),
     }));
+    // «About the module» pages (admin docs), for people who can open settings.
+    const docs = visibleSettingsItems(can).some((item) => item.id === 'modules')
+      ? [...MODULE_REGISTRY, ...FEATURE_MODULES]
+          .filter((module) => hasAdminDocs(module.id))
+          .map((module) => ({
+            id: `docs:${module.id}`,
+            section: t('platform.docs.title'),
+            title: `${t(module.labelKey)} · ${t('platform.docs.title')}`,
+            subtitle: t(module.descKey),
+            keywords: `${module.id} docs documentation guide about документация справка о модуле`,
+            icon: <MenuIcon name={module.icon} appearance={appearance} />,
+            run: () => navigate(`/admin/modules/${module.id}/docs`),
+          }))
+      : [];
     const actions = [
       {
         id: 'action:theme',
@@ -76,7 +92,7 @@ export default function CommandPalette({ open, onClose }) {
         run: () => navigate('/account'),
       },
     ];
-    return [...pages, ...settings, ...actions];
+    return [...pages, ...settings, ...docs, ...actions];
   }, [t, appearance, navigate, mode, setMode, can, canAny]);
 
   const visible = useMemo(() => entries.filter((entry) => matches(entry, query)), [entries, query]);

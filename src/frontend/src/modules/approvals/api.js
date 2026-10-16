@@ -26,7 +26,7 @@ export const approvalsApi = {
   route: (type) => api.get(`${base}/routes/${enc(type)}`),
   saveRoute: (type, route) => api.put(`${base}/routes/${enc(type)}`, route),
   resetRoute: (type) => api.delete(`${base}/routes/${enc(type)}`),
-  preview: (type, values, draft) => api.post(`${base}/routes/${enc(type)}/preview`, { values, draft }),
+  preview: (type, values, draft, authorId = null) => api.post(`${base}/routes/${enc(type)}/preview`, { values, draft, authorId }),
   fieldOptions: (type, field) => api.get(`${base}/routes/${enc(type)}/fields/${enc(field)}/options`),
   saveSettings: (settings) => api.put(`${base}/settings`, settings),
 

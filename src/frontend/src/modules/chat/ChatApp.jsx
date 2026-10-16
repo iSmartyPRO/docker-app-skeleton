@@ -13,6 +13,7 @@ import Conversation, { RoomAvatar } from './components/Conversation';
 import { systemView } from './system';
 import { Hint } from '../../help/Hint';
 import { fmtTime, inZone, intlOptions, nowInZone } from '../../lib/datetime';
+import TourButton from '../../tour/TourButton';
 
 function lastText(room, t, locale) {
   const last = room.lastMessage;
@@ -166,17 +167,18 @@ function RoomList({ rooms, activeId, filter, setFilter, q, setQ, onNew, allowNew
     });
   }, [rooms, filter, q]);
   return (
-    <aside className="cl">
+    <aside className="cl" data-tour="chat.list">
       <div className="cl__head">
         <h1>{t('apps.chat.name')}</h1>
+        <TourButton module="chat" iconOnly className="cl__tour" />
         {allowNew && (
-          <Button type="primary" shape="circle" onClick={onNew} aria-label={t('chat.newChat')}>
+          <Button type="primary" shape="circle" onClick={onNew} aria-label={t('chat.newChat')} data-tour="chat.new">
             ✎
           </Button>
         )}
       </div>
-      <Input.Search className="cl__search" allowClear placeholder={t('chat.searchChats')} value={q} onChange={(event) => setQ(event.target.value)} />
-      <div className="cl__filters">
+      <Input.Search className="cl__search" data-tour="chat.search" allowClear placeholder={t('chat.searchChats')} value={q} onChange={(event) => setQ(event.target.value)} />
+      <div className="cl__filters" data-tour="chat.filters">
         {['all', 'unread', 'direct', 'group', 'entity'].map((key) => (
           <button key={key} type="button" className={filter === key ? 'is-active' : ''} onClick={() => setFilter(key)}>
             {t(`chat.filter.${key}`)}

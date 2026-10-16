@@ -27,7 +27,7 @@ export function shareShape(row) {
     uncDisplay: row.unc_display || '',
     groupIds: row.group_ids || [],
     allowLinks: row.allow_links,
-    // «Доступ»: how this folder's path is written in AD group descriptions ("W:", "G:\\ПРБ-2\\_DocArch").
+    // «Доступ»: how this folder's path is written in AD group descriptions ("W:", "G:\\ОБЪЕКТ-2\\_DocArch").
     pathPrefixes: row.path_prefixes || [],
     sort: row.sort,
   };

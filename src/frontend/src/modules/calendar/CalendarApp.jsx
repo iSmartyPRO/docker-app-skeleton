@@ -500,7 +500,7 @@ function Shell() {
         <span style={{ flex: 1 }} />
         <HelpButton id="calendar" />
       </div>
-      <div className="cal-create">
+      <div className="cal-create" data-tour="cal.create">
         <Button
           type="primary"
           size="large"
@@ -526,7 +526,7 @@ function Shell() {
           </Button>
         )}
       </div>
-      <div className="cal-mini">
+      <div className="cal-mini" data-tour="cal.mini">
         <MiniCalendar
           fullscreen={false}
           headerRender={({ value, onChange }) => (
@@ -547,7 +547,7 @@ function Shell() {
           }}
         />
       </div>
-      <div className="mod-side__label">
+      <div className="mod-side__label" data-tour="cal.calendars">
         <span>{t('calendar.myCalendars')}</span>
         {config.canCreateCalendars && (
           <button type="button" onClick={() => setCalendarDialog({})} aria-label={t('calendar.newCalendar')}>+</button>
@@ -564,7 +564,7 @@ function Shell() {
           menu={calendarMenu(calendar)}
         />
       ))}
-      <div className="mod-side__label"><span>{t('calendar.more')}</span></div>
+      <div className="mod-side__label" data-tour="cal.more"><span>{t('calendar.more')}</span></div>
       <CalendarToggle id="invited" color="#8B5CF6" name={t('calendar.invitations')} hidden={hidden} onToggle={toggleHidden} />
       {config.showTasks && prefs.showTasks !== false && <CalendarToggle id="tasks" color="#0CA678" name={t(`calendarTasks.toggle.${prefs.taskScope || 'participant'}`)} hidden={hidden} onToggle={toggleHidden} />}
       {config.showTasks && prefs.showTasks !== false && <UndatedTasks version={undatedVersion} onOpen={(task) => navigate(`/app/tasks/${task.ref}`)} />}
@@ -606,7 +606,7 @@ function Shell() {
       </Drawer>
       <main className="mod-shell__main cal-main">
         <div className="cal-toolbar-wrap">
-          <div className="cal-toolbar">
+          <div className="cal-toolbar" data-tour="cal.toolbar">
             <Button className="mod-shell__menu" onClick={() => setDrawer(true)} icon={<MenuOutlined />} aria-label={t('common.menu')} />
             <Button onClick={() => go('today')}>{t('calendar.today')}</Button>
             <div className="cal-toolbar__nav">
@@ -629,10 +629,10 @@ function Shell() {
               aria-label={t('calendar.viewLabel')}
               options={Object.entries(VIEWS).map(([key, value]) => ({ value, label: t(`calendar.view.${key}`) }))}
             />
-            <Button className="cal-gear" icon={<SettingOutlined />} onClick={() => setPrefsOpen(true)} aria-label={t('calendarPrefs.title')} title={t('calendarPrefs.title')} />
+            <Button className="cal-gear" data-tour="cal.prefs" icon={<SettingOutlined />} onClick={() => setPrefsOpen(true)} aria-label={t('calendarPrefs.title')} title={t('calendarPrefs.title')} />
           </div>
         </div>
-        <div className={`cal-view is-${view}`}>
+        <div className={`cal-view is-${view}`} data-tour="cal.grid">
           <FullCalendar
             ref={calendarRef}
             plugins={plugins}

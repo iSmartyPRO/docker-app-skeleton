@@ -5,6 +5,7 @@ Approvals are a **core service**: always on, used by modules such as Procurement
 - [Concepts](#concepts)
 - [Architecture](#architecture)
 - [Module API](#module-api)
+- [Manager of the author](#manager-of-the-author)
 - [Inbox providers](#inbox-providers)
 - [Frontend components](#frontend-components)
 - [Data model](#data-model)
@@ -12,6 +13,7 @@ Approvals are a **core service**: always on, used by modules such as Procurement
 - [SLA: deadlines, reminders, escalation](#sla-deadlines-reminders-escalation)
 - [Notifications and webhooks](#notifications-and-webhooks)
 - [HTTP API](#http-api)
+- [Demo data and tour](#demo-data-and-tour)
 - [Tests](#tests)
 
 ## Concepts
@@ -20,11 +22,11 @@ Approvals are a **core service**: always on, used by modules such as Procurement
 |------|---------|
 | **Route** | One per document type: ordered **stages**, `restartFrom` (`first` / `current`) and escalation people. Edited in the route builder. |
 | **Stage** | Name, approvers, mode `all` or `any`, and **conditions** on document fields. A stage whose conditions fail is skipped. |
-| **Approver (seat)** | A person, a role or a group (`permission` is used internally for defaults, e.g. "any `procurement.admin`"). A role or group is **one seat**: any of its members decides for it. `all` = every seat must approve; `any` = the first approval closes the stage. |
+| **Approver (seat)** | A person, a role, a group or the author's manager (`permission` is used internally for defaults, e.g. "any `procurement.admin`"). A role or group is **one seat**: any of its members decides for it. `all` = every seat must approve; `any` = the first approval closes the stage. |
 | **Process** | The route applied to one document (`type` + `docId`). A new start after a finish is a new **round** of the same row. |
 | **Substitute** | "From … to … X decides my approvals" (calendar days, portal zone). The substitute sees and decides the person's seats; history records `on behalf of`. |
 
-"Author's manager" is **not supported**: the portal has no manager relation between people. Use a role or group per department instead (noted for v2).
+**The author's manager** is an approver kind of its own: `{ kind: 'manager', level: 1 }` — «Руководитель подразделения автора» from the [org structure](org-structure.md) — see [Manager of the author](#manager-of-the-author).
 
 Statuses passed to modules: `pending` (на согласовании) · `question` (нужен ответ) · `approved` · `rejected` · `returned` (на доработке) · `withdrawn`.
 
@@ -145,6 +147,18 @@ Process view (`getProcess`, `GET /process/:type/:docId`):
   my: { isAuthor, canDecide, seatIds, canAnswer, canWithdraw, canRestart, canStart, canManage } }
 ```
 
+## Manager of the author
+
+A stage approver `{ kind: 'manager', level: 1 }` («Руководитель подразделения автора») or `level: 2` («Вышестоящий руководитель», up to 3) is resolved through the org structure (`managerOf(authorId, { level })`, [rules](org-structure.md#managerof-rules)) **when the stage opens**, and becomes a person seat (`approval_seats.kind = 'user'`, `via = 'manager:<level>'`). The route keeps the role, so moving people between units changes who approves the next documents; running processes keep their seats.
+
+- When nobody fits (no unit, no head up to the root, blocked heads), the stage goes to the route's **escalation people**, else to holders of the type's `adminPermission`; these seats carry `via = 'fallback'` and the history gets `manager_missing` (`data.levels`). The stage is never left without approvers.
+- A manager also named in person on the same stage is one seat.
+- `escalateTo` cannot hold `manager` (escalation goes to fixed people).
+- The process view names the person: decided and current seats show `via`; stages not reached yet show `{ kind: 'manager', level, resolved: { id, name } | null }` as it would be today.
+- Route builder: the approver picker has the group «Оргструктура»; the preview takes a sample **author** (`POST /routes/:type/preview { values, draft, authorId }`) and answers the resolved people and `managerMissing: [levels]`.
+
+Tests: `test/org.test.js` (cleaning, seat planning), `test/org.db.test.js` (`ORG_DB_TEST=1`: the head approves, the head's own document goes one level up, fallback with a history note, escalation people as the fallback, preview).
+
 ## Inbox providers
 
 `src/backend/services/inbox.js` collects «Ждёт меня» from any module:
@@ -205,7 +219,7 @@ const { process, setProcess } = useApprovalProcess('procurement.request', id);
 |-------|---------|
 | `approval_routes` | `type` (unique), `name`, `stages` JSONB `[{ id, name, mode, approvers: [{kind, id\|key}], conditions: [{field, op, value, currency?}] }]`, `restart_from`, `escalate_to` JSONB, `updated_by` |
 | `approval_processes` | one row per `(type, doc_id)`: `round`, `status`, `stages` (snapshot of the planned stages — editing a route never changes running processes), `skipped`, `restart_from`, `escalate_to`, `current_stage`, `urgency`, `author_id`, cached summary (`title`, `number`, `amount`, `currency`, `url`, `doc_due_at`), `started_at`, `stage_started_at`, `due_at`, `remind_at`, `reminded_at`, `escalated_at`, `paused_at`, `question_to`, `question_by`, `finished_at` |
-| `approval_seats` | the approvers of each activated stage of each round: `kind`, `ref_id` / `ref_key`, `delegated_to/by`, `decision`, `decided_by`, `on_behalf_of`, `decided_at`, `comment`, `activated_at` (response time = `decided_at − activated_at`) |
+| `approval_seats` | the approvers of each activated stage of each round: `kind`, `ref_id` / `ref_key`, `via` (`manager:<level>` / `fallback`), `delegated_to/by`, `decision`, `decided_by`, `on_behalf_of`, `decided_at`, `comment`, `activated_at` (response time = `decided_at − activated_at`) |
 | `approval_events` | history: `started`, `approve`, `reject`, `return`, `question`, `answer`, `delegate`, `withdraw`, `restart`, `stage_done`, `approved`, `reminder`, `escalated` |
 | `approval_substitutes` | `user_id`, `substitute_id`, `starts_on`, `ends_on` (DATE, inclusive), `note`, `created_by` |
 
@@ -263,6 +277,11 @@ Webhook events (area `approvals`, `approval.*`): `approval.started`, `approval.d
 | GET | `/routes/:type/fields/:field/options` | Options of a field |
 | PUT | `/settings` | Urgency levels, `reminderPercent`, `soonHours`, `escalation` (`approvals.admin`) |
 | GET / POST / DELETE | `/substitutes[/:id]` | `?all=1` for administrators |
+
+## Demo data and tour
+
+- Approvals has no demo of its own: the demos of Procurement, Contracts and Warehouse start real processes, and their requests, contracts and write-offs wait in the administrator's «Ждёт меня». A module's demo adds a route for its type only when none is saved (`modules/shared/demoApprovals.js`: `ensureDemoRoute`, `startDemoApproval`, `decideDemo` — demo colleagues decide as themselves, «by permission» stages as the seeding administrator); the purge removes the processes and the demo routes nobody edited.
+- Tour `approvals` (`modules/approvals/tour.js`, texts `tour.approvals.*`): the header button, overdue / today, a document row, deciding in the list, «Мои», the substitute. Anchors `header.inbox`, `apr.kpis`, `apr.row`, `apr.actions`, `apr.tab.mine`, `apr.substitute`.
 
 ## Tests
 

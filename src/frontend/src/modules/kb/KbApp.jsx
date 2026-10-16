@@ -44,20 +44,24 @@ function Sidebar({ onNavigate }) {
         <MenuIcon name="graduation" />
         <span>{t('apps.kb.name')}</span>
       </Link>
-      <Input.Search
-        placeholder={t('kb.searchPlaceholder')}
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        onSearch={(value) => {
-          if (value.trim().length >= 2) {
-            navigate(`/app/kb/search?q=${encodeURIComponent(value.trim())}`);
-            onNavigate?.();
-          }
-        }}
-        allowClear
-      />
-      <div className="kb-side__label">{t('kb.folders')}</div>
-      <FolderTree folders={tree} config={config} activePath={activePath} onNavigate={onNavigate} />
+      <div data-tour="kb.search">
+        <Input.Search
+          placeholder={t('kb.searchPlaceholder')}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onSearch={(value) => {
+            if (value.trim().length >= 2) {
+              navigate(`/app/kb/search?q=${encodeURIComponent(value.trim())}`);
+              onNavigate?.();
+            }
+          }}
+          allowClear
+        />
+      </div>
+      <div className="kb-side__group" data-tour="kb.tree">
+        <div className="kb-side__label">{t('kb.folders')}</div>
+        <FolderTree folders={tree} config={config} activePath={activePath} onNavigate={onNavigate} />
+      </div>
     </div>
   );
 }

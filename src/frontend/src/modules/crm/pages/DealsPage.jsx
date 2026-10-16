@@ -133,7 +133,7 @@ export default function DealsPage() {
         <CounterChips counters={counters} value={filter.activity} onChange={(activity) => setFilterState({ ...filterState, filter: { ...filter, activity } })} />
       </div>
 
-      <div className="crm-view">
+      <div className="crm-view" data-tour="crm.board">
         {view === 'kanban' && <KanbanView {...shared} />}
         {view === 'list' && <ListView {...shared} />}
         {view === 'activities' && <ActivitiesView {...shared} />}

@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import { App, Button, Checkbox, Dropdown, Skeleton, Switch, Tooltip } from 'antd';
 import { DownOutlined, SendOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/ui/PageHeader';
+import TourButton from '../../tour/TourButton';
 import { IconBell, IconMail, IconMattermost, IconTelegram, IconWhatsapp } from '../../components/icons/AdminIcons';
 import { MenuIcon } from '../../components/icons/menuIcons';
 import { moduleById } from '../../modules/registry';
@@ -250,7 +251,7 @@ export default function AccountNotifications() {
 
   return (
     <div className="narrow-page np">
-      <PageHeader title={t('notifications.prefsTitle')} description={t('notifyPrefs.lead')} />
+      <PageHeader title={t('notifications.prefsTitle')} description={t('notifyPrefs.lead')} extra={<TourButton module="notifications" />} />
 
       {paused && (
         <div className="np-banner">
@@ -261,7 +262,7 @@ export default function AccountNotifications() {
         </div>
       )}
 
-      <section className="np-card">
+      <section className="np-card" data-tour="np.channels">
         <header className="np-card__head">
           <div>
             <h3>
@@ -270,7 +271,7 @@ export default function AccountNotifications() {
             </h3>
             <p>{t('notifyPrefs.whereLead')}</p>
           </div>
-          <Button type="primary" ghost loading={testing} onClick={runTest} icon={<SendOutlined />}>
+          <Button type="primary" ghost loading={testing} onClick={runTest} icon={<SendOutlined />} data-tour="np.test">
             {t('notifyPrefs.test')}
           </Button>
         </header>
@@ -305,7 +306,7 @@ export default function AccountNotifications() {
         {test && <p className="np-test-note">{t('notifyPrefs.testNote')}</p>}
       </section>
 
-      <section className="np-card">
+      <section className="np-card" data-tour="np.quiet">
         <header className="np-card__head">
           <div>
             <h3>
@@ -348,7 +349,7 @@ export default function AccountNotifications() {
         </div>
       </section>
 
-      <section className="np-card">
+      <section className="np-card" data-tour="np.events">
         <header className="np-card__head">
           <div>
             <h3>
@@ -421,7 +422,7 @@ export default function AccountNotifications() {
         <p className="np-muted np-matrix__note">{t('notifyPrefs.matrixNote')}</p>
       </section>
 
-      <section className="np-card">
+      <section className="np-card" data-tour="np.subs">
         <header className="np-card__head">
           <div>
             <h3>
@@ -456,7 +457,7 @@ export default function AccountNotifications() {
         )}
       </section>
 
-      <section className="np-card">
+      <section className="np-card" data-tour="np.history">
         <header className="np-card__head">
           <div>
             <h3>{t('notifyPrefs.historyTitle')}</h3>

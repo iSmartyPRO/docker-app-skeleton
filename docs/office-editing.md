@@ -73,7 +73,7 @@ Recent Collabora versions allow framing by trusted WOPI hosts. Otherwise add the
 
 The portal's own CSP adds the configured Collabora origin to `frame-src` and `form-action`. The app sends it to nginx in `X-Portal-Frame-Src`.
 
-**WhiteHills production:** Collabora runs in the Nextcloud stack (`/dockers/cloud`, container `cloud_collabora`, public `https://collabora.whitehills.kg`). Its `.env` has `COLLABORA_ALIASGROUP2=https://portal.whitehills.kg:443` and `COLLABORA_WOPI_HOST2=portal.whitehills.kg`, wired in `docker-compose.yml` as `aliasgroup2` and `storage.wopi.host[1]`.
+Deployment-specific values (which Collabora host, aliases, compose wiring) are not part of the product documentation: keep them in your deployment notes — see [deployments/README.md](deployments/README.md).
 
 ## Code map
 

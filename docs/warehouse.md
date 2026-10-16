@@ -19,6 +19,7 @@ It is not accounting: it keeps quantities, places, responsible people and cost b
 - [HTTP API](#http-api)
 - [API for the mobile / inventory stage](#api-for-the-mobile--inventory-stage)
 - [Code map](#code-map)
+- [Demo data and tour](#demo-data-and-tour)
 - [Tests](#tests)
 - [Limits and next steps](#limits-and-next-steps)
 
@@ -311,6 +312,11 @@ src/frontend/src/i18n/warehouse.js, i18n/warehouseMobile.js (whm.*), help/conten
 ```
 
 Shared UI used: `components/ui/BarcodeScanner.jsx` (camera scanner, `useScannerInput` for wedge scanners, `ScanButton`) and `components/ui/Labels.jsx` (`PrintLabelsDialog`) with `lib/labels.js`.
+
+## Demo data and tour
+
+- `modules/warehouse/demo.js` (after Procurement, Masterplan, Counterparties, Org, Employees): «Демо: центральный склад» with zones and racks and «Демо: склад объекта «Северный квартал»», 30 items in seven categories (by quantity, by batch with expiry dates, serial tools `DEMO-INV-001…`), posted opening balances, a receipt from the supplier, an issue of tools to the foreman, a requisition waiting for the storekeeper, a transfer in transit, a write-off above the threshold in approval, a reserve for the demo building, three items below the minimum, a tool due for service and a site inventory half counted. Everything goes through the module's documents and posting. The journal is append-only: the purge removes the demo documents' movements in one transaction with `wh.purge` on, never real ones; an item or a warehouse real documents use is kept.
+- Tour `warehouse` (`modules/warehouse/tour.js`, texts `tour.warehouse.*`): stock chips, search and grouping, «Создать» documents, the document journal, tools, inventory, the mobile mode. Anchors `wh.chips`, `wh.toolbar`, `wh.create`, `wh.nav.documents`, `wh.nav.tools`, `wh.nav.inventory`, `wh.nav.mobile`.
 
 ## Tests
 

@@ -22,6 +22,7 @@ import '../files/files.css';
 import '../drive/drive.css';
 import '../resources/resources.css';
 import './dashboard.css';
+import TourButton from '../../tour/TourButton';
 
 const SAVE_DELAY = 600;
 // Others keep their places while one is dragged; the grid itself reflows.
@@ -300,8 +301,8 @@ function Dashboard() {
   return (
     <div className={`dash${editing ? ' is-editing' : ''}`}>
       <header className="dash-head">
-        <div className="dash-head__title">
-          <h1>{title}</h1>
+        <div className="dash-head__title" data-tour="dashboard.title">
+          <h1>{title}<TourButton module="dashboard" iconOnly className="dash-head__tour" /></h1>
           <p>{cap(new Date().toLocaleDateString(localeTag(locale), intlOptions({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })))}</p>
         </div>
         {canEdit && (
@@ -329,10 +330,10 @@ function Dashboard() {
               </>
             ) : (
               <>
-                <Button className="mod-act" onClick={() => setGallery(true)} icon={<PlusOutlined />} aria-label={t('dashboard.addWidget')} title={t('dashboard.addWidget')}>
+                <Button className="mod-act" onClick={() => setGallery(true)} icon={<PlusOutlined />} aria-label={t('dashboard.addWidget')} title={t('dashboard.addWidget')} data-tour="dashboard.add">
                   <span>{t('dashboard.addWidget')}</span>
                 </Button>
-                <Button type="primary" className="dash-act-main" onClick={() => setEditing(true)} icon={<EditOutlined />} aria-label={t('dashboard.customize')} title={t('dashboard.customize')}>
+                <Button type="primary" className="dash-act-main" data-tour="dashboard.customize" onClick={() => setEditing(true)} icon={<EditOutlined />} aria-label={t('dashboard.customize')} title={t('dashboard.customize')}>
                   <span>{t('dashboard.customize')}</span>
                 </Button>
               </>
@@ -368,7 +369,7 @@ function Dashboard() {
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={({ active: item }) => setActiveId(item.id)} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragEnd}>
           <SortableContext items={widgets.map((widget) => widget.id)} strategy={keepInPlace}>
-            <div className={`dash-grid${cols === 1 ? ' is-single' : ''}`} ref={attachGrid} style={{ '--cols': cols }}>
+            <div className={`dash-grid${cols === 1 ? ' is-single' : ''}`} ref={attachGrid} style={{ '--cols': cols }} data-tour="dashboard.grid">
               {widgets.map((widget) => (
                 <GridItem
                   key={widget.id}

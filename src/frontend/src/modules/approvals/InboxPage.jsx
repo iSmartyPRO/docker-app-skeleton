@@ -13,6 +13,7 @@ import { MODULE_LOOK, formatMoney, groupItems, tOr, tr, useApprovalsMeta } from 
 import { DueBadge, StatusPill, UrgencyTag } from './components/bits';
 import QuestionPopover from './components/QuestionPopover';
 import ProcessDrawer from './components/ProcessDrawer';
+import TourButton from '../../tour/TourButton';
 
 const POLL_MS = 60_000;
 
@@ -45,7 +46,7 @@ function InboxRow({ item, meta, selected, onSelect, onOpen, onAct, busy }) {
   const acceptPath = item.actions.includes('accept') && /^\/api\/app\//.test(String(item.meta?.acceptPath || '')) ? item.meta.acceptPath : null;
   const otherActions = item.provider !== 'approvals' && item.inline ? item.actions.filter((action) => action !== 'open' && !(action === 'accept' && acceptPath)) : [];
   return (
-    <li className={`apr-row${item.overdue ? ' is-overdue' : ''}${selected ? ' is-selected' : ''}`}>
+    <li className={`apr-row${item.overdue ? ' is-overdue' : ''}${selected ? ' is-selected' : ''}`} data-tour="apr.row">
       <div className="apr-row__check">
         {isApproval ? <Checkbox checked={selected} onChange={(event) => onSelect(item, event.target.checked)} aria-label={t('approvals.inbox.select')} /> : <span />}
       </div>
@@ -84,7 +85,7 @@ function InboxRow({ item, meta, selected, onSelect, onOpen, onAct, busy }) {
           {item.kind === 'approval' || item.dueAt ? <DueBadge dueAt={item.dueAt} soonHours={soonHours} /> : null}
         </span>
       </div>
-      <div className="apr-row__actions">
+      <div className="apr-row__actions" data-tour="apr.actions">
         {isApproval && (
           <>
             <Button type="primary" size="small" className="apr-btn-approve" loading={busy === 'approve'} onClick={() => onAct(item, 'approve')}>
@@ -393,7 +394,7 @@ export default function InboxPage() {
 
   const inboxTab = (
     <>
-      <div className="apr-kpis">
+      <div className="apr-kpis" data-tour="apr.kpis">
         <button type="button" className={`apr-kpi${!moduleFilter ? ' is-active' : ''}`} onClick={() => setParam('module', '')}>
           <strong>{counts.total}</strong>
           <span>{t('approvals.inbox.all')}</span>
@@ -486,7 +487,8 @@ export default function InboxPage() {
           <p>{t('approvals.inbox.lead')}</p>
         </div>
         <div className="apr-hero__actions">
-          <Link to="/account/substitute" className="apr-link">
+          <TourButton module="approvals" />
+          <Link to="/account/substitute" className="apr-link" data-tour="apr.substitute">
             👤 {t('approvals.substitutes.mine')}
           </Link>
           {meta?.canManageRoutes && (
@@ -504,7 +506,7 @@ export default function InboxPage() {
         onChange={(key) => setParam('tab', key === 'inbox' ? '' : key)}
         items={[
           { key: 'inbox', label: <span>{t('approvals.tabs.inbox')} {counts.total > 0 && <em className={`apr-tab-count${counts.overdue ? ' is-red' : ''}`}>{counts.total}</em>}</span>, children: inboxTab },
-          { key: 'mine', label: <span>{t('approvals.tabs.mine')} {mine?.length > 0 && <em className="apr-tab-count">{mine.length}</em>}</span>, children: mineTab },
+          { key: 'mine', label: <span data-tour="apr.tab.mine">{t('approvals.tabs.mine')} {mine?.length > 0 && <em className="apr-tab-count">{mine.length}</em>}</span>, children: mineTab },
           { key: 'decided', label: t('approvals.tabs.decided'), children: decidedTab },
         ]}
       />

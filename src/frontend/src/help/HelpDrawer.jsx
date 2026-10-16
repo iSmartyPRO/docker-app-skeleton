@@ -6,6 +6,9 @@ import { useThemeMode } from '../context/ThemeContext';
 import { MenuIcon } from '../components/icons/menuIcons';
 import { HelpTitle, loadHelp, tr } from './registry';
 import Rich from './Rich';
+import { hasTour } from '../tour/engine';
+import { startTour } from '../tour/TourContext';
+import { TourIcon } from '../tour/TourButton';
 import './help.css';
 
 /** The short guide of a module in a side panel; links lead to the full article. */
@@ -26,6 +29,9 @@ export default function HelpDrawer({ id, section, onClose, onOpen }) {
     if (!content || !section) return;
     setTimeout(() => body.current?.querySelector(`[data-sec="${section}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 120);
   }, [content, section]);
+
+  // «Тур»: the section's own tour, or the portal tour from the general articles.
+  const tourId = hasTour(id) ? id : ['start', 'account', 'notifications'].includes(id) && hasTour('portal') ? 'portal' : null;
 
   const full = (target) => {
     onClose();
@@ -143,6 +149,11 @@ export default function HelpDrawer({ id, section, onClose, onOpen }) {
         >
           {t('help.center')}
         </Button>
+        {tourId && (
+          <Button size="large" icon={<TourIcon />} onClick={() => startTour(tourId)}>
+            {tourId === 'portal' ? t('tour.ui.startPortal') : t('tour.ui.startModule')}
+          </Button>
+        )}
         <span className="hp-drawer__kbd">
           <kbd>?</kbd> {t('help.shortcut')}
         </span>

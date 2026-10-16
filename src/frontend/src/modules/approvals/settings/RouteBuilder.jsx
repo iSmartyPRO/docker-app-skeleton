@@ -10,7 +10,7 @@ import { errorMessage } from '../../../lib/errors';
 import { moduleById } from '../../registry';
 import { approvalsApi } from '../api';
 import { MODULE_LOOK, formatMoney, tr } from '../lib';
-import { ApproverSelect } from '../components/pickers';
+import { ApproverSelect, PersonSelect } from '../components/pickers';
 
 const CURRENCIES = ['USD', 'KGS', 'RUB', 'EUR', 'KZT', 'CNY'];
 const OPS = {
@@ -33,7 +33,7 @@ function editable(route) {
       id: stage.id || newId(),
       name: stage.name || '',
       mode: stage.mode || 'all',
-      approvers: (stage.approvers || []).map((a) => (a.kind === 'permission' ? { kind: 'permission', key: a.key, name: a.name } : { kind: a.kind, id: a.id })),
+      approvers: (stage.approvers || []).map((a) => (a.kind === 'permission' ? { kind: 'permission', key: a.key, name: a.name } : a.kind === 'manager' ? { kind: 'manager', level: a.level || 1 } : { kind: a.kind, id: a.id })),
       conditions: stage.conditions || [],
     })),
   };
@@ -133,6 +133,7 @@ function StageCard({ stage, index, fields, options, onChange, onRemove }) {
             </Tag>
           ))}
           <div className="apr-stage__hint">{t(stage.mode === 'any' ? 'approvals.routes.anyHint' : 'approvals.routes.allHint')}</div>
+          {stage.approvers.some((a) => a.kind === 'manager') && <div className="apr-stage__hint apr-stage__hint--manager">★ {t('approvals.manager.hint')}</div>}
         </div>
       </div>
       <div className="apr-stage__row">
@@ -160,21 +161,32 @@ function StageCard({ stage, index, fields, options, onChange, onRemove }) {
   );
 }
 
+/** An approver as the preview names it: people, roles, groups, the author's manager (resolved or not), the fallback. */
+function previewName(a, t) {
+  if (a.kind === 'permission') return a.via === 'fallback' ? t('approvals.manager.fallbackAdmins') : t('approvals.path.admins');
+  if (a.kind === 'manager') return a.resolved ? t('approvals.manager.who', { name: a.resolved.name }) : t(`approvals.manager.level${a.level || 1}`);
+  if (a.via?.startsWith('manager')) return t('approvals.manager.who', { name: a.name });
+  if (a.via === 'fallback') return t('approvals.manager.fallbackWho', { name: a.name });
+  return a.name;
+}
+
 /** «Для заявки на $5 000 категории «Оборудование» маршрут будет таким»: try values against the draft route. */
 function Preview({ type, route, fields, options }) {
   const { t, locale } = useLocale();
   const [values, setValues] = useState({});
+  const [authorId, setAuthorId] = useState(null);
   const [result, setResult] = useState(null);
   const draft = useMemo(() => JSON.stringify(route), [route]);
+  const hasManager = route.stages.some((stage) => stage.approvers.some((a) => a.kind === 'manager'));
   useEffect(() => {
     const timer = setTimeout(() => {
       approvalsApi
-        .preview(type.key, values, JSON.parse(draft))
+        .preview(type.key, values, JSON.parse(draft), hasManager ? authorId : null)
         .then((res) => setResult(res.data))
         .catch(() => setResult(null));
     }, 250);
     return () => clearTimeout(timer);
-  }, [type.key, values, draft]);
+  }, [type.key, values, draft, authorId, hasManager]);
   const describe = fields
     .filter((field) => values[field.key] !== undefined && values[field.key] !== null && values[field.key] !== '')
     .map((field) => {
@@ -187,6 +199,12 @@ function Preview({ type, route, fields, options }) {
     <aside className="apr-preview">
       <h4>{t('approvals.routes.previewTitle')}</h4>
       <div className="apr-preview__inputs">
+        {hasManager && (
+          <label data-tour="approvals.previewAuthor">
+            <span>{t('approvals.manager.previewAuthor')}</span>
+            <PersonSelect value={authorId} onChange={setAuthorId} allowClear placeholder={t('approvals.manager.previewAuthorPlaceholder')} />
+          </label>
+        )}
         {fields.map((field) => {
           const choices = (options[field.key] || field.options || []).map((option) => ({ value: option.value, label: tr(option.label, locale) }));
           return (
@@ -220,8 +238,9 @@ function Preview({ type, route, fields, options }) {
                 <span>
                   <b>{stage.name || t('approvals.path.stage', { n: index + 1 })}</b>
                   <em>
-                    {stage.approvers.map((a) => (a.kind === 'permission' ? t('approvals.path.admins') : a.name)).join(stage.mode === 'any' ? ` ${t('approvals.routes.or')} ` : ', ')}
+                    {stage.approvers.map((a) => previewName(a, t)).join(stage.mode === 'any' ? ` ${t('approvals.routes.or')} ` : ', ')}
                   </em>
+                  {stage.managerMissing?.length > 0 && <em className="apr-preview__warn">{t('approvals.manager.missing')}</em>}
                 </span>
               </li>
             ))}

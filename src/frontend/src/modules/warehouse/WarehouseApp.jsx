@@ -51,8 +51,8 @@ function Sidebar({ onNavigate }) {
   const createItems = useCreateItems(onNavigate);
   const rights = meta?.rights || {};
   const count = (n, alert) => (n > 0 ? <span className={`mod-nav__count${alert ? ' is-alert' : ''}`}>{n}</span> : null);
-  const link = (to, icon, label, extra, end = false) => (
-    <NavLink to={to} end={end} className={({ isActive }) => `mod-nav__link${isActive ? ' active' : ''}`} onClick={onNavigate}>
+  const link = (to, icon, label, extra, end = false, tour = null) => (
+    <NavLink to={to} end={end} className={({ isActive }) => `mod-nav__link${isActive ? ' active' : ''}`} onClick={onNavigate} data-tour={tour}>
       <MenuIcon name={icon} variant="mono" />
       <span className="mod-nav__text">{label}</span>
       {extra}
@@ -67,9 +67,9 @@ function Sidebar({ onNavigate }) {
       {createItems.length > 0 && (
         <Dropdown menu={{ items: createItems }} trigger={['click']} placement="bottomLeft">
           {collapsed ? (
-            <Button type="primary" className="mod-rail-keep mod-rail-create" aria-label={t('wh.create')} data-tip={t('wh.create')} icon={<PlusOutlined />} />
+            <Button type="primary" className="mod-rail-keep mod-rail-create" aria-label={t('wh.create')} data-tip={t('wh.create')} icon={<PlusOutlined />} data-tour="wh.create" />
           ) : (
-            <Button type="primary" block icon={<PlusOutlined />} className="wh-side-create">
+            <Button type="primary" block icon={<PlusOutlined />} className="wh-side-create" data-tour="wh.create">
               {t('wh.create')}
             </Button>
           )}
@@ -77,15 +77,15 @@ function Sidebar({ onNavigate }) {
       )}
       <nav className="mod-nav">
         {link('/app/warehouse/stock', 'archive', t('wh.nav.stock'))}
-        {link('/app/warehouse/documents', 'clipboard', t('wh.nav.documents'), count((counters?.awaiting_receipt || 0) + (counters?.requests || 0), true))}
+        {link('/app/warehouse/documents', 'clipboard', t('wh.nav.documents'), count((counters?.awaiting_receipt || 0) + (counters?.requests || 0), true), false, 'wh.nav.documents')}
         {link('/app/warehouse/items', 'tag', t('wh.nav.items'))}
-        {link('/app/warehouse/tools', 'wrench', t('wh.nav.tools'))}
+        {link('/app/warehouse/tools', 'wrench', t('wh.nav.tools'), null, false, 'wh.nav.tools')}
         {link('/app/warehouse/my-tools', 'user', t('wh.nav.myTools'), count(mine))}
-        {(rights.canInventoryAny || inventories > 0) && link('/app/warehouse/inventory', 'checklist', t('whm.nav.inventory'), count(inventories))}
+        {(rights.canInventoryAny || inventories > 0) && link('/app/warehouse/inventory', 'checklist', t('whm.nav.inventory'), count(inventories), false, 'wh.nav.inventory')}
         {link('/app/warehouse/reports', 'chart', t('wh.nav.reports'))}
       </nav>
       <nav className="mod-nav wh-side__bottom">
-        {link('/app/warehouse/m', 'phone', t('whm.nav.mobile'))}
+        {link('/app/warehouse/m', 'phone', t('whm.nav.mobile'), null, false, 'wh.nav.mobile')}
         {link('/app/approvals', 'checklist', t('wh.nav.inbox'))}
         {rights.canAdminAny && link('/app/warehouse/warehouses', 'building', t('wh.nav.warehouses'))}
         {rights.canAdminAny && link('/app/warehouse/import', 'upload', t('wh.nav.import'))}

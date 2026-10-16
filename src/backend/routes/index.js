@@ -13,6 +13,7 @@ import rateLimit from 'express-rate-limit';
 import { incidentFromRequest, recordIncident } from '../services/incidents.js';
 import { accountApiRoutes, adminApiRoutes, developerRoutes } from '../api/routes.js';
 import { wopiRoutes } from '../services/office/wopi.js';
+import { accountExperienceRoutes, adminExperienceRoutes } from './experience.routes.js';
 
 const router = Router();
 
@@ -22,6 +23,9 @@ router.use('/auth', authRoutes);
 router.use('/setup', setupRoutes);
 // API console and personal tokens sit before their parents' guards.
 router.use('/admin/api', adminApiRoutes());
+// Guided tours and themes (before their parents' routers; they guard themselves).
+router.use('/admin/tours', adminExperienceRoutes);
+router.use('/account', accountExperienceRoutes);
 router.use('/admin', adminRoutes);
 router.use('/account/api', accountApiRoutes());
 router.use('/account', accountRoutes);

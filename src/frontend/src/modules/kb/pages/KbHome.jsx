@@ -10,6 +10,7 @@ import FolderContent from '../components/FolderContent';
 import FolderDialog from '../components/FolderDialog';
 import AccessDialog from '../components/AccessDialog';
 import { useView } from './KbFolder';
+import TourButton from '../../../tour/TourButton';
 
 /** Start page: top-level folders and recently updated materials. */
 export default function KbHome() {
@@ -31,26 +32,27 @@ export default function KbHome() {
 
   return (
     <div className="kb-page">
-      <header className="kb-hero">
+      <header className="kb-hero" data-tour="kb.hero">
         <div>
           <h1>{t('apps.kb.name')}</h1>
           <p>{t('kb.homeLead', { name: user?.displayName || '' })}</p>
         </div>
         <div className="kb-head__actions">
+          <TourButton module="kb" />
           {atLeast(rootLevel, 'manage') && (
-            <Button className="mod-act" icon={<TeamOutlined />} onClick={() => setDialog({ type: 'access' })} aria-label={t('kb.access.rootButton')} title={t('kb.access.rootButton')}>
+            <Button className="mod-act" data-tour="kb.access" icon={<TeamOutlined />} onClick={() => setDialog({ type: 'access' })} aria-label={t('kb.access.rootButton')} title={t('kb.access.rootButton')}>
               <span>{t('kb.access.rootButton')}</span>
             </Button>
           )}
           {atLeast(rootLevel, 'edit') && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setDialog({ type: 'folder' })}>
+            <Button type="primary" data-tour="kb.newFolder" icon={<PlusOutlined />} onClick={() => setDialog({ type: 'folder' })}>
               {t('kb.newFolder')}
             </Button>
           )}
         </div>
       </header>
 
-      <div className="kb-section">
+      <div className="kb-section" data-tour="kb.folders">
         <h2>{t('kb.folders')}</h2>
         <button type="button" className="kb-view-toggle" onClick={() => setView(view === 'grid' ? 'list' : 'grid')} aria-label={t(view === 'grid' ? 'kb.viewList' : 'kb.viewGrid')} title={t(view === 'grid' ? 'kb.viewList' : 'kb.viewGrid')}>
           {view === 'grid' ? <UnorderedListOutlined /> : <AppstoreOutlined />}
@@ -69,7 +71,7 @@ export default function KbHome() {
 
       {data.recent.length > 0 && (
         <>
-          <div className="kb-section">
+          <div className="kb-section" data-tour="kb.recent">
             <h2>{t('kb.recent')}</h2>
           </div>
           <FolderContent folders={[]} items={data.recent} view="list" config={config} src={src} folderLink={() => '#'} onOpen={(item) => navigate(`/app/kb/d/${item.id}`)} />

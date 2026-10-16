@@ -401,7 +401,7 @@ export default function Browser({ place }) {
         }
         description={place.type === 'trash' ? t('files.trashLead', { days: config?.trashDays || 30 }) : place.type === 'shared' ? t('files.sharedLead') : space?.description || null}
         actions={[
-          ...(canEdit ? uploadActions : []),
+          ...(canEdit ? uploadActions.map((action) => (action.key === 'upload' ? { ...action, tour: 'files.upload' } : action)) : []),
           canEdit && { key: 'folder', icon: <FolderAddOutlined />, label: t('files.newFolder'), onClick: () => setDialog({ type: 'folder' }) },
           trash && items.length > 0 && {
             key: 'empty-trash',

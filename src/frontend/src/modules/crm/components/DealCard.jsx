@@ -63,6 +63,7 @@ const DealCard = forwardRef(function DealCard({ deal, onOpen, onActivity, draggi
       role="button"
       tabIndex={0}
       aria-label={deal.title}
+      data-tour="crm.card"
       {...rest}
     >
       <div className="crm-card__title">{deal.title}</div>

@@ -53,12 +53,15 @@ const STATE_GLYPH = { done: '✓', rejected: '✕', returned: '↩', withdrawn: 
 function seatLabel(approver, t) {
   if (approver.kind === 'role') return t('approvals.path.role', { name: approver.name });
   if (approver.kind === 'group') return t('approvals.path.group', { name: approver.name });
-  if (approver.kind === 'permission') return t('approvals.path.admins');
+  if (approver.kind === 'permission') return approver.via === 'fallback' ? t('approvals.manager.fallbackAdmins') : t('approvals.path.admins');
+  // «Руководитель подразделения автора»: a person once the stage opens, the role before.
+  if (approver.kind === 'manager') return approver.resolved ? t('approvals.manager.who', { name: approver.resolved.name }) : t(`approvals.manager.level${approver.level || 1}`);
+  if (approver.via?.startsWith('manager')) return t('approvals.manager.who', { name: approver.name });
   return approver.name;
 }
 
 function SeatAvatar({ approver, t }) {
-  const who = approver.decidedBy || approver.delegatedTo || (approver.kind === 'user' ? approver : null);
+  const who = approver.decidedBy || approver.delegatedTo || (approver.kind === 'user' ? approver : approver.kind === 'manager' ? approver.resolved : null);
   const decided = approver.decision;
   const tip = (
     <div className="apr-seat-tip">
@@ -83,7 +86,7 @@ function SeatAvatar({ approver, t }) {
           </Avatar>
         ) : (
           <Avatar size={26} className="apr-seat__group">
-            {approver.kind === 'group' ? '👥' : '◆'}
+            {approver.kind === 'group' ? '👥' : approver.kind === 'manager' ? '★' : '◆'}
           </Avatar>
         )}
         {decided && <span className="apr-seat__mark" aria-hidden="true">{decided === 'approved' ? '✓' : decided === 'rejected' ? '✕' : '↩'}</span>}

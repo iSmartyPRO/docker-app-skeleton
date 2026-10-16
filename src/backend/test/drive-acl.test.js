@@ -184,7 +184,7 @@ test('gateway error codes', () => {
 // ── Service functions with a fake gateway ───────────────────────────────────
 
 const SERVER = { id: 1, name: 'DC', host: '10.0.0.10', port: 445, auth: 'user', use_login: true };
-const CRED = { username: 'admin.ivanov', domain: 'whitehills.kg', password: 'secret' };
+const CRED = { username: 'admin.ivanov', domain: 'example.com', password: 'secret' };
 
 function gatewayError(code, statusCode = 403) {
   const error = new Error(code);
@@ -248,7 +248,7 @@ test('never the service account; explicit credentials are used as given', async 
   try {
     await assert.rejects(getAcl(5, SERVER, 'shared', ''), { code: 'CREDENTIALS_REQUIRED' });
     assert.equal(gw.calls.length, 0);
-    const other = { username: 'WHITEHILLS\\it.admin', password: 'x' };
+    const other = { username: 'EXAMPLE\\it.admin', password: 'x' };
     await getAcl({ userId: 5, credential: other }, SERVER, 'shared', '');
     assert.deepEqual(gw.calls[0].params.cred, { ...other, domain: '' });
   } finally {

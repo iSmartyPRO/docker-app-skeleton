@@ -243,6 +243,7 @@ export default function PlanPage() {
         </div>
         <div className="mp-planbar__row">
           <Segmented
+            data-tour="mp.layers"
             value={layer}
             onChange={(value) => setParam('layer', value)}
             options={[
@@ -296,7 +297,7 @@ export default function PlanPage() {
           <button type="button" onClick={() => setParam('deal', null)} aria-label={t('common.close')}>✕</button>
         </div>
       )}
-      <div className="mp-plan__stage">
+      <div className="mp-plan__stage" data-tour="mp.stage">
         {mode === 'plan' ? (
           <PlanCanvas
             ref={canvas}

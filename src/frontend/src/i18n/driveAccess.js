@@ -9,7 +9,7 @@ export const folderAccessEn = {
   },
   driveSettings: {
     pathPrefixes: 'Path in AD group descriptions',
-    pathPrefixesHint: 'How this folder is written in the descriptions of the access groups, e.g. W: or G:\\ПРБ-2\\_DocArch. Several are possible; the longest matching one wins. Press Enter after each.',
+    pathPrefixesHint: 'How this folder is written in the descriptions of the access groups, e.g. W: or G:\\ОБЪЕКТ-2\\_DocArch. Several are possible; the longest matching one wins. Press Enter after each.',
   },
   admin: {
     event_folder_access_changed: 'File server: folder access changed',
@@ -418,7 +418,7 @@ export const folderAccessEn = {
       lead: '«Access» in the File server: who can open a folder through the Active Directory groups sg_<project>_<name>_full / _read, and the folder’s NTFS permissions.',
       enabled: 'Turn on «Access»',
       projects: 'Accepted project codes',
-      projectsDesc: 'The code after the prefix (prb2 in sg_prb2_buh_full). Empty: any code.',
+      projectsDesc: 'The code after the prefix (obj2 in sg_obj2_buh_full). Empty: any code.',
       projectsAny: 'Any',
       defaultProject: 'Default project code',
       defaultProjectDesc: 'For new groups when the folder’s project has no groups yet.',
@@ -438,7 +438,7 @@ export const folderAccessEn = {
       otherGroupsDesc: 'Groups without the prefix that superadministrators also see (masks with *).',
       typeMap: 'NTFS rights per access type',
       typeMapDesc: 'Used when a new pair is added to its folder and as the expected rights in the mismatch report.',
-      prefixesNote: 'Paths in the group descriptions (G:\\ПРБ-2\\_DocArch\\10-BUH) are matched with File server folders by their path prefixes: set them for each folder under “File servers and folders” below.',
+      prefixesNote: 'Paths in the group descriptions (G:\\ОБЪЕКТ-2\\_DocArch\\10-BUH) are matched with File server folders by their path prefixes: set them for each folder under “File servers and folders” below.',
       rights: { modify: 'Modify', read_execute: 'Read & execute', read: 'Read', full_control: 'Full control' },
     },
     errors: {
@@ -518,7 +518,7 @@ export const folderAccessRu = {
   },
   driveSettings: {
     pathPrefixes: 'Путь в описаниях групп AD',
-    pathPrefixesHint: 'Как эта папка записана в описаниях групп доступа, например W: или G:\\ПРБ-2\\_DocArch. Можно несколько; выигрывает самый длинный подходящий. Enter после каждого.',
+    pathPrefixesHint: 'Как эта папка записана в описаниях групп доступа, например W: или G:\\ОБЪЕКТ-2\\_DocArch. Можно несколько; выигрывает самый длинный подходящий. Enter после каждого.',
   },
   admin: {
     event_folder_access_changed: 'Файловый сервер: изменён доступ к папкам',
@@ -927,7 +927,7 @@ export const folderAccessRu = {
       lead: '«Доступ» в файловом сервере: кто может открыть папку через группы Active Directory sg_<проект>_<имя>_full / _read, и права NTFS папки.',
       enabled: 'Включить «Доступ»',
       projects: 'Допустимые коды проектов',
-      projectsDesc: 'Код после префикса (prb2 в sg_prb2_buh_full). Пусто — любой.',
+      projectsDesc: 'Код после префикса (obj2 в sg_obj2_buh_full). Пусто — любой.',
       projectsAny: 'Любой',
       defaultProject: 'Код проекта по умолчанию',
       defaultProjectDesc: 'Для новых групп, если у проекта папки ещё нет групп.',
@@ -947,7 +947,7 @@ export const folderAccessRu = {
       otherGroupsDesc: 'Группы без префикса, которые видят суперадминистраторы (маски со *).',
       typeMap: 'Права NTFS по типу доступа',
       typeMapDesc: 'Используются при добавлении новой пары в права её папки и как ожидаемые права в отчёте о расхождениях.',
-      prefixesNote: 'Пути в описаниях групп (G:\\ПРБ-2\\_DocArch\\10-BUH) сопоставляются с папками файлового сервера по их путям: задайте путь для каждой папки ниже, в «Файловые серверы и папки».',
+      prefixesNote: 'Пути в описаниях групп (G:\\ОБЪЕКТ-2\\_DocArch\\10-BUH) сопоставляются с папками файлового сервера по их путям: задайте путь для каждой папки ниже, в «Файловые серверы и папки».',
       rights: { modify: 'Изменение', read_execute: 'Чтение и выполнение', read: 'Чтение', full_control: 'Полный доступ' },
     },
     errors: {

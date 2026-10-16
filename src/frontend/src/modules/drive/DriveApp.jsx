@@ -26,7 +26,7 @@ import SideRail from '../shared/SideRail';
 // «Доступ» (folder access groups, NTFS): loaded only for the people who get it.
 const AccessSection = lazy(() => import('./access/AccessSection'));
 
-/** The drive's name: chosen by the administrator ("iSmarty Drive") or the default. */
+/** The drive's name: chosen by the administrator ("Company Drive") or the default. */
 export function useDriveTitle() {
   const { t } = useLocale();
   const { settings } = useSettings();
@@ -76,13 +76,13 @@ function Sidebar({ onNavigate }) {
         <span className="dv-brand__glyph"><DriveGlyph /></span>
         <span>{title}</span>
       </NavLink>
-      <nav className="mod-nav">
+      <nav className="mod-nav" data-tour="drive.nav">
         {link('/app/drive', 'home', t('drive.overview'), true)}
         {link('/app/drive/favorites', 'star', t('drive.favorites'))}
         {link('/app/drive/recent', 'spark', t('drive.recent'))}
         {config?.publicLinks && link('/app/drive/links', 'globe', t('drive.myLinks'))}
       </nav>
-      <div className="mod-side__label">
+      <div className="mod-side__label" data-tour="drive.folders">
         <span>{t('drive.folders')}</span>
       </div>
       <nav className="mod-nav">
@@ -97,7 +97,7 @@ function Sidebar({ onNavigate }) {
       </nav>
       {config?.access && (
         <>
-          <div className="mod-side__label">
+          <div className="mod-side__label" data-tour="drive.access">
             <span>{t('folderAccess.nav.section')}</span>
           </div>
           <nav className="mod-nav">
@@ -108,7 +108,7 @@ function Sidebar({ onNavigate }) {
           </nav>
         </>
       )}
-      <nav className="mod-nav fs-side__bottom">
+      <nav className="mod-nav fs-side__bottom" data-tour="drive.connections">
         {link('/app/drive/connections', 'key', t('drive.connections'), false, problems)}
         {config?.canAudit && link('/app/drive/activity', 'chart', t('driveActivity.title'))}
         {config?.isAdmin && (

@@ -24,30 +24,30 @@ It is a block of the File server settings with its own switch (*Settings → Mod
 ## How folders map to groups
 
 ```
-OU=Groups,OU=ПРБ-2,OU=Accounts,DC=gescons,DC=ru
-  sg_prb2_buh_full              G:\ПРБ-2\_DocArch\10-BUH;Full Access
-  sg_prb2_buh_read              G:\ПРБ-2\_DocArch\10-BUH;Read Only
-  sg_prb2_qaqc_styajka_full     G:\ПРБ-2\_DocArch\3-QA,QC\СТЯЖКА;Full Access
-  sg_prb2_specification_full    G:\ПРБ-2\_DocArch\3-QA,QC;Full Access
-  sg_prb2_root_full             G:\ПРБ-2;Full Access
-OU=Groups,OU=CO,OU=Accounts,DC=whitehills,DC=kg
+OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,DC=corp,DC=example
+  sg_obj2_buh_full              G:\ОБЪЕКТ-2\_DocArch\10-BUH;Full Access
+  sg_obj2_buh_read              G:\ОБЪЕКТ-2\_DocArch\10-BUH;Read Only
+  sg_obj2_qaqc_styajka_full     G:\ОБЪЕКТ-2\_DocArch\3-QA,QC\СТЯЖКА;Full Access
+  sg_obj2_specification_full    G:\ОБЪЕКТ-2\_DocArch\3-QA,QC;Full Access
+  sg_obj2_root_full             G:\ОБЪЕКТ-2;Full Access
+OU=Groups,OU=CO,OU=Accounts,DC=example,DC=com
   sg_co_hr_full                 W:\06-HR;Full Access
 ```
 
 | Part | Meaning |
 |------|---------|
-| `sg_` | Prefix of access groups (*security group*), a setting. `sgManager_prb2`, `adm_prb2`, `nextcloud_…` and distribution lists are **not** access groups |
-| `prb2`, `co` | Project code: the first token after the prefix. Any code is accepted unless *Accepted project codes* is set |
+| `sg_` | Prefix of access groups (*security group*), a setting. `sgManager_obj2`, `adm_obj2`, `nextcloud_…` and distribution lists are **not** access groups |
+| `obj2`, `co` | Project code: the first token after the prefix. Any code is accepted unless *Accepted project codes* is set |
 | `buh`, `qaqc_styajka` | Folder name part: everything up to the final `_full` / `_read`; may contain `_` |
 | `_full` / `_read` | Full access / read only — checked against the description |
-| `G:\ПРБ-2\_DocArch\10-BUH` | The folder: drive letter + path, or `\\server\share\path`. **The description is authoritative** for the folder and the access type; spaces, commas and Cyrillic are fine (the type follows the last `;`) |
+| `G:\ОБЪЕКТ-2\_DocArch\10-BUH` | The folder: drive letter + path, or `\\server\share\path`. **The description is authoritative** for the folder and the access type; spaces, commas and Cyrillic are fine (the type follows the last `;`) |
 | `Full Access` / `Read Only` | The access type |
 
-**Project.** The project shown for a group is the **first OU below the search base** it was found in (the broadest of *Only these OUs* / *Where groups are searched* / the AD base DN that holds it; a bare domain root `DC=…` does not count), an `OU=Groups` skipped: with the base `OU=Accounts,…`, `CN=…,OU=Groups,OU=ПРБ-2,OU=Accounts,…` and `CN=…,OU=Sec,OU=Groups,OU=ПРБ-2,OU=Accounts,…` are both «ПРБ-2», `CN=…,OU=IT,OU=Accounts,…` is «IT», and a group right in `OU=Accounts` (or in `OU=Groups,OU=Accounts`) has **no project** («Без проекта»). When the only base holding the group is a project's Groups OU itself, the OU above it is the project. Without such a base (searched from the domain root) the OU that holds the nearest `OU=Groups` is the project, else the group's own OU. The overview groups folders by project.
+**Project.** The project shown for a group is the **first OU below the search base** it was found in (the broadest of *Only these OUs* / *Where groups are searched* / the AD base DN that holds it; a bare domain root `DC=…` does not count), an `OU=Groups` skipped: with the base `OU=Accounts,…`, `CN=…,OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,…` and `CN=…,OU=Sec,OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,…` are both «ОБЪЕКТ-2», `CN=…,OU=IT,OU=Accounts,…` is «IT», and a group right in `OU=Accounts` (or in `OU=Groups,OU=Accounts`) has **no project** («Без проекта»). When the only base holding the group is a project's Groups OU itself, the OU above it is the project. Without such a base (searched from the domain root) the OU that holds the nearest `OU=Groups` is the project, else the group's own OU. The overview groups folders by project.
 
-**Folder → File server folder.** Each File server folder (*share* in the settings) can have one or more **path prefixes**: how the descriptions write its root, e.g. «ПРБ-2 DocArch» = `G:\ПРБ-2\_DocArch`, «G» = `G:\`, «ЦО» = `W:`. A description path belongs to the folder with the **longest** matching prefix (whole path parts, case-insensitive, `\` or `/`); the rest is the path inside it. A path no prefix covers is listed as *Not on the File server* (`path_unmapped`) and has no folder panel. The panel of a File server folder finds its groups by the folder's own user paths (every prefix + the path), so overlapping folders (`G:\` and `G:\ПРБ-2\_DocArch`) both find them.
+**Folder → File server folder.** Each File server folder (*share* in the settings) can have one or more **path prefixes**: how the descriptions write its root, e.g. «ОБЪЕКТ-2 DocArch» = `G:\ОБЪЕКТ-2\_DocArch`, «G» = `G:\`, «ЦО» = `W:`. A description path belongs to the folder with the **longest** matching prefix (whole path parts, case-insensitive, `\` or `/`); the rest is the path inside it. A path no prefix covers is listed as *Not on the File server* (`path_unmapped`) and has no folder panel. The panel of a File server folder finds its groups by the folder's own user paths (every prefix + the path), so overlapping folders (`G:\` and `G:\ОБЪЕКТ-2\_DocArch`) both find them.
 
-**Folders and pairs.** Groups pair up by name (`sg_prb2_buh_full` + `sg_prb2_buh_read`); pairs are grouped into folders by the path their descriptions name, so **several pairs can open one folder** (`sg_prb2_qaqc_…` and `sg_prb2_specification_…` on `3-QA,QC`) — the folder card and panel show all of them. **Inherited access**: groups of folders above (`sg_prb2_root_full` on `G:\ПРБ-2`) are shown read-only on every folder below as "inherited from G:\ПРБ-2" (NTFS inheritance may still be disabled on the way; the NTFS tab shows the real entries).
+**Folders and pairs.** Groups pair up by name (`sg_obj2_buh_full` + `sg_obj2_buh_read`); pairs are grouped into folders by the path their descriptions name, so **several pairs can open one folder** (`sg_obj2_qaqc_…` and `sg_obj2_specification_…` on `3-QA,QC`) — the folder card and panel show all of them. **Inherited access**: groups of folders above (`sg_obj2_root_full` on `G:\ОБЪЕКТ-2`) are shown read-only on every folder below as "inherited from G:\ОБЪЕКТ-2" (NTFS inheritance may still be disabled on the way; the NTFS tab shows the real entries).
 
 Groups whose name or description does not fit are shown with **Needs review** and the reasons: name without `_full`/`_read`, project code not accepted, no description or not `path;type`, unknown access type, path that is neither a drive letter nor a UNC path, name and description giving different types, path not on the File server, only one group of a pair, the two groups of a pair pointing at different folders.
 
@@ -73,7 +73,7 @@ System administrators are refused on the server (not only hidden in the UI): pro
 
 *File server → a folder → «Доступ»* (or a subfolder's menu → «Доступ»). The link `…/s/<id>/<path>?access=groups` (or `=ntfs`) opens a folder with the panel.
 
-- **Header** — the folder's user paths (`G:\ПРБ-2\_DocArch\10-BUH`), its project, a link to the folder card.
+- **Header** — the folder's user paths (`G:\ОБЪЕКТ-2\_DocArch\10-BUH`), its project, a link to the folder card.
 - **Access groups** — for each pair that opens this folder: the `_full` and `_read` member lists side by side (name, login, department, active / disabled); add people (search by name, login or e-mail), remove, move to the other group in one step, select several. Superadministrators: edit description, delete group (type its name).
 - **Inherited access** — the folders above with groups, nearest first, with their groups, types and member counts (read-only; their cards are one click away).
 - **No groups** — "No access groups for this folder"; when the access comes from above, it says so. Superadministrators get **Create group pair** (see [Creating a group pair](#creating-a-group-pair)) when the project's Groups OU is known.
@@ -106,6 +106,8 @@ Credentials:
 3. When there is none, it cannot be decrypted, or AD rejected it before, the section asks for the password, checks it with an LDAP bind as the person's own DN and saves it sealed (`source = 'self'`; a password set by a superadministrator keeps `source = 'admin'`). The File server uses the same row, so the person does not have to enter it twice.
 4. A password AD rejects is parked (`status` = `AUTH_FAILED`, `ACCOUNT_LOCKED`, `PASSWORD_EXPIRED`…) and not retried, so a stale password never locks the account. The File server honours the same status. AD answers "data 52e" both for a wrong password and for a name that does not exist, so a plain `AUTH_FAILED` parks the password only when the bind used a DN the service account has just found.
 
+The [AD directory](directory.md) module uses the same credential (and the same `withActor`, with StartTLS for password operations when configured): one saved domain password serves both.
+
 The password is never shown, returned or logged. Checking it is limited to 3 attempts in 15 minutes per person (each wrong one is a real bad-password bind and counts toward the AD lockout threshold).
 
 ## Delegation in Active Directory
@@ -133,7 +135,7 @@ Table `drive_access_journal` (until v1.4 `fa_journal`; renamed at start-up with 
 | `kind`, `action` | `membership` (`member_add`, `member_remove`, `member_move`), `group` (`group_create`, `group_describe`, `group_delete`) or `ntfs` (`ntfs_set`, `ntfs_restore`, `ntfs_attach`, `ntfs_propagate`) |
 | `via` | `single`, `copy`, `revoke_all`, `undo`; NTFS rows also `fix` (from the report), `hook` (group pair), `retry`, `resume` |
 | `user_id`, `user_name`, `user_login`, `ad_account`, `ip`, `user_agent` | Who: the portal person and the AD account the change ran as |
-| `group_*`, `to_group_*`, `member_*` | The group(s) and the member. NTFS rows: `group_name` = the folder's display path (`W:\06-HR`, `G:\ПРБ-2\_DocArch\10-BUH`), so the group filter finds it |
+| `group_*`, `to_group_*`, `member_*` | The group(s) and the member. NTFS rows: `group_name` = the folder's display path (`W:\06-HR`, `G:\ОБЪЕКТ-2\_DocArch\10-BUH`), so the group filter finds it |
 | `before`, `after` | JSON: membership flags, descriptions; a deleted group keeps its description, SID and up to 500 member DNs. NTFS writes: `before = { folder: { shareId, path, display, serverId, share, serverPath }, sddl, sd (base64 descriptor — the undo blob), revision }`, `after = { sddl, revision, protected, summary: { added, removed, inheritedAdded, inheritedRemoved, protectedBefore, protectedAfter } }`; propagation: counters, up to 50 failed objects, marker, `before.confirmCount` for a confirmed *replace*. NTFS writes from the editor and undos are journalled in two steps: the row with the undo copy is inserted (outcome `pending`) right before the write — if that insert fails nothing is written (`503 FA_JOURNAL_FAILED`) — and completed after it (`changed` / `unchanged`; a refusal at write time drops the row, `ACCESS_DENIED` marks it failed, an unclear error such as a timeout leaves it `pending`). When completing fails the answer carries `journalWarning: true` and the UI says so; a `pending` row can still be undone (through the difference). The `sd` blob is never sent to the browser or the CSV |
 | `ok`, `outcome`, `error_code`, `error` | `changed`, `unchanged` (already so), `failed`, `rolled_back` |
 | `undo_of`, `undone_by` | Links between a change and its undo |
@@ -154,7 +156,7 @@ Every request that changes AD also records a security event (*Admin → Activity
 |---------|---------|---------|
 | `enabled` | off | The block's switch («Доступ» appears only when the File server module is on too) |
 | `prefix` | `sg_` | Prefix of access groups |
-| `projects` | empty (any) | Accepted project codes (`prb2`, `co`, `wh`…) |
+| `projects` | empty (any) | Accepted project codes (`obj2`, `co`, `wh`…) |
 | `defaultProject` | empty | Project code for new groups when the folder's project has no groups yet |
 | `projectAliases` | empty | Old code → new code for new groups (`{ "wh": "co" }`, entered as `wh=co`): while groups are being renamed, a pair created next to `sg_wh_*` groups gets `co`. Existing groups keep their names and are still recognised |
 | `nameTemplate` | `{prefix}{project}_{name}_{type}` | Names of new groups (`{org}` still means `{project}`) |
@@ -166,7 +168,7 @@ Every request that changes AD also records a security event (*Admin → Activity
 | `protectedGroups` | `sg_*_root_*` | Groups system administrators cannot change |
 | `otherGroups` | `nextcloud_*` | Groups without the prefix shown to superadministrators |
 
-**Path prefixes** are set per File server folder: *File servers and folders → a folder → Path in AD group descriptions* (`drive_shares.path_prefixes`, e.g. `W:`, `G:\ПРБ-2\_DocArch`; up to 10, cleaned to `X:\a\b`). They are shown as tags in the folders list.
+**Path prefixes** are set per File server folder: *File servers and folders → a folder → Path in AD group descriptions* (`drive_shares.path_prefixes`, e.g. `W:`, `G:\ОБЪЕКТ-2\_DocArch`; up to 10, cleaned to `X:\a\b`). They are shown as tags in the folders list.
 
 ## API
 
@@ -229,7 +231,7 @@ Superadministrators only (enforced on the server). Every read and write of permi
 
 ## Creating a group pair
 
-From a folder's panel (superadministrators): *Create group pair* when no group names the folder, *Another group pair* otherwise. The **project code and OU** come from the folder's own groups or the nearest folder above with groups (`sg_prb2_root_full` on `G:\ПРБ-2` → code `prb2`, OU `OU=Groups,OU=ПРБ-2,…`); without such groups, from *Default project code* and *OU for new groups*. The code goes through *Project code aliases* (`wh=co`: the nearest groups are `sg_wh_*`, the new pair is `sg_co_*`). The dialog shows where the groups will be made: the OU, the project and whether it comes from the groups of a folder (which one) or from the settings, and the alias when one was applied; the code can still be changed there. The dialog suggests the name part from the folder name (Latin, transliterated) and shows both names and descriptions before anything is made; the server accepts only an OU where folder groups already live or the configured one.
+From a folder's panel (superadministrators): *Create group pair* when no group names the folder, *Another group pair* otherwise. The **project code and OU** come from the folder's own groups or the nearest folder above with groups (`sg_obj2_root_full` on `G:\ОБЪЕКТ-2` → code `obj2`, OU `OU=Groups,OU=ОБЪЕКТ-2,…`); without such groups, from *Default project code* and *OU for new groups*. The code goes through *Project code aliases* (`wh=co`: the nearest groups are `sg_wh_*`, the new pair is `sg_co_*`). The dialog shows where the groups will be made: the OU, the project and whether it comes from the groups of a folder (which one) or from the settings, and the alias when one was applied; the code can still be changed there. The dialog suggests the name part from the folder name (Latin, transliterated) and shows both names and descriptions before anything is made; the server accepts only an OU where folder groups already live or the configured one.
 
 The server makes the two AD groups (the duplicate check compares names case-insensitively; the new groups' SIDs are read back with the administrator's own connection, so an OU outside *Where groups are searched* or a template without the prefix still works) and then calls `attachGroupsToNtfs()` (`drive/access/ntfsHook.js`), which the NTFS engine registers (`drive/aclHook.js`): the groups get explicit allow entries with the *NTFS rights per access type* on the folder of the description (path → File server folder by the longest path prefix), then an `inherit` propagation updates the children. The folder change is journalled as `ntfs_attach` (kind `ntfs`, same batch as the group rows, previous descriptor in `before.sd`, revision after), so it can be undone from the journal; the propagation is journalled as `ntfs_propagate` when it finishes. When the folder is changed but propagation is refused (e.g. `UNSAFE_SOURCE`), the row keeps the folder change and carries the error, and the dialog says so. When no File server folder covers the path (`FA_NTFS_UNMAPPED`) or the engine is off, the result is `pending` and the groups have to be added on the NTFS tab.
 

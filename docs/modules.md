@@ -1,6 +1,8 @@
 # Modules (apps)
 
-The skeleton is a platform for **modules**: self-contained applications that plug into the same users, roles, settings, theme and navigation. Built in: [Dashboard](dashboard.md), [Counterparties](companies.md), [Online resources](resources.md), [File server (Drive)](drive.md) (with [access management](drive-access.md): AD security groups and NTFS permissions of its folders, a settings block off by default), [Files](files.md), [Knowledge Base](knowledge-base.md), [Tasks](tasks.md), [Chat](chat.md), [Calendar](calendar.md), [CRM](crm.md) and [Masterplan](masterplan.md) (development projects: site plan, chessboard, bookings, construction) and [Contracts](contracts.md) (registry with versions, risks, approval and expiry reminders; off by default), [Procurement](procurement.md) (purchase requests, approval, payments registry, delivery; off by default), [Warehouse](warehouse.md) (stock, receipts and issues, transfers, tools, barcodes; off by default). Modules notify people through the shared [notification center](notifications.md) and can schedule background work with `registerJob()`. A module gives its records a conversation with `registerChatEntity()` (see [Chat](chat.md#chats-for-other-modules)), and publishes webhook events with `emitEvent()` (see [Public API](public-api.md#for-module-authors)). Its endpoints appear in the API reference and get their own token area automatically. Documents that need sign-off go through the always-on [Approvals](approvals.md) service (`registerApprovalType()`, `startApproval()`), and anything waiting for a person's decision can join the «Ждёт меня» inbox with `registerInboxProvider()`.
+The skeleton is a platform for **modules**: self-contained applications that plug into the same users, roles, settings, theme and navigation. Built in: [Dashboard](dashboard.md), [Counterparties](companies.md), [Online resources](resources.md), [File server (Drive)](drive.md) (with [access management](drive-access.md): AD security groups and NTFS permissions of its folders, a settings block off by default), [Files](files.md), [Knowledge Base](knowledge-base.md), [Tasks](tasks.md), [Chat](chat.md), [Calendar](calendar.md), [CRM](crm.md) and [Masterplan](masterplan.md) (development projects: site plan, chessboard, bookings, construction) and [Contracts](contracts.md) (registry with versions, risks, approval and expiry reminders; off by default), [Procurement](procurement.md) (purchase requests, approval, payments registry, delivery; off by default), [Warehouse](warehouse.md) (stock, receipts and issues, transfers, tools, barcodes; off by default), [AD directory](directory.md) (Active Directory accounts inside a managed root, changes as the administrator's own AD account; needs the AD integration or shows its setup and a demo directory; off by default). Modules notify people through the shared [notification center](notifications.md) and can schedule background work with `registerJob()`. A module gives its records a conversation with `registerChatEntity()` (see [Chat](chat.md#chats-for-other-modules)), and publishes webhook events with `emitEvent()` (see [Public API](public-api.md#for-module-authors)). Its endpoints appear in the API reference and get their own token area automatically. Documents that need sign-off go through the always-on [Approvals](approvals.md) service (`registerApprovalType()`, `startApproval()`), and anything waiting for a person's decision can join the «Ждёт меня» inbox with `registerInboxProvider()`.
+
+People: the core [Org structure](org-structure.md) (units, heads, `managerOf()`; always on, like Approvals) and the [Employees](employees.md) module (people with or without portal access, clearances, org chart; off by default).
 
 | URL | What it is |
 |-----|------------|
@@ -13,7 +15,33 @@ The skeleton is a platform for **modules**: self-contained applications that plu
 
 ## Turning modules on and off
 
-**Admin → Settings → Modules** lists every module with a switch. The permission `settings.modules` is needed to change it.
+**Admin → Settings → Modules** shows the **core** services (always on) and every module **by category** (Work, Documents, Sales, Warehouse and procurement, Construction, People, Infrastructure). Each card has the module's icon, name, **version**, status (*On* / *Off* / *Needs X* / *Always on*), what it **needs** and what it **works with**, a switch, and the buttons *Documentation* («О модуле», `/admin/modules/<id>/docs`), *Settings*, *Demo data* (superadministrators) and *Tour* (when the module has one). A search field and *All / On / Off* filter the list. The permission `settings.modules` is needed to switch modules.
+
+**Requirements** (`requires` in the [manifest](extending.md#module-manifest)) are enforced by the server:
+
+- switching on a module whose required module is off answers `409 MODULE_REQUIRES` with `info.missing` — the page asks «Для X нужны Y. Включить вместе?» and repeats the request with `alsoEnable: true`, which switches the whole chain on;
+- a required **integration** that is off cannot be switched on from here (`canAlsoEnable: false`; the dialog points to the integration);
+- switching off a module that switched-on modules require answers `409 MODULE_REQUIRED_BY` with `info.dependents` («Нельзя выключить X: от него зависят …»).
+
+Optional links (`enhances`) never block anything: the feature simply hides, and `<ModuleHint>` tells people inside the module which module to switch on.
+
+Today only core services are required — Approvals (by Contracts, Procurement and Warehouse) and the Org structure (by Employees); every other link between modules is optional:
+
+| Module | Needs | Works with (optional) |
+|---|---|---|
+| Contracts | Approvals (core) | Counterparties, Chats, CRM, Masterplan, Procurement |
+| Procurement | Approvals (core) | Counterparties, Masterplan, CRM, Contracts, Files, Chats |
+| Warehouse | Approvals (core) | Procurement, Masterplan, Counterparties |
+| Employees | Org structure (core) | Dashboard (birthdays widget), Active Directory (integration: AD account field) |
+| Masterplan | — | CRM, Counterparties |
+| CRM | — | Counterparties, Chats |
+| Counterparties | — | CRM |
+| Tasks | — | Chats, Files, File server, Calendar |
+| Calendar | — | Tasks, Google (integration) |
+| Knowledge base | — | Files, document server (integration) |
+| Files | — | document server (integration) |
+| File server | — | Active Directory (folder access), document server (integrations) |
+| Dashboard | — | every module with widgets |
 
 - **Enabled** modules appear in `/apps`, in the launcher and in the top bar.
 - **Disabled** modules are invisible: the UI redirects to `/apps`, and every API route, public links included, answers `404 MODULE_DISABLED`. Data is kept, so turning a module back on restores everything.
@@ -33,9 +61,12 @@ Public settings (`GET /api/settings`) expose only `{ "<id>": { "enabled": true }
 ```
 src/backend/modules/
 ├── catalog.js           # static facts: id, default settings, sanitize(), permissions
-├── index.js             # registry: mounts routes, runs schemas, /api/apps
+├── manifest.js          # version, category, requires, enhances, minCore, changelog
+├── dependencies.js      # switching on/off with requirements (409 rules)
+├── index.js             # registry: mounts routes, runs schemas, validates manifests, loads <id>/demo.js
 └── kb/
     ├── index.js         # descriptor { id, schema, routes, publicRoutes, publicPrefix }
+    ├── demo.js          # optional: registerDemo({ module, seed, purge }) — demo data
     ├── schema.js        # tables (idempotent) + one-time seed
     ├── routes.js        # Express routers
     └── …                # services
@@ -93,6 +124,9 @@ Routing is automatic. `App.jsx` mounts `${path}/*` behind `SetupGate`, `AuthGate
 
 - [ ] `modules/<id>/` with descriptor, schema, routes
 - [ ] Catalog entry with defaults and `sanitize`
+- [ ] Manifest entry (`modules/manifest.js`): version 1.0.0, category, requires / enhances, minCore, changelog
+- [ ] Admin docs `help/admin/<id>.js` and user help `help/content/<id>.js`
+- [ ] Demo data `modules/<id>/demo.js` (optional, recommended)
 - [ ] Added to `MODULES` in `modules/index.js`
 - [ ] Frontend registry entry, settings page, navigation item
 - [ ] EN + RU translations

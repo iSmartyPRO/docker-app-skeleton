@@ -75,7 +75,7 @@ export function CreatePairDialog({ open, plan, onClose }) {
         <div className="fa-form__row">
           <label>
             <span>{t('folderAccess.create.project')}</span>
-            <Input value={code} onChange={(event) => setCode(event.target.value)} placeholder="prb2" style={{ width: 120 }} />
+            <Input value={code} onChange={(event) => setCode(event.target.value)} placeholder="obj2" style={{ width: 120 }} />
           </label>
           <label style={{ flex: 1 }}>
             <span>{t('folderAccess.create.name')}</span>

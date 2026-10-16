@@ -1,6 +1,6 @@
 # Drive — company file servers (`/app/drive`)
 
-A [module](modules.md) that turns the company's Windows file servers (SMB 2/3, Samba too) into one network drive in the browser. An administrator names the drive (for example *iSmarty Drive*), adds file servers, and lists the folders (shares) people see. Together the folders work like a DFS namespace. People then browse, view, edit, upload and share files with their own domain accounts. The server's share permissions and NTFS rights, usually managed through Active Directory security groups, decide what each person can read or change.
+A [module](modules.md) that turns the company's Windows file servers (SMB 2/3, Samba too) into one network drive in the browser. An administrator names the drive (for example *Company Drive*), adds file servers, and lists the folders (shares) people see. Together the folders work like a DFS namespace. People then browse, view, edit, upload and share files with their own domain accounts. The server's share permissions and NTFS rights, usually managed through Active Directory security groups, decide what each person can read or change.
 
 The module is **off by default**. Turn it on under *Settings → Modules → File server*, then add a server.
 
@@ -119,7 +119,7 @@ The credential used for a person is chosen in this order:
 - the path shown to people, for example a DFS path;
 - portal groups that see it (empty = everyone);
 - *Allow public links*;
-- *Path in AD group descriptions* — one or more path prefixes (`W:`, `G:\ПРБ-2\_DocArch`) that tie the access groups' descriptions to this folder ([access management](drive-access.md#how-folders-map-to-groups)).
+- *Path in AD group descriptions* — one or more path prefixes (`W:`, `G:\ОБЪЕКТ-2\_DocArch`) that tie the access groups' descriptions to this folder ([access management](drive-access.md#how-folders-map-to-groups)).
 
 Folders can be reordered.
 
@@ -311,3 +311,7 @@ What is recorded, with time, person (or link visitor and IP — with the name an
 
 API (`drive.audit`): `GET /api/app/drive/admin/activity` (`from`, `to`, `q`, `users`, `actions`, `shares`, `result=ok|failed`, `via=portal|link`, `path`, `ip`, `page`, `pageSize`), `GET /api/app/drive/admin/activity/people?q=`, `GET /api/app/drive/admin/activity/export.csv` (same filters, `tz`).
 
+## Demo data and tour
+
+- No demo data on purpose: Drive shows the folders of a real SMB server, and the portal never invents shares there. `modules/drive/demo.js` registers only the explanation (`seedable: false`): the Modules page shows the text without a «Заполнить» button, and «Демо всего портала» passes over the module.
+- Tour `drive` (`tour/content/drive.js`): navigation, folders, access, connections. Anchors: `drive.nav`, `drive.folders`, `drive.access`, `drive.connections`.

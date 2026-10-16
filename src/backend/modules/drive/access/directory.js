@@ -1,5 +1,5 @@
 import { AndFilter, Attribute, Change, EqualityFilter, OrFilter, PresenceFilter, SubstringFilter } from 'ldapts';
-import { bindServiceAccount, directoryClient, directoryGuid } from '../../../services/ldap.js';
+import { bindServiceAccount, directoryClient, directoryGuid, tlsOptionsFor } from '../../../services/ldap.js';
 import { httpError } from '../../shared/acl.js';
 import { cnOf, domainRoot, dnUnder, globToSubstring, isDisabled, isSecurityGroup, normDn, objectKind, sidToString } from './naming.js';
 
@@ -21,6 +21,9 @@ let makeClient = (cfg) => directoryClient(cfg);
 export function setClientFactory(factory) {
   makeClient = factory || ((cfg) => directoryClient(cfg));
 }
+
+/** A new unbound client from the current factory (the AD directory module's secure-channel check). */
+export const newClient = (cfg) => makeClient(cfg);
 
 const PAGE = { pageSize: 500 };
 const CACHE_MS = 60 * 1000;
@@ -80,6 +83,17 @@ export async function withService(cfg, fn) {
   }
 }
 
+/** StartTLS on a fresh plain connection (the integration's CA certificate); FA_STARTTLS_FAILED when refused. */
+async function upgrade(client, cfg) {
+  try {
+    await client.startTLS(tlsOptionsFor(cfg) || {});
+  } catch (err) {
+    const error = httpError(502, 'The domain controller did not accept StartTLS', 'FA_STARTTLS_FAILED');
+    error.details = { reason: String(err?.message || '').slice(0, 160) };
+    throw error;
+  }
+}
+
 /**
  * Runs `fn(client)` bound as the acting administrator.
  * `cred` = { bindName (DN, UPN or DOMAIN\login; falls back to `dn`), password, dnKnown, expectGuid }.
@@ -89,12 +103,15 @@ export async function withService(cfg, fn) {
  * bind was made with a DN known to exist (`dnKnown`).
  * `expectGuid` (a bind by name, not by a DN found by the service account): after the bind the
  * account is looked up with the person's own connection and must have this objectGUID.
+ * `startTls`: upgrade a plain LDAP connection with StartTLS before the bind (the AD directory
+ * module needs a secure channel for passwords; the integration's CA certificate is used).
  */
-export async function withActor(cfg, cred, fn) {
+export async function withActor(cfg, cred, fn, { startTls = false } = {}) {
   const bindName = cred?.bindName || cred?.dn;
   if (!bindName || !cred?.password) throw httpError(403, 'Enter your domain password', 'FA_CREDENTIALS_REQUIRED');
   const client = makeClient(cfg);
   try {
+    if (startTls && !cfg.useTls) await upgrade(client, cfg);
     try {
       await client.bind(bindName, cred.password);
     } catch (err) {
@@ -199,11 +216,15 @@ export async function findAccount(cfg, { guid, dn }) {
   });
 }
 
-/** Checks a password by binding as `dn`: true / false (wrong password) / throws (directory down). */
-export async function verifyBind(cfg, dn, password) {
+/**
+ * Checks a password by binding as `dn`: true / false (wrong password) / throws (directory down).
+ * `startTls`: upgrade a plain LDAP connection first (refused, never downgraded, when the DC says no).
+ */
+export async function verifyBind(cfg, dn, password, { startTls = false } = {}) {
   if (!dn || !password) return { ok: false, reason: 'AUTH_FAILED' };
   const client = makeClient(cfg);
   try {
+    if (startTls && !cfg.useTls) await upgrade(client, cfg);
     await client.bind(dn, password);
     return { ok: true };
   } catch (err) {

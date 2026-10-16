@@ -59,7 +59,7 @@ test('a draft is cleaned: no inherited entries, valid SIDs and masks', () => {
 test('folder names, display paths, the self-removal confirmation', () => {
   assert.equal(folderDisplay({ letter: 'W', path: '06-HR/Archive' }), 'W:\\06-HR\\Archive');
   assert.equal(folderDisplay({ letter: 'W', path: '' }), 'W:');
-  assert.equal(folderDisplay({ prefix: 'G:\\ПРБ-2\\_DocArch\\', path: '3-QA,QC/СТЯЖКА' }), 'G:\\ПРБ-2\\_DocArch\\3-QA,QC\\СТЯЖКА');
+  assert.equal(folderDisplay({ prefix: 'G:\\ОБЪЕКТ-2\\_DocArch\\', path: '3-QA,QC/СТЯЖКА' }), 'G:\\ОБЪЕКТ-2\\_DocArch\\3-QA,QC\\СТЯЖКА');
   assert.equal(folderDisplay({ prefix: 'W:', path: '' }), 'W:');
   assert.equal(folderDisplay({ host: 'fs', share: 'shared', rootPath: 'CO', path: 'HR' }), '\\\\fs\\shared\\CO\\HR');
   assert.ok(confirmMatches({ path: '06-HR/Archive' }, ' archive '));
@@ -249,14 +249,14 @@ function fakeServer(initial, { holdJobs = false } = {}) {
     acl: { resolveDriveFolder: async (shareId, path) => ({ server: SERVER, share: 'shared', path }) },
     loadShares: async () => [{ id: 1, title: 'ЦО', share: 'shared', root_path: '', server_id: 1, path_prefixes: ['W:'], server_name: 'DC', host: SERVER.host }],
     accessSettings: async () => SETTINGS,
-    adConfig: async () => ({ host: 'dc', baseDn: 'OU=Accounts,DC=whitehills,DC=kg' }),
+    adConfig: async () => ({ host: 'dc', baseDn: 'OU=Accounts,DC=example,DC=com' }),
     loadGroups: async () => [group('sg_co_hr_full', 'W:\\06-HR;Full Access', HR_FULL), group('sg_co_hr_read', 'W:\\06-HR;Read Only', HR_READ)],
     lookupSids: async (_cfg, _base, sids) => new Map(sids.filter((sid) => sid === ALICE).map((sid) => [sid, { sid, name: 'Alice', kind: 'user' }])),
     actorSidsOf: async () => [ME, IT],
     actorCredential: async () => ({ dn: 'CN=Me,OU=IT', password: 'pw', login: 'me', row: { id: 3 } }),
     // As credentials.parkCredential: a "sign in as" session never parks.
     parkCredential: async (credential, reason, { impersonating = false } = {}) => !impersonating && parked.push([credential.row.id, reason]),
-    directoryDomain: async () => 'whitehills.kg',
+    directoryDomain: async () => 'example.com',
     recordChange: async (actor, entry) => {
       if (fake.journalDown) throw new Error('database down');
       const id = journal.length + 1;
@@ -593,9 +593,9 @@ test('report: a failed SID lookup is never "unknown"; outside a whole-domain sea
   const partial = issues({ ok: true, wholeDomain: false });
   assert.deepEqual([partial.length, partial[0].subject.sid, partial[0].fix], [1, GHOST, null]);
   assert.equal(issues({ ok: true, wholeDomain: true })[0].fix.op, 'remove');
-  assert.ok(isDomainRoot('DC=whitehills,DC=kg'));
-  assert.ok(isDomainRoot(' dc=whitehills, dc=kg '));
-  assert.ok(!isDomainRoot('OU=Accounts,DC=whitehills,DC=kg'));
+  assert.ok(isDomainRoot('DC=example,DC=com'));
+  assert.ok(isDomainRoot(' dc=example, dc=com '));
+  assert.ok(!isDomainRoot('OU=Accounts,DC=example,DC=com'));
 });
 
 test('ACL view and report when the directory fails: names unavailable, nothing "unknown"', async () => {
@@ -622,7 +622,7 @@ test('ACL view and report when the directory fails: names unavailable, nothing "
   }
   // The directory answers, but the search base is one OU: unknown without a "remove" fix.
   const fs2 = fakeServer({ aces: [allow(HR_FULL, MODIFY), allow(HR_READ, RX), allow(GHOST, RX)] });
-  const restoreBase = _setNtfsDeps({ accessSettings: async () => ({ ...SETTINGS, subjectsBase: 'OU=Accounts,DC=whitehills,DC=kg' }) });
+  const restoreBase = _setNtfsDeps({ accessSettings: async () => ({ ...SETTINGS, subjectsBase: 'OU=Accounts,DC=example,DC=com' }) });
   try {
     const done = await _waitForReport((await startReport(req(), SUPER)).id);
     const row = done.rows.find((item) => item.issue === 'unknown_sid');

@@ -40,6 +40,7 @@ import { Hint, HintLabel } from '../../../../help/Hint';
 import { fmtDateTime } from '../../../../lib/datetime';
 import { OrderIcon, isLate, untilText, waitingHours } from '../acceptance';
 import './editor.css';
+import ModuleHint from '../../../../components/ModuleHint';
 
 export const CHIPS = [
   { key: 'results', icon: '🏁' },
@@ -1006,6 +1007,7 @@ export default function TaskPanel({ open, taskRef, initialDraft, onClose, onChan
               </div>
               <b>{t('chat.taskChat')}</b>
               <p>{chatOn ? t('tasks.v2.chatPlaceholder') : t('tasks.v2.chatOff')}</p>
+              <ModuleHint module="chat" what={t('platform.hintWhat.tasksChat')} />
             </div>
           )}
         </aside>

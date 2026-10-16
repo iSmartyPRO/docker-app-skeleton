@@ -72,14 +72,14 @@ test('Google domain allow-list uses hd or email domain', () => {
 
 test('PWA manifest follows settings and enabled modules', () => {
   const parsed = {
-    appName: 'WhiteHills Kyrgyzstan Portal',
+    appName: 'Example Company Portal',
     appDescription: 'Portal',
     appearance: { customColors: {} },
     modules: { tasks: { enabled: true }, calendar: { enabled: false }, kb: { enabled: true } },
   };
   const manifest = buildManifest(parsed, 'ru');
   assert.equal(manifest.display, 'standalone');
-  assert.equal(manifest.short_name, 'WhiteHills');
+  assert.equal(manifest.short_name, 'Example');
   assert.ok(manifest.icons.some((icon) => icon.purpose === 'maskable'));
   assert.deepEqual(manifest.shortcuts.map((item) => item.url), ['/app/tasks', '/app/kb']);
   const custom = buildManifest({ ...parsed, appearance: { appIconUrl: '/uploads/logos/logo-x.png' } });

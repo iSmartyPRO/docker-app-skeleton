@@ -35,6 +35,7 @@ function Sidebar({ onNavigate }) {
         <span>{t('apps.files.name')}</span>
       </NavLink>
       <Input.Search
+        data-tour="files.search"
         placeholder={t('files.search')}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
@@ -46,12 +47,12 @@ function Sidebar({ onNavigate }) {
         }}
         allowClear
       />
-      <nav className="mod-nav">
+      <nav className="mod-nav" data-tour="files.places">
         {link('/app/files', 'user', t('files.myFiles'), true)}
         {link('/app/files/shared', 'people', t('files.sharedWithMe'))}
         {link('/app/files/recent', 'spark', t('files.recent'))}
       </nav>
-      <div className="mod-side__label">
+      <div className="mod-side__label" data-tour="files.spaces">
         <span>{t('files.spaces')}</span>
         {config?.canCreateSpaces && (
           <button type="button" onClick={() => setCreating(true)} aria-label={t('files.newSpace')}>+</button>
@@ -66,7 +67,7 @@ function Sidebar({ onNavigate }) {
         ))}
         {!spaces.length && <div className="mod-side__empty">{t('files.noSpaces')}</div>}
       </nav>
-      <nav className="mod-nav fs-side__bottom">
+      <nav className="mod-nav fs-side__bottom" data-tour="files.trash">
         {link('/app/files/trash', 'box', t('files.trash'))}
       </nav>
       {usage && (

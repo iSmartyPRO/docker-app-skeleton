@@ -188,6 +188,12 @@ export const NOTIFICATION_GROUPS = [
     ],
   },
   {
+    // Employees (docs/employees.md): clearances expiring or expired, to HR, the person and their manager.
+    key: 'employees',
+    module: 'employees',
+    events: [{ kind: 'employees.clearance', defaults: on(true, true, true) }],
+  },
+  {
     key: 'system',
     module: null,
     events: [{ kind: 'system.test', defaults: on(true, true, true), urgent: true, hidden: true }],

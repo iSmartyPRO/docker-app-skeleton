@@ -13,6 +13,7 @@ export function PipelineSwitcher({ value, onChange }) {
   return (
     <Select
       className="crm-pipeline-select"
+      data-tour="crm.pipelines"
       value={value}
       onChange={(next) => (next === '__setup' ? navigate('/app/crm/pipelines') : onChange(next))}
       popupMatchSelectWidth={260}
@@ -46,6 +47,7 @@ export function ViewSwitch({ value, onChange }) {
   return (
     <Segmented
       className="crm-views"
+      data-tour="crm.views"
       value={value}
       onChange={onChange}
       aria-label={t('crm.views.label')}
@@ -91,7 +93,7 @@ const COUNTERS = [
 export function CounterChips({ counters, value, onChange }) {
   const { t } = useLocale();
   return (
-    <div className="crm-counters" role="group" aria-label={t('crm.counters.label')}>
+    <div className="crm-counters" role="group" aria-label={t('crm.counters.label')} data-tour="crm.counters">
       {COUNTERS.map(({ key, tone }) => {
         const n = counters?.[key];
         const on = value === key;

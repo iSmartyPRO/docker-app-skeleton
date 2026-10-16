@@ -45,7 +45,7 @@ test('price grid: payment schedule — first payment, equal monthly payments, ro
   assert.equal(odd.first + odd.monthly * 6 + odd.last, 100000, 'the parts always add up to the total');
 });
 
-test('price grid: totals by mode and the 3 White Hills variants of a 96.72 m² house', () => {
+test('price grid: totals by mode and the 3 variants of a 96.72 m² house', () => {
   const unit = { price: 193440, areaTotal: 96.72, currency: 'USD' };
   assert.equal(planTotal({ mode: 'base' }, { price: 193440, area: 96.72 }), 193440);
   assert.equal(planTotal({ mode: 'markup', markupPct: 10 }, { price: 193440, area: 96.72 }), 212784);

@@ -56,10 +56,10 @@ export function CompanyList({ scope }) {
           <h1>{titles[scope]}</h1>
           <p>{data ? t('companies.totalN', { n: data.total }) : '…'}</p>
         </div>
-        {scope !== 'archive' && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)} className="cmp-list__create" aria-label={t('companies.addCompany')}><span>{t('companies.addCompany')}</span></Button>}
+        {scope !== 'archive' && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)} className="cmp-list__create" data-tour="cmp.create" aria-label={t('companies.addCompany')}><span>{t('companies.addCompany')}</span></Button>}
       </header>
       <div className="cmp-filters-wrap">
-        <div className="cmp-filters">
+        <div className="cmp-filters" data-tour="cmp.filters">
           <Input.Search allowClear value={q} onChange={(event) => setQ(event.target.value)} placeholder={t('companies.searchCompanies')} className="cmp-filters__search" />
           <Segmented
             className="cmp-filters__countries"

@@ -81,6 +81,8 @@ export async function ensureApprovalsSchema() {
       activated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // How a seat came about: 'manager:<level>' (the author's manager, docs/approvals.md), 'fallback' (no manager found).
+  await query(`ALTER TABLE approval_seats ADD COLUMN IF NOT EXISTS via VARCHAR(16)`);
   await query(`CREATE INDEX IF NOT EXISTS approval_seats_stage_idx ON approval_seats (process_id, round, stage_index)`);
   await query(`CREATE INDEX IF NOT EXISTS approval_seats_open_idx ON approval_seats (kind, ref_id) WHERE decision IS NULL`);
   await query(`CREATE INDEX IF NOT EXISTS approval_seats_delegated_idx ON approval_seats (delegated_to) WHERE decision IS NULL AND delegated_to IS NOT NULL`);

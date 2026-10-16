@@ -36,7 +36,7 @@ export default function ThemeSwitch() {
 
   return (
     <Tooltip title={title} mouseEnterDelay={0.15}>
-      <button type="button" className="theme-switch" onClick={toggle} aria-label={title}>
+      <button type="button" className="theme-switch" onClick={toggle} aria-label={title} data-tour="header.theme">
         <span key={mode} className="theme-switch__icon">
           {mode === 'dark' ? <IconSun /> : <IconMoon />}
         </span>

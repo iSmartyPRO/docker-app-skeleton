@@ -391,9 +391,9 @@ function ShareDialog({ open, server, share, preset, groups, onClose }) {
         <Form.Item name="allowLinks" valuePropName="checked" label={t('driveSettings.allowLinks')} extra={t('driveSettings.allowLinksHint')}>
           <Switch />
         </Form.Item>
-        {/* «Доступ»: how this folder's path is written in AD group descriptions (G:\ПРБ-2\_DocArch, W:). */}
+        {/* «Доступ»: how this folder's path is written in AD group descriptions (G:\ОБЪЕКТ-2\_DocArch, W:). */}
         <Form.Item name="pathPrefixes" label={t('driveSettings.pathPrefixes')} extra={t('driveSettings.pathPrefixesHint')}>
-          <Select mode="tags" open={false} tokenSeparators={[';', '\n']} placeholder="W:  ·  G:\ПРБ-2\_DocArch" />
+          <Select mode="tags" open={false} tokenSeparators={[';', '\n']} placeholder="W:  ·  G:\ОБЪЕКТ-2\_DocArch" />
         </Form.Item>
       </Form>
     </Modal>

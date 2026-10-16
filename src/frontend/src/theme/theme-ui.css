@@ -1,0 +1,222 @@
+/* ── Theme picker and custom-theme editor (Account → Appearance, Settings → Theme) ── */
+
+.ts-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.ts-group__title {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--da-muted);
+}
+
+.ts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: 12px;
+}
+
+.ts-groups.is-compact .ts-grid {
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+}
+
+.ts-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 8px 10px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 14px;
+  background: var(--da-bg);
+  color: var(--da-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s var(--da-ease),
+    box-shadow 0.2s var(--da-ease),
+    transform 0.2s var(--da-ease);
+}
+
+.ts-card:hover {
+  border-color: color-mix(in srgb, var(--da-primary) 40%, var(--da-hairline));
+  transform: translateY(-1px);
+  box-shadow: var(--da-shadow);
+}
+
+.ts-card.is-active {
+  border-color: var(--da-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--da-primary) 22%, transparent);
+}
+
+.ts-card:focus-visible {
+  outline: 2px solid var(--da-primary);
+  outline-offset: 2px;
+}
+
+.ts-card__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.ts-card__live {
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--da-tint-strong);
+  color: var(--da-primary);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ts-card__desc {
+  padding: 0 2px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--da-muted);
+}
+
+.ts-swatch {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  height: 78px;
+  padding: 8px;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.ts-swatch__side,
+.ts-swatch__card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 6px;
+  border: 1px solid;
+  border-radius: 6px;
+}
+
+.ts-swatch__side {
+  width: 28%;
+}
+
+.ts-swatch__card {
+  flex: 1;
+}
+
+.ts-swatch i {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+}
+
+.ts-swatch b {
+  display: block;
+  width: 40%;
+  height: 12px;
+  margin-top: auto;
+  border-radius: 4px;
+}
+
+.ts-swatch.is-split {
+  padding: 0;
+  gap: 0;
+}
+
+.ts-swatch.is-split > span {
+  flex: 1;
+  display: flex;
+  padding: 10px 8px;
+}
+
+.ts-swatch.is-split > span > i {
+  flex: 1;
+  display: flex;
+  height: auto;
+  padding: 6px;
+  border: 1px solid;
+  border-radius: 6px;
+}
+
+.ts-swatch.is-split b {
+  width: 60%;
+}
+
+/* Custom theme editor */
+.ts-custom {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .ts-custom {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ts-custom__pic {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border: 1px dashed var(--da-border);
+  border-radius: 12px;
+  background: var(--da-tint) center / cover no-repeat;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--da-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.ts-custom__pic.has-image {
+  border-style: solid;
+}
+
+.ts-custom__pic .ant-spin {
+  position: absolute;
+}
+
+.ts-custom__fields {
+  display: grid;
+  gap: 14px;
+}
+
+.ts-custom__row {
+  display: grid;
+  gap: 6px;
+}
+
+.ts-custom__row > span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ts-custom__hint {
+  font-size: 12.5px;
+  color: var(--da-muted);
+}
+
+.ts-custom__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ts-allowed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}

@@ -38,6 +38,8 @@ const BLOCKED = [
   /^\/admin\/users\/[^/]+\/revoke-sessions$/,
   // Answers with a session cookie for someone else ("sign in as").
   /^\/admin\/users\/[^/]+\/impersonate$/,
+  // The AD directory changes Active Directory as the person's own domain account: sessions only.
+  /^\/app\/directory(\/|$)/,
 ];
 
 /** Open to any valid token: bootstrap reads and the developer reference. */

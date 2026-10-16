@@ -32,8 +32,8 @@ function Sidebar({ onNavigate, onCreate }) {
   const due = (mine?.overdue || 0) + (mine?.today || 0);
   const currentPipeline = new URLSearchParams(location.search).get('pipeline');
   const { collapsed } = useSideRail();
-  const link = (to, icon, label, extra, end) => (
-    <NavLink to={to} end={end} className="mod-nav__link" onClick={onNavigate}>
+  const link = (to, icon, label, extra, end, tour) => (
+    <NavLink to={to} end={end} className="mod-nav__link" onClick={onNavigate} data-tour={tour}>
       <MenuIcon name={icon} variant="mono" />
       <span className="mod-nav__text">{label}</span>
       {extra}
@@ -56,7 +56,7 @@ function Sidebar({ onNavigate, onCreate }) {
           <span className="mod-nav__text">{t('crm.deals')}</span>
           {totalOpen > 0 && <span className="mod-nav__count">{totalOpen}</span>}
         </NavLink>
-        {link('/app/crm/activities', 'checklist', t('crm.my.title'), due > 0 && <span className={`mod-nav__count${mine?.overdue ? ' is-alert' : ''}`}>{due}</span>)}
+        {link('/app/crm/activities', 'checklist', t('crm.my.title'), due > 0 && <span className={`mod-nav__count${mine?.overdue ? ' is-alert' : ''}`}>{due}</span>, false, 'crm.activities')}
       </nav>
       {pipelines.length > 1 && (
         <>

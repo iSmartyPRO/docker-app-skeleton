@@ -1,0 +1,436 @@
+/* ── Guided tours (tour/TourOverlay.jsx) ─────────────────────────────────────
+   Colours come from the theme tokens, so a tour looks native in every theme.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  --tour-dim: rgba(8, 12, 22, 0.58);
+}
+
+:root[data-theme='dark'] .tour {
+  --tour-dim: rgba(0, 0, 0, 0.66);
+}
+
+.tour__catch {
+  position: absolute;
+  inset: 0;
+}
+
+.tour__shade {
+  position: absolute;
+  inset: 0;
+  background: var(--tour-dim);
+  animation: tour-fade 0.28s var(--da-ease) both;
+}
+
+/* The spotlight: a transparent hole whose shadow dims everything else. */
+.tour__spot {
+  position: absolute;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--da-primary) 75%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--da-primary) 18%, transparent),
+    0 0 0 200vmax var(--tour-dim);
+  pointer-events: none;
+  transition:
+    top 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+    left 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+    height 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: tour-fade 0.28s var(--da-ease) both;
+}
+
+.tour__pop {
+  position: absolute;
+  width: min(360px, calc(100vw - 24px));
+  padding: 16px 18px 14px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 16px;
+  background: var(--da-elevated, var(--da-bg));
+  color: var(--da-text);
+  box-shadow: var(--da-shadow-lg), 0 2px 8px rgba(0, 0, 0, 0.12);
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+  transition:
+    top 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+    left 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tour.is-ready .tour__pop {
+  animation: tour-pop 0.32s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+}
+
+.tour__pop.is-nudged {
+  animation: tour-nudge 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+  opacity: 1;
+  transform: none;
+}
+
+.tour__pop:focus {
+  outline: none;
+}
+
+.tour__arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px;
+  background: inherit;
+  border: 1px solid var(--da-hairline);
+  transform: rotate(45deg);
+}
+
+.tour__pop.at-bottom .tour__arrow {
+  top: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.tour__pop.at-top .tour__arrow {
+  top: 100%;
+  border-left: 0;
+  border-top: 0;
+}
+
+.tour__pop.at-right .tour__arrow {
+  left: 0;
+  border-right: 0;
+  border-top: 0;
+}
+
+.tour__pop.at-left .tour__arrow {
+  left: 100%;
+  border-left: 0;
+  border-bottom: 0;
+}
+
+.tour__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.tour__count {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--da-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tour__dots {
+  display: inline-flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.tour__dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--da-text) 18%, transparent);
+  transition:
+    width 0.25s var(--da-ease),
+    background 0.25s var(--da-ease);
+}
+
+.tour__dots i.is-done {
+  background: color-mix(in srgb, var(--da-primary) 45%, transparent);
+}
+
+.tour__dots i.is-on {
+  width: 18px;
+  background: var(--da-primary);
+}
+
+.tour__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -4px -6px -4px 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--da-muted);
+  cursor: pointer;
+}
+
+.tour__x:hover {
+  background: var(--da-tint);
+  color: var(--da-text);
+}
+
+.tour__title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 720;
+  line-height: 1.3;
+  color: var(--da-text);
+}
+
+.tour__text {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--da-text);
+  opacity: 0.88;
+  white-space: pre-line;
+}
+
+.tour__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.tour__spacer {
+  flex: 1;
+}
+
+.tour__skip {
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--da-muted);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.tour__skip:hover {
+  color: var(--da-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tour__btn {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid var(--da-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--da-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--da-ease),
+    border-color 0.15s var(--da-ease),
+    transform 0.15s var(--da-ease);
+}
+
+.tour__btn:hover {
+  border-color: color-mix(in srgb, var(--da-primary) 50%, var(--da-border));
+  background: var(--da-tint);
+}
+
+.tour__btn:active {
+  transform: translateY(1px);
+}
+
+.tour__btn.is-primary {
+  border-color: var(--da-primary);
+  background: var(--da-primary);
+  color: var(--da-on-primary, #fff);
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--da-primary) 70%, transparent);
+}
+
+.tour__btn.is-primary:hover {
+  background: color-mix(in srgb, var(--da-primary) 88%, var(--da-text));
+}
+
+.tour__btn:focus-visible,
+.tour__skip:focus-visible,
+.tour__x:focus-visible {
+  outline: 2px solid var(--da-primary);
+  outline-offset: 2px;
+}
+
+.tour__keys {
+  display: block;
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--da-muted);
+}
+
+.tour__keys kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--da-hairline);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 11px;
+  text-align: center;
+}
+
+.tour__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Phones: a sheet at the bottom (or top, when the anchor is low on screen). */
+.tour__pop.is-sheet {
+  left: 8px;
+  right: 8px;
+  width: auto;
+  border-radius: 18px;
+}
+
+.tour__pop.is-sheet.is-bottom {
+  bottom: calc(8px + var(--safe-bottom, 0px));
+}
+
+.tour__pop.is-sheet.is-top {
+  top: calc(8px + var(--safe-top, 0px));
+}
+
+.tour.is-phone .tour__keys {
+  display: none;
+}
+
+.tour.is-phone .tour__btn {
+  min-height: 42px;
+}
+
+/* While a tour runs the robot assistant steps aside. */
+:root[data-tour='on'] .asst,
+:root[data-tour='on'] .asst-bubble,
+:root[data-tour='on'] .asst-panel {
+  display: none !important;
+}
+
+@keyframes tour-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes tour-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tour-nudge {
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour__spot,
+  .tour__pop {
+    transition: none;
+  }
+
+  .tour.is-ready .tour__pop {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── «Тур» button (tour/TourButton.jsx) ──────────────────────────────────── */
+
+.tour-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--da-hairline);
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--da-bg) 70%, transparent);
+  color: var(--da-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 0.15s var(--da-ease),
+    border-color 0.15s var(--da-ease),
+    background 0.15s var(--da-ease);
+}
+
+.tour-btn:hover {
+  color: var(--da-primary);
+  border-color: color-mix(in srgb, var(--da-primary) 40%, var(--da-hairline));
+  background: var(--da-tint);
+}
+
+.tour-btn:focus-visible {
+  outline: 2px solid var(--da-primary);
+  outline-offset: 2px;
+}
+
+.tour-btn svg {
+  flex: none;
+}
+
+.tour-btn.is-icon {
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* In a module sidebar (modules/shared/SideRail.jsx): next to the module name. */
+.mod-tour-slot {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .mod-tour-slot {
+    display: block;
+    position: sticky;
+    top: var(--da-header-h);
+    z-index: 5;
+    height: 0;
+  }
+
+  .mod-tour-slot .tour-btn {
+    position: absolute;
+    top: 23px;
+    right: 14px;
+  }
+
+  .mod-shell__side.has-tour .mod-side__brand {
+    padding-right: 40px;
+  }
+
+  .mod-shell__side.is-collapsed .mod-tour-slot {
+    display: none;
+  }
+}
+
+.dash-head__tour {
+  margin-left: 10px;
+  vertical-align: 0.2em;
+}
+
+.cl__tour {
+  margin: 0 auto 0 8px;
+}

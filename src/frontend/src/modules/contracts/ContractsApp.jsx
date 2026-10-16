@@ -28,6 +28,7 @@ function Sidebar({ onNavigate, onCreate }) {
   const inRegistry = location.pathname === '/app/contracts' || /^\/app\/contracts\/\d+/.test(location.pathname);
   const viewLink = (key, icon, label, count, alert) => (
     <NavLink
+      data-tour={`ctr.nav.${key}`}
       to={key === 'all' ? '/app/contracts' : `/app/contracts?view=${key}`}
       className={() => `mod-nav__link${inRegistry && view === key ? ' active' : ''}`}
       onClick={onNavigate}
@@ -57,12 +58,12 @@ function Sidebar({ onNavigate, onCreate }) {
         {viewLink('mine', 'user', t('contracts.views.mine'), counts?.mine)}
         {viewLink('waiting', 'inbox', t('contracts.views.waiting'), counts?.waiting, true)}
         {viewLink('expiring', 'hourglass', t('contracts.views.expiring', { n: settings.expiringDays || 30 }), counts?.expiring)}
-        <NavLink to="/app/contracts/calendar" className="mod-nav__link" onClick={onNavigate}>
+        <NavLink to="/app/contracts/calendar" className="mod-nav__link" onClick={onNavigate} data-tour="ctr.nav.calendar">
           <MenuIcon name="calendar" variant="mono" />
           <span className="mod-nav__text">{t('contracts.nav.calendar')}</span>
         </NavLink>
         {(me.isFinance || me.viewAll) && (
-          <NavLink to="/app/contracts/payments" className="mod-nav__link" onClick={onNavigate}>
+          <NavLink to="/app/contracts/payments" className="mod-nav__link" onClick={onNavigate} data-tour="ctr.nav.payments">
             <MenuIcon name="wallet" variant="mono" />
             <span className="mod-nav__text">{t('contracts.nav.payments')}</span>
             {counts?.pay_overdue > 0 && <span className="mod-nav__count is-alert">{counts.pay_overdue}</span>}

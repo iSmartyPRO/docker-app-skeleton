@@ -17,12 +17,19 @@ import FontLoader from './components/FontLoader';
 import { ThemeProvider, useThemeMode } from './context/ThemeContext';
 import { ChatProvider } from './modules/chat/ChatContext';
 import { HelpProvider } from './help/HelpContext';
+import { TourProvider } from './tour/TourContext';
 // Texts of task events in conversations (task chats show up on the chat page too).
 import './modules/tasks/chatEvents';
 // …and of deal events (deal chats of the CRM).
 import './modules/crm/chatEvents';
 // …and of contract events (contract discussions).
 import './modules/contracts/chatEvents';
+// Guided tours of Settings → Org structure and the Employees module.
+import './modules/people/tours';
+// Guided tours of CRM, Masterplan, Procurement, Contracts, Warehouse and «Ждёт меня».
+import './modules/shared/businessTours';
+// The AD directory's tour and the «AD» tab of employee cards.
+import './modules/directory/register';
 import { LEGACY_ADMIN_ROUTES, SETTINGS_ITEMS } from './admin/navigation';
 import { SETTINGS_PAGES } from './admin/settingsPages';
 import { loginUrl } from './lib/returnPath';
@@ -51,6 +58,7 @@ const AdminUserEdit = lazy(() => import('./pages/admin/UserEdit'));
 const AdminActivity = lazy(() => import('./pages/admin/Activity'));
 const AdminGroups = lazy(() => import('./pages/admin/Groups'));
 const AdminRoles = lazy(() => import('./pages/admin/Roles'));
+const ModuleDocs = lazy(() => import('./pages/admin/ModuleDocs'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const AppsPage = lazy(() => import('./pages/Apps'));
 const PublicShare = lazy(() => import('./modules/kb/PublicShare'));
@@ -214,6 +222,7 @@ function ThemedRoutes() {
         <AppErrorBoundary resetKey={location.pathname}>
         <HelpProvider>
         <RegionalSync>
+        <TourProvider>
         <Suspense fallback={<Screen />}>
           <Routes>
             <Route path="/setup" element={<SetupWizard />} />
@@ -310,6 +319,8 @@ function ThemedRoutes() {
               <Route path="roles" element={<Allow any={['users.view']}><AdminRoles /></Allow>} />
               <Route path="activity" element={<Allow any={['activity.view']}><AdminActivity /></Allow>} />
               <Route path="api" element={<Allow any={['api.admin']}><ApiConsole /></Allow>} />
+              <Route path="modules" element={<Navigate to="/admin/settings/modules" replace />} />
+              <Route path="modules/:id/docs" element={<Allow any={SETTINGS_VIEW}><ModuleDocs /></Allow>} />
               <Route path="settings" element={<Allow any={SETTINGS_VIEW}><SettingsLayout /></Allow>}>
                 <Route index element={<SettingsHome />} />
                 {SETTINGS_ITEMS.map((item) => {
@@ -348,6 +359,7 @@ function ThemedRoutes() {
         </Suspense>
         <UpdateBanner />
         <Maintenance />
+        </TourProvider>
         </RegionalSync>
         </HelpProvider>
         </AppErrorBoundary>

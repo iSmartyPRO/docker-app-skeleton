@@ -1868,3 +1868,14 @@
 .apr-drawer .apr-path__who {
   max-width: 96px;
 }
+
+/* «Руководитель подразделения автора» (org structure) in the route builder and its preview. */
+.apr-stage__hint--manager {
+  color: var(--da-primary);
+}
+
+.apr-preview__warn {
+  display: block;
+  color: var(--da-warning);
+  font-style: normal;
+}

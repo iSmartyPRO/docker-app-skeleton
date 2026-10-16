@@ -206,7 +206,7 @@ export function privateRoutes() {
   );
   router.put('/routes/:type', wrap(async (req, res) => ok(res, { route: await saveRoute(req, req.params.type, req.body || {}) })));
   router.delete('/routes/:type', wrap(async (req, res) => ok(res, { route: await resetRoute(req, req.params.type) })));
-  router.post('/routes/:type/preview', wrap(async (req, res) => ok(res, await previewRoute(req, req.params.type, req.body?.values || {}, req.body?.draft || null))));
+  router.post('/routes/:type/preview', wrap(async (req, res) => ok(res, await previewRoute(req, req.params.type, req.body?.values || {}, req.body?.draft || null, { authorId: req.body?.authorId || null }))));
   router.get('/routes/:type/fields/:field/options', wrap(async (req, res) => ok(res, { options: await fieldOptions(req, req.params.type, req.params.field) })));
 
   // ── Settings (urgency levels, reminders, escalation) ─────────────────────

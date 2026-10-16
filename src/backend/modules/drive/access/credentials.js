@@ -170,7 +170,7 @@ export async function parkCredential(credential, reason = 'AUTH_FAILED', { imper
  * and saves it under that account's login (replacing a user name saved for another account).
  * Throws FA_NOT_LINKED, FA_ACCOUNT_NOT_FOUND, FA_PASSWORD_WRONG (400, with the reason) or a directory error.
  */
-export async function savePassword(cfg, userId, password, { lookup = findAccount } = {}) {
+export async function savePassword(cfg, userId, password, { lookup = findAccount, startTls = false } = {}) {
   const secret = String(password || '');
   if (!secret || secret.length > 256) throw httpError(400, 'Enter your domain password', 'FA_PASSWORD_EMPTY');
   const { user, row } = await loadRows(userId);
@@ -178,7 +178,8 @@ export async function savePassword(cfg, userId, password, { lookup = findAccount
   if (resolved.state === 'not_linked') throw credentialProblem(resolved);
   const account = await lookup(cfg, { guid: user.directory_guid || null, dn: user.external_id });
   if (!account) throw accountNotFound();
-  const check = await verifyBind(cfg, account.dn, secret);
+  // `startTls`: the caller's channel is plain LDAP + StartTLS (AD directory module): the check bind is protected too.
+  const check = await verifyBind(cfg, account.dn, secret, { startTls });
   if (!check.ok) {
     const error = httpError(400, 'Active Directory did not accept this password', 'FA_PASSWORD_WRONG');
     error.details = { reason: check.reason };

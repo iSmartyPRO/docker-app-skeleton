@@ -87,6 +87,12 @@ export const SETTINGS_GROUPS = [
         defaultIcon: 'building',
         keywords: 'legal entities companies payer tax id inn bank details юрлица юридические лица плательщик инн реквизиты организации',
       },
+      {
+        id: 'org',
+        defaultIcon: 'layers',
+        permission: 'org.manage',
+        keywords: 'org structure organization chart units departments branches offices sites heads оргструктура оргсхема подразделения отделы филиалы офисы объекты руководители',
+      },
     ],
   },
   {
@@ -276,6 +282,11 @@ export const SETTINGS_GROUPS = [
         keywords: 'warehouse stock inventory items tools barcode склад остатки номенклатура инструмент штрихкод кладовщик приход выдача списание',
       },
       {
+        id: 'employees',
+        defaultIcon: 'people',
+        keywords: 'employees staff people hr personnel clearances positions org chart birthdays сотрудники персонал кадры допуски должности оргсхема дни рождения табельный',
+      },
+      {
         id: 'contracts',
         defaultIcon: 'clipboard',
         keywords: 'contracts agreements legal lawyer risks expiry prolongation numbering договоры юрист риски пролонгация окончание нумерация',
@@ -289,6 +300,11 @@ export const SETTINGS_GROUPS = [
         id: 'calendar',
         defaultIcon: 'calendar',
         keywords: 'calendar events meetings reminders календарь события встречи напоминания',
+      },
+      {
+        id: 'directory',
+        defaultIcon: 'directory',
+        keywords: 'active directory ad ldap ou users groups computers password reset unlock каталог ad пользователи группы компьютеры сброс пароля разблокировать учётные записи домен',
       },
     ],
   },

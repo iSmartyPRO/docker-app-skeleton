@@ -49,8 +49,8 @@ function Sidebar({ onNavigate }) {
     if (path === '/app/procurement/requests') return query ? waitingView : !waitingView;
     return true;
   };
-  const link = (to, icon, label, extra) => (
-    <NavLink to={to} className={() => `mod-nav__link${activeFor(to) ? ' active' : ''}`} onClick={onNavigate}>
+  const link = (to, icon, label, extra, tour) => (
+    <NavLink to={to} className={() => `mod-nav__link${activeFor(to) ? ' active' : ''}`} onClick={onNavigate} data-tour={tour}>
       <MenuIcon name={icon} variant="mono" />
       <span className="mod-nav__text">{label}</span>
       {extra}
@@ -76,12 +76,12 @@ function Sidebar({ onNavigate }) {
         ))}
       <nav className="mod-nav">
         {link('/app/procurement/requests', 'clipboard', t('procurement.nav.requests'), count(counters?.active))}
-        {link('/app/procurement/requests?chip=waiting', 'inbox', t('procurement.chips.waiting'), count(counters?.waiting, true))}
-        {rights.canPay && link('/app/procurement/payments', 'wallet', t('procurement.nav.payments'), count(counters?.to_pay, counters?.overdue > 0))}
-        {link('/app/procurement/summary', 'pie', t('procurement.nav.summary'))}
+        {link('/app/procurement/requests?chip=waiting', 'inbox', t('procurement.chips.waiting'), count(counters?.waiting, true), 'proc.waiting')}
+        {rights.canPay && link('/app/procurement/payments', 'wallet', t('procurement.nav.payments'), count(counters?.to_pay, counters?.overdue > 0), 'proc.payments')}
+        {link('/app/procurement/summary', 'pie', t('procurement.nav.summary'), null, 'proc.summary')}
       </nav>
       <nav className="mod-nav prc-side__bottom">
-        {link('/app/approvals', 'checklist', t('procurement.nav.inbox'))}
+        {link('/app/approvals', 'checklist', t('procurement.nav.inbox'), null, 'proc.inbox')}
         {rights.canAdmin && link('/app/procurement/settings', 'general', t('procurement.nav.settings'))}
       </nav>
     </div>

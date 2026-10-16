@@ -30,6 +30,9 @@ export const EVENT_KINDS = [
   'folder_group_changed',
   'folder_access_password',
   'folder_ntfs_changed',
+  'demo_data',
+  'org_structure',
+  'employee_account',
 ];
 
 export const EVENT_TAG = {
@@ -43,6 +46,9 @@ export const EVENT_TAG = {
   folder_group_changed: 'magenta',
   folder_access_password: 'blue',
   folder_ntfs_changed: 'volcano',
+  demo_data: 'gold',
+  org_structure: 'geekblue',
+  employee_account: 'cyan',
   login_failed: 'warning',
   lockout: 'error',
   account_disabled: 'error',

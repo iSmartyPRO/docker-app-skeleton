@@ -24,6 +24,7 @@ import {
   updateUser,
 } from '../services/users.js';
 import { getOverview, getSystemInfo } from '../services/overview.js';
+import platformRoutes from './platform.routes.js';
 import { emitEvent } from '../api/events.js';
 import { adminTest, notifyOverview, saveNotifyConfig } from '../services/notifications.js';
 import { listWazzupChannels, testIntegration } from '../services/integrations.js';
@@ -131,6 +132,9 @@ router.get('/overview', wrap(async (req, res) => {
 router.get('/permissions', wrap(async (req, res) => {
   res.json({ success: true, catalog: PERMISSION_CATALOG });
 }));
+
+// Modules (manifests, dependencies), demo data and the system report: routes/platform.routes.js.
+router.use(platformRoutes);
 
 // ── Settings ────────────────────────────────────────────────────────────────
 

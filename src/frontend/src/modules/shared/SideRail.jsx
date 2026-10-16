@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { createPortal } from 'react-dom';
 import { Tooltip } from 'antd';
 import { useLocale } from '../../context/LocaleContext';
+import TourButton from '../../tour/TourButton';
+import { useTour } from '../../tour/TourContext';
 
 /**
  * Collapsible desktop sidebar for module shells (`.mod-shell`).
@@ -144,10 +146,13 @@ export default function SideRail({ moduleKey, className = '', children }) {
   const hideTip = () => setTip(null);
 
   const label = collapsed ? t('common.sideExpand') : t('common.sideCollapse');
+  // Modules with a guided tour get a «Тур» button next to their name (tour/tour.css).
+  const { hasTour } = useTour();
+  const withTour = hasTour(moduleKey);
   return (
     <aside
       ref={ref}
-      className={`mod-shell__side${collapsed ? ' is-collapsed' : ''}${className ? ` ${className}` : ''}`}
+      className={`mod-shell__side${collapsed ? ' is-collapsed' : ''}${withTour ? ' has-tour' : ''}${className ? ` ${className}` : ''}`}
       onPointerOver={showTip}
       onPointerLeave={hideTip}
       onFocus={showTip}
@@ -169,6 +174,11 @@ export default function SideRail({ moduleKey, className = '', children }) {
           </button>
         </Tooltip>
       </div>
+      {withTour && (
+        <div className="mod-tour-slot">
+          <TourButton module={moduleKey} iconOnly />
+        </div>
+      )}
       <SideRailContext.Provider value={{ collapsed }}>{children}</SideRailContext.Provider>
       {tip &&
         createPortal(

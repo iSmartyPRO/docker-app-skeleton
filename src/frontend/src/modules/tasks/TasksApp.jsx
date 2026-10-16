@@ -49,7 +49,7 @@ function Sidebar({ onNavigate }) {
           <span className="mod-nav__text">{t('tasks.allProjects')}</span>
         </NavLink>
       </nav>
-      <div className="mod-side__label">
+      <div className="mod-side__label" data-tour="tasks.projects">
         <span>{t('tasks.projects')}</span>
         {config?.canCreateProjects && (
           <button type="button" onClick={() => setDialog('project')} aria-label={t('tasks.newProject')}>

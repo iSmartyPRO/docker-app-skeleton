@@ -6,6 +6,8 @@ import SaveBar from '../../components/ui/SaveBar';
 import LoadState from '../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
 import UserLinks from './UserLinks';
+import UserPlacement from '../../modules/org/UserPlacement';
+import '../../modules/org/org.css';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
@@ -242,6 +244,10 @@ function UserForm({ user, onUpdated, roles, groups }) {
         </SettingsSection>
         )}
       </Form>
+
+      <SettingsSection title={t('org.placement.title')} description={t('org.placement.desc')}>
+        <UserPlacement userId={user.id} canEdit={can('users.manage') || can('org.manage')} />
+      </SettingsSection>
 
       <UserLinks user={user} canManage={canManage} isSelf={isSelf} />
 

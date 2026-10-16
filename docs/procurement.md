@@ -13,6 +13,7 @@ A [module](modules.md) for purchase requests: an employee files a request with t
 - [Data model](#data-model)
 - [HTTP API](#http-api)
 - [Code map](#code-map)
+- [Demo data and tour](#demo-data-and-tour)
 - [Tests](#tests)
 
 ## Screens
@@ -205,6 +206,11 @@ src/frontend/src/modules/procurement/
 src/frontend/src/pages/admin/settings/LegalEntities.jsx
 src/frontend/src/i18n/procurement.js, help/content/procurement.js
 ```
+
+## Demo data and tour
+
+- `modules/procurement/demo.js` (after Contracts, Masterplan, CRM, Counterparties, Org, Employees): 11 requests of «ООО «Пример»» through the real approval engine — a draft, one waiting for the head of supply, one waiting for the director (the administrator's «Ждёт меня»), returned with a comment, approved and waiting for payment, partially paid with an overdue pay-by day, paid, delivered, closed, rejected, cancelled; generated invoice and payment-order PDFs; the paying legal entity of the Org demo (or its own «ООО «Пример»»); supplier, project and supply contract of the other demos. A demo route «Руководитель снабжения → Директор» is added only when no route is saved for `procurement.request` (an edited one is kept on purge). Purge removes files, processes, chats, notifications and rows.
+- Tour `procurement` (`modules/procurement/tour.js`, texts `tour.procurement.*`): new request, quick filters, the list and the card, the approval path («Ждут меня»), «Ждёт меня», the payment registry (only for payers), summary. Anchors `proc.create`, `proc.chips`, `proc.list`, `proc.waiting`, `proc.inbox`, `proc.payments`, `proc.summary`.
 
 ## Tests
 

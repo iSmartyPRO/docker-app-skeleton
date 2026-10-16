@@ -37,10 +37,10 @@ test('network paths for people (UNC or DFS)', () => {
 
 test('drive settings are sanitised', () => {
   const next = sanitizeModules(resolveModules(), {
-    drive: { enabled: true, settings: { title: '  iSmarty <Drive>  ', linkAudience: 'world', maxUploadMb: 0, rememberLogin: 'no' } },
+    drive: { enabled: true, settings: { title: '  Company <Drive>  ', linkAudience: 'world', maxUploadMb: 0, rememberLogin: 'no' } },
   }).drive;
   assert.equal(next.enabled, true);
-  assert.equal(next.settings.title, 'iSmarty Drive');
+  assert.equal(next.settings.title, 'Company Drive');
   assert.equal(next.settings.linkAudience, 'any');
   assert.equal(next.settings.maxUploadMb, 1);
   assert.equal(next.settings.rememberLogin, true);

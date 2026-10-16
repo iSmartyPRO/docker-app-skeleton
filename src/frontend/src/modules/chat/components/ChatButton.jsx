@@ -62,7 +62,7 @@ export default function ChatButton() {
   );
   return (
     <Dropdown open={open} onOpenChange={setOpen} trigger={['click']} placement="bottomRight" popupRender={() => panel} overlayClassName="bell">
-      <button type="button" className="chrome__icon bell__button" aria-label={t('apps.chat.name')}>
+      <button type="button" className="chrome__icon bell__button" aria-label={t('apps.chat.name')} data-tour="header.chat">
         <ChatIcon />
         {unread > 0 && <span className="bell__badge">{unread > 99 ? '99+' : unread}</span>}
       </button>

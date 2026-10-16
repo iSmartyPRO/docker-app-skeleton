@@ -1,0 +1,80 @@
+/* ── Theme background layer (theme/Backdrop.jsx) ─────────────────────────────
+   Fixed behind every page: a living theme's low-resolution canvas or the
+   person's picture.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.da-bd {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+/* Living themes: a small canvas scaled up smoothly (Backdrop.jsx → PAINTERS). */
+.da-bd__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: var(--bd-opacity);
+}
+
+/* Custom picture with a placeholder, a fade-in and a dimming veil for readable text. */
+.da-bd__ph,
+.da-bd__img {
+  position: absolute;
+  inset: -24px;
+  background-size: cover;
+  background-position: center;
+}
+
+.da-bd__ph {
+  filter: blur(24px);
+  transform: scale(1.1);
+}
+
+.da-bd__img {
+  opacity: 0;
+  transition: opacity 0.6s var(--da-ease);
+}
+
+.da-bd__img.is-loaded {
+  opacity: 1;
+}
+
+.da-bd__veil {
+  position: absolute;
+  inset: 0;
+  background: var(--da-layout);
+}
+
+/* With a background layer, page grounds let it show; panels stay solid. */
+:root[data-backdrop] .ant-layout,
+:root[data-backdrop] .ant-layout-content {
+  background: transparent;
+}
+
+:root[data-backdrop] .mod-shell__side {
+  background: color-mix(in srgb, var(--da-bg) 88%, transparent);
+}
+
+:root[data-backdrop='image'] .chrome {
+  background: color-mix(in srgb, var(--da-bg) 90%, transparent);
+}
+
+/* High contrast: strong focus ring and borders everywhere. */
+:root[data-skin='contrast'] :focus-visible {
+  outline: 3px solid var(--da-primary);
+  outline-offset: 2px;
+}
+
+:root[data-skin='contrast'] {
+  --da-hairline: color-mix(in srgb, var(--da-border) 85%, transparent);
+  --da-faint: color-mix(in srgb, var(--da-text) 70%, transparent);
+}
+
+:root[data-skin='contrast'] a:not(.ant-btn) {
+  text-decoration-thickness: 1px;
+}

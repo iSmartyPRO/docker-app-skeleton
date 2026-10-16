@@ -50,7 +50,7 @@ function useFilter(storeKey) {
 function Chips({ counters, value, onChange }) {
   const { t } = useLocale();
   return (
-    <div className="prc-chips" role="tablist">
+    <div className="prc-chips" role="tablist" data-tour="proc.chips">
       <button type="button" className={`prc-chip${!value ? ' is-active' : ''}`} onClick={() => onChange(undefined)}>
         {t('procurement.chips.all')}
         {counters && <em>{counters.all}</em>}
@@ -349,7 +349,7 @@ export default function RequestsPage() {
         <div className="mod-hero__actions">
           <HelpButton id="procurement" />
           {meta.rights.canCreate && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/app/procurement/new')}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/app/procurement/new')} data-tour="proc.create">
               {t('procurement.create')}
             </Button>
           )}
@@ -387,7 +387,7 @@ export default function RequestsPage() {
       ) : !data.items.length ? (
         empty
       ) : screens.md ? (
-        <section className="panel prc-table">
+        <section className="panel prc-table" data-tour="proc.list">
           <Table
             rowKey="id"
             size="middle"
@@ -407,7 +407,7 @@ export default function RequestsPage() {
           />
         </section>
       ) : (
-        <div className="prc-cards">
+        <div className="prc-cards" data-tour="proc.list">
           {data.items.map((item) => (
             <RequestTile key={item.id} item={item} onOpen={open} active={item.id === openId} />
           ))}

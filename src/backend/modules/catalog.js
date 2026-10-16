@@ -522,7 +522,7 @@ export const DRIVE_ACCESS_NTFS_RIGHTS = ['modify', 'read_execute', 'read', 'full
 export const DRIVE_ACCESS_DEFAULTS = {
   // The block's own switch (the File server module must be on as well).
   enabled: false,
-  // Security groups that open folders: <prefix><project>_<name>_<full|read>, e.g. sg_prb2_buh_full.
+  // Security groups that open folders: <prefix><project>_<name>_<full|read>, e.g. sg_obj2_buh_full.
   prefix: 'sg_',
   // Project codes accepted in names (empty = any), and the code for new groups when the
   // project cannot be taken from the folder's other groups.
@@ -616,7 +616,183 @@ export function upgradeDrive(settings, saved = {}) {
   return { ...settings, access: { ...DRIVE_ACCESS_DEFAULTS, ...(saved.access && typeof saved.access === 'object' ? saved.access : {}) } };
 }
 
+// ── Org structure (core, docs/org-structure.md) ─────────────────────────────
+
+const orgText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
+const ORG_KEY = /^[a-z][a-z0-9_]{0,23}$/;
+export const ORG_TYPE_ICONS = ['building', 'briefcase', 'map', 'layers', 'siteplan', 'people', 'box', 'globe', 'flag', 'home', 'pin', 'cart', 'wrench', 'server'];
+
+/** Stock unit types; an empty `label` = the translated stock name (i18n org.types.<key>). */
+export const ORG_DEFAULT_TYPES = [
+  // `legal`: the unit links to a legal entity of the shared directory (Settings → Legal entities).
+  { key: 'company', label: '', icon: 'building', color: '#4F46E5', legal: true },
+  { key: 'office', label: '', icon: 'briefcase', color: '#0EA5E9', legal: false },
+  { key: 'branch', label: '', icon: 'map', color: '#14B8A6', legal: false },
+  { key: 'department', label: '', icon: 'layers', color: '#8B5CF6', legal: false },
+  { key: 'site', label: '', icon: 'siteplan', color: '#F59E0B', legal: false, site: true },
+];
+/** Stock purposes («назначение»): modules pick units by them (unitsByPurpose). */
+export const ORG_DEFAULT_PURPOSES = [
+  { key: 'warehouse', label: '' },
+  { key: 'construction', label: '' },
+  { key: 'sales', label: '' },
+  { key: 'production', label: '' },
+  { key: 'office', label: '' },
+];
+
+export const ORG_DEFAULTS = { types: ORG_DEFAULT_TYPES, purposes: ORG_DEFAULT_PURPOSES };
+
+function orgList(list, stock, max, shape) {
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  const seen = new Set();
+  for (const raw of list.slice(0, max)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const key = String(raw.key || '').trim().toLowerCase();
+    if (!ORG_KEY.test(key) || seen.has(key)) continue;
+    const label = orgText(raw.label, 60);
+    const base = stock.find((item) => item.key === key);
+    // Custom entries need a name; stock ones fall back to the translation.
+    if (!label && !base) continue;
+    seen.add(key);
+    out.push(shape(raw, key, label, base));
+  }
+  return out.length ? out : null;
+}
+
+export function sanitizeOrg(current, incoming = {}) {
+  const next = { ...current };
+  const types = orgList(incoming.types, ORG_DEFAULT_TYPES, 20, (raw, key, label, base) => ({
+    key,
+    label,
+    icon: ORG_TYPE_ICONS.includes(raw.icon) ? raw.icon : base?.icon || 'layers',
+    color: typeof raw.color === 'string' && HEX.test(raw.color) ? raw.color.toUpperCase() : base?.color || '#64748B',
+    legal: typeof raw.legal === 'boolean' ? raw.legal : Boolean(base?.legal),
+    site: typeof raw.site === 'boolean' ? raw.site : Boolean(base?.site),
+  }));
+  if (types) next.types = types;
+  const purposes = orgList(incoming.purposes, ORG_DEFAULT_PURPOSES, 30, (raw, key, label) => ({ key, label }));
+  if (purposes) next.purposes = purposes;
+  return { types: next.types || ORG_DEFAULT_TYPES, purposes: next.purposes || ORG_DEFAULT_PURPOSES };
+}
+
+// ── Employees (docs/employees.md) ───────────────────────────────────────────
+
+export const EMPLOYEES_DEFAULTS = {
+  // Everyone signed in sees the directory (names, positions, units, work contacts) without employees.view.
+  everyoneCanView: false,
+  // Birthdays widget: 'all' (day and month to everyone who sees the directory), 'hr' (HR only), 'off'.
+  birthdays: 'all',
+  // Work anniversaries (years since hire) in the widget.
+  anniversaries: true,
+  // Clearance reminders: days before expiry (0 = on the day it expires). Each threshold fires once.
+  clearanceWarnDays: [30, 7, 0],
+  // Who gets clearance reminders besides HR (employees.hr): the employee (when linked) and their manager.
+  notifyEmployee: true,
+  notifyManager: true,
+};
+
+export function sanitizeEmployees(current, incoming = {}) {
+  const next = { ...current };
+  if (typeof incoming.everyoneCanView === 'boolean') next.everyoneCanView = incoming.everyoneCanView;
+  if (['all', 'hr', 'off'].includes(incoming.birthdays)) next.birthdays = incoming.birthdays;
+  if (typeof incoming.anniversaries === 'boolean') next.anniversaries = incoming.anniversaries;
+  if (Array.isArray(incoming.clearanceWarnDays)) {
+    const days = [...new Set(incoming.clearanceWarnDays.filter((value) => value !== '' && value !== null && Number(value) >= 0).map((value) => clampInt(value, 0, 365, -1)).filter((value) => value >= 0))].sort((a, b) => b - a).slice(0, 5);
+    next.clearanceWarnDays = days;
+  }
+  if (typeof incoming.notifyEmployee === 'boolean') next.notifyEmployee = incoming.notifyEmployee;
+  if (typeof incoming.notifyManager === 'boolean') next.notifyManager = incoming.notifyManager;
+  return Object.fromEntries(Object.keys(EMPLOYEES_DEFAULTS).map((key) => [key, next[key] ?? EMPLOYEES_DEFAULTS[key]]));
+}
+
+// ── Active Directory directory («Каталог AD», docs/directory.md) ─────────────
+
+/** Attributes the directory module can edit; settings choose a subset. */
+export const DIRECTORY_ATTRIBUTES = ['givenName', 'sn', 'initials', 'displayName', 'description', 'title', 'department', 'company', 'mail', 'telephoneNumber', 'mobile', 'physicalDeliveryOfficeName', 'employeeID', 'l', 'manager'];
+
+export const DIRECTORY_DEFAULTS = {
+  // The managed root (an OU such as OU=Accounts,DC=example,DC=local). Empty: nothing is shown.
+  rootDn: '',
+  // Hidden and never changed: OU DNs (with their subtree) or OU name patterns ("Service*", "Admins").
+  excluded: [],
+  // Hidden accounts by login or name pattern ("svc_*", "adm-*").
+  hiddenAccounts: [],
+  editableAttributes: ['displayName', 'givenName', 'sn', 'title', 'department', 'company', 'mail', 'telephoneNumber', 'mobile', 'physicalDeliveryOfficeName', 'description', 'manager'],
+  allowCreate: true,
+  // sAMAccountName of new users: {first} {last} {middle}, {f} {l} {m} = first letters (transliterated).
+  loginTemplate: '{f}.{last}',
+  // UPN suffixes offered (empty: the DNS domain of the base DN).
+  upnSuffixes: [],
+  // Mail of new users, e.g. {login}@example.com (empty: none).
+  mailTemplate: '',
+  defaultUserOu: '',
+  // OU for new users per org unit: [{ unitId, ou }] (the nearest mapped unit above wins).
+  unitOus: [],
+  // Where «Offboard» moves disabled accounts (empty: not offered).
+  disabledOu: '',
+  passwordMinLength: 12,
+  passwordComplexity: true,
+  passwordHint: '',
+  mustChangeDefault: true,
+  // Password operations over StartTLS when the integration is plain LDAP (AD requires a secure channel).
+  startTls: false,
+  inactiveDays: 90,
+};
+
+const DN_LIKE = /^[A-Za-z][A-Za-z0-9-]*=[^\u0000]+$/;
+const cleanDnText = (value) => {
+  const text = String(value ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 1000);
+  return text && DN_LIKE.test(text) ? text : '';
+};
+const cleanTextList = (list, max, len, test = () => true) =>
+  Array.isArray(list) ? [...new Set(list.map((item) => String(item ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, len)).filter((item) => item && test(item)))].slice(0, max) : null;
+
+export function sanitizeDirectory(current, incoming = {}) {
+  const next = { ...DIRECTORY_DEFAULTS, ...(current || {}) };
+  if (!incoming || typeof incoming !== 'object') return next;
+  for (const key of ['rootDn', 'defaultUserOu', 'disabledOu']) if (incoming[key] !== undefined) next[key] = cleanDnText(incoming[key]);
+  const excluded = cleanTextList(incoming.excluded, 50, 1000);
+  if (excluded) next.excluded = excluded;
+  const hidden = cleanTextList(incoming.hiddenAccounts, 50, 64);
+  if (hidden) next.hiddenAccounts = hidden;
+  const attrs = cleanTextList(incoming.editableAttributes, DIRECTORY_ATTRIBUTES.length, 64, (item) => DIRECTORY_ATTRIBUTES.includes(item));
+  if (attrs) next.editableAttributes = attrs;
+  const suffixes = cleanTextList(incoming.upnSuffixes, 10, 120, (item) => /^@?[a-z0-9.-]+\.[a-z0-9-]+$/i.test(item));
+  if (suffixes) next.upnSuffixes = suffixes.map((item) => item.replace(/^@/, '').toLowerCase());
+  if (incoming.loginTemplate !== undefined) {
+    const template = String(incoming.loginTemplate || '').trim().slice(0, 60);
+    if (/\{(first|last|f|l)\}/.test(template) && /^[a-z0-9._{}-]+$/i.test(template)) next.loginTemplate = template;
+  }
+  if (incoming.mailTemplate !== undefined) {
+    const template = String(incoming.mailTemplate || '').trim().slice(0, 120);
+    next.mailTemplate = !template || /^[a-z0-9._{}-]+@[a-z0-9.{}-]+$/i.test(template) ? template : next.mailTemplate;
+  }
+  if (Array.isArray(incoming.unitOus)) {
+    next.unitOus = incoming.unitOus
+      .map((item) => ({ unitId: clampInt(item?.unitId, 1, 2 ** 31 - 1, 0), ou: cleanDnText(item?.ou) }))
+      .filter((item) => item.unitId && item.ou)
+      .slice(0, 200);
+  }
+  if (incoming.passwordMinLength !== undefined) next.passwordMinLength = clampInt(incoming.passwordMinLength, 6, 64, 12);
+  if (incoming.passwordHint !== undefined) next.passwordHint = String(incoming.passwordHint || '').slice(0, 300);
+  if (incoming.inactiveDays !== undefined) next.inactiveDays = clampInt(incoming.inactiveDays, 7, 3650, 90);
+  for (const key of ['allowCreate', 'passwordComplexity', 'mustChangeDefault', 'startTls']) if (typeof incoming[key] === 'boolean') next[key] = incoming[key];
+  return Object.fromEntries(Object.keys(DIRECTORY_DEFAULTS).map((key) => [key, next[key]]));
+}
+
 export const MODULE_CATALOG = [
+  {
+    // Org structure: a core service (docs/org-structure.md). Always on; modules read it
+    // through modules/org/api.js (orgUnits, unitOf, managerOf, descendants, unitsByPurpose).
+    id: 'org',
+    core: true,
+    defaultEnabled: true,
+    // manage: edit the tree, unit types and purposes, assign people to units.
+    permissions: ['org.manage'],
+    defaults: ORG_DEFAULTS,
+    sanitize: sanitizeOrg,
+  },
   {
     id: 'files',
     defaultEnabled: true,
@@ -830,7 +1006,7 @@ export const MODULE_CATALOG = [
     // (sg_…, «Доступ»), except protected ones; everything else there is for superadministrators (*).
     permissions: ['drive.admin', 'drive.audit', 'drive.access'],
     defaults: {
-      // Name in the menu and launcher, e.g. "iSmarty Drive" (empty = "File server").
+      // Name in the menu and launcher, e.g. "Company Drive" (empty = "File server").
       title: '',
       tagline: '',
       // Reuse the Active Directory sign-in password for file servers (stored sealed).
@@ -1039,6 +1215,27 @@ export const MODULE_CATALOG = [
     permissions: ['warehouse.view', 'warehouse.request', 'warehouse.operate', 'warehouse.writeoff', 'warehouse.inventory', 'warehouse.cost', 'warehouse.backdate', 'warehouse.admin'],
     defaults: WAREHOUSE_DEFAULTS,
     sanitize: sanitizeWarehouse,
+  },
+  {
+    id: 'employees',
+    // A business module: off until an administrator turns it on (docs/employees.md).
+    defaultEnabled: false,
+    // view: the directory (names, positions, units, work contacts); hr: everything,
+    // including personal data, documents and clearances; admin: directories and settings.
+    permissions: ['employees.view', 'employees.hr', 'employees.admin'],
+    defaults: EMPLOYEES_DEFAULTS,
+    sanitize: sanitizeEmployees,
+  },
+  {
+    id: 'directory',
+    // Infrastructure: off until an administrator turns it on; works only with the AD integration
+    // (or the demo directory) — docs/directory.md.
+    defaultEnabled: false,
+    // view: browse the directory; manage: create, edit, move, enable / disable, unlock, groups;
+    // passwords: reset passwords and unlock; admin: everything, including protected accounts.
+    permissions: ['ad.view', 'ad.manage', 'ad.passwords', 'ad.admin'],
+    defaults: DIRECTORY_DEFAULTS,
+    sanitize: sanitizeDirectory,
   },
 ];
 

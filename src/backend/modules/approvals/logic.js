@@ -8,7 +8,10 @@ export const STATUSES = ['pending', 'question', 'approved', 'rejected', 'returne
 /** A document is "in approval" while the process is in one of these. */
 export const ACTIVE_STATUSES = ['pending', 'question'];
 export const DECISIONS = ['approve', 'reject', 'question', 'return', 'delegate'];
-export const APPROVER_KINDS = ['user', 'role', 'group', 'permission'];
+// 'manager': «руководитель подразделения автора» (level 1) or the manager's manager (level 2, 3),
+// resolved through the org structure when the stage opens (docs/approvals.md → Manager of the author).
+export const APPROVER_KINDS = ['user', 'role', 'group', 'permission', 'manager'];
+export const MAX_MANAGER_LEVEL = 3;
 export const CONDITION_OPS = ['gt', 'gte', 'lt', 'lte', 'eq', 'neq', 'in', 'nin', 'empty', 'filled'];
 export const FIELD_TYPES = ['number', 'money', 'select', 'text', 'ref', 'bool'];
 export const MAX_STAGES = 12;
@@ -56,8 +59,13 @@ export function cleanFields(fields) {
 
 // ── Routes ──────────────────────────────────────────────────────────────────
 
-function cleanApprover(raw) {
+export function cleanApprover(raw, { manager = true } = {}) {
   if (!raw || !APPROVER_KINDS.includes(raw.kind)) return null;
+  if (raw.kind === 'manager') {
+    if (!manager) return null;
+    const level = Math.round(Number(raw.level ?? 1));
+    return { kind: 'manager', level: Number.isFinite(level) ? Math.min(MAX_MANAGER_LEVEL, Math.max(1, level)) : 1 };
+  }
   if (raw.kind === 'permission') {
     const key = String(raw.key || raw.id || '');
     return /^[a-z][a-z0-9_.]{1,60}$/.test(key) ? { kind: 'permission', key } : null;
@@ -106,7 +114,7 @@ export function cleanRoute(input = {}, fields = null) {
     for (const item of (Array.isArray(raw.approvers) ? raw.approvers : []).slice(0, MAX_APPROVERS)) {
       const approver = cleanApprover(item);
       if (!approver) continue;
-      const key = `${approver.kind}:${approver.id ?? approver.key}`;
+      const key = `${approver.kind}:${approver.id ?? approver.key ?? approver.level}`;
       if (seen.has(key)) continue;
       seen.add(key);
       approvers.push(approver);
@@ -125,7 +133,8 @@ export function cleanRoute(input = {}, fields = null) {
   }
   const escalateTo = [];
   for (const item of (Array.isArray(input.escalateTo) ? input.escalateTo : []).slice(0, MAX_APPROVERS)) {
-    const approver = cleanApprover(item);
+    // Escalation goes to fixed people: «the author's manager» is not one of them.
+    const approver = cleanApprover(item, { manager: false });
     if (approver) escalateTo.push(approver);
   }
   return {
@@ -134,6 +143,42 @@ export function cleanRoute(input = {}, fields = null) {
     restartFrom: input.restartFrom === 'current' ? 'current' : 'first',
     escalateTo,
   };
+}
+
+// ── Manager approvers ───────────────────────────────────────────────────────
+
+/**
+ * Seats of a stage for the process author: every `manager` approver becomes a
+ * person seat (`resolved` maps level → user id, null when nobody fits). A
+ * manager that cannot be found is replaced by the fallback refs (the route's
+ * escalation people, else the type's administrators) once per stage, and the
+ * stage stays decidable. Duplicates (a manager also listed by name) collapse.
+ * Returns { seats: [{ kind, id?, key?, via }], missing: [level…] }.
+ */
+export function stageSeatPlan(approvers = [], resolved = {}, fallback = []) {
+  const seats = [];
+  const seen = new Set();
+  const missing = [];
+  const push = (seat) => {
+    const key = `${seat.kind}:${seat.id ?? seat.key}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    seats.push(seat);
+  };
+  for (const approver of approvers) {
+    if (approver.kind !== 'manager') {
+      push(approver.kind === 'permission' ? { kind: 'permission', key: approver.key, via: null } : { kind: approver.kind, id: approver.id, via: null });
+      continue;
+    }
+    const level = approver.level || 1;
+    const userId = resolved[level];
+    if (userId) push({ kind: 'user', id: Number(userId), via: `manager:${level}` });
+    else missing.push(level);
+  }
+  if (missing.length) {
+    for (const ref of fallback) push(ref.kind === 'permission' ? { kind: 'permission', key: ref.key, via: 'fallback' } : { kind: ref.kind, id: ref.id, via: 'fallback' });
+  }
+  return { seats, missing };
 }
 
 // ── Conditions ──────────────────────────────────────────────────────────────

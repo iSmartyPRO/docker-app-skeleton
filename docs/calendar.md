@@ -131,3 +131,8 @@ This needs the [Google integration](integrations.md#google) with *Google Calenda
 | GET / POST / PUT / DELETE | `/google/events` | The user's Google events (live) |
 
 Errors: `INVALID_RANGE`, `INVALID_DATE`, `TITLE_REQUIRED`, `INVALID_URL`, `PERSONAL`, `GOOGLE_NOT_CONNECTED`, `GOOGLE_REVOKED`, `GOOGLE_API`.
+
+## Demo data and tour
+
+- `modules/calendar/demo.js` (after Tasks, Org structure and Employees): a shared calendar «Демо: команда» — a recurring stand-up, a meeting with «ООО «Пример»», a site walk, a training with a video link, last week's review, a budget meeting and two all-day days next week — and a site calendar «Демо: объект «Северный квартал»» with an inspection, a delivery and a client visit. Attendees are the demo colleagues of `modules/shared/demoPeople.js`. Purge also drops the invitation notifications of the demo events.
+- Tour `calendar` (`tour/content/calendar.js`, texts `tour.calendar.*` in `i18n/coreTours.js`): the grid, «Событие / Задача», the month picker, the calendar list, invitations and tasks, the toolbar (today, arrows, views), personal settings. Anchors: `cal.grid`, `cal.create`, `cal.mini`, `cal.calendars`, `cal.more`, `cal.toolbar`, `cal.prefs`.

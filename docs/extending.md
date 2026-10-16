@@ -12,6 +12,11 @@ Recipes for the changes you will make in almost every product built on this repo
 - [Add translations](#add-translations)
 - [Add a color template, typeface or icon](#add-a-color-template-typeface-or-icon)
 - [Add an integration](#add-an-integration)
+- [Module manifest](#module-manifest)
+- [Module versions](#module-versions)
+- [Demo data](#demo-data)
+- [Admin docs](#admin-docs)
+- [Optional links inside a module (ModuleHint)](#optional-links-inside-a-module-modulehint)
 - [Write a backend test](#write-a-backend-test)
 - [Conventions checklist](#conventions-checklist)
 
@@ -421,6 +426,65 @@ Avoid hard-coded colors in CSS. Use the tokens from `index.css` (`--da-primary`,
 
 ---
 
+## Themes
+
+A person picks a theme in **Account → Appearance**; the administrator sets the portal default, which themes are offered, whether custom backgrounds and animated backgrounds are allowed (**Settings → Theme**, stored in `settings.appearance.defaultTheme` / `settings.appearance.themes`).
+
+| Kind | Themes | Colours from |
+|------|--------|--------------|
+| base | `light`, `dark`, `system` | the brand template above (+ admin overrides) |
+| palette | `graphite`, `ocean`, `forest`, `sand`, `midnight`, `lavender`, `contrast` | `theme/themes.js` |
+| dynamic | `dawn` (gradient drift), `borealis` (aurora), `constellation` (star grid) | `theme/themes.js` + a moving layer (`theme/Backdrop.jsx`) |
+| custom | `custom` | brand palette + the person's accent colour and picture |
+
+How it fits together:
+
+- `theme/themes.js` → `themeTokens(theme, scheme, brand, custom)` resolves **one token set** per theme. `context/ThemeContext.jsx` feeds it to antd (`ConfigProvider` tokens, `Button.primaryColor`) and to the CSS variables of `index.css` (`--da-primary`, `--da-on-primary`, `--da-bg`, `--da-elevated`, `--da-layout`, `--da-text`, `--da-muted`, …). Never hard-code colours: use the variables and every theme works.
+- `<html data-theme>` stays `light` / `dark` (the scheme), so existing `[data-theme='dark']` rules apply to every dark theme. `<html data-skin>` names the theme (`contrast`, `ocean`, …) for theme-specific touches; `<html data-backdrop>` is set while a background layer is shown (page grounds turn transparent, panels stay solid).
+- **Contrast is enforced, not hoped for.** `themeTokens` moves the primary/error/success/warning colours until they reach WCAG AA on every surface, derives secondary text at ≥ 4.5:1, and picks the primary-button label (white or dark ink). Run `node scripts/check-theme-contrast.mjs [--all]` in `src/frontend` after touching a palette; `test/themes.test.js` fails the build when a pair drops below AA.
+- **Add a theme:** an entry in `THEMES` (`theme/themes.js`) with `scheme` and the colour tokens, its id in `THEME_IDS` of `src/backend/services/themeCatalog.js` (a test compares the lists; ids ≤ 16 characters), then run the contrast script. A dynamic theme adds `motion` (`gradient` | `aurora` | `particles`) and `backdrop: { colors, opacity }` — text on the moving layer is checked too.
+- **Motion budget:** layers move with CSS `transform` only (compositor, no repaint) or a canvas at ~15 fps and device-pixel ratio 1. Everything stops when the tab is hidden or after 60 s without input, and never moves under `prefers-reduced-motion`, «Без анимации» (`users.ui.motion`), the admin switch, data saver, or on devices with ≤ 2 cores / ≤ 2 GB memory.
+- **Custom backgrounds** (`POST /api/account/background`, multipart `image`): type by magic bytes (JPEG/PNG/WebP/GIF), ≤ 8 MB, ≤ 4096 × 4096 read from the header before decoding; Pillow (already in the production image) re-encodes to WebP — long side 2560, a 1280 px phone version and a blurred 32 px placeholder — and strips metadata (`services/themeImage.js` + `themeImage.py`; `IMAGE_PYTHON` points at another Python). Files live in `uploads/backgrounds/<userId>/` and are served only to their owner. A veil of the ground colour (60–92 %) keeps text on the page ground readable.
+- Personal preferences live in `users.ui` (`{ motion, toursOff, custom: { image, accent, scheme, dim, blur } }`, `PUT /api/account/ui`); the theme id in `users.theme`.
+
+---
+
+## Guided tours
+
+Tours are anchored to the page with `data-tour="…"` attributes. The engine dims the page, cuts a spotlight around the anchor and shows a popover (a bottom sheet on phones) with «2 из 7», **Далее / Назад / Пропустить / Готово**, ← / → / Esc, focus trapping and screen-reader announcements. It waits for anchors of lazy pages, scrolls them into view and **skips steps whose anchor is not rendered** — a button hidden by permissions, a switched-off module, a phone layout — so a tour always stays within the person's access without repeating permission checks. The robot assistant hides while a tour runs.
+
+**Add a tour to a module** (wave-3 pattern):
+
+1. Mark the elements: `data-tour="crm.pipeline"`. Module header actions take `tour: 'crm.create'` (`modules/shared/ModuleHeader.jsx`).
+2. Describe the tour in `src/frontend/src/tour/content/crm.js` and add it to `content/index.js`:
+
+   ```js
+   export default {
+     id: 'crm',              // progress is remembered per id
+     module: 'crm',          // auto-starts on the first visit to /app/crm
+     version: 1,             // bump to show a changed tour once more
+     route: '/app/crm',      // opened first when started from elsewhere
+     title: 'tour.crm.title',
+     steps: [
+       { id: 'intro', title: 'tour.crm.intro.title', text: 'tour.crm.intro.text' },              // centred
+       { id: 'pipeline', target: 'crm.pipeline', placement: 'bottom', title: '…', text: '…' },
+       { id: 'admin', target: 'crm.settings', when: ({ can }) => can('crm.admin'), title: '…', text: '…' },
+     ],
+   };
+   ```
+
+   `placement`: `top | bottom | left | right | auto`; `route` per step opens another page; `when(ctx)` (`{ can, canAny, user, settings, phone }`) hides a step whose anchor exists for everyone. Texts may use `{app}` (the portal name).
+3. Texts in `src/frontend/src/i18n/tours.js` under `tour.<id>.*`, Russian and English (`test/tours.test.js` checks both).
+4. Nothing else: modules in a `SideRail` get a «Тур» button next to their name automatically; elsewhere put `<TourButton module="crm" />` (renders only when the module has a tour). The help drawer offers the tour of its section, and the Modules page («Тур») finds it through the manifest bridge.
+
+**API** (`src/frontend/src/tour`): `registerTour(def)`, `hasTour(moduleId)`, `tourForModule(moduleId)`, `startTour(idOrModuleId)` (works outside React), `useTour()` → `{ startTour, hasTour, running, state, setDisabled }`, `<TourButton module iconOnly />`, `registerManifestTours(manifests)`. The provider installs itself as the runner of `modules/manifest.js` (`setTourRunner`), accepting a tour id, a tour object or a loader in a manifest's `tour`.
+
+**Every module has a tour** or is listed with a reason in `WITHOUT_TOUR` of `test/tours-coverage.test.js` (today only the assistant); the same test checks that every anchor a tour names is marked somewhere in the frontend source and that every tour has texts in both languages. Tours of pages that are not modules (Account → Notifications) work the same way, with a `<TourButton module="notifications" />` on the page.
+
+**Rules:** the portal tour starts on the first sign-in once the app shell is on screen; a module tour on the first visit to that module; never two at once (the module tour waits for the next visit after the portal tour), never on public pages and never while «signed in as» someone else. Progress is stored per person on the server (`user_tours`; `GET/PUT /api/account/tours`), «Не показывать туры» in Account → Appearance turns auto-start off, and **Settings → Theme → «Сбросить туры всем»** (`POST /api/admin/tours/reset`, `settings.general`) shows them to everyone again.
+
+---
+
 ## Add an integration
 
 1. **Defaults** — add a group to `DEFAULTS.integrations` in `services/settings.js`.
@@ -525,6 +589,175 @@ permissionChips(perms) // [{ key, labelKey, icon, write }] — translate labelKe
 
 ---
 
+## Module manifest
+
+Every module describes itself in **one object**, readable by the server and the client
+(spec `docs/specs/platform-2.0.ru.md` §1.2). The facts live on the server, the browser adds its UI parts.
+
+**Server** — `src/backend/modules/manifest.js` (no imports; validated when the platform loads and by `test/platform-modules.test.js`):
+
+```js
+export const MODULE_MANIFEST = {
+  procurement: {
+    name: { en: 'Procurement', ru: 'Закупки' },     // fallback name; the UI uses i18n apps.<id>.name
+    version: '1.0.0',                               // semver of the module (see Module versions)
+    category: 'supply',                             // work | documents | sales | supply | construction | people | infrastructure
+    minCore: '1.4.0',                               // lowest core VERSION it runs on
+    requires: [                                     // hard: the module is not switched on without them
+      { id: 'approvals', reason: { en: 'Documents go through approval routes', ru: '…' } },
+      // { integration: 'activeDirectory', reason: { … } }   // an integration that must be on
+      // { integration: 'activeDirectory', reason, demo: true } // soft: may be switched on without it (setup page / demo data)
+    ],
+    enhances: [                                     // optional: without it the feature hides
+      { id: 'companies', what: { en: 'Pick suppliers from the directory', ru: '…' } },
+    ],
+    docs: { user: 'procurement', guide: 'docs/procurement.md' },
+    changelog: [{ version: '1.0.0', date: '2026-10-16', changes: { en: ['…'], ru: ['…'] } }],
+  },
+};
+```
+
+Permissions, defaults and `sanitize` stay in `catalog.js`. Integrations a manifest may name:
+`email, telegram, whatsapp, wazzup, mattermost, google, documents, activeDirectory`.
+Startup (`modules/index.js`) refuses unknown ids, self links, bad semver or categories, missing texts,
+requirement **cycles** (`enhances` may go both ways) and a core module requiring an optional one; a
+`minCore` above the running core only warns and marks the module *incompatible*.
+
+`GET /api/admin/modules` (any settings permission) returns the manifests merged with the state:
+`{ coreVersion, categories, core: [core services], modules: [{ id, version, category, minCore, compatible,
+requires, enhances (+active), enhancedBy, dependents, requiredBy, changelog, docs, permissions, core, enabled,
+status: on|off|needs, missing, demo }], demo: { active, users, canManage } }`.
+
+**Client** — `src/frontend/src/modules/manifest.js`:
+
+```js
+export const MODULE_UI = {
+  procurement: { tour: null },    // the module's guided tour (tours workstream fills it)
+};
+```
+
+- `tour` is whatever the tour runner understands (an id, a tour object or `() => import('../tours/x')`).
+  The tours framework installs its runner once with `setTourRunner((tour, { moduleId }) => …)`;
+  `useModuleTour(id)` → `{ available, start }` drives the *Tour* buttons (Modules page, «О модуле»).
+- Derived automatically: `hasAdminDocs(id)` (`help/admin/<id>.js`), `hasUserHelp(id)` (`help/content/<id>.js`),
+  `moduleUi(id)` (icon, labelKey, descKey, Settings, path from `registry.js`), `useModulesCatalog()` (the API above).
+
+Switching modules goes through `PUT /api/admin/settings { modules: { id: { enabled, alsoEnable } } }`;
+the rules are in `modules/dependencies.js` (`planModuleChanges`) — see [modules.md](modules.md#turning-modules-on-and-off).
+In the UI use `useModuleSwitch(save)` (`modules/platformUi.jsx`): it turns the 409 answers into the dialogs.
+
+## Module versions
+
+Each module has its own semver `version`, independent of the core `VERSION`. All modules ship in the
+core image, so the UI notes «updated with core vX» next to the number; `minCore` prepares separate
+module updates later.
+
+| Bump | When |
+|---|---|
+| patch `1.0.1` | fixes, texts, performance |
+| minor `1.1.0` | new features, new settings with defaults, new optional links |
+| major `2.0.0` | needs an administrator's attention: removed settings, an irreversible data migration, an API change, a new `requires` |
+
+With every bump add an entry at the **top** of `changelog` (its `version` must equal `version`, the test checks it);
+keep the last five. Raise `minCore` when the module starts using a core API that older cores lack.
+The System page shows version, minCore, state and the newest changelog line of every module.
+
+## Demo data
+
+Neutral sample records per module, filled and removed by a superadministrator (spec §8):
+Settings → Modules → *Demo data* (one module, or «Демо всего портала» / «Удалить все демо-данные»),
+and the module's «О модуле» page. While any exists, administrators see the «Демо-режим» bar.
+
+Add `src/backend/modules/<id>/demo.js` — it is loaded automatically at start:
+
+```js
+import { registerDemo } from '../../services/demo.js';
+import { contextFromRequest } from '../shared/acl.js';
+import { createProject, createTask } from './service.js';
+
+registerDemo({
+  module: 'tasks',
+  describe: { ru: 'Проект «Демо: запуск офиса» с восемью задачами', en: 'A «Demo: office launch» project with eight tasks' },
+  after: ['companies'],                       // optional: seed after these when they are seeded too
+  async seed(ctx) {
+    const tasks = contextFromRequest(ctx.request, 'tasks.admin');      // the superadmin's request
+    const project = await createProject(tasks, { name: ctx.t({ ru: 'Демо: запуск офиса', en: 'Demo: office launch' }) }, { locale: ctx.locale, allowed: true });
+    await ctx.track('task_projects', project.id);                       // every created row is tracked
+    const anna = await ctx.demoUser('anna', { displayName: ctx.t({ ru: 'Анна Демова', en: 'Anna Demo' }) });
+    const task = await createTask(tasks, { projectId: project.id, title: '…', assigneeId: anna, dueAt: ctx.day(2, '18:00').toISOString() });
+    await ctx.track('tasks', task.id);
+  },
+  async purge(ctx) { /* optional: e.g. call the module's own delete for ctx.records('cmp_companies') */ },
+});
+```
+
+| `ctx` | |
+|---|---|
+| `request`, `userId`, `locale` | the superadministrator's request (module services build their context from it) and the language |
+| `t({ ru, en })` | the text in that language |
+| `track(table, key, keyColumn = 'id')` / `untrack(table, key)` | list a row as demo / stop listing it |
+| `records(table, module?)` | tracked keys of a table (this module's or another's) |
+| `demoUser(key, { displayName })` | a demo colleague `demo.<key>@example.com`, no password (cannot sign in); shared by modules |
+| `day(offset, 'HH:MM')` | a Date relative to today |
+| `query` | the pool's query, for tables without a service |
+
+**How it is tracked.** Nothing is added to module tables: `demo_records (seq, module, table_name,
+record_key, key_column)` lists every demo row. This works with any existing table and foreign keys.
+Purge deletes the tracked rows **newest first** (children before parents; `ON DELETE CASCADE` children
+go with their parent). A row that real data still points at with a restricting foreign key is
+**kept** and stays tracked (reported as `kept`) — never forced. Records people add *inside* a demo
+container that cascades (a real task in a demo project) go with it; purge before real use.
+Seeding a module twice does nothing (`already: true`); a seed that throws takes back what it made.
+Demo users (`_users`) are removed with the last module's demo data. Use neutral content only:
+«ООО «Пример»», «Объект «Северный квартал»», `example.com`.
+
+API (superadministrators, own session — no API token, no «sign in as»): `GET /api/admin/demo`,
+`POST /api/admin/demo/<module>/seed|purge`, `POST /api/admin/demo/seed-all` (enabled modules in
+dependency order), `POST /api/admin/demo/purge-all`. Each is written to the activity log (`demo_data`).
+Reference seeds: `tasks`, `calendar`, `companies`, `kb` (also a visual article with a picture stored in Files), `dashboard` (starting layout only when none is set), `files` (a space of generated documents and public links; purge removes the blobs), `chat` (backdated history written directly, no notifications), `resources`; a linked set across modules: `crm` → `masterplan` → `contracts` → `procurement` → `warehouse` (each reads the others' tracked records with `ctx.records(table, module)`). Helpers: `modules/shared/demoAssets.js` (tiny PNG / PDF / DOCX / XLSX files, `storeDemoBlob`, `removeDemoBlobs`, `dropNotifications`, `dropEntityChats`), `modules/shared/demoPeople.js` (`demoColleagues(ctx, roles)` — the Org structure / Employees demo people by role, made when missing) and `modules/shared/demoApprovals.js` (a demo route only when none is saved, walking documents through the real engine, tracked processes; when a real route is in force the documents stay drafts, and no decision is ever made in a real colleague's name). While a seed runs, `notify()` reaches only demo people, in the app only (`services/demoScope.js`); seeds and purges of one module are serialized by an advisory lock.
+
+A module that cannot have demo data registers only the explanation: `registerDemo({ module: 'drive', describe, seedable: false, seed() {} })` — the Modules page shows the text without a «fill» button and «Демо всего портала» passes over it.
+
+## Admin docs
+
+Each module has an administrator page «О модуле» at `/admin/modules/<id>/docs`, linked from its card in
+Settings → Modules, the «О модуле» button in its settings header (`SettingsPageHeader` adds it for every
+item of the `modules` group) and the ⌘K palette. Write `src/frontend/src/help/admin/<id>.js`
+(schema: [`help/ADMIN_SCHEMA.md`](../src/frontend/src/help/ADMIN_SCHEMA.md)):
+
+```js
+export default {
+  id: 'tasks',
+  purpose: { ru, en }, audience: { ru, en },
+  setup: [{ title: { ru, en }, text: { ru, en } }],          // 3–7 steps
+  roles: { 'tasks.admin': { ru, en } },                      // optional notes per permission
+  access: { ru, en },                                        // optional
+  scenarios: [{ title: { ru, en }, text: { ru, en } }],      // 2–4
+  faq: [{ q: { ru, en }, a: { ru, en } }],
+};
+```
+
+The page adds by itself: version, status, category and changelog (manifest), **every permission** of the
+module with its i18n title and description, requirements and links (with their on/off state, and the
+modules this one enhances), the highlights and section links of the user guide `help/content/<id>.js`.
+
+## Optional links inside a module (ModuleHint)
+
+Where a feature hides because an `enhances` module is off, show a quiet hint instead of nothing:
+
+```jsx
+import ModuleHint from '../../../components/ModuleHint';
+
+<ModuleHint module="companies" what={t('platform.hintWhat.procurementSupplier')} />
+// «Включите «Контрагенты», чтобы выбирать поставщиков из справочника.»  [Включить]
+```
+
+It renders nothing while the module is on; people with `settings.modules` get a link to the module's
+card. `what` completes «… to …» (lower case, no full stop). Used in the Procurement request form, the
+Contracts form and the task chat.
+
+---
+
 ## Write a backend test
 
 Tests use the built-in `node:test` runner and live in `src/backend/test/*.test.js`. Test pure functions — sanitizers, policy decisions, parsers — so the suite needs no database.
@@ -554,3 +787,5 @@ Before opening a pull request:
 - [ ] New screens use `PageHeader` / `SettingsSection` / `SaveBar`; no ad-hoc layouts or colors.
 - [ ] Every string is translated in `en` and `ru`.
 - [ ] `npm test` and `npm run build` pass; `docs/api.md` is updated for new endpoints.
+- [ ] A changed module bumps its manifest `version` and adds a `changelog` entry.
+- [ ] No customer names or domains in code, defaults, demo data, tests or docs ([deployments](deployments/README.md)).

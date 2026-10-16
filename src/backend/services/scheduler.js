@@ -15,7 +15,14 @@ function lockId(name) {
 }
 
 export function registerJob({ name, everyMs = 60_000, run, timeoutMs }) {
-  jobs.set(name, { name, everyMs, run, timeoutMs, lastRun: 0, running: false });
+  jobs.set(name, { name, everyMs, run, timeoutMs, lastRun: 0, running: false, stats: { runs: 0, failures: 0, lastStartedAt: null, lastFinishedAt: null, lastDurationMs: null, lastError: null, lastErrorAt: null, skipped: 0 } });
+}
+
+/** Registered jobs with what this process saw of them (the System page). */
+export function listJobs() {
+  return [...jobs.values()]
+    .map((job) => ({ name: job.name, everyMs: job.everyMs, running: job.running, ...job.stats }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function runJob(job) {
@@ -25,7 +32,11 @@ async function runJob(job) {
   try {
     client = await getPool().connect();
     const { rows } = await client.query('SELECT pg_try_advisory_lock($1) AS ok', [lockId(job.name)]);
-    if (!rows[0]?.ok) return;
+    if (!rows[0]?.ok) {
+      // Another instance runs it right now.
+      job.stats.skipped += 1;
+      return;
+    }
     // The job keeps its lock and slot until it really ends: giving them back
     // while it still runs would start a second copy on top of the first. A
     // job that runs too long is only reported.
@@ -35,9 +46,18 @@ async function runJob(job) {
       console.warn(`Job ${job.name} is still running after ${Math.round((Date.now() - started) / 1000)} s`);
     }, limit);
     watchdog.unref?.();
+    job.stats.lastStartedAt = new Date(started).toISOString();
     try {
       await job.run();
+      job.stats.runs += 1;
+    } catch (err) {
+      job.stats.failures += 1;
+      job.stats.lastError = String(err?.message || err).slice(0, 300);
+      job.stats.lastErrorAt = new Date().toISOString();
+      throw err;
     } finally {
+      job.stats.lastDurationMs = Date.now() - started;
+      job.stats.lastFinishedAt = new Date().toISOString();
       clearInterval(watchdog);
       await client.query('SELECT pg_advisory_unlock($1)', [lockId(job.name)]).catch(() => {});
     }

@@ -1,15 +1,15 @@
 /*
  * Folder access groups («Доступ» of the File server): names, descriptions, projects and folders (pure, no I/O).
  *
- *   sg_prb2_buh_full   description "G:\ПРБ-2\_DocArch\10-BUH;Full Access"
- *   sg_prb2_buh_read   description "G:\ПРБ-2\_DocArch\10-BUH;Read Only"
+ *   sg_obj2_buh_full   description "G:\ОБЪЕКТ-2\_DocArch\10-BUH;Full Access"
+ *   sg_obj2_buh_read   description "G:\ОБЪЕКТ-2\_DocArch\10-BUH;Read Only"
  *
  * <prefix><project>_<name>_<full|read>: the project code is the first token
- * after the prefix (prb2, co, wh…), the folder name part is everything up to
+ * after the prefix (obj2, co, wh…), the folder name part is everything up to
  * the final _full / _read and may contain underscores (qaqc_styajka). The
  * DESCRIPTION is authoritative for the folder (drive letter + path, or a UNC
  * path) and the access type; the name is only checked against it. The project
- * shown is the OU that holds the group's Groups OU (OU=Groups,OU=ПРБ-2,… → ПРБ-2).
+ * shown is the OU that holds the group's Groups OU (OU=Groups,OU=ОБЪЕКТ-2,… → ОБЪЕКТ-2).
  * A folder path is mapped to a File server folder (drive share) by the
  * share's path prefixes: the longest prefix wins, case-insensitive, \ or /.
  * Anything that does not fit is shown with "needs review" and the reasons.
@@ -69,8 +69,8 @@ const isDomainRoot = (dn) => splitDn(dn).every((rdn) => /^dc=/i.test(rdn));
  * Where a group lives: { groupsOu, project, projectDn }.
  * The project is the first OU below the search base the group was found in (the broadest of `bases`
  * that holds it, a bare domain root aside), an "OU=Groups" skipped:
- *   CN=…,OU=Groups,OU=ПРБ-2,OU=Accounts,… (base OU=Accounts) → "ПРБ-2";
- *   CN=…,OU=Sec,OU=Groups,OU=ПРБ-2,OU=Accounts,…           → "ПРБ-2";
+ *   CN=…,OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,… (base OU=Accounts) → "ОБЪЕКТ-2";
+ *   CN=…,OU=Sec,OU=Groups,OU=ОБЪЕКТ-2,OU=Accounts,…           → "ОБЪЕКТ-2";
  *   CN=…,OU=Accounts,… or CN=…,OU=Groups,OU=Accounts,…       → no project.
  * Without such a base (or under the domain root only) the OU holding the "Groups" OU is the
  * project, else the group's own OU.
@@ -102,7 +102,7 @@ export function projectOf(dn, bases = []) {
 // ── paths ───────────────────────────────────────────────────────────────────
 
 /**
- * A Windows path → { unc, parts } ("G:\ПРБ-2\_DocArch" → parts ['G:', 'ПРБ-2', '_DocArch'];
+ * A Windows path → { unc, parts } ("G:\ОБЪЕКТ-2\_DocArch" → parts ['G:', 'ОБЪЕКТ-2', '_DocArch'];
  * "\\srv\share\x" → unc, ['srv', 'share', 'x']). Backslash or slash, repeated separators
  * and a trailing one are tolerated.
  */
@@ -116,7 +116,7 @@ export function splitPath(path) {
 
 const joinParts = ({ unc, parts }) => (unc ? `\\\\${parts.join('\\')}` : parts.join('\\'));
 
-/** Display form: "G:\ПРБ-2\_DocArch" (drive letter upper case, single backslashes). */
+/** Display form: "G:\ОБЪЕКТ-2\_DocArch" (drive letter upper case, single backslashes). */
 export const displayPath = (path) => joinParts(splitPath(path));
 
 /** Comparison key: the display form in lower case. */
@@ -161,7 +161,7 @@ export function mapPath(path, shareMap = []) {
   return out;
 }
 
-/** The user paths of a File server folder + path inside it: one per prefix of the share ("G:\ПРБ-2\_DocArch\10-BUH"). */
+/** The user paths of a File server folder + path inside it: one per prefix of the share ("G:\ОБЪЕКТ-2\_DocArch\10-BUH"). */
 export function userPaths(prefixes, relPath = '') {
   const inside = String(relPath || '').split('/').filter(Boolean);
   return (prefixes || []).filter((prefix) => pathValid(prefix)).map((prefix) => {
@@ -218,8 +218,8 @@ export function parseGroupName(name, settings = {}) {
 }
 
 /**
- * Description "G:\ПРБ-2\_DocArch\3-QA,QC;Full Access" →
- * { raw, path: 'G:\ПРБ-2\_DocArch\3-QA,QC', pathKey, root, access: 'full', issues }.
+ * Description "G:\ОБЪЕКТ-2\_DocArch\3-QA,QC;Full Access" →
+ * { raw, path: 'G:\ОБЪЕКТ-2\_DocArch\3-QA,QC', pathKey, root, access: 'full', issues }.
  * The access type follows the LAST ';' (a path may contain commas, spaces, Cyrillic).
  * `issues`: 'description_missing', 'description_format', 'access_unknown', 'path_format'.
  */

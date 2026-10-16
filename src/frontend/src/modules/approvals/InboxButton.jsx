@@ -44,7 +44,7 @@ export default function InboxButton() {
     : t('approvals.inbox.title');
   return (
     <Tooltip title={label} mouseEnterDelay={0.2}>
-      <Link to="/app/approvals" className="chrome__icon bell__button apr-inbox-btn" aria-label={label}>
+      <Link to="/app/approvals" className="chrome__icon bell__button apr-inbox-btn" aria-label={label} data-tour="header.inbox">
         <InboxIcon />
         {counts.total > 0 && <span className="bell__badge" style={counts.overdue ? undefined : { background: 'var(--da-primary)' }}>{counts.total > 99 ? '99+' : counts.total}</span>}
       </Link>

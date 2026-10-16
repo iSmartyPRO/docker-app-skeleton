@@ -20,6 +20,7 @@ import InboxButton from '../modules/approvals/InboxButton';
 import { isStandalone } from '../pwa/pwa';
 import { useHelp } from '../help/HelpContext';
 import api from '../services/api';
+import DemoBanner from './DemoBanner';
 
 // Phones: help, theme, language and the console move into the account menu
 // (index.css hides their header buttons at the same width).
@@ -65,7 +66,7 @@ function AppsLauncher() {
         </div>
       )}
     >
-      <button type="button" className="chrome__icon" aria-label={t('apps.title')}>
+      <button type="button" className="chrome__icon" aria-label={t('apps.title')} data-tour="header.launcher">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
           {[5, 12, 19].flatMap((x) => [5, 12, 19].map((y) => <circle key={`${x}${y}`} cx={x} cy={y} r="1.9" fill="currentColor" />))}
         </svg>
@@ -147,7 +148,7 @@ function UserMenu({ user, onHelp }) {
 
   return (
     <Dropdown menu={{ items, onClick }} trigger={['click']} placement="bottomRight" overlayClassName="user-menu">
-      <button type="button" className="chrome__user" aria-label={t('common.account')}>
+      <button type="button" className="chrome__user" aria-label={t('common.account')} data-tour="header.user">
         <Avatar size={30} src={user.avatarUrl}>
           {initials(name)}
         </Avatar>
@@ -200,6 +201,7 @@ export default function Chrome({ dense }) {
   return (
     <>
     {user?.impersonator && <ImpersonationBar user={user} />}
+    <DemoBanner />
     <header className={`chrome ${dense ? 'chrome--dense' : ''}`}>
       {showBack && (
         <button type="button" className="chrome__back" onClick={() => navigate(-1)} aria-label={t('common.back')}>
@@ -218,7 +220,7 @@ export default function Chrome({ dense }) {
         {user ? (
           <>
             <Tooltip title={`${t('help.title')} · ?`} mouseEnterDelay={0.3}>
-              <button type="button" className="chrome__icon chrome__help" onClick={() => openHelp()} aria-label={t('help.title')}>
+              <button type="button" className="chrome__icon chrome__help" onClick={() => openHelp()} aria-label={t('help.title')} data-tour="header.help">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="9" />
                   <path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6" />
@@ -232,7 +234,7 @@ export default function Chrome({ dense }) {
             <AppsLauncher />
             {can(user, 'console.access') && (
               <Tooltip title={t('menu.adminConsole')} mouseEnterDelay={0.15}>
-                <Link className="chrome__icon chrome__admin" to="/admin" aria-label={t('common.admin')}>
+                <Link className="chrome__icon chrome__admin" to="/admin" aria-label={t('common.admin')} data-tour="header.admin">
                   <IconAdmin />
                 </Link>
               </Tooltip>

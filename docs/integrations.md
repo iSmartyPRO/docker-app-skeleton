@@ -193,6 +193,8 @@ The portal account is matched by DN, then by the directory object id (AD `object
 
 Turn on the sign-in method and group mapping in **Settings → Sign-in methods** — see [access-control.md](access-control.md#active-directory--ldap).
 
+Managing accounts (users, groups, OUs, password resets) is the [AD directory](directory.md) module; password operations there need *Use TLS* (LDAPS) or its StartTLS option.
+
 ---
 
 ## Adding an integration

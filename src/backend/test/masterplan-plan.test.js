@@ -7,7 +7,7 @@ import { contourAround, fitLabel, layoutLabels, pointInPolygon, textWidth } from
 
 // ── Old numbers ─────────────────────────────────────────────────────────────
 
-test('old number: parsed from the descriptions of the White Hills import', () => {
+test('old number: parsed from the descriptions of a real site-plan import', () => {
   assert.equal(parseOldNumber('Одноэтажный дом 96,72 м². На прежнем генплане продаж — №14.'), '14');
   assert.equal(parseOldNumber('Одноэтажный дом 96,72 м². На прежнем генплане продаж — №5. На генплане продаж от 06.10.2026 — «Бронь».'), '5');
   assert.equal(parseOldNumber('Трёхэтажные апартаменты, 23 юн. На прежнем генплане продаж — блок 1. Раскладка условная.'), 'блок 1');
@@ -142,7 +142,7 @@ test('building aggregate: no prices yet, mixed currencies, rows without rooms', 
 
 // ── Numbers on the plan ─────────────────────────────────────────────────────
 
-// Rotated rectangles like the houses of White Hills (plan units), around (cx, cy).
+// Rotated rectangles like the houses of a cottage village (plan units), around (cx, cy).
 const house = (cx, cy, w = 96, h = 54, angle = 0.14) => {
   const c = Math.cos(angle);
   const s = Math.sin(angle);
@@ -188,7 +188,7 @@ test('labels: overlapping badges — the lower one is hidden in auto, kept in al
 });
 
 test('labels: a row of houses at the overview zoom — every number shown, none overlapping', () => {
-  // 20 houses 100 plan units apart (like a street of White Hills) at k = 0.31.
+  // 20 houses 100 plan units apart (like a village street) at k = 0.31.
   const items = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, points: house(i * 100, 0, 74, 76, 0.05), text: String(i + 24) }));
   const k = 0.31;
   const out = layoutLabels(items, k, 'auto');

@@ -115,3 +115,8 @@ All under `/api/app/companies`, signed-in users:
 | PUT | `/admin/dadata` | `{ key }` (admin) |
 
 Errors: `DUPLICATE` (409, `info.duplicates`), `INVALID_IDS` (`info.fields`), `REGISTRY_NOT_FOUND`, `REGISTRY_UNAVAILABLE`, `REGISTRY_KEY`, `REGISTRY_LIMIT`, `REGISTRY_CAPTCHA`, `INVALID_ID`, `NO_REGISTRY`, `NO_IDENTIFIER`, `ALREADY_ENDED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`.
+
+## Demo data and tour
+
+- `modules/companies/demo.js`: four neutral companies («ООО «Пример»», «АО «Образец»» and others) with contacts; purge goes through the module's own delete so the timeline goes too.
+- Tour `companies` (`tour/content/companies.js`, texts `tour.companies.*` in `i18n/coreTours.js`): companies, search and filters, «Добавить компанию», people, my companies, the archive, settings (administrators only). Anchors: `cmp.nav.companies`, `cmp.filters`, `cmp.create`, `cmp.nav.people`, `cmp.nav.mine`, `cmp.nav.archive`, `cmp.nav.settings`.

@@ -9,6 +9,7 @@ import { runBeforeUserDelete } from './hooks.js';
 import { revokeImpersonationsBy } from './sessions.js';
 import { isLockedOut, recordLoginAttempt } from './security.js';
 import { isValidTimeZone, sanitizeUserRegional } from './datetime.js';
+import { isThemeId, sanitizeStoredUi, themeAllowed } from './themeCatalog.js';
 import {
   NO_PASSWORD,
   assertSuperadminRemains,
@@ -48,6 +49,8 @@ export async function ensureUsersTable() {
     }
   }
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(16) DEFAULT 'system'`);
+  // Interface preferences: moving backgrounds, «Не показывать туры», the custom theme (services/themeCatalog.js).
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ui JSONB NOT NULL DEFAULT '{}'::jsonb`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
@@ -92,7 +95,7 @@ const USER_COLUMNS = `
   id, username, email, display_name, avatar_path, locale, theme,
   role, is_active, is_blocked, last_login_at, token_version, created_at, updated_at,
   phone, telegram_id, telegram_username, instagram, mattermost, auth_source, external_id, directory_guid, last_login_method, email_trusted,
-  regional, device_tz,
+  regional, device_tz, ui,
   (password_hash LIKE '$2%') AS has_password
 `;
 
@@ -198,6 +201,8 @@ export function toPublicUser(user, access = EMPTY_ACCESS) {
     // null = follow the portal's default language
     locale: user.locale || null,
     theme: user.theme || 'system',
+    // Moving backgrounds, tours switch, custom theme (Account → Appearance).
+    ui: sanitizeStoredUi(user.ui),
     // Overrides of the portal's region settings (null = as the portal; timeZone may be 'device').
     regional: sanitizeUserRegional(user.regional || {}),
     deviceTz: user.device_tz || null,
@@ -672,7 +677,8 @@ export async function updateUser(id, patch, { actor = null } = {}) {
     if (patch.mattermost !== undefined) add('mattermost', normalizeMattermost(patch.mattermost));
     if (patch.locale === 'en' || patch.locale === 'ru') add('locale', patch.locale);
     else if (patch.locale === null || patch.locale === '' || patch.locale === 'auto') add('locale', null);
-    if (['light', 'dark', 'system'].includes(patch.theme)) add('theme', patch.theme);
+    // A theme the administrator does not offer is not saved (the person keeps the previous one).
+    if (isThemeId(patch.theme) && (await themeOffered(patch.theme))) add('theme', patch.theme);
     if (patch.regional && typeof patch.regional === 'object') add('regional', JSON.stringify(sanitizeUserRegional(patch.regional, user.regional || {})));
     if (patch.deviceTz !== undefined && isValidTimeZone(patch.deviceTz)) add('device_tz', patch.deviceTz);
 
@@ -751,6 +757,16 @@ export async function changePassword(id, currentPassword, nextPassword) {
     if (!ok) throw httpError(400, 'Current password is incorrect');
   }
   return updateUser(id, { password: nextPassword });
+}
+
+async function themeOffered(id) {
+  try {
+    const { getSettings, parseSettings } = await import('./settings.js');
+    const { appearance } = parseSettings(await getSettings());
+    return themeAllowed(id, appearance?.themes, appearance?.defaultTheme);
+  } catch {
+    return true;
+  }
 }
 
 /** Throws unless `actor` may act on user `id` (self is always allowed). */

@@ -17,12 +17,14 @@ import {
   replanStages,
   restartIndex,
   slaState,
+  stageSeatPlan,
   stageClosed,
   stageTimes,
   urgencyRank,
 } from './logic.js';
 import { describeApprovers, matchingPrincipal, peopleOf, principalSets, principalsOf, seatMatchParams, seatMatchSql, usersById } from './people.js';
 import { approvalMessage } from './messages.js';
+import { managerOf } from '../org/api.js';
 
 /*
  * The approvals engine (docs/approvals.md). Every state change runs in one
@@ -148,15 +150,30 @@ export async function routeView(type, route) {
   return { ...route, type: type.key, stages, escalateTo: await describeApprovers(route.escalateTo || []) };
 }
 
-/** "For a request of $5 000 in Equipment the route will be…": the stages that apply to sample values. */
-export async function previewRoute(ctx, typeKey, values = {}, draft = null) {
+/**
+ * "For a request of $5 000 in Equipment the route will be…": the stages that
+ * apply to sample values. With `authorId` the author's manager is resolved as
+ * it would be now; a manager that cannot be found shows the fallback.
+ */
+export async function previewRoute(ctx, typeKey, values = {}, draft = null, { authorId = null } = {}) {
   const type = requireApprovalType(typeKey);
   if (!canManageType(ctx, type)) throw httpError(403, 'You cannot see this route', 'FORBIDDEN');
   const route = draft ? cleanRoute(draft, type.fields) : await routeFor(type);
   const plan = planStages(route, values || {});
+  const author = Number(authorId) || null;
+  const fallback = route.escalateTo?.length ? route.escalateTo : [{ kind: 'permission', key: type.adminPermission || ADMIN_PERMISSION }];
   const stages = [];
-  for (const stage of plan.stages) stages.push({ ...stage, approvers: await describeApprovers(stage.approvers) });
-  return { stages, skipped: plan.skipped };
+  for (const stage of plan.stages) {
+    const hasManager = stage.approvers.some((approver) => approver.kind === 'manager');
+    if (!hasManager || !author) {
+      stages.push({ ...stage, approvers: await describeApprovers(stage.approvers) });
+      continue;
+    }
+    const resolved = await resolveManagers(author, stage.approvers);
+    const seats = stageSeatPlan(stage.approvers, resolved, fallback);
+    stages.push({ ...stage, approvers: await describeApprovers(seats.seats.map((seat) => ({ ...seat }))), managerMissing: seats.missing });
+  }
+  return { stages, skipped: plan.skipped, authorId: author };
 }
 
 // ── Process rows ────────────────────────────────────────────────────────────
@@ -204,15 +221,35 @@ async function loadSummary(type, docId) {
 
 const snapshotStage = (stage) => ({ id: stage.id, name: stage.name || '', mode: stage.mode === 'any' ? 'any' : 'all', approvers: stage.approvers });
 
-/** Opens stage `index`: seats for its approvers, deadline and reminder from the urgency. */
+/** Fallback approvers when the author's manager cannot be found: the route's escalation people, else the type's administrators. */
+function managerFallback(process) {
+  const type = getApprovalType(process.type);
+  return process.escalate_to?.length ? process.escalate_to : [{ kind: 'permission', key: type?.adminPermission || ADMIN_PERMISSION }];
+}
+
+/** user ids of the author's managers for the levels a stage asks for: { level: userId | null }. */
+export async function resolveManagers(authorId, approvers = []) {
+  const levels = [...new Set(approvers.filter((approver) => approver.kind === 'manager').map((approver) => approver.level || 1))];
+  const out = {};
+  for (const level of levels) out[level] = authorId ? await managerOf(authorId, { level }).catch(() => null) : null;
+  return out;
+}
+
+/**
+ * Opens stage `index`: seats for its approvers (the author's manager resolved
+ * now, through the org structure), deadline and reminder from the urgency.
+ */
 async function activateStage(client, process, index, settings, now = new Date()) {
   const stage = process.stages[index];
-  for (const approver of stage.approvers) {
+  const resolved = await resolveManagers(process.author_id, stage.approvers);
+  const plan = stageSeatPlan(stage.approvers, resolved, managerFallback(process));
+  for (const seat of plan.seats) {
     await client.query(
-      `INSERT INTO approval_seats (process_id, round, stage_index, kind, ref_id, ref_key, activated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [process.id, process.round, index, approver.kind, approver.kind === 'permission' ? null : approver.id, approver.kind === 'permission' ? approver.key : null, now]
+      `INSERT INTO approval_seats (process_id, round, stage_index, kind, ref_id, ref_key, via, activated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [process.id, process.round, index, seat.kind, seat.kind === 'permission' ? null : seat.id, seat.kind === 'permission' ? seat.key : null, seat.via || null, now]
     );
   }
+  if (plan.missing.length) await logEvent(client, process, 'manager_missing', { data: { levels: plan.missing }, stageIndex: index });
   const times = stageTimes(settings, process.urgency, now);
   return updateProcess(client, process.id, {
     current_stage: index,
@@ -803,7 +840,7 @@ async function processView(process, ctx) {
     }
     let approvers;
     if (stageSeatsList.length) {
-      const labels = await describeApprovers(stageSeatsList.map((seat) => ({ kind: seat.kind, id: seat.ref_id, key: seat.ref_key })));
+      const labels = await describeApprovers(stageSeatsList.map((seat) => ({ kind: seat.kind, id: seat.ref_id, key: seat.ref_key, via: seat.via || null })));
       approvers = stageSeatsList.map((seat, i) => {
         if (state === 'current' && !seat.decision && principals.length && matchingPrincipal(seat, principals)) mineOpen.push(Number(seat.id));
         return {
@@ -820,7 +857,9 @@ async function processView(process, ctx) {
         };
       });
     } else {
-      approvers = (await describeApprovers(stage.approvers)).map((label) => ({ ...label, decision: null }));
+      // Stages not reached yet: «the author's manager» shows who it would be today.
+      const managers = stage.approvers.some((approver) => approver.kind === 'manager') ? await resolveManagers(process.author_id, stage.approvers) : {};
+      approvers = (await describeApprovers(stage.approvers.map((approver) => (approver.kind === 'manager' ? { ...approver, resolved: managers[approver.level || 1] ?? null } : approver)))).map((label) => ({ ...label, decision: null }));
     }
     const decidedTimes = stageSeatsList.map((seat) => seat.decided_at).filter(Boolean).map((value) => new Date(value).getTime());
     stages.push({

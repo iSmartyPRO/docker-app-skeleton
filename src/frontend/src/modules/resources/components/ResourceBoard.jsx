@@ -18,6 +18,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useSettings } from '../../../context/SettingsContext';
 import { errorMessage } from '../../../lib/errors';
+import TourButton from '../../../tour/TourButton';
 import { arrange, categoryName, itemText, readLocalLayout, resourcesApi, writeLocalLayout } from '../api';
 import { MODULE_REGISTRY } from '../../registry';
 import { nowInZone } from '../../../lib/datetime';
@@ -189,7 +190,7 @@ export default function ResourceBoard({ variant = 'page' }) {
 
   return (
     <section className={`rs-board is-${variant} is-${config.density || 'comfortable'}${editing ? ' is-editing' : ''}`}>
-      <header className="rs-head">
+      <header className="rs-head" data-tour="rs.head">
         <div className="rs-head__text">
           {variant === 'home' && (
             <span className="rs-head__eyebrow">{user ? greeting(t, name) : settings?.appName}</span>
@@ -198,9 +199,10 @@ export default function ResourceBoard({ variant = 'page' }) {
           {(config.subtitle || variant === 'home') && <p>{config.subtitle || t('resources.subtitle')}</p>}
         </div>
         <div className="rs-head__actions">
+          {variant !== 'home' && <TourButton module="resources" />}
           {config.canManage && (
             <Link to="/app/resources/manage">
-              <Button>{t('resources.manage')}</Button>
+              <Button data-tour="rs.manage">{t('resources.manage')}</Button>
             </Link>
           )}
           {config.personalize && items.length > 0 && (
@@ -210,7 +212,7 @@ export default function ResourceBoard({ variant = 'page' }) {
                 <Button type="primary" onClick={() => setEditing(false)}>{t('resources.done')}</Button>
               </>
             ) : (
-              <Button onClick={() => { setEditing(true); setQuery(''); setCategory(null); }}>
+              <Button data-tour="rs.customize" onClick={() => { setEditing(true); setQuery(''); setCategory(null); }}>
                 <span aria-hidden="true">⚙</span> {t('resources.customize')}
               </Button>
             )
@@ -219,7 +221,7 @@ export default function ResourceBoard({ variant = 'page' }) {
       </header>
 
       {!editing && items.length > 0 && (config.showSearch || data?.categories.length > 0) && (
-        <div className="rs-filters">
+        <div className="rs-filters" data-tour="rs.filters">
           {config.showSearch && (
             <Input
               allowClear
@@ -231,7 +233,7 @@ export default function ResourceBoard({ variant = 'page' }) {
             />
           )}
           {data?.categories.length > 0 && (
-            <div className="rs-chips" role="tablist">
+            <div className="rs-chips" role="tablist" data-tour="rs.categories">
               <button type="button" className={!category ? 'is-active' : ''} onClick={() => setCategory(null)}>{t('resources.all')}</button>
               {data.categories.map((item) => (
                 <button key={item.id} type="button" className={category === item.id ? 'is-active' : ''} style={{ '--c': item.color }} onClick={() => setCategory(category === item.id ? null : item.id)}>
@@ -269,7 +271,7 @@ export default function ResourceBoard({ variant = 'page' }) {
           onDragEnd={onDragEnd}
         >
           <SortableContext items={filtered.map((item) => item.id)} strategy={rectSortingStrategy}>
-            <div className="rs-grid">
+            <div className="rs-grid" data-tour="rs.grid">
               {filtered.map((item) => (
                 <Tile key={item.id} item={item} editing={editing} showDescription={config.showDescriptions} onHide={hide} onOpenInternal={(url) => navigate(url)} />
               ))}

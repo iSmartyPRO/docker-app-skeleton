@@ -7,6 +7,7 @@ import InboxWidget from '../approvals/InboxWidget';
 import ProcurementWidget from '../procurement/ProcurementWidget';
 import ContractsPaymentsWidget from '../contracts/PaymentsWidget';
 import { IncomingWidget, LowStockWidget, MyToolsWidget } from '../warehouse/WarehouseWidgets';
+import CelebrationsWidget from '../employees/CelebrationsWidget';
 
 /*
  * Frontend widget catalog. Each entry: the component, where it sits in the
@@ -280,6 +281,18 @@ export const WIDGET_CATALOG = {
       { key: 'view', type: 'segmented', default: 'auto', options: ['auto', 'countries', 'relations', 'recent'].map((value) => ({ value, labelKey: `dashboard.fields.cview.${value}` })) },
       limit(5, 3, 10),
     ],
+  },
+  employeesCelebrations: {
+    Component: CelebrationsWidget,
+    module: 'employees',
+    category: 'overview',
+    icon: 'gift',
+    color: '#EC4899',
+    link: '/app/employees',
+    fit: true,
+    size: { w: 4, h: 5, minW: 3, minH: 3 },
+    preview: 'list',
+    fields: [],
   },
   people: {
     Component: People,

@@ -15,6 +15,7 @@ import { PersonSelect, StatusPill } from '../components/bits';
 import { RemoteSelect } from '../components/pickers';
 import DropZone from '../components/DropZone';
 import { procError } from '../card/RequestCard';
+import ModuleHint from '../../../components/ModuleHint';
 
 const AUTOSAVE_MS = 900;
 
@@ -389,6 +390,7 @@ export default function RequestForm() {
           <Input value={form.supplierName} onChange={(event) => set({ supplierName: event.target.value })} placeholder={meta.modules.companies ? t('procurement.form.supplierOrText') : t('procurement.form.supplierName')} maxLength={300} className="prc-mt8" />
         )}
         <Input value={form.supplierContact} onChange={(event) => set({ supplierContact: event.target.value })} placeholder={t('procurement.form.supplierContact')} maxLength={500} className="prc-mt8" />
+        <ModuleHint module="companies" what={t('platform.hintWhat.procurementSupplier')} />
       </Section>
 
       <Section title={t('procurement.form.money')} hint="procurement.paymentTerms">

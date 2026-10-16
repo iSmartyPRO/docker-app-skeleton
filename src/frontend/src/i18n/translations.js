@@ -32,6 +32,13 @@ import { warehouseMobileEn, warehouseMobileRu } from './warehouseMobile.js';
 import { scanEn, scanRu } from './scan.js';
 import { contractsEn, contractsRu } from './contracts.js';
 import { contractsPaymentsEn, contractsPaymentsRu } from './contractsPayments.js';
+import { platformEn, platformRu } from './platform.js';
+import { toursEn, toursRu } from './tours.js';
+import { orgEn, orgRu } from './org.js';
+import { employeesEn, employeesRu } from './employees.js';
+import { directoryEn, directoryRu } from './directory.js';
+import { businessToursEn, businessToursRu } from './businessTours.js';
+import { coreToursEn, coreToursRu } from './coreTours.js';
 
 const en = {
   brand: 'Portal',
@@ -2051,6 +2058,20 @@ mergeDeep(en, warehouseMobileEn);
 mergeDeep(ru, warehouseMobileRu);
 mergeDeep(en, scanEn);
 mergeDeep(ru, scanRu);
+mergeDeep(en, platformEn);
+mergeDeep(ru, platformRu);
+mergeDeep(en, toursEn);
+mergeDeep(ru, toursRu);
+mergeDeep(en, orgEn);
+mergeDeep(ru, orgRu);
+mergeDeep(en, employeesEn);
+mergeDeep(ru, employeesRu);
+mergeDeep(en, directoryEn);
+mergeDeep(ru, directoryRu);
+mergeDeep(en, businessToursEn);
+mergeDeep(ru, businessToursRu);
+mergeDeep(en, coreToursEn);
+mergeDeep(ru, coreToursRu);
 mergeDeep(en, { appUpdate: { title: 'A new version is out', text: 'Update to see what’s new — it takes a second.', button: 'Update', updating: 'Updating…', later: 'Later' } });
 mergeDeep(ru, { appUpdate: { title: 'Вышла новая версия', text: 'Обновите, чтобы увидеть новое — это секунда.', button: 'Обновить', updating: 'Обновляем…', later: 'Позже' } });
 

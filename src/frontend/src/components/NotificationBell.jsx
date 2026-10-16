@@ -185,7 +185,7 @@ export default function NotificationBell() {
 
   return (
     <Dropdown open={open} onOpenChange={setOpen} trigger={['click']} placement="bottomRight" popupRender={() => panel} overlayClassName="bell">
-      <button type="button" className={`chrome__icon bell__button${unread ? ' has-unread' : ''}`} aria-label={t('notifications.title')}>
+      <button type="button" className={`chrome__icon bell__button${unread ? ' has-unread' : ''}`} aria-label={t('notifications.title')} data-tour="header.notifications">
         <BellIcon />
         {unread > 0 && <span className="bell__badge">{unread > 99 ? '99+' : unread}</span>}
       </button>

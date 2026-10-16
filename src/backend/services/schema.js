@@ -11,6 +11,7 @@ import { startScheduler } from './scheduler.js';
 import { ensureApiTables } from '../api/schema.js';
 import { ensureLegalEntitiesTable } from './legalEntities.js';
 import { ensureOfficeSchema } from './office/locks.js';
+import { ensureTourTables } from './tours.js';
 
 let bootstrapped = false;
 
@@ -22,6 +23,7 @@ export function schemaBootstrapped() {
 export async function bootstrapSchema() {
   await ensureSettingsTable();
   await ensureUsersTable();
+  await ensureTourTables();
   await ensureSecurityTables();
   await seedRbac();
   await ensureAuthTables();

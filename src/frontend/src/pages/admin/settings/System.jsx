@@ -10,6 +10,7 @@ import { formatBytes, formatDuration } from '../../../lib/format';
 import { getAdminSystem } from '../../../services/api';
 import SettingsPageHeader from './SettingsPageHeader';
 import { HintLabel } from '../../../help/Hint';
+import SystemReport from './SystemReport';
 
 function RateLimitForm({ settings, save }) {
   const { t } = useLocale();
@@ -121,6 +122,7 @@ export default function SystemSettings() {
       <LoadState ready={admin.ready} error={admin.error} onRetry={admin.refresh}>
         {admin.settings && <RateLimitForm settings={admin.settings} save={admin.save} />}
       </LoadState>
+      <SystemReport />
     </>
   );
 }

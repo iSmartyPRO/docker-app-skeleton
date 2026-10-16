@@ -1,6 +1,6 @@
-import { fontStack, resolveTypography } from './typography';
+import { fontStack, resolveTypography } from './typography.js';
 
-export { FONT_OPTIONS, TYPOGRAPHY_PRESETS } from './typography';
+export { FONT_OPTIONS, TYPOGRAPHY_PRESETS } from './typography.js';
 
 export const THEME_TEMPLATES = {
   navy: {

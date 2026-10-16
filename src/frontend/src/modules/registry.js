@@ -1,12 +1,12 @@
 import { lazy } from 'react';
-import { can } from '../lib/access';
+import { canAny } from '../lib/access';
 
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
  * /app/<id>; the backend decides whether it is enabled (settings.modules).
  * Adding a module: an entry here, a backend module, and i18n `apps.<id>.*`.
  * `permission`: the module is listed (launcher, /apps, quick actions) only for
- * people who have it — the API enforces it again.
+ * people who have it (a list: any of them) — the API enforces it again.
  */
 export const MODULE_REGISTRY = [
   {
@@ -138,6 +138,27 @@ export const MODULE_REGISTRY = [
     Settings: lazy(() => import('./calendar/CalendarSettings')),
   },
   {
+    // Employees (docs/employees.md): listed for everyone; the module itself decides what each person sees.
+    id: 'employees',
+    path: '/app/employees',
+    icon: 'people',
+    labelKey: 'apps.employees.name',
+    descKey: 'apps.employees.desc',
+    App: lazy(() => import('./employees/EmployeesApp')),
+    Settings: lazy(() => import('./employees/EmployeesSettings')),
+  },
+  {
+    // AD directory (docs/directory.md): listed only for people with an ad.* permission.
+    id: 'directory',
+    path: '/app/directory',
+    icon: 'directory',
+    permission: ['ad.view', 'ad.manage', 'ad.passwords', 'ad.admin'],
+    labelKey: 'apps.directory.name',
+    descKey: 'apps.directory.desc',
+    App: lazy(() => import('./directory/DirectoryApp')),
+    Settings: lazy(() => import('./directory/DirectorySettings')),
+  },
+  {
     id: 'drive',
     path: '/app/drive',
     icon: 'server',
@@ -160,6 +181,15 @@ export const FEATURE_MODULES = [
     descKey: 'apps.assistant.desc',
     Settings: lazy(() => import('./assistant/AssistantSettings')),
   },
+  {
+    // Org structure: a core service without a page of its own (edited in Settings → Org structure).
+    id: 'org',
+    icon: 'layers',
+    core: true,
+    labelKey: 'apps.org.name',
+    descKey: 'apps.org.desc',
+    Settings: lazy(() => import('./org/OrgSettings')),
+  },
 ];
 
 /** A module's name: the administrator's choice when the module has one (Drive), else the translation. */
@@ -177,5 +207,5 @@ export function moduleById(id) {
  * that configure the portal for others) every enabled module is listed.
  */
 export function enabledModules(settings, user) {
-  return MODULE_REGISTRY.filter((module) => settings?.modules?.[module.id]?.enabled && (user === undefined || !module.permission || can(user, module.permission)));
+  return MODULE_REGISTRY.filter((module) => settings?.modules?.[module.id]?.enabled && (user === undefined || !module.permission || canAny(user, [].concat(module.permission))));
 }
