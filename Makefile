@@ -225,8 +225,10 @@ rebuild: ## Rebuild image and recreate production
 	$(COMPOSE_PROD) up -d --build --force-recreate
 	@$(MAKE) --no-print-directory prune-build
 
-prune-build: ## Trim Docker build cache (keeps 4 GB) and untagged images, so rebuilds never fill the disk
-	@docker builder prune -f --max-used-space 4gb >/dev/null 2>&1 || true
+prune-build: ## Trim Docker build cache (drops entries older than 2 days, caps the rest at 6 GB) and untagged images
+	@# `-a` is required: without it only dangling records go and the cache keeps growing (~1 GB per deploy).
+	@docker builder prune -af --filter until=48h >/dev/null 2>&1 || true
+	@docker builder prune -af --max-used-space 6gb >/dev/null 2>&1 || true
 	@docker image prune -f >/dev/null 2>&1 || true
 	@df -h / | awk 'NR==2 {print "Disk: " $$3 " used, " $$4 " free (" $$5 ")"}'
 

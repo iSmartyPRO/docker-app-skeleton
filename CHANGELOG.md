@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- `make prune-build` (run after every rebuild/deploy) really trims the Docker build cache now: entries older than 2 days go and the rest is capped at 6 GB. Before, it removed only dangling records and the cache grew by about 1 GB per deploy.
+
 ## [1.4.1] - 2026-10-16
 
 ### Changed

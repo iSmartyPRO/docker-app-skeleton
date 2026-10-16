@@ -184,7 +184,7 @@ Override path: `make postgres-up POSTGRES_DIR=/path/to/postgres`.
 
 ## Disk space and Docker build cache
 
-Every `make rebuild` leaves Docker build-cache layers behind (a few GB per build). Left alone they fill the disk; PostgreSQL then cannot start (`could not write lock file "postmaster.pid": No space left on device`) and the portal answers `Database is not connected` — the sign-in page falls back to the skeleton defaults. `make rebuild` now ends with `make prune-build`, which trims the build cache to 4 GB and removes untagged images. Check with `docker system df` and `df -h /`; `docker builder prune -a -f` frees all build cache at once (the next build is just slower).
+Every `make rebuild` leaves Docker build-cache layers behind (a few GB per build). Left alone they fill the disk; PostgreSQL then cannot start (`could not write lock file "postmaster.pid": No space left on device`) and the portal answers `Database is not connected` — the sign-in page falls back to the skeleton defaults. `make rebuild` (and so `make deploy`) ends with `make prune-build`: it drops build-cache entries older than 2 days, caps the rest at 6 GB and removes untagged images. The `-a` flag matters — without it Docker only removes dangling records and the cache kept growing by about 1 GB per deploy (22 GB on 2026-10-16). Check with `docker system df` and `df -h /`; `docker builder prune -a -f` frees all build cache at once (the next build is just slower).
 
 ## Startup and shutdown
 
