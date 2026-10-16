@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-16
+
 ### Added
 
 - **Folder README** in the File server and Files (and their public folder links): a `README.md` in a folder is shown rendered above the listing — a collapsed preview with a soft fade and «Показать полностью / Свернуть», hide per folder or everywhere (⋯ → «Показывать README папок»), open / edit (File server Markdown) / download / copy link. GitHub-flavoured Markdown (anchors, task lists, scrolling tables, code with «Копировать»), strictly sanitized; relative links and pictures stay inside the share or link and use the normal read rights. Loaded after the listing, cached per version, UTF-8 or Windows-1251, up to 512 KB. See [docs/drive.md](docs/drive.md#folder-readme).
@@ -486,7 +488,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.0
 [1.3.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.3.0
 [1.2.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.2.0
 [1.1.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.1.0
