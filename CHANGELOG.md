@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-16
+
+- fix(chat): redesign the header chats popover
+
 ## [1.5.0] - 2026-10-16
 
 ### Added
@@ -548,7 +552,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.5.1
 [1.5.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.5.0
 [1.4.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.2
 [1.4.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.4.1
