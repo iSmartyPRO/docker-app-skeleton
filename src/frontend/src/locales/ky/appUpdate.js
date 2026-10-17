@@ -1,2 +1,7 @@
-// Kyrgyz: fill keys from ../en/appUpdate.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Жаңы версия чыкты',
+  text: 'Жаңылыктарды көрүү үчүн жаңыртыңыз — бир секунд гана.',
+  button: 'Жаңыртуу',
+  updating: 'Жаңыртылууда…',
+  later: 'Кийинчерээк',
+};

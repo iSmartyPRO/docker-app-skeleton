@@ -85,36 +85,48 @@ export async function ensureRbacTables() {
 const SEED_GROUPS = [
   {
     key: 'administrators',
-    name: { en: 'Administrators', ru: 'Администраторы' },
+    name: { en: 'Administrators', ky: 'Администраторлор', tr: 'Yöneticiler', zh: '管理员', ru: 'Администраторы' },
     description: {
       en: 'Operate the product: users, groups, branding and integrations.',
+      ky: 'Продуктту жүргүзүшөт: колдонуучулар, топтор, тышкы көрүнүш жана интеграциялар.',
+      tr: 'Ürünü yönetir: kullanıcılar, gruplar, marka görünümü ve entegrasyonlar.',
+      zh: '运营产品：用户、组、品牌外观和集成。',
       ru: 'Ведут продукт: пользователи, группы, оформление и интеграции.',
     },
     roles: ['admin'],
   },
   {
     key: 'support',
-    name: { en: 'Support', ru: 'Поддержка' },
+    name: { en: 'Support', ky: 'Колдоо кызматы', tr: 'Destek', zh: '支持', ru: 'Поддержка' },
     description: {
       en: 'Help users with access: profiles, passwords, blocking.',
+      ky: 'Колдонуучуларга кирүү боюнча жардам беришет: профилдер, сырсөздөр, бөгөттөө.',
+      tr: 'Kullanıcılara erişim konusunda yardım eder: profiller, parolalar, engelleme.',
+      zh: '协助用户解决访问问题：个人资料、密码、封禁。',
       ru: 'Помогают пользователям с доступом: профили, пароли, блокировки.',
     },
     roles: ['moderator'],
   },
   {
     key: 'auditors',
-    name: { en: 'Auditors', ru: 'Аудиторы' },
+    name: { en: 'Auditors', ky: 'Аудиторлор', tr: 'Denetçiler', zh: '审计员', ru: 'Аудиторы' },
     description: {
       en: 'Read-only oversight of users, activity and settings.',
+      ky: 'Өзгөртүү укугусуз көзөмөл: колдонуучулар, журнал, жөндөөлөр.',
+      tr: 'Değişiklik yetkisi olmadan denetim: kullanıcılar, etkinlik ve ayarlar.',
+      zh: '只读监督：用户、活动和设置。',
       ru: 'Контроль без права изменений: пользователи, журнал, настройки.',
     },
     roles: ['auditor'],
   },
   {
     key: 'employees',
-    name: { en: 'Employees', ru: 'Сотрудники' },
+    name: { en: 'Employees', ky: 'Кызматкерлер', tr: 'Çalışanlar', zh: '员工', ru: 'Сотрудники' },
     description: {
       en: 'Everyone in the organisation. New accounts join this group.',
+      ky: 'Уюмдун бардык кызматкерлери. Жаңы эсептик жазуулар ушул топко кошулат.',
+      tr: 'Kuruluştaki herkes. Yeni hesaplar bu gruba katılır.',
+      zh: '组织中的所有人。新账户会自动加入此组。',
       ru: 'Все сотрудники организации. Новые учётные записи попадают сюда.',
     },
     roles: ['user'],

@@ -89,7 +89,7 @@ export async function decideDemo(ctx, type, docId, { stages = Infinity, last = n
     const req = userId === ctx.userId ? ctx.request : await requestAs(userId);
     if (!req) return;
     try {
-      await decide(req, process.id, { action, comment: action === 'approve' ? comment : comment || ctx.t({ ru: 'Демо: нужно уточнить', en: 'Demo: needs a correction' }) });
+      await decide(req, process.id, { action, comment: action === 'approve' ? comment : comment || ctx.t({ ru: 'Демо: нужно уточнить', en: 'Demo: needs a correction', ky: 'Демо: тактоо керек', tr: 'Demo: düzeltme gerekiyor', zh: '演示：需要补充说明' }) });
     } catch (err) {
       if (['NOT_APPROVER', 'ALREADY_DECIDED'].includes(err.code)) return;
       throw err;

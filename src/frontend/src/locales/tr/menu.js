@@ -1,2 +1,8 @@
-// Turkish: fill keys from ../en/menu.js — missing ones fall back to English.
-export default {};
+export default {
+  profile: 'Profil',
+  cabinet: 'Kişisel alan',
+  adminConsole: 'Yönetim konsolu',
+  settings: 'Ayarlar',
+  roleAdmin: 'Yönetici',
+  roleUser: 'Kullanıcı',
+};

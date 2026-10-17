@@ -1,2 +1,19 @@
-// Simplified Chinese: fill keys from ../en/setup.js — missing ones fall back to English.
-export default {};
+export default {
+  title: '初始设置',
+  lead: '配置 PostgreSQL，创建第一个管理员，并选择产品的打开方式。',
+  database: '数据库',
+  admin: '管理员',
+  access: '访问模式',
+  done: '就绪',
+  closedTitle: '封闭',
+  closedText: '访客始终看到登录表单。在建立会话之前，网站保持私密。',
+  openTitle: '开放',
+  openText: '公开首页和选定页面保持可见。个人中心和管理后台仍需登录。',
+  saveAccess: '保存并完成',
+  token: '安装令牌',
+  tokenHint: '如果 .env 中设置了 SETUP_TOKEN，则必须填写。粘贴后即可解锁向导。',
+  tokenRequired: '请输入 .env 中的安装令牌以继续。',
+  unlock: '解锁设置',
+  demoUsers: '添加示例用户',
+  demoUsersHint: '五名分布在默认组中的用户，用于展示角色的工作方式。他们没有密码，在您设置密码之前无法登录。',
+};

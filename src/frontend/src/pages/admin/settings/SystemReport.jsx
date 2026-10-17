@@ -7,7 +7,7 @@ import { SettingsSection } from '../../../components/ui/SettingsSection';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatBytes, formatDateTime, formatDuration } from '../../../lib/format';
 import api from '../../../services/api';
-import { moduleName, pickText } from '../../../modules/platformUi';
+import { moduleName } from '../../../modules/platformUi';
 import './platform.css';
 
 const STATUS_COLOR = { ok: 'success', warn: 'warning', fail: 'error', unknown: 'default' };
@@ -241,7 +241,7 @@ export default function SystemReport() {
                   { title: t('platform.system.version'), dataIndex: 'version', render: (value) => <span className="pf-version">v{value}</span> },
                   { title: t('platform.system.minCore'), dataIndex: 'minCore', render: (value, row) => <span className={row.compatible ? '' : 'pf-bad'}>v{value}</span> },
                   { title: t('platform.system.enabled'), dataIndex: 'enabled', render: (value) => <Badge status={value ? 'success' : 'default'} text={value ? t('platform.modules.statusOn') : t('platform.modules.statusOff')} /> },
-                  { title: t('platform.system.lastChange'), dataIndex: 'changelog', render: (entry) => (entry ? <span><span className="pf-muted">{entry.date}</span> · {pickText({ en: entry.changes?.en?.[0], ru: entry.changes?.ru?.[0] }, locale)}</span> : '—') },
+                  { title: t('platform.system.lastChange'), dataIndex: 'changelog', render: (entry) => (entry ? <span><span className="pf-muted">{entry.date}</span> · {(entry.changes?.[locale] || entry.changes?.en || [])[0]}</span> : '—') },
                 ]}
               />
             </SettingsSection>

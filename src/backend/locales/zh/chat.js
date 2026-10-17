@@ -1,2 +1,4 @@
-// Simplified Chinese: fill keys from ../en/chat.js — missing ones fall back to English.
-export default {};
+export default {
+  files_other: '📎 {count} 个文件',
+  mention: '{who} 在“{where}”中提到了您',
+};

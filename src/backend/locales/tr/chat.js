@@ -1,2 +1,5 @@
-// Turkish: fill keys from ../en/chat.js — missing ones fall back to English.
-export default {};
+export default {
+  files_one: '📎 {count} dosya',
+  files_other: '📎 {count} dosya',
+  mention: '{who}, “{where}” içinde sizden bahsetti',
+};

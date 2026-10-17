@@ -1,3 +1,46 @@
-// Simplified Chinese: translate ../en/crm.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: 'CRM 推动交易沿销售漏斗的各阶段前进：看板、列表、活动和日历、自定义字段以及多个销售漏斗。客户直接使用往来单位中的公司和人员，没有单独的副本。',
+  audience: '销售团队及其负责人。',
+  setup: [
+    {
+      title: '销售漏斗和阶段',
+      text: '创建销售漏斗和阶段；最后两个阶段是「赢单」和「输单」。',
+    },
+    {
+      title: '货币和字段',
+      text: '在[设置](/admin/settings/crm)中：默认货币、货币列表、交易自定义字段及其分区。',
+    },
+    {
+      title: '可见范围',
+      text: '销售代表只能看到自己的交易，还是可以看到全部交易。',
+    },
+    {
+      title: '启用往来单位',
+      text: '以便从名录中选择客户，并在公司卡片上查看交易。',
+    },
+  ],
+  roles: {
+    'crm.admin': '设置、销售漏斗和所有交易。',
+    'crm.all': '查看和编辑所有交易，适用于销售经理。',
+  },
+  scenarios: [
+    {
+      title: '新线索',
+      text: '销售代表创建交易，选择公司，安排一次电话沟通，该活动会显示在日历中。',
+    },
+    {
+      title: '给负责人的报表',
+      text: '拥有 crm.all 的负责人可以看到整个团队的看板以及各阶段金额。',
+    },
+  ],
+  faq: [
+    {
+      q: '可以有多个销售漏斗吗？',
+      a: '可以，每个都有自己的阶段；其中一个为默认。',
+    },
+    {
+      q: '必填字段？',
+      a: '字段可以在表单中设为必填；API 不会拒绝缺少这些字段的交易。',
+    },
+  ],
+};

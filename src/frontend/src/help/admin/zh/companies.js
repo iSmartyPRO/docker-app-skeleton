@@ -1,3 +1,45 @@
-// Simplified Chinese: translate ../en/companies.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '往来单位是统一的公司和人员名录：根据税号从公共登记系统获取的信息、员工及其职业经历、变更历史和评级。CRM、采购、合同、仓库和总体规划都会使用它。',
+  audience: '销售、采购、法务和财务人员。',
+  setup: [
+    {
+      title: '国家',
+      text: '在[设置](/admin/settings/companies)中选择默认国家和国家列表——每个国家都有自己的识别号和登记系统。',
+    },
+    {
+      title: '公司角色',
+      text: '客户、供应商、合作伙伴……可以重命名，也可以添加带颜色的自定义角色。',
+    },
+    {
+      title: '自定义字段',
+      text: '公司和人员的附加字段，可选择仅对部分国家启用。',
+    },
+    {
+      title: '谁可以修改',
+      text: '「所有人」或「负责人、创建人和管理员」。',
+    },
+  ],
+  roles: {
+    'companies.admin': '编辑和永久删除任何卡片，以及模块设置。',
+  },
+  scenarios: [
+    {
+      title: '新供应商',
+      text: '采购员输入税号，卡片即从登记系统自动填写，并自动查找重复项。',
+    },
+    {
+      title: '联系人换了工作',
+      text: '为此人设置新职位后，其在原公司的经历仍会保留。',
+    },
+  ],
+  faq: [
+    {
+      q: '没有往来单位模块，CRM 会怎样？',
+      a: 'CRM 仍可正常使用，但无法从名录中选择客户。',
+    },
+    {
+      q: '卡片会被删除吗？',
+      a: '通常是归档；只有模块管理员可以永久删除。',
+    },
+  ],
+};

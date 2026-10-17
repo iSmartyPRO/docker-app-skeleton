@@ -1,2 +1,80 @@
-// Turkish: fill keys from ../en/contracts.js — missing ones fall back to English.
-export default {};
+export default {
+  status: {
+    draft: 'Taslak',
+    approval: 'Onayda',
+    question: 'Yanıt gerekli',
+    approved: 'Onaylandı',
+    signed: 'İmzalandı',
+    active: 'Yürürlükte',
+    expiring: 'Süresi doluyor',
+    completed: 'Tamamlandı',
+    rejected: 'Reddedildi',
+    terminated: 'Feshedildi',
+  },
+  notify: {
+    name: '{number} “{title}”',
+    days_one: '{count} gün',
+    days_other: '{count} gün',
+    ends: 'Bitiş: {date}',
+    importance: { high: 'yüksek', medium: 'orta', low: 'düşük' },
+    depositKind: { deposit: 'Kaparo', advance: 'Avans' },
+    assigned: {
+      lawyer: 'Şu sözleşmenin hukukçusu sizsiniz: {name}',
+      owner: 'Şu sözleşmenin iş sahibi sizsiniz: {name}',
+    },
+    status: { title: 'Sözleşme {name}: {status}' },
+    prolonged: {
+      title: 'Sözleşme uzatıldı: {name}',
+      body: 'Yeni süre: {date} tarihine kadar',
+    },
+    version: {
+      title: 'Yeni sürüm {no} — sözleşme {name}',
+      changed: 'Değişenler: {comment}',
+    },
+    risk: {
+      title: 'Risk #{no} ({importance}) — sözleşme {name}',
+      clause: 'Madde {clause}',
+    },
+    reminderEnd: { title: 'Sözleşme {name} — bitişe kalan: {days}' },
+    reminderNotice: {
+      title: 'Sözleşme {name}: uzatmayı reddetmek için son tarih {date}',
+      lastDay: 'Ret bildirimini göndermek için bugün son gün',
+      left: 'Ret bildirimini göndermek için kalan süre: {days}',
+      renews: 'Aksi halde {date} tarihinden sonra yenilenir',
+    },
+    depositReceived: { title: '{kind} alındı: sözleşme {name}' },
+    depositStatus: {
+      title: '{kind} — sözleşme {name}: {status}',
+      expected: 'bekleniyor',
+      received: 'alındı',
+      credited: 'fiyata mahsup edildi',
+      returned: 'iade edildi',
+      forfeited: 'alıkonuldu',
+    },
+    paymentReceived: {
+      full: 'Tamamı ödendi: sözleşme {name}',
+      part: 'Ödeme alındı: sözleşme {name}',
+      totals: 'Ödenen: {paid} / {total} ({percent}%)',
+    },
+    paymentDue: {
+      today: 'Ödeme bugün: sözleşme {name}',
+      in: 'Ödemeye kalan süre {days}: sözleşme {name}',
+      body: '{amount} — son tarih {date}',
+    },
+    paymentOverdue: {
+      title: 'Ödeme gecikti: sözleşme {name}',
+      body: '{amount} — son tarih {date} idi',
+    },
+  },
+  csv: {
+    head: ['No.', 'Karşı taraf no.', 'Başlık', 'Cari hesap', 'Tür', 'Yön', 'Tutar', 'Para birimi', 'Akdedilme', 'Başlangıç', 'Bitiş', 'Otomatik uzatma', 'Durum', 'İş sahibi', 'Hukukçu'],
+    direction: { supplier: 'Tedarikçi', client: 'Müşteri' },
+    framework: 'çerçeve',
+    yes: 'evet',
+  },
+  paymentsCsv: {
+    head: ['Grup', 'Sözleşme no.', 'Sözleşme', 'Cari hesap', 'Amaç', 'Son tarih', 'Tutar', 'Ödenen', 'Kalan', 'Para birimi', 'Sorumlu'],
+    group: { overdue: 'Gecikmiş', today: 'Bugün', week: 'Bu hafta', later: 'Daha sonra' },
+    purpose: { deposit: 'Kaparo', advance: 'Avans', first: 'İlk ödeme', monthly: 'Aylık ödeme', rest: 'Kalan tutar', full: 'Tam ödeme' },
+  },
+};

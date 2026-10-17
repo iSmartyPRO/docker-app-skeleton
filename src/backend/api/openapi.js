@@ -70,7 +70,7 @@ export function openApi({ origin, lang = 'en', appName = 'Portal', version = '1.
     info: {
       title: `${appName} API`,
       version,
-      description: text({ ru: 'REST API портала. Авторизация — токеном в заголовке `Authorization: Bearer`.', en: 'Portal REST API. Authenticate with a token in `Authorization: Bearer`.' }, lang),
+      description: text({ ru: 'REST API портала. Авторизация — токеном в заголовке `Authorization: Bearer`.', en: 'Portal REST API. Authenticate with a token in `Authorization: Bearer`.', ky: 'Порталдын REST API\'си. Аутентификация — `Authorization: Bearer` башындагы токен менен.', tr: 'Portal REST API\'si. `Authorization: Bearer` başlığındaki bir belirteçle kimlik doğrulayın.', zh: '门户 REST API。在 `Authorization: Bearer` 请求头中使用令牌进行认证。' }, lang),
     },
     servers: [{ url: `${origin}/api/v1` }],
     security: [{ bearer: [] }],

@@ -1,3 +1,51 @@
-// Simplified Chinese: translate ../en/masterplan.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '总体规划完整呈现一个开发项目：带可点击轮廓的总平面图、楼栋房源表、房源单元台账、带计时预订的销售状态、带历史记录的价格，以及附有照片报告的施工进度。',
+  audience: '开发商：销售、财务、法务、施工、市场和管理层。',
+  setup: [
+    {
+      title: '启用模块',
+      text: '模块默认关闭。',
+    },
+    {
+      title: '创建项目',
+      text: '上传总平面图底图，绘制轮廓，添加楼栋、单元门、楼层和房源单元（或导入）。',
+    },
+    {
+      title: '角色',
+      text: '通过角色授予 masterplan.* 权限，或在项目中为某个区域（子树）指定角色。',
+    },
+    {
+      title: '销售',
+      text: '在[设置](/admin/settings/masterplan)中：状态、预订计时、货币、销售经理的折扣上限。',
+    },
+    {
+      title: 'CRM',
+      text: '启用 CRM 和往来单位，以便将房源单元关联到交易和买方。',
+    },
+  ],
+  roles: {
+    'masterplan.admin': '所有操作，包括结构和设置。',
+    'masterplan.sales': '预订和房源单元销售。',
+    'masterplan.foreman': '施工进度和照片报告。',
+  },
+  scenarios: [
+    {
+      title: '预订住宅',
+      text: '销售代表从 CRM 交易中将某个房源单元预订 3 天；计时结束后，该房源单元自动释放。',
+    },
+    {
+      title: '施工报告',
+      text: '工长在“北区”工地标记楼层进度并附上照片。',
+    },
+  ],
+  faq: [
+    {
+      q: '谁能看到价格？',
+      a: '取决于角色：字段在服务器端隐藏。',
+    },
+    {
+      q: '没有 CRM 可以用吗？',
+      a: '可以，但无法将房源单元关联到交易。',
+    },
+  ],
+};

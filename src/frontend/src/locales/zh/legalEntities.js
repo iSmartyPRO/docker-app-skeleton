@@ -1,2 +1,20 @@
-// Simplified Chinese: fill keys from ../en/legalEntities.js — missing ones fall back to English.
-export default {};
+export default {
+  title: '法人实体',
+  lead: '集团中负责支付采购款项和签署合同的公司。采购和合同模块共用此列表；已归档的法人实体仍保留在旧单据中。',
+  add: '添加法人实体',
+  edit: '法人实体',
+  name: '全称',
+  namePlaceholder: '“示例”有限责任公司',
+  nameRequired: '请输入名称',
+  shortName: '简称',
+  taxId: '纳税人识别号',
+  address: '注册地址',
+  bankDetails: '银行信息',
+  note: '备注',
+  isDefault: '默认',
+  sort: '顺序',
+  default: '默认',
+  archived: '已归档',
+  archive: '归档',
+  restore: '恢复',
+};

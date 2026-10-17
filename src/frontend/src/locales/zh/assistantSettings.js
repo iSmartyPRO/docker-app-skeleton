@@ -1,2 +1,27 @@
-// Simplified Chinese: fill keys from ../en/assistantSettings.js — missing ones fall back to English.
-export default {};
+export default {
+  enabledDesc: '默认对所有人显示；每个人都可以在「个人中心 → 外观」中关闭它或选择其他机器人。',
+  proactive: '在各版块中主动提供帮助',
+  proactiveDesc: '用户首次打开某个版块时，机器人会挥手并主动展示该版块的功能。每个版块仅一次。',
+  avatar: '默认机器人',
+  avatarDesc: '在用户自行选择之前由谁来迎接他们。更改会立即对您以及所有未自行选择机器人的用户生效。',
+  ownRobot: '您看到的是自己选择的机器人 {name}：个人选择优先于默认设置。',
+  showDefault: '向我显示默认机器人',
+  allowColors: '允许用户更改颜色',
+  allowColorsDesc: '每个人都可以为自己的角色重新配色。关闭后将保留设计好的颜色（例如企业风格）。',
+  choiceTitle: '由谁选择角色',
+  choiceDesc: '可以让用户自行选择、只提供部分角色，或为所有人指定同一个助手，例如公司吉祥物。',
+  choice: {
+    all: '任意角色',
+    some: '仅限选定角色',
+    one: '所有人统一',
+  },
+  choiceHint: {
+    all: '用户可选择任意角色；未选择的用户由默认角色迎接。',
+    some: '用户可从已勾选的角色（{n}）中选择。点击卡片可勾选或取消勾选。',
+    one: '无需选择：所有人都看到下方的角色。启用此模式时，个人选择不生效。',
+  },
+  selectAll: '全部勾选',
+  selectNone: '仅默认角色',
+  oneTitle: '全员统一的助手',
+  oneDesc: '组织中的每个人都会看到此角色。',
+};

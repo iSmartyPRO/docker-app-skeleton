@@ -1,2 +1,20 @@
-// Simplified Chinese: fill keys from ../en/resourcesSettings.js — missing ones fall back to English.
-export default {};
+export default {
+  enabledDesc: '以磁贴形式展示公司链接，位于首页或 /app/resources。',
+  catalogue: '目录',
+  catalogueDesc: '添加资源、图标、类别并设置可见范围。',
+  homePage: '在首页显示',
+  homePageDesc: '在「网站访问」中将「在线资源」设为首页。',
+  look: '外观',
+  lookDesc: '所有人看到的面板样式。',
+  title: '标题',
+  titleDesc: '显示在磁贴上方。',
+  subtitle: '副标题',
+  density: '磁贴大小',
+  comfortable: '标准',
+  compact: '紧凑',
+  showDescriptions: '显示描述',
+  showSearch: '搜索和类别',
+  showSearchDesc: '在磁贴上方显示搜索框和类别标签。',
+  personalize: '个人布局',
+  personalizeDesc: '每个人都可以为自己调整磁贴顺序或隐藏磁贴。访客的布局保存在浏览器中，员工的布局在所有设备上同步。',
+};

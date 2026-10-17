@@ -1,2 +1,27 @@
-// Turkish: fill keys from ../en/assistantSettings.js — missing ones fall back to English.
-export default {};
+export default {
+  enabledDesc: 'Varsayılan olarak herkese gösterilir; herkes Kişisel alan → Görünüm bölümünden kapatabilir veya başka bir robot seçebilir.',
+  proactive: 'Bölümlerde yardım öner',
+  proactiveDesc: 'Biri bir bölümü ilk kez açtığında robot el sallar ve orada neler yapılabileceğini göstermeyi önerir. Her bölüm için bir kez.',
+  avatar: 'Varsayılan robot',
+  avatarDesc: 'Kişiler kendi robotlarını seçene kadar onları kimin karşılayacağı. Değişiklik size ve kendi robotunu seçmemiş herkese hemen uygulanır.',
+  ownRobot: 'Kendi robotunuzu görüyorsunuz ({name}): kişisel seçim varsayılanın önüne geçer.',
+  showDefault: 'Bana varsayılan robotu göster',
+  allowColors: 'Kişiler renkleri değiştirebilir',
+  allowColorsDesc: 'Herkes kendi karakterinin rengini değiştirebilir. Tasarlanmış renkleri korumak için kapatın (örneğin kurumsal görünüm için).',
+  choiceTitle: 'Karakteri kim seçer',
+  choiceDesc: 'Seçimi kişilere bırakın, yalnızca bazı karakterleri sunun veya herkese tek bir asistan verin — örneğin şirket maskotu.',
+  choice: {
+    all: 'Herhangi bir karakter',
+    some: 'Yalnızca seçilenler',
+    one: 'Herkes için bir tane',
+  },
+  choiceHint: {
+    all: 'Kişiler karakterlerden herhangi birini seçer; seçim yapmamış olanları varsayılan karakter karşılar.',
+    some: 'Kişiler işaretli karakterler ({n}) arasından seçer. İşaretlemek veya işareti kaldırmak için bir karta tıklayın.',
+    one: 'Kimse seçmez: herkes aşağıdaki karakteri görür. Bu mod açıkken kişisel seçimler yok sayılır.',
+  },
+  selectAll: 'Tümünü işaretle',
+  selectNone: 'Yalnızca varsayılan',
+  oneTitle: 'Herkes için asistan',
+  oneDesc: 'Bu karakter kuruluştaki herkese gösterilir.',
+};

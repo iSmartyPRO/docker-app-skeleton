@@ -1,5 +1,6 @@
 import { can } from '../lib';
-import { pick } from '../../../i18n/languages';
+import { LANGUAGES, pick } from '../../../i18n/languages';
+import { translate } from '../../../i18n/translations';
 
 /*
  * Excel in the browser (exceljs, loaded on demand like the KB sheet viewer):
@@ -7,36 +8,36 @@ import { pick } from '../../../i18n/languages';
  * (.xlsx or .csv) into rows for POST /units/import.
  */
 
-/** Import columns: key → Russian header (the template) and accepted header spellings. */
+/** Import columns: key → header in each language (the template uses the person's) and extra accepted spellings. */
 export const IMPORT_COLUMNS = [
-  { key: 'code', ru: 'Код', en: 'Code', aliases: ['код', 'code', 'код объекта'] },
-  { key: 'name', ru: 'Название', en: 'Name', aliases: ['название', 'name', 'наименование'] },
-  { key: 'type', ru: 'Тип', en: 'Type', aliases: ['тип', 'type', 'тип объекта'] },
-  { key: 'parent', ru: 'Родитель (код)', en: 'Parent (code)', aliases: ['родитель', 'родитель (код)', 'parent', 'parent (code)', 'линия', 'секция'] },
-  { key: 'status', ru: 'Статус', en: 'Status', aliases: ['статус', 'status'] },
-  { key: 'price', ru: 'Цена', en: 'Price', aliases: ['цена', 'price', 'стоимость'] },
-  { key: 'currency', ru: 'Валюта', en: 'Currency', aliases: ['валюта', 'currency'] },
-  { key: 'minPrice', ru: 'Мин. цена', en: 'Min price', aliases: ['мин. цена', 'минимальная цена', 'min price'] },
-  { key: 'areaTotal', ru: 'Площадь, м²', en: 'Area, m²', aliases: ['площадь', 'площадь, м²', 'площадь м2', 'area', 'area, m²'] },
-  { key: 'areaLiving', ru: 'Жилая, м²', en: 'Living area, m²', aliases: ['жилая', 'жилая, м²', 'living area'] },
-  { key: 'areaPlot', ru: 'Участок, м²', en: 'Plot, m²', aliases: ['участок', 'участок, м²', 'площадь участка', 'plot', 'plot, m²'] },
-  { key: 'areaTerrace', ru: 'Террасы, м²', en: 'Terraces, m²', aliases: ['террасы', 'террасы, м²', 'terrace'] },
-  { key: 'rooms', ru: 'Комнат', en: 'Rooms', aliases: ['комнат', 'комнаты', 'rooms'] },
-  { key: 'bedrooms', ru: 'Спален', en: 'Bedrooms', aliases: ['спален', 'спальни', 'bedrooms'] },
-  { key: 'bathrooms', ru: 'Санузлов', en: 'Bathrooms', aliases: ['санузлов', 'санузлы', 'bathrooms'] },
-  { key: 'levels', ru: 'Этажей в юните', en: 'Levels', aliases: ['этажей', 'этажей в юните', 'levels'] },
-  { key: 'floor', ru: 'Этаж', en: 'Floor', aliases: ['этаж', 'floor'] },
-  { key: 'number', ru: 'Номер', en: 'Number', aliases: ['номер', '№', 'number'] },
-  { key: 'riser', ru: 'Стояк', en: 'Riser', aliases: ['стояк', 'riser'] },
-  { key: 'finishing', ru: 'Отделка', en: 'Finishing', aliases: ['отделка', 'finishing'] },
+  { key: 'code', ru: 'Код', en: 'Code', ky: 'Код', tr: 'Kod', zh: '代码', aliases: ['код', 'code', 'код объекта'] },
+  { key: 'name', ru: 'Название', en: 'Name', ky: 'Аталышы', tr: 'Ad', zh: '名称', aliases: ['название', 'name', 'наименование'] },
+  { key: 'type', ru: 'Тип', en: 'Type', ky: 'Түрү', tr: 'Tür', zh: '类型', aliases: ['тип', 'type', 'тип объекта'] },
+  { key: 'parent', ru: 'Родитель (код)', en: 'Parent (code)', ky: 'Негизги (код)', tr: 'Üst öğe (kod)', zh: '上级（代码）', aliases: ['родитель', 'родитель (код)', 'parent', 'parent (code)', 'линия', 'секция'] },
+  { key: 'status', ru: 'Статус', en: 'Status', ky: 'Статус', tr: 'Durum', zh: '状态', aliases: ['статус', 'status'] },
+  { key: 'price', ru: 'Цена', en: 'Price', ky: 'Баасы', tr: 'Fiyat', zh: '价格', aliases: ['цена', 'price', 'стоимость'] },
+  { key: 'currency', ru: 'Валюта', en: 'Currency', ky: 'Валюта', tr: 'Para birimi', zh: '货币', aliases: ['валюта', 'currency'] },
+  { key: 'minPrice', ru: 'Мин. цена', en: 'Min price', ky: 'Мин. баа', tr: 'Asgari fiyat', zh: '最低价', aliases: ['мин. цена', 'минимальная цена', 'min price'] },
+  { key: 'areaTotal', ru: 'Площадь, м²', en: 'Area, m²', ky: 'Аянты, м²', tr: 'Alan, m²', zh: '面积，m²', aliases: ['площадь', 'площадь, м²', 'площадь м2', 'area', 'area, m²'] },
+  { key: 'areaLiving', ru: 'Жилая, м²', en: 'Living area, m²', ky: 'Турак жай аянты, м²', tr: 'Yaşam alanı, m²', zh: '居住面积，m²', aliases: ['жилая', 'жилая, м²', 'living area'] },
+  { key: 'areaPlot', ru: 'Участок, м²', en: 'Plot, m²', ky: 'Участок, м²', tr: 'Parsel, m²', zh: '地块，m²', aliases: ['участок', 'участок, м²', 'площадь участка', 'plot', 'plot, m²'] },
+  { key: 'areaTerrace', ru: 'Террасы, м²', en: 'Terraces, m²', ky: 'Террасалар, м²', tr: 'Teraslar, m²', zh: '露台，m²', aliases: ['террасы', 'террасы, м²', 'terrace'] },
+  { key: 'rooms', ru: 'Комнат', en: 'Rooms', ky: 'Бөлмөлөр', tr: 'Odalar', zh: '房间数', aliases: ['комнат', 'комнаты', 'rooms'] },
+  { key: 'bedrooms', ru: 'Спален', en: 'Bedrooms', ky: 'Уктоочу бөлмөлөр', tr: 'Yatak odaları', zh: '卧室', aliases: ['спален', 'спальни', 'bedrooms'] },
+  { key: 'bathrooms', ru: 'Санузлов', en: 'Bathrooms', ky: 'Ванна бөлмөлөрү', tr: 'Banyolar', zh: '卫生间', aliases: ['санузлов', 'санузлы', 'bathrooms'] },
+  { key: 'levels', ru: 'Этажей в юните', en: 'Levels', ky: 'Юниттеги кабаттар', tr: 'Bölümdeki kat sayısı', zh: '单元层数', aliases: ['этажей', 'этажей в юните', 'levels'] },
+  { key: 'floor', ru: 'Этаж', en: 'Floor', ky: 'Кабат', tr: 'Kat', zh: '层', aliases: ['этаж', 'floor'] },
+  { key: 'number', ru: 'Номер', en: 'Number', ky: 'Номер', tr: 'Numara', zh: '编号', aliases: ['номер', '№', 'number'] },
+  { key: 'riser', ru: 'Стояк', en: 'Riser', ky: 'Стояк', tr: 'Dikey hat', zh: '竖列', aliases: ['стояк', 'riser'] },
+  { key: 'finishing', ru: 'Отделка', en: 'Finishing', ky: 'Жасалга', tr: 'İç yapı', zh: '装修', aliases: ['отделка', 'finishing'] },
   // Status migration (a held status with its client, manager, date and contract; administrators).
-  { key: 'client', ru: 'Клиент', en: 'Client', aliases: ['клиент', 'покупатель', 'client', 'buyer'] },
-  { key: 'manager', ru: 'Менеджер', en: 'Manager', aliases: ['менеджер', 'manager'] },
-  { key: 'statusDate', ru: 'Дата статуса', en: 'Status date', aliases: ['дата статуса', 'дата брони', 'дата продажи', 'status date'] },
-  { key: 'contractNumber', ru: 'Номер договора', en: 'Contract number', aliases: ['номер договора', '№ договора', 'договор', 'contract number', 'contract no'] },
-  { key: 'contractDate', ru: 'Дата договора', en: 'Contract date', aliases: ['дата договора', 'contract date'] },
-  { key: 'contractAmount', ru: 'Сумма договора', en: 'Contract amount', aliases: ['сумма договора', 'contract amount'] },
-  { key: 'bookingUntil', ru: 'Бронь до', en: 'Booked until', aliases: ['бронь до', 'резерв до', 'booked until', 'booking until'] },
+  { key: 'client', ru: 'Клиент', en: 'Client', ky: 'Кардар', tr: 'Müşteri', zh: '客户', aliases: ['клиент', 'покупатель', 'client', 'buyer'] },
+  { key: 'manager', ru: 'Менеджер', en: 'Manager', ky: 'Менеджер', tr: 'Satış temsilcisi', zh: '销售代表', aliases: ['менеджер', 'manager'] },
+  { key: 'statusDate', ru: 'Дата статуса', en: 'Status date', ky: 'Статустун күнү', tr: 'Durum tarihi', zh: '状态日期', aliases: ['дата статуса', 'дата брони', 'дата продажи', 'status date'] },
+  { key: 'contractNumber', ru: 'Номер договора', en: 'Contract number', ky: 'Келишимдин номери', tr: 'Sözleşme numarası', zh: '合同编号', aliases: ['номер договора', '№ договора', 'договор', 'contract number', 'contract no'] },
+  { key: 'contractDate', ru: 'Дата договора', en: 'Contract date', ky: 'Келишимдин күнү', tr: 'Sözleşme tarihi', zh: '合同日期', aliases: ['дата договора', 'contract date'] },
+  { key: 'contractAmount', ru: 'Сумма договора', en: 'Contract amount', ky: 'Келишимдин суммасы', tr: 'Sözleşme tutarı', zh: '合同金额', aliases: ['сумма договора', 'contract amount'] },
+  { key: 'bookingUntil', ru: 'Бронь до', en: 'Booked until', ky: 'Брондоонун мөөнөтү', tr: 'Rezervasyon bitişi', zh: '预订至', aliases: ['бронь до', 'резерв до', 'booked until', 'booking until'] },
 ];
 
 async function excel() {
@@ -95,33 +96,48 @@ export async function exportXlsx(items, { t, project, caps }) {
   download(await book.xlsx.writeBuffer(), `${(project.code || project.name).replace(/[^\p{L}\p{N}_-]+/gu, '_')}-units-${stamp()}.xlsx`);
 }
 
+/** Example rows of the import template, in the person's language. */
+const TEMPLATE_SAMPLE = {
+  ru: { cottage: 'Коттедж', apartment: 'Квартира', cottageName: 'Коттедж «Модерн 220»', flatName: 'Кв. 101' },
+  en: { cottage: 'Cottage', apartment: 'Flat', cottageName: 'Cottage «Modern 220»', flatName: 'Flat 101' },
+  ky: { cottage: 'Коттедж', apartment: 'Батир', cottageName: '«Модерн 220» коттеджи', flatName: '101-батир' },
+  tr: { cottage: 'Villa', apartment: 'Daire', cottageName: '«Modern 220» villası', flatName: 'Daire 101' },
+  zh: { cottage: '别墅', apartment: '公寓', cottageName: '“现代 220”别墅', flatName: '101 号公寓' },
+};
+
 /** An import template with the headers and two example rows. */
 export async function importTemplate(locale, types) {
   const ExcelJS = await excel();
   const book = new ExcelJS.Workbook();
   const sheet = book.addWorksheet('Units');
   sheet.columns = IMPORT_COLUMNS.map((col) => ({ header: pick(col, locale), key: col.key, width: Math.max(12, col.ru.length + 2) }));
-  const cottage = types.find((type) => type.key === 'cottage')?.name || 'Коттедж';
-  const apartment = types.find((type) => type.key === 'apartment')?.name || 'Квартира';
-  sheet.addRow({ code: 'A-1-01', name: 'Коттедж «Модерн 220»', type: cottage, parent: 'A-1', status: 'Свободно', price: 250000, currency: 'USD', areaTotal: 220, areaPlot: 1200, rooms: 6, bedrooms: 4, bathrooms: 3, levels: 2, finishing: 'pso' });
-  sheet.addRow({ code: 'H1-101', name: 'Кв. 101', type: apartment, parent: 'H1-S1', status: 'Свободно', price: 90000, currency: 'USD', areaTotal: 64, rooms: 2, floor: 1, number: '101', riser: 1, finishing: 'whitebox' });
+  const sample = TEMPLATE_SAMPLE[locale] || TEMPLATE_SAMPLE.en;
+  const cottage = types.find((type) => type.key === 'cottage')?.name || sample.cottage;
+  const apartment = types.find((type) => type.key === 'apartment')?.name || sample.apartment;
+  const free = translate(locale, 'mp.status.free') || 'free';
+  sheet.addRow({ code: 'A-1-01', name: sample.cottageName, type: cottage, parent: 'A-1', status: free, price: 250000, currency: 'USD', areaTotal: 220, areaPlot: 1200, rooms: 6, bedrooms: 4, bathrooms: 3, levels: 2, finishing: 'pso' });
+  sheet.addRow({ code: 'H1-101', name: sample.flatName, type: apartment, parent: 'H1-S1', status: free, price: 90000, currency: 'USD', areaTotal: 64, rooms: 2, floor: 1, number: '101', riser: 1, finishing: 'whitebox' });
   sheet.getRow(1).font = { bold: true };
-  const help = book.addWorksheet(pick({ ru: 'Справка', en: 'Help' }, locale));
+  const help = book.addWorksheet(pick({ ru: 'Справка', en: 'Help', ky: 'Жардам', tr: 'Yardım', zh: '帮助' }, locale));
   help.columns = [{ width: 24 }, { width: 80 }];
-  help.addRow([pick({ ru: 'Типы', en: 'Types' }, locale), types.map((type) => type.name).join('; ')]);
+  help.addRow([pick({ ru: 'Типы', en: 'Types', ky: 'Түрлөр', tr: 'Türler', zh: '类型' }, locale), types.map((type) => type.name).join('; ')]);
   help.addRow([
-    pick({ ru: 'Статус', en: 'Status' }, locale),
+    pick({ ru: 'Статус', en: 'Status', ky: 'Статус', tr: 'Durum', zh: '状态' }, locale),
     pick({
       ru: 'Свободно или Не в продаже. Перенос продаж (администратор): Резерв, Бронь, Задаток, Договор, Продано, Передано — с колонками Клиент, Менеджер (логин или имя), Дата статуса, Номер / Дата / Сумма договора, Бронь до (пусто — бронь не истекает). Нужна причина в окне импорта.',
       en: 'free or not_for_sale. Migration of sales (administrators): reserve, booking, deposit, contract, sold, handed — with the columns Client, Manager (login or name), Status date, Contract number / date / amount, Booked until (empty — never expires). A reason is required in the import window.',
+      ky: 'free же not_for_sale (же алардын аталыштары). Сатууларды көчүрүү (администраторлор): reserve, booking, deposit, contract, sold, handed — Кардар, Менеджер (логин же аты), Статустун күнү, Келишимдин номери / күнү / суммасы, Брондоонун мөөнөтү (бош — мөөнөтү бүтпөйт) мамычалары менен. Импорт терезесинде себеп милдеттүү.',
+      tr: 'free veya not_for_sale (ya da adları). Satışların aktarılması (yöneticiler): reserve, booking, deposit, contract, sold, handed — Müşteri, Satış temsilcisi (kullanıcı adı veya ad), Durum tarihi, Sözleşme numarası / tarihi / tutarı, Rezervasyon bitişi (boş — hiç sona ermez) sütunlarıyla. İçe aktarma penceresinde bir gerekçe zorunludur.',
+      zh: 'free 或 not_for_sale（或其名称）。迁移销售数据（管理员）：reserve、booking、deposit、contract、sold、handed——需填写客户、销售代表（登录名或姓名）、状态日期、合同编号 / 日期 / 金额、预订至（留空表示永不过期）各列。在导入窗口中必须填写原因。',
     }, locale),
   ]);
-  help.addRow([pick({ ru: 'Отделка', en: 'Finishing' }, locale), 'pso, rough, whitebox, turnkey, furnished']);
-  help.addRow([pick({ ru: 'Родитель', en: 'Parent' }, locale), pick({ ru: 'Код существующего узла (линии, секции) или строки выше', en: 'Code of an existing node or of a row above' }, locale)]);
+  help.addRow([pick({ ru: 'Отделка', en: 'Finishing', ky: 'Жасалга', tr: 'İç yapı', zh: '装修' }, locale), 'pso, rough, whitebox, turnkey, furnished']);
+  help.addRow([pick({ ru: 'Родитель', en: 'Parent', ky: 'Негизги', tr: 'Üst öğe', zh: '上级' }, locale), pick({ ru: 'Код существующего узла (линии, секции) или строки выше', en: 'Code of an existing node or of a row above', ky: 'Бар болгон түйүндүн же жогорудагы саптын коду', tr: 'Mevcut bir düğümün veya üstteki bir satırın kodu', zh: '已有节点或上方某行的代码' }, locale)]);
   download(await book.xlsx.writeBuffer(), `masterplan-import-template.xlsx`);
 }
 
-const norm = (value) => String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+// Case and spaces do not matter; Turkish dotted/dotless i match either way.
+const norm = (value) => String(value ?? '').trim().toLowerCase().replace(/\u0307/g, '').replace(/ı/g, 'i').replace(/\s+/g, ' ');
 
 function cellText(value) {
   if (value === null || value === undefined) return '';
@@ -190,7 +206,8 @@ export async function readImportFile(file) {
   if (!table.length) return { headers: [], rows: [] };
   const headers = table[0].map((text) => {
     const n = norm(text);
-    const col = IMPORT_COLUMNS.find((item) => item.key.toLowerCase() === n || norm(item.ru) === n || norm(item.en) === n || item.aliases.includes(n));
+    // A header in any portal language, or one of the extra spellings.
+    const col = IMPORT_COLUMNS.find((item) => item.key.toLowerCase() === n || LANGUAGES.some((language) => item[language.code] && norm(item[language.code]) === n) || item.aliases.some((alias) => norm(alias) === n));
     return { text: String(text), key: col?.key || null };
   });
   const rows = table.slice(1).map((values) => Object.fromEntries(headers.map((header, index) => [header.key, values[index] ?? '']).filter(([key]) => key)));

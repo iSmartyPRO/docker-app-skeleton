@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../../config/database.js';
-import { getSetting, setSetting } from '../../services/settings.js';
+import { getSetting, localeFor, setSetting } from '../../services/settings.js';
+import { pick } from '../../services/i18n/index.js';
 import { registerJob } from '../../services/scheduler.js';
 import { DEFAULT_STAGES, DEFAULT_TYPES } from './constants.js';
 import { runBookingTimers } from './sales.js';
@@ -353,22 +354,26 @@ export async function ensureMasterplanSchema() {
   registerCrmHooks();
 }
 
-/** Object types (§4.3) and construction stages (§7.1), once. Directories only — never project data. */
+/**
+ * Object types (§4.3) and construction stages (§7.1), once, named in the portal language (then
+ * they are the portal's own data, renamed in the settings). Directories only — never project data.
+ */
 async function seedDirectories() {
   if ((await getSetting('masterplan_seeded')) === 'true') return;
+  const locale = await localeFor(null);
   await withTransaction(async (client) => {
     for (const [index, type] of DEFAULT_TYPES.entries()) {
       await client.query(
         `INSERT INTO mp_types (key, name, category, node_kind, sellable, stage_set, icon, color, sort)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (key) WHERE key IS NOT NULL DO NOTHING`,
-        [type.key, type.name, type.category, type.nodeKind, type.sellable, type.stageSet, type.icon, type.color, index]
+        [type.key, pick(type.name, locale), type.category, type.nodeKind, type.sellable, type.stageSet, type.icon, type.color, index]
       );
     }
     const existing = await client.query(`SELECT 1 FROM mp_stages LIMIT 1`);
     if (!existing.rows.length) {
       for (const [set, stages] of Object.entries(DEFAULT_STAGES)) {
         for (const [index, [name, weight]] of stages.entries()) {
-          await client.query(`INSERT INTO mp_stages (set_key, name, weight, sort) VALUES ($1, $2, $3, $4)`, [set, name, weight, index]);
+          await client.query(`INSERT INTO mp_stages (set_key, name, weight, sort) VALUES ($1, $2, $3, $4)`, [set, pick(name, locale), weight, index]);
         }
       }
     }

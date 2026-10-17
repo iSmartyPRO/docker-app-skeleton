@@ -1,2 +1,60 @@
-// Kyrgyz: fill keys from ../en/procurement.js — missing ones fall back to English.
-export default {};
+export default {
+  status: {
+    draft: 'Кара жазма',
+    pending: 'Макулдашууда',
+    question: 'Жооп керек',
+    returned: 'Кайра иштеп чыгууда',
+    to_pay: 'Төлөөгө',
+    partially_paid: 'Жарым-жартылай төлөндү',
+    paid: 'Төлөндү',
+    delivered: 'Жеткирилди',
+    closed: 'Жабылды',
+    rejected: 'Четке кагылды',
+    cancelled: 'Жокко чыгарылды',
+  },
+  registryCsv: {
+    head: ['Топ', '№', 'Аталышы', 'Жеткирүүчү', 'Юридикалык жак', 'Төлөө мөөнөтү', 'Сумма', 'Төлөндү', 'Калды', 'Валюта', 'Статус', 'Автор'],
+    group: { overdue: 'Мөөнөтү өткөн', today: 'Бүгүн', week: 'Ушул аптада', later: 'Кийинчерээк' },
+  },
+  // Column headers of the list export (the visible columns).
+  columns: {
+    number: '№',
+    title: 'Аталышы',
+    amount: 'Сумма',
+    currency: 'Валюта',
+    paid: 'Төлөндү',
+    supplier: 'Жеткирүүчү',
+    category: 'Категория',
+    urgency: 'Шашылыштык',
+    status: 'Статус',
+    payBy: 'Төлөө мөөнөтү',
+    deliverBy: 'Жеткирүү мөөнөтү',
+    responsible: 'Жооптуу адам',
+    author: 'Автор',
+    legalEntity: 'Юридикалык жак',
+    createdAt: 'Түзүлгөн',
+  },
+  notify: {
+    supplier: 'Жеткирүүчү: {name}',
+    left: 'Төлөөгө калды: {amount}',
+    wasDue: 'Мөөнөтү {date} болчу',
+    toPay: {
+      title: 'Төлөөгө: {doc}',
+      payBy: '{date} чейин төлөңүз',
+    },
+    paid: {
+      full: 'Төлөндү: {doc}',
+      part: 'Жарым-жартылай төлөндү: {doc}',
+      totals: '{total} ичинен {paid} төлөндү',
+    },
+    delivered: {
+      full: 'Жеткирилди: {doc}',
+      part: 'Жарым-жартылай жеткирилди: {doc}',
+    },
+    assigned: { title: 'Сиз {doc} үчүн жооптуусуз' },
+    paySoon: { title: 'Төлөм мөөнөтү {date}: {doc}' },
+    payOverdue: { title: 'Төлөмдүн мөөнөтү өттү: {doc}' },
+    deliverSoon: { title: 'Жеткирүү мөөнөтү {date}: {doc}' },
+    deliverOverdue: { title: 'Жеткирүүнүн мөөнөтү өттү: {doc}' },
+  },
+};

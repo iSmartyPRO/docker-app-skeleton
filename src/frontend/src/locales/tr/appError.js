@@ -1,2 +1,15 @@
-// Turkish: fill keys from ../en/appError.js — missing ones fall back to English.
-export default {};
+export default {
+  details: 'Destek için ayrıntılar',
+  copy: 'Ayrıntıları kopyala',
+  copied: 'Kopyalandı',
+  code: 'Kod',
+  session: 'Oturum',
+  incident: 'Olay',
+  title: 'Bu sayfa yüklenemedi',
+  text: 'Sayfa açılırken bir sorun oluştu. Sayfayı yenileyin — verileriniz güvende.',
+  updateTitle: 'Yeni bir sürüm mevcut',
+  updateText: 'Bu sekme açıkken portal güncellendi. Devam etmek için sayfayı yenileyin.',
+  updating: 'Yeni sürüm yükleniyor…',
+  reload: 'Yenile',
+  home: 'Ana sayfa',
+};

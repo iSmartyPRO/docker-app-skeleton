@@ -11,41 +11,49 @@ import { useEmp } from '../EmpContext';
 import { empError } from '../lib';
 import { pick } from '../../../i18n/languages';
 
-/** Import columns: key → accepted header spellings (Russian or English). */
+/**
+ * Import columns: key → header in each language (the template uses the person's language) and extra
+ * accepted spellings. A file is read with headers in any portal language (warehouse/xlsx readImportFile).
+ */
 export const EMPLOYEE_COLUMNS = [
-  { key: 'lastName', ru: 'Фамилия', en: 'Last name', aliases: ['фамилия', 'last name', 'surname'] },
-  { key: 'firstName', ru: 'Имя', en: 'First name', aliases: ['имя', 'first name', 'name'] },
-  { key: 'middleName', ru: 'Отчество', en: 'Middle name', aliases: ['отчество', 'middle name', 'patronymic'] },
-  { key: 'personnelNo', ru: 'Табельный номер', en: 'Personnel number', aliases: ['табельный номер', 'таб. №', 'табельный', 'personnel number', 'employee id'] },
-  { key: 'position', ru: 'Должность', en: 'Position', aliases: ['должность', 'position', 'job title'] },
-  { key: 'unit', ru: 'Подразделение', en: 'Unit', aliases: ['подразделение', 'отдел', 'unit', 'department'] },
-  { key: 'site', ru: 'Объект', en: 'Site', aliases: ['объект', 'площадка', 'site'] },
-  { key: 'status', ru: 'Статус', en: 'Status', aliases: ['статус', 'status'] },
-  { key: 'employment', ru: 'Тип занятости', en: 'Employment', aliases: ['тип занятости', 'занятость', 'employment'] },
-  { key: 'hireDate', ru: 'Дата приёма', en: 'Hire date', aliases: ['дата приёма', 'дата приема', 'hire date', 'принят'] },
-  { key: 'birthDate', ru: 'Дата рождения', en: 'Birth date', aliases: ['дата рождения', 'birth date', 'birthday'] },
-  { key: 'workEmail', ru: 'Рабочий e-mail', en: 'Work e-mail', aliases: ['рабочий e-mail', 'e-mail', 'email', 'почта', 'work email'] },
-  { key: 'workPhone', ru: 'Рабочий телефон', en: 'Work phone', aliases: ['рабочий телефон', 'телефон', 'work phone', 'phone'] },
-  { key: 'workMobile', ru: 'Мобильный', en: 'Mobile', aliases: ['мобильный', 'mobile'] },
-  { key: 'personalEmail', ru: 'Личный e-mail', en: 'Personal e-mail', aliases: ['личный e-mail', 'personal email'] },
-  { key: 'personalPhone', ru: 'Личный телефон', en: 'Personal phone', aliases: ['личный телефон', 'personal phone'] },
+  { key: 'lastName', ru: 'Фамилия', en: 'Last name', ky: 'Фамилиясы', tr: 'Soyadı', zh: '姓', aliases: ['фамилия', 'last name', 'surname', 'soyad', 'soyadi', '姓氏'] },
+  { key: 'firstName', ru: 'Имя', en: 'First name', ky: 'Аты', tr: 'Adı', zh: '名', aliases: ['имя', 'first name', 'name', 'ат', 'ad', 'adi', '名字'] },
+  { key: 'middleName', ru: 'Отчество', en: 'Middle name', ky: 'Атасынын аты', tr: 'Baba adı', zh: '父称', aliases: ['отчество', 'middle name', 'patronymic', 'baba adi'] },
+  { key: 'personnelNo', ru: 'Табельный номер', en: 'Personnel number', ky: 'Табель номери', tr: 'Sicil numarası', zh: '工号', aliases: ['табельный номер', 'таб. №', 'табельный', 'personnel number', 'employee id', 'табель', 'sicil no', 'sicil', '员工编号'] },
+  { key: 'position', ru: 'Должность', en: 'Position', ky: 'Кызмат орду', tr: 'Pozisyon', zh: '职位', aliases: ['должность', 'position', 'job title', 'кызматы', 'unvan', 'görev', '岗位'] },
+  { key: 'unit', ru: 'Подразделение', en: 'Unit', ky: 'Бөлүм', tr: 'Birim', zh: '部门', aliases: ['подразделение', 'отдел', 'unit', 'department', 'departman', 'bölüm'] },
+  { key: 'site', ru: 'Объект', en: 'Site', ky: 'Объект', tr: 'Şantiye', zh: '工地', aliases: ['объект', 'площадка', 'site', 'santiye'] },
+  { key: 'status', ru: 'Статус', en: 'Status', ky: 'Статус', tr: 'Durum', zh: '状态', aliases: ['статус', 'status', 'абалы'] },
+  { key: 'employment', ru: 'Тип занятости', en: 'Employment', ky: 'Иштөө түрү', tr: 'İstihdam türü', zh: '用工类型', aliases: ['тип занятости', 'занятость', 'employment', 'istihdam'] },
+  { key: 'hireDate', ru: 'Дата приёма', en: 'Hire date', ky: 'Ишке кабыл алынган күнү', tr: 'İşe giriş tarihi', zh: '入职日期', aliases: ['дата приёма', 'дата приема', 'hire date', 'принят', 'ишке кабыл алынган', 'işe giriş'] },
+  { key: 'birthDate', ru: 'Дата рождения', en: 'Birth date', ky: 'Туулган күнү', tr: 'Doğum tarihi', zh: '出生日期', aliases: ['дата рождения', 'birth date', 'birthday', 'туулган күн'] },
+  { key: 'workEmail', ru: 'Рабочий e-mail', en: 'Work e-mail', ky: 'Жумушчу электрондук почта', tr: 'İş e-postası', zh: '工作邮箱', aliases: ['рабочий e-mail', 'e-mail', 'email', 'почта', 'work email', 'электрондук почта', 'e-posta', '邮箱', '电子邮件'] },
+  { key: 'workPhone', ru: 'Рабочий телефон', en: 'Work phone', ky: 'Жумушчу телефон', tr: 'İş telefonu', zh: '工作电话', aliases: ['рабочий телефон', 'телефон', 'work phone', 'phone', 'telefon', '电话'] },
+  { key: 'workMobile', ru: 'Мобильный', en: 'Mobile', ky: 'Мобилдик', tr: 'Cep telefonu', zh: '手机', aliases: ['мобильный', 'mobile', 'cep', 'мобилдик телефон'] },
+  { key: 'personalEmail', ru: 'Личный e-mail', en: 'Personal e-mail', ky: 'Жеке электрондук почта', tr: 'Kişisel e-posta', zh: '个人邮箱', aliases: ['личный e-mail', 'personal email'] },
+  { key: 'personalPhone', ru: 'Личный телефон', en: 'Personal phone', ky: 'Жеке телефон', tr: 'Kişisel telefon', zh: '个人电话', aliases: ['личный телефон', 'personal phone'] },
 ];
 
-const EXAMPLE = {
-  lastName: 'Иванов',
-  firstName: 'Иван',
-  middleName: 'Иванович',
+/** The template's example row, in the person's language (status and employment as the interface names them). */
+const EXAMPLE_NAMES = {
+  ru: { lastName: 'Иванов', firstName: 'Иван', middleName: 'Иванович', position: 'Монтажник' },
+  en: { lastName: 'Smith', firstName: 'John', middleName: '', position: 'Installer' },
+  ky: { lastName: 'Асанов', firstName: 'Азамат', middleName: 'Бакытович', position: 'Монтажчы' },
+  tr: { lastName: 'Yılmaz', firstName: 'Ahmet', middleName: '', position: 'Montajcı' },
+  zh: { lastName: '王', firstName: '伟', middleName: '', position: '安装工' },
+};
+const exampleRow = (t, locale) => ({
+  ...(EXAMPLE_NAMES[locale] || EXAMPLE_NAMES.en),
   personnelNo: '0001',
-  position: 'Монтажник',
   unit: 'EX-N-1',
   site: 'EX-N-1',
-  status: 'работает',
-  employment: 'штат',
+  status: t('emp.status.active'),
+  employment: t('emp.employment.staff'),
   hireDate: '2024-03-01',
   birthDate: '15.06.1990',
   workEmail: 'ivanov@example.com',
   workPhone: '+1 555 0100',
-};
+});
 
 /** Import from Excel / CSV (spec §4.2): a check with a report first, then all or nothing. */
 export default function ImportPage() {
@@ -97,7 +105,7 @@ export default function ImportPage() {
         icon={<MenuIcon name="upload" />}
         title={t('emp.nav.import')}
         description={t('emp.import.lead')}
-        actions={[{ key: 'template', label: t('emp.import.template'), onClick: () => importTemplate(EMPLOYEE_COLUMNS, EXAMPLE, locale, 'employees-template.xlsx') }]}
+        actions={[{ key: 'template', label: t('emp.import.template'), onClick: () => importTemplate(EMPLOYEE_COLUMNS, exampleRow(t, locale), locale, 'employees-template.xlsx') }]}
       />
       <section className="emp-panel emp-import">
         <ol className="emp-steps">

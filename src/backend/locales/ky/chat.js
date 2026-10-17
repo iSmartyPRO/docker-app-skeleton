@@ -1,2 +1,5 @@
-// Kyrgyz: fill keys from ../en/chat.js — missing ones fall back to English.
-export default {};
+export default {
+  files_one: '📎 {count} файл',
+  files_other: '📎 {count} файл',
+  mention: '{who} Сизди «{where}» чатында эскерди',
+};

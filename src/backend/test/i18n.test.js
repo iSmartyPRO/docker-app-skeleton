@@ -133,9 +133,7 @@ test('i18n: tr() — dictionary texts, plurals, interpolation and English fallba
   assert.equal(tr('ru', 'calendar.lead.days', { count: 3 }), '3 дня');
   assert.equal(tr('ru', 'calendar.lead.days', { count: 11 }), '11 дней');
   assert.equal(tr('en', 'calendar.lead.days', { count: 1 }), '1 day');
-  // A language without the text: English, with English plural rules (not "1 days").
-  assert.equal(tr('zh', 'calendar.lead.days', { count: 1 }), '1 day');
-  assert.equal(tr('ky', 'tasks.notify.assigned.title', { ref: 'WEB-1' }), 'WEB-1 is assigned to you');
+  assert.equal(tr('ky', 'tasks.notify.assigned.title', { ref: 'WEB-1' }), 'Сизге WEB-1 тапшырмасы дайындалды');
   assert.equal(tr('ru', 'tasks.notify.assigned.title', { ref: 'WEB-1' }), 'Вам назначена задача WEB-1');
   // Values are not re-scanned for placeholders; unknown placeholders stay visible.
   assert.equal(tr('en', 'crm.notify.deal', { deal: '{x}' }), 'Deal “{x}”');
@@ -151,6 +149,51 @@ test('i18n: tr() — dictionary texts, plurals, interpolation and English fallba
   assert.equal(moneyText(10, 'KGS', 'zh'), '10 KGS');
   assert.equal(decimalSeparator('ru'), ',');
   assert.equal(decimalSeparator('zh'), '.');
+});
+
+/*
+ * English fallback, independent of how far any translation has got: a
+ * synthetic dictionary that deliberately lacks texts, plus a property check of
+ * tr() over every real key (own text when written, English otherwise).
+ */
+test('i18n: English fallback — missing texts show English, missing plural groups use English rules', () => {
+  const en = { lead: { days_one: '{count} day', days_other: '{count} days' }, title: 'Hello {name}', kept: 'Only English' };
+  const zh = { title: '你好，{name}' };
+  const merged = overlay(en, zh);
+  assert.equal(merged.kept, 'Only English');
+  assert.equal(merged.title, '你好，{name}');
+  // The plural group is absent in zh, so its English forms are chosen with English rules (not "1 days").
+  assert.deepEqual(englishPlurals(en, zh), ['lead.days']);
+  assert.equal(merged.lead[`days_${pluralCategory('en', 1)}`], '{count} day');
+  assert.equal(pluralCategory('zh', 1), 'other');
+  // Once the language writes the group, only its own forms remain.
+  assert.deepEqual(overlay(en, { lead: { days_other: '{count} 天' } }).lead, { days_other: '{count} 天' });
+  assert.deepEqual(englishPlurals(en, { lead: { days_other: '{count} 天' } }), []);
+});
+
+test('i18n: tr() — every non-English language returns its own text or else English', () => {
+  const leaves = (dict, prefix = '', out = []) => {
+    for (const [key, value] of Object.entries(dict || {})) {
+      const path = prefix ? `${prefix}.${key}` : key;
+      if (value && typeof value === 'object' && !Array.isArray(value)) leaves(value, path, out);
+      else if (typeof value === 'string' && !/_(zero|one|two|few|many|other)$/.test(key)) out.push(path);
+    }
+    return out;
+  };
+  const at = (dict, path) => path.split('.').reduce((acc, key) => (acc && acc[key] != null ? acc[key] : undefined), dict);
+  const keys = leaves(RAW.en);
+  assert.ok(keys.length > 0);
+  for (const lang of SUPPORTED.filter((code) => code !== 'en')) {
+    for (const key of keys) {
+      const own = at(RAW[lang], key);
+      assert.equal(tr(lang, key), typeof own === 'string' ? own : at(RAW.en, key), `${lang}: ${key}`);
+    }
+    // Plural groups the language has not written yet: English forms with English rules.
+    for (const group of englishPlurals(RAW.en, RAW[lang])) {
+      const one = at(RAW.en, `${group}_one`);
+      if (typeof one === 'string') assert.equal(tr(lang, group, { count: 1 }), one.replace('{count}', '1'), `${lang}: ${group}`);
+    }
+  }
 });
 
 test('i18n: overlay — plural groups are atomic, lists merge by index', () => {
@@ -210,7 +253,7 @@ test('i18n: shipped bundles are complete — a language lacking a text shows Eng
   const { buildDictionary } = await import('../../frontend/scripts/i18n-node.mjs');
   const ky = await buildDictionary('ky');
   const en = await buildDictionary('en');
-  assert.equal(ky.common.save, en.common.save);
+  assert.equal(ky.common.save, 'Сактоо');
   assert.equal(compareTranslation(en, ky, { categories: ['one', 'other'] }).missing.length, 0);
   const ru = await buildDictionary('ru');
   assert.equal(ru.common.save, 'Сохранить');

@@ -1,2 +1,78 @@
-// Simplified Chinese: fill keys from ../en/masterplan.js — missing ones fall back to English.
-export default {};
+export default {
+  conflict: {
+    reserved: '该房源单元刚刚被 {manager} 保留',
+    changed: '该房源单元刚刚被修改',
+    changedBy: '该房源单元刚刚被 {actor} 修改',
+  },
+  status: {
+    not_for_sale: '不可售',
+    free: '可售',
+    reserve: '保留',
+    booking: '预订',
+    deposit: '定金',
+    contract: '已签约',
+    sold: '已售',
+    handed: '已交付',
+  },
+  notify: {
+    reason: '原因：{reason}',
+    until: '截至：{date}',
+    manager: '销售代表：{name}',
+    expiring: {
+      reserve: '{code} 的保留即将到期',
+      booking: '{code} 的预订即将到期',
+    },
+    expired: {
+      reserve: '{code} 的保留已自动解除',
+      booking: '{code} 的预订已自动解除',
+      body: '时限已到，该房源单元重新可售。',
+    },
+    bulkStatus: {
+      title_other: '{status}：{count} 个房源单元',
+    },
+    report: { title: '新的施工报告：{objects}' },
+    reportReview: { title: '待审核报告：{objects}' },
+    reportReviewed: {
+      published: '报告已发布：{objects}',
+      returned: '报告已退回：{objects}',
+      comment: '备注：{note}',
+    },
+    stale: { title: '超过 {days} 天无报告：{count}' },
+    delay: {
+      title: '滞后 {days} 天：{code}',
+      stage: '阶段：{stage}',
+    },
+    accessRequest: { title: '总体规划访问申请：{actor}' },
+  },
+  // A system line in a CRM deal's history (written once, in the portal's default language).
+  dealLine: {
+    text: '总体规划：房源单元 {unit} — {status}{until}{reason}',
+    until: '，至 {date}',
+    reason: '（{reason}）',
+    expired: {
+      reserve: '总体规划：房源单元 {unit} 的保留已自动解除 — 时限已到',
+      booking: '总体规划：房源单元 {unit} 的预订已自动解除 — 时限已到',
+    },
+  },
+  csv: {
+    code: '编码',
+    name: '名称',
+    type: '类型',
+    status: '状态',
+    price: '价格',
+    currency: '货币',
+    pricePerM2: '单价/m²',
+    minPrice: '最低价',
+    areaTotal: '面积，m²',
+    areaPlot: '地块，m²',
+    rooms: '房间数',
+    bedrooms: '卧室数',
+    floor: '楼层',
+    number: '编号',
+    finishing: '装修',
+    readiness: '完成度，%',
+    manager: '销售代表',
+    client: '客户',
+    deal: '交易',
+  },
+};

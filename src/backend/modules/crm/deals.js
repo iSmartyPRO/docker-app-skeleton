@@ -1,4 +1,5 @@
 import { query, withTransaction } from '../../config/database.js';
+import { localeOrDefault, pick } from '../../services/i18n/index.js';
 import { avatarOf, clean, httpError, intId } from '../shared/acl.js';
 import { canDelete, canView, inPipelineLimits } from './access.js';
 import { GROUPS, buildFilter, orderBy, pageOf } from './filters.js';
@@ -32,20 +33,24 @@ const userOf = (row) => (row?.id ? { id: row.id, username: row.username, name: r
 
 export const dealLink = (id) => `/app/crm/deals/${id}`;
 
-// Labels of built-in fields in the history (the UI may translate by `field`).
+// Labels of built-in fields in the history, per language. Events keep the label they were written
+// with (older ones: Russian); eventShape shows built-in ones in the reader's language. The UI
+// translates by `field` anyway; this is for API readers.
 export const FIELD_LABELS = {
-  title: 'Название',
-  amount: 'Сумма',
-  currency: 'Валюта',
-  company: 'Компания',
-  person: 'Контакт',
-  owner: 'Ответственный',
-  source: 'Источник',
-  comment: 'Комментарий',
-  closeDate: 'Дата закрытия',
-  watchers: 'Наблюдатели',
-  lostReason: 'Причина провала',
+  title: { ru: 'Название', en: 'Name', ky: 'Аталышы', tr: 'Ad', zh: '名称' },
+  amount: { ru: 'Сумма', en: 'Amount', ky: 'Сумма', tr: 'Tutar', zh: '金额' },
+  currency: { ru: 'Валюта', en: 'Currency', ky: 'Валюта', tr: 'Para birimi', zh: '货币' },
+  company: { ru: 'Компания', en: 'Company', ky: 'Компания', tr: 'Şirket', zh: '公司' },
+  person: { ru: 'Контакт', en: 'Contact', ky: 'Байланыш', tr: 'Kişi', zh: '联系人' },
+  owner: { ru: 'Ответственный', en: 'Responsible', ky: 'Жооптуу', tr: 'Sorumlu', zh: '负责人' },
+  source: { ru: 'Источник', en: 'Source', ky: 'Булак', tr: 'Kaynak', zh: '来源' },
+  comment: { ru: 'Комментарий', en: 'Comment', ky: 'Комментарий', tr: 'Yorum', zh: '备注' },
+  closeDate: { ru: 'Дата закрытия', en: 'Close date', ky: 'Жабылуу күнү', tr: 'Kapanış tarihi', zh: '成交日期' },
+  watchers: { ru: 'Наблюдатели', en: 'Watchers', ky: 'Байкоочулар', tr: 'Takipçiler', zh: '关注人' },
+  lostReason: { ru: 'Причина провала', en: 'Lost reason', ky: 'Ийгиликсиздиктин себеби', tr: 'Kaybetme nedeni', zh: '输单原因' },
 };
+const COPY_SUFFIX = { ru: 'копия', en: 'copy', ky: 'көчүрмө', tr: 'kopya', zh: '副本' };
+const fieldLabel = (key, locale) => (FIELD_LABELS[key] ? pick(FIELD_LABELS[key], localeOrDefault(locale)) : key);
 
 // ── Loading and shapes ──────────────────────────────────────────────────────
 
@@ -261,12 +266,14 @@ export async function idsByFilter(ctx, input = {}, max = MAX_BULK) {
 
 // ── One deal ────────────────────────────────────────────────────────────────
 
-export function eventShape(row) {
+export function eventShape(row, locale) {
+  const data = row.data || {};
   return {
     id: Number(row.id),
     kind: row.kind,
     body: row.body || null,
-    data: row.data || {},
+    // A built-in field's label in the reader's language (custom fields keep their own label).
+    data: data.field && FIELD_LABELS[data.field] && data.label ? { ...data, label: fieldLabel(data.field, locale) } : data,
     author: row.author_id ? userOf({ id: row.author_id, username: row.username, name: row.name, avatar_path: row.avatar_path }) : null,
     createdAt: row.created_at,
   };
@@ -282,7 +289,7 @@ export async function listEvents(ctx, dealId, { before, limit } = {}) {
      WHERE e.deal_id = $1 ${beforeId ? 'AND e.id < $2' : ''} ORDER BY e.id DESC LIMIT ${size + 1}`,
     beforeId ? [row.id, beforeId] : [row.id]
   );
-  return { events: rows.slice(0, size).map(eventShape), hasMore: rows.length > size };
+  return { events: rows.slice(0, size).map((item) => eventShape(item, ctx.locale)), hasMore: rows.length > size };
 }
 
 export async function getDeal(ctx, id) {
@@ -498,7 +505,7 @@ async function moveLocked(client, ctx, row, stage, { beforeId, afterId, lostReas
     const kind = stage.kind === 'won' ? 'won' : stage.kind === 'lost' ? 'lost' : 'stage';
     await logEvent(client, row.id, kind, { data: { from: stageRef(from), to: stageRef(stage), ...(stage.kind === 'lost' ? { lostReason: reason } : {}) }, authorId: ctx.userId });
   } else if (reason !== row.lost_reason) {
-    await logEvent(client, row.id, 'field', { data: { field: 'lostReason', label: FIELD_LABELS.lostReason, from: row.lost_reason, to: reason }, authorId: ctx.userId });
+    await logEvent(client, row.id, 'field', { data: { field: 'lostReason', label: fieldLabel('lostReason', ctx.locale), from: row.lost_reason, to: reason }, authorId: ctx.userId });
   }
   return { changed, from: stageRef(from), to: stageRef(stage) };
 }
@@ -592,7 +599,7 @@ export async function updateDeal(ctx, id, input = {}) {
       sets.push(`${column} = $${params.length}`);
     };
     const events = [];
-    const field = (key, from, to, extra = {}) => events.push({ kind: 'field', data: { field: key, label: FIELD_LABELS[key] || key, from, to, ...extra } });
+    const field = (key, from, to, extra = {}) => events.push({ kind: 'field', data: { field: key, label: fieldLabel(key, ctx.locale), from, to, ...extra } });
 
     if (input.title !== undefined) {
       const title = clean(input.title, 300);
@@ -635,7 +642,7 @@ export async function updateDeal(ctx, id, input = {}) {
       if (ownerId !== row.owner_id) {
         set('owner_id', ownerId);
         const names = await usersByIds([row.owner_id, ownerId]);
-        events.push({ kind: 'owner', data: { field: 'owner', label: FIELD_LABELS.owner, from: names.get(row.owner_id) || null, to: names.get(ownerId) || null } });
+        events.push({ kind: 'owner', data: { field: 'owner', label: fieldLabel('owner', ctx.locale), from: names.get(row.owner_id) || null, to: names.get(ownerId) || null } });
         if (ownerId && ownerId !== ctx.userId) effects.push({ type: 'assigned', userId: ownerId });
       }
     }
@@ -685,7 +692,7 @@ export async function updateDeal(ctx, id, input = {}) {
         await client.query(`DELETE FROM crm_deal_watchers WHERE deal_id = $1 AND user_id = ANY($2)`, [row.id, removed]);
         for (const userId of added) await client.query(`INSERT INTO crm_deal_watchers (deal_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [row.id, userId]);
         const names = await usersByIds([...added, ...removed]);
-        events.push({ kind: 'field', data: { field: 'watchers', label: FIELD_LABELS.watchers, added: added.map((userId) => names.get(userId)), removed: removed.map((userId) => names.get(userId)) } });
+        events.push({ kind: 'field', data: { field: 'watchers', label: fieldLabel('watchers', ctx.locale), added: added.map((userId) => names.get(userId)), removed: removed.map((userId) => names.get(userId)) } });
         if (!sets.length) sets.push('custom = custom');
       }
     }
@@ -789,7 +796,7 @@ export async function copyDeal(ctx, id) {
     {
       pipelineId: row.pipeline_id,
       stageId,
-      title: `${row.title} (копия)`.slice(0, 300),
+      title: `${row.title} (${pick(COPY_SUFFIX, localeOrDefault(ctx.locale))})`.slice(0, 300),
       amount: money(row.amount),
       currency: (ctx.settings.currencies || []).includes(row.currency?.trim()) ? row.currency.trim() : undefined,
       companyId: row.company_id,
@@ -813,7 +820,7 @@ export async function addComment(ctx, id, input = {}) {
   await query(`UPDATE crm_deals SET updated_at = NOW() WHERE id = $1`, [row.id]);
   const users = await usersByIds([ctx.userId]);
   const author = users.get(ctx.userId);
-  return eventShape({ ...event, username: author?.username, name: author?.name, avatar_path: null, author_id: ctx.userId });
+  return eventShape({ ...event, username: author?.username, name: author?.name, avatar_path: null, author_id: ctx.userId }, ctx.locale);
 }
 
 // ── Bulk ────────────────────────────────────────────────────────────────────

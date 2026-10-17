@@ -1,2 +1,24 @@
-// Simplified Chinese: fill keys from ../en/readme.js — missing ones fall back to English.
-export default {};
+export default {
+  label: '文件夹说明',
+  about: '文件夹说明',
+  modified: '更新于{when}',
+  open: '在查看器中打开',
+  edit: '编辑',
+  download: '下载',
+  copyLink: '复制链接',
+  linkCopied: '链接已复制',
+  hide: '在此文件夹中隐藏',
+  show: '显示',
+  hiddenHere: '此处已隐藏文件夹说明',
+  expand: '显示全部',
+  collapse: '收起',
+  loading: '正在加载说明…',
+  failed: '无法加载 README。',
+  retry: '重试',
+  tooLarge: '此 README 大于 {size}，请在查看器中打开。',
+  copy: '复制',
+  copied: '已复制',
+  copyCode: '复制代码',
+  showAll: '显示文件夹 README',
+  notFound: '此处没有该文件或文件夹',
+};

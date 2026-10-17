@@ -1,2 +1,8 @@
-// Kyrgyz: fill keys from ../en/menu.js — missing ones fall back to English.
-export default {};
+export default {
+  profile: 'Профиль',
+  cabinet: 'Жеке кабинет',
+  adminConsole: 'Администратордун консолу',
+  settings: 'Жөндөөлөр',
+  roleAdmin: 'Администратор',
+  roleUser: 'Колдонуучу',
+};

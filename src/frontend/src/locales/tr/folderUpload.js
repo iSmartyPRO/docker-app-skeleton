@@ -1,2 +1,19 @@
-// Turkish: fill keys from ../en/folderUpload.js — missing ones fall back to English.
-export default {};
+export default {
+  uploadFiles: 'Dosya yükle',
+  uploadFolder: 'Klasör yükle',
+  uploadFolderHint: 'Bilgisayarınızdan bir klasör seçin: alt klasörleri burada oluşturulur ve her dosya kendi yerine yüklenir.',
+  scanning: 'Klasör okunuyor…',
+  preparing: 'Klasörler oluşturuluyor ({n})…',
+  progress: '{done} / {total} dosya',
+  bytes: '{done} / {total}',
+  failedN: 'Yüklenmeyen: {n}',
+  skippedN: 'Atlanan (zaten var): {n}',
+  cancelled: 'İptal edildi',
+  cancel: 'İptal',
+  items: '{n} öğe',
+  tooMany: 'Dosya sayısı çok fazla: tek yüklemede en fazla {max}. Klasörü parça parça yükleyin.',
+  tooDeep: 'Klasör çok derin iç içe: en fazla {max} düzey.',
+  folderFailed: 'Klasör oluşturulamadı',
+  readFailed: 'Klasör okunamadı: {error}',
+  empty: 'Klasör boş.',
+};

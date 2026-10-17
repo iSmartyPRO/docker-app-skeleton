@@ -8,16 +8,16 @@ import { companiesContext, companiesSettings, createCompany, createPerson, delet
  */
 
 const COMPANIES = [
-  { key: 'example', name: { ru: 'ООО «Пример»', en: 'Example LLC' }, relations: ['client'], site: 'example.com', activity: { ru: 'Оптовая торговля', en: 'Wholesale trade' } },
-  { key: 'sample', name: { ru: 'АО «Образец»', en: 'Sample JSC' }, relations: ['supplier'], site: 'sample.example.com', activity: { ru: 'Производство строительных материалов', en: 'Building materials' } },
-  { key: 'partner', name: { ru: 'ООО «Компания-Партнёр»', en: 'Partner Company LLC' }, relations: ['partner'], site: 'partner.example.com', activity: { ru: 'Инженерные услуги', en: 'Engineering services' } },
-  { key: 'prospect', name: { ru: 'ИП Тестов', en: 'Test Sole Trader' }, relations: ['prospect'], site: null, activity: { ru: 'Розничная торговля', en: 'Retail' } },
+  { key: 'example', name: { ru: 'ООО «Пример»', en: 'Example LLC', ky: '«Мисал» ЖЧК', tr: 'Örnek Ltd. Şti.', zh: '“示例”有限责任公司' }, relations: ['client'], site: 'example.com', activity: { ru: 'Оптовая торговля', en: 'Wholesale trade', ky: 'Дүң соода', tr: 'Toptan ticaret', zh: '批发贸易' } },
+  { key: 'sample', name: { ru: 'АО «Образец»', en: 'Sample JSC', ky: '«Үлгү» АК', tr: 'Numune A.Ş.', zh: '“样本”股份公司' }, relations: ['supplier'], site: 'sample.example.com', activity: { ru: 'Производство строительных материалов', en: 'Building materials', ky: 'Курулуш материалдарын өндүрүү', tr: 'Yapı malzemeleri', zh: '建筑材料生产' } },
+  { key: 'partner', name: { ru: 'ООО «Компания-Партнёр»', en: 'Partner Company LLC', ky: '«Өнөктөш компания» ЖЧК', tr: 'Ortak Şirket Ltd. Şti.', zh: '“合作伙伴”有限责任公司' }, relations: ['partner'], site: 'partner.example.com', activity: { ru: 'Инженерные услуги', en: 'Engineering services', ky: 'Инженердик кызматтар', tr: 'Mühendislik hizmetleri', zh: '工程技术服务' } },
+  { key: 'prospect', name: { ru: 'ИП Тестов', en: 'Test Sole Trader', ky: 'Тестов ЖИ', tr: 'Test Şahıs İşletmesi', zh: '测试个体工商户' }, relations: ['prospect'], site: null, activity: { ru: 'Розничная торговля', en: 'Retail', ky: 'Чекене соода', tr: 'Perakende', zh: '零售' } },
 ];
 
 const PEOPLE = [
-  { first: { ru: 'Ирина', en: 'Irene' }, last: { ru: 'Примерова', en: 'Example' }, company: 'example', title: { ru: 'Директор по закупкам', en: 'Purchasing director' } },
-  { first: { ru: 'Олег', en: 'Oleg' }, last: { ru: 'Образцов', en: 'Sample' }, company: 'sample', title: { ru: 'Менеджер по продажам', en: 'Sales manager' } },
-  { first: { ru: 'Елена', en: 'Helen' }, last: { ru: 'Партнёрова', en: 'Partner' }, company: 'partner', title: { ru: 'Главный инженер', en: 'Chief engineer' } },
+  { first: { ru: 'Ирина', en: 'Irene', ky: 'Ирина' }, last: { ru: 'Примерова', en: 'Example', ky: 'Примерова' }, company: 'example', title: { ru: 'Директор по закупкам', en: 'Purchasing director', ky: 'Сатып алуулар боюнча директор', tr: 'Satın alma direktörü', zh: '采购总监' } },
+  { first: { ru: 'Олег', en: 'Oleg', ky: 'Олег' }, last: { ru: 'Образцов', en: 'Sample', ky: 'Образцов' }, company: 'sample', title: { ru: 'Менеджер по продажам', en: 'Sales manager', ky: 'Сатуу менеджери', tr: 'Satış temsilcisi', zh: '销售代表' } },
+  { first: { ru: 'Елена', en: 'Helen', ky: 'Елена' }, last: { ru: 'Партнёрова', en: 'Partner', ky: 'Партнёрова' }, company: 'partner', title: { ru: 'Главный инженер', en: 'Chief engineer', ky: 'Башкы инженер', tr: 'Baş mühendis', zh: '总工程师' } },
 ];
 
 registerDemo({
@@ -25,6 +25,9 @@ registerDemo({
   describe: {
     ru: 'Четыре компании («ООО «Пример»» и другие) с контактами и ролями: клиент, поставщик, партнёр.',
     en: 'Four companies (Example LLC and others) with contacts and roles: client, supplier, partner.',
+    ky: 'Байланыштары жана ролдору бар төрт компания («Мисал» ЖЧК жана башкалар): кардар, жеткирүүчү, өнөктөш.',
+    tr: 'Kişileri ve rolleri olan dört şirket (Örnek Ltd. Şti. ve diğerleri): müşteri, tedarikçi, iş ortağı.',
+    zh: '四家公司（“示例”有限责任公司等），附联系人和角色：客户、供应商、合作伙伴。',
   },
   async seed(ctx) {
     const cmp = companiesContext(ctx.request);
@@ -42,7 +45,7 @@ registerDemo({
         emails: [{ value: `info${index ? index + 1 : ''}@example.com`, label: '' }],
         phones: [{ value: `+1 555 010${index}`, label: '' }],
         relations: item.relations.filter((key) => relationKeys.has(key)),
-        notes: ctx.t({ ru: 'Демо-запись.', en: 'Demo record.' }),
+        notes: ctx.t({ ru: 'Демо-запись.', en: 'Demo record.', ky: 'Демо жазуу.', tr: 'Demo kaydı.', zh: '演示记录。' }),
       });
       ids[item.key] = company.id;
       await ctx.track('cmp_companies', company.id);

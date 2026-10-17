@@ -50,13 +50,13 @@ export function CrmForm({ state, onSave, inApp }) {
       visibility: 'all',
       sources: [],
       lostReasons: [],
-      sections: [{ key: 'about', title: 'О сделке' }],
+      sections: [{ key: 'about', title: t('crm.fields.about') }],
       fields: [],
       builtinSections: {},
       activityReminders: true,
       ...state.settings,
     }),
-    [state]
+    [state, t]
   );
   const { dirty, saving, submit, reset, formProps, form } = useSettingsForm(initial, ({ enabled, sections, fields, builtinSections, ...rest }) =>
     onSave({

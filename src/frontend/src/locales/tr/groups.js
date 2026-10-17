@@ -1,2 +1,20 @@
-// Turkish: fill keys from ../en/groups.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Gruplar',
+  lead: 'Ekipler ve departmanlar. Her üye grubun rollerini alır.',
+  create: 'Yeni grup',
+  name: 'Ad',
+  description: 'Açıklama',
+  default: 'Varsayılan grup',
+  defaultHint: 'Yeni hesaplar (yöneticiler, Active Directory veya Telegram tarafından oluşturulan) bu gruba katılır.',
+  defaultLocked: 'Bu varsayılan gruptur. Değiştirmek için başka bir grubu varsayılan yapın.',
+  defaultTag: 'Varsayılan',
+  roles: 'Üyelere verilen roller',
+  rolesHint: 'Kendinizde olmayan roller verilemez.',
+  members: 'Üyeler',
+  addMembers: 'Kişi ekle…',
+  memberCount: '{count} üye',
+  noRoles: 'Rol yok',
+  empty: 'Henüz grup yok',
+  confirmDelete: 'Bu grup silinsin mi? Üyeler grubun verdiği rolleri kaybeder.',
+  deleted: 'Grup silindi',
+};

@@ -8,7 +8,7 @@ import { DEFAULT_LAYOUT } from './widgets.js';
  */
 
 const layout = (ctx) => [
-  { id: 'demo-note', type: 'note', w: 12, h: 3, settings: { text: ctx.t({ ru: 'Это демо-режим портала: задачи, встречи, контрагенты и статьи здесь — примеры. Администратор удалит их в «Настройки → Модули».', en: 'This is the portal’s demo mode: the tasks, meetings, counterparties and articles here are examples. An administrator removes them in Settings → Modules.' }) } },
+  { id: 'demo-note', type: 'note', w: 12, h: 3, settings: { text: ctx.t({ ru: 'Это демо-режим портала: задачи, встречи, контрагенты и статьи здесь — примеры. Администратор удалит их в «Настройки → Модули».', en: 'This is the portal’s demo mode: the tasks, meetings, counterparties and articles here are examples. An administrator removes them in Settings → Modules.', ky: 'Бул порталдын демо режими: бул жердеги тапшырмалар, жолугушуулар, контрагенттер жана макалалар — мисалдар. Администратор аларды «Жөндөөлөр → Модулдар» бөлүмүндө өчүрөт.', tr: 'Bu, portalın demo modudur: buradaki görevler, toplantılar, cari hesaplar ve makaleler örnektir. Bir yönetici bunları Ayarlar → Modüller\'den kaldırır.', zh: '这是门户的演示模式：这里的任务、会议、往来单位和文章都是示例。管理员可在“设置 → 模块”中将其删除。' }) } },
   ...DEFAULT_LAYOUT,
 ];
 
@@ -18,6 +18,9 @@ registerDemo({
   describe: {
     ru: 'Стартовая раскладка дашборда для всех с приветственной заметкой (если своя ещё не задана).',
     en: 'A starting dashboard layout for everyone with a welcome note (when none is set yet).',
+    ky: 'Саламдашуу жазуусу бар баарына арналган башкаруу панелинин баштапкы жайгашуусу (өзүнүкү али коюла элек болсо).',
+    tr: 'Herkes için hoş geldin notu içeren başlangıç pano düzeni (henüz bir düzen ayarlanmamışsa).',
+    zh: '面向所有人的初始仪表板布局，附欢迎便签（尚未设置布局时）。',
   },
   async seed(ctx) {
     const { rows } = await ctx.query(`SELECT 1 FROM dash_default WHERE id = 1`);

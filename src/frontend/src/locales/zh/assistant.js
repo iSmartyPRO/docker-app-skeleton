@@ -1,2 +1,201 @@
-// Simplified Chinese: fill keys from ../en/assistant.js — missing ones fall back to English.
-export default {};
+export default {
+  robots: {
+    pixel: {
+      name: '像素',
+      desc: '天线上亮着小灯的经典友好机器人',
+    },
+    orbi: {
+      name: '奥比',
+      desc: '长着小手、会飞的光亮圆球',
+    },
+    kiko: {
+      name: '琪可',
+      desc: '戴着耳机的薄荷色小伙伴',
+    },
+    ermek: {
+      name: '艾尔梅克',
+      desc: '头戴白色毡帽（ak-kalpak）、身穿红色长袍（chapan）的小伙子',
+    },
+    aichurok: {
+      name: '艾秋罗克',
+      desc: '戴着插有猫头鹰羽毛的天鹅绒小帽、梳着辫子的姑娘',
+    },
+    classic: {
+      name: '经典',
+      desc: '带弹簧天线和仪表盘的复古铁皮机器人',
+    },
+    pro: {
+      name: '专家',
+      desc: '身穿西装、沉稳认真的助手',
+    },
+    boltik: {
+      name: '小螺栓',
+      desc: '健谈的家伙：戴着耳麦，天线上挂着对话气泡',
+    },
+    volt: {
+      name: '超级机器人',
+      desc: '身穿蓝衣、胸前有“S”盾徽、披着红色斗篷的英雄',
+    },
+    nova: {
+      name: '超级女孩',
+      desc: '胸前有“S”盾徽、穿红色短裙和斗篷的女英雄',
+    },
+    barsik: {
+      name: '巴尔西克',
+      desc: '一只雪豹幼崽，群山的精灵',
+    },
+    ryzhik: {
+      name: '小橘',
+      desc: '摇着尾巴的活泼小狐狸',
+    },
+    nexus: {
+      name: '奈克斯',
+      desc: '带全息光环的流线型镀铬机器人',
+    },
+    bubbles: {
+      name: '泡泡',
+      desc: '头顶螺旋桨旋转的圆滚滚小机器人',
+    },
+    doctor: {
+      name: '医生',
+      desc: '白大褂、听诊器和额镜',
+    },
+    toddler: {
+      name: '小不点',
+      desc: '头顶一撮卷发，穿背带裤，拿着红气球',
+    },
+    zayka: {
+      name: '小兔',
+      desc: '戴着兔耳朵兜帽的小女孩',
+    },
+    berkut: {
+      name: '驯鹰人',
+      desc: '戴着毛皮帽（tebetey）、带着金雕的猎鹰人',
+    },
+    jibek: {
+      name: '吉别克',
+      desc: '戴着白色缠头巾（elechek）、穿天鹅绒坎肩（kemsel）的女子',
+    },
+    shadow: {
+      name: '暗影',
+      desc: '黑夜守护者：带耳朵的头罩和深色斗篷',
+    },
+    aurora: {
+      name: '奥罗拉',
+      desc: '戴星形头冠、手持发光套索的战士公主',
+    },
+    bao: {
+      name: '阿宝',
+      desc: '拿着一枝竹子的熊猫宝宝',
+    },
+    pingo: {
+      name: '平戈',
+      desc: '戴着针织帽、摇摇摆摆的小企鹅',
+    },
+    builder: {
+      name: '建筑工',
+      desc: '带头灯的安全帽、反光背心和锤子',
+    },
+    builder2: {
+      name: '建筑工阿塞尔',
+      desc: '白色安全帽、发辫、绿色背心和平板电脑',
+    },
+    architect: {
+      name: '建筑师',
+      desc: '圆框眼镜、铅笔和卷起的图纸',
+    },
+    girl: {
+      name: '女孩',
+      desc: '扎着蝴蝶结双马尾，穿粉色连衣裙',
+    },
+    boy: {
+      name: '男孩',
+      desc: '歪戴鸭舌帽，穿星星T恤和运动鞋',
+    },
+  },
+  sizes: {
+    S: '小',
+    M: '中',
+    L: '大',
+  },
+  groups: {
+    robots: '机器人',
+    work: '职业',
+    kids: '儿童',
+    kyrgyz: '吉尔吉斯风格',
+    heroes: '超级英雄',
+    animals: '动物',
+  },
+  color: {
+    title: '{name}的颜色',
+    original: '原始设计',
+  },
+  open: '{name}，您的助手：打开帮助',
+  tooltip: '{name}：点击获取帮助，拖动可移动位置',
+  helloFirst: '您好，{first}！我是{name}，您的助手。我可以介绍每个版块的功能并回答问题。把我拖到不碍事的地方吧。',
+  offer: '您正在「{section}」中。要我为您展示这里能做什么吗？',
+  show: '展示一下',
+  later: '稍后',
+  greeting: {
+    morning: '早上好，{first}！',
+    day: '下午好，{first}！',
+    evening: '晚上好，{first}！',
+    night: '还在加班吗，{first}？',
+  },
+  here: '我是{name}。您正在「{section}」中，需要什么帮助？',
+  intro: '我是{name}。需要什么帮助？',
+  ask: '询问有关门户的问题…',
+  found: '找到：{n}',
+  nothing: '未找到结果。请换个说法，或打开完整指南。',
+  faqTitle: '常见问题',
+  back: '返回',
+  tip: '提示',
+  nextTip: '下一条',
+  actions: {
+    guide: '工作原理',
+    guideDesc: '本版块简要指南',
+    full: '完整指南',
+    fullDesc: '分步说明，附带示例',
+    faq: '问题',
+    faqDesc: '{n} 个常见问题',
+    all: '全部帮助',
+    allDesc: '门户的所有版块',
+  },
+  dragHint: '可将我拖到屏幕任意位置',
+  settings: '设置',
+  switch: {
+    open: '更换机器人',
+    title: '由谁来帮助您？',
+    subtitle: '这是您的个人选择，只有您能看到',
+    hello: '您好，我是{name}！',
+    helloText: '现在我是您的助手了。有问题尽管问我。',
+    useDefault: '恢复默认机器人（{name}）',
+    done: '完成',
+  },
+  menu: {
+    title: '助手选项',
+    robot: '更换机器人',
+    color: '更换颜色',
+    size: '大小',
+    corner: '回到角落',
+    hide: '隐藏至页面刷新',
+    off: '关闭助手',
+  },
+  account: {
+    title: '机器人助手',
+    desc: '屏幕角落里的助手：提供当前版块的提示并回答问题。',
+    show: '显示助手',
+    showDesc: '关闭后会在所有页面消失；可在此处重新开启。',
+    size: '大小',
+    place: '位置',
+    placeDesc: '用鼠标或手指拖动机器人；它会在此设备上记住位置。',
+    again: '帮助提示',
+    againDesc: '机器人在每个版块只会主动提供一次帮助。重新开始即可再次看到这些提示。',
+    againButton: '重新提示',
+    againDone: '机器人将再次主动提供帮助',
+    ownChoice: '这是您的个人选择。',
+    useDefault: '使用默认机器人（{name}）',
+    defaultChoice: '当前：组织的默认机器人{name}。选择其他机器人即可保留为个人设置。',
+    fixedChoice: '您的组织为所有人统一使用一个助手：{name}。',
+  },
+};

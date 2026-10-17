@@ -7,15 +7,49 @@ import { cmpApi } from '../api';
 import { useCompanies } from '../CompaniesContext';
 import { CompanyPicker } from './pickers';
 import { HintLabel } from '../../../help/Hint';
+import { localeTag, pick } from '../../../i18n/languages';
 
 // Dates here are calendar days ('YYYY-MM-DD'): DateField edits them without any zone shift.
 const dateProps = {
   getValueProps: (value) => ({ value: value ? String(value).slice(0, 10) : null }),
 };
 
-export const TITLES = ['Директор', 'Генеральный директор', 'Заместитель директора', 'Главный бухгалтер', 'Бухгалтер', 'Менеджер', 'Менеджер по закупкам', 'Менеджер по продажам', 'Руководитель отдела', 'Юрист', 'Инженер', 'Специалист', 'Ассистент'];
+/** Job title suggestions (free text is stored as typed), in the person's language. */
+const TITLES = {
+  ru: ['Директор', 'Генеральный директор', 'Заместитель директора', 'Главный бухгалтер', 'Бухгалтер', 'Менеджер', 'Менеджер по закупкам', 'Менеджер по продажам', 'Руководитель отдела', 'Юрист', 'Инженер', 'Специалист', 'Ассистент'],
+  en: ['Director', 'Chief executive', 'Deputy director', 'Chief accountant', 'Accountant', 'Manager', 'Purchasing manager', 'Sales manager', 'Head of department', 'Lawyer', 'Engineer', 'Specialist', 'Assistant'],
+  ky: ['Директор', 'Башкы директор', 'Директордун орун басары', 'Башкы бухгалтер', 'Бухгалтер', 'Менеджер', 'Сатып алуулар боюнча менеджер', 'Сатуу менеджери', 'Бөлүм башчысы', 'Юрист', 'Инженер', 'Адис', 'Жардамчы'],
+  tr: ['Direktör', 'Genel müdür', 'Müdür yardımcısı', 'Mali işler müdürü', 'Muhasebeci', 'Yönetici', 'Satın alma uzmanı', 'Satış temsilcisi', 'Departman müdürü', 'Hukukçu', 'Mühendis', 'Uzman', 'Asistan'],
+  zh: ['总监', '总经理', '副总经理', '总会计师', '会计', '经理', '采购经理', '销售代表', '部门负责人', '律师', '工程师', '专员', '助理'],
+};
+export const titleOptions = (locale) => pick(TITLES, locale).map((value) => ({ value }));
+
+/** Labels suggested for phones and e-mails. */
+const CONTACT_LABELS = {
+  ru: ['рабочий', 'мобильный', 'личный'],
+  en: ['work', 'mobile', 'personal'],
+  ky: ['жумушчу', 'мобилдик', 'жеке'],
+  tr: ['iş', 'cep', 'kişisel'],
+  zh: ['工作', '手机', '个人'],
+};
+
+/** Languages a contact speaks: names in the person's language (Intl), capitalised where the script has case. */
+const SPOKEN = ['ru', 'ky', 'en', 'kk', 'zh', 'tr'];
+function languageOptions(locale) {
+  let names = null;
+  try {
+    names = new Intl.DisplayNames([localeTag(locale)], { type: 'language' });
+  } catch {
+    names = null;
+  }
+  return SPOKEN.map((code) => {
+    const name = names?.of(code) || code;
+    return { value: name.charAt(0).toLocaleUpperCase(localeTag(locale)) + name.slice(1) };
+  });
+}
 
 function Rows({ name, placeholder, add, type }) {
+  const { locale } = useLocale();
   return (
     <Form.List name={name}>
       {(fields, { add: push, remove }) => (
@@ -26,7 +60,7 @@ function Rows({ name, placeholder, add, type }) {
                 <Input placeholder={placeholder} type={type} />
               </Form.Item>
               <Form.Item name={[field.name, 'label']} noStyle>
-                <AutoComplete className="cmp-rows__label" options={['рабочий', 'мобильный', 'личный'].map((value) => ({ value }))} />
+                <AutoComplete className="cmp-rows__label" options={pick(CONTACT_LABELS, locale).map((value) => ({ value }))} />
               </Form.Item>
               <Button type="text" onClick={() => remove(field.name)}>✕</Button>
             </div>
@@ -114,7 +148,7 @@ export default function PersonForm({ open, person, companyId, onClose }) {
                 <CompanyPicker />
               </Form.Item>
               <Form.Item name={['position', 'title']} label={t('companies.p.title')}>
-                <AutoComplete options={TITLES.map((value) => ({ value }))} filterOption={(input, option) => option.value.toLowerCase().includes(input.toLowerCase())} />
+                <AutoComplete options={titleOptions(locale)} filterOption={(input, option) => option.value.toLowerCase().includes(input.toLowerCase())} />
               </Form.Item>
               <Form.Item name={['position', 'department']} label={t('companies.p.department')}>
                 <Input />
@@ -158,7 +192,7 @@ export default function PersonForm({ open, person, companyId, onClose }) {
             <Input />
           </Form.Item>
           <Form.Item name="languages" label={t('companies.p.languages')}>
-            <Select mode="tags" options={['Русский', 'Кыргызский', 'Английский', 'Казахский', 'Китайский', 'Турецкий'].map((value) => ({ value }))} />
+            <Select mode="tags" options={languageOptions(locale)} />
           </Form.Item>
           <Form.Item name="owner_id" label={t('companies.f.owner')}>
             <Select allowClear showSearch optionFilterProp="label" options={staff.map((user) => ({ value: user.id, label: user.name }))} placeholder={t('companies.nobody')} />

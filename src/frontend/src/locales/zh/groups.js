@@ -1,2 +1,20 @@
-// Simplified Chinese: fill keys from ../en/groups.js — missing ones fall back to English.
-export default {};
+export default {
+  title: '组',
+  lead: '团队和部门。每位成员都会获得所在组的角色。',
+  create: '新建组',
+  name: '名称',
+  description: '描述',
+  default: '默认组',
+  defaultHint: '新账户（由管理员、Active Directory 或 Telegram 创建）会加入此组。',
+  defaultLocked: '这是默认组。如需更改，请将另一个组设为默认组。',
+  defaultTag: '默认',
+  roles: '授予成员的角色',
+  rolesHint: '您自己没有的角色无法授予。',
+  members: '成员',
+  addMembers: '添加人员…',
+  memberCount: '成员：{count}',
+  noRoles: '无角色',
+  empty: '暂无组',
+  confirmDelete: '删除此组？成员将失去该组授予的角色。',
+  deleted: '组已删除',
+};

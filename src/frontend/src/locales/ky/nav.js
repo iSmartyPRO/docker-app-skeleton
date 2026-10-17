@@ -1,2 +1,19 @@
-// Kyrgyz: fill keys from ../en/nav.js — missing ones fall back to English.
-export default {};
+export default {
+  overview: 'Сереп',
+  overviewDesc: 'Продуктунун абалы бир караганда',
+  users: 'Колдонуучулар',
+  usersDesc: 'Эсептик жазуулар, ролдор жана кирүү укугу',
+  groups: 'Топтор',
+  groupsDesc: 'Командалар жана алар берген ролдор',
+  roles: 'Ролдор',
+  rolesDesc: 'Укуктар жана алар кимде бар',
+  activity: 'Журнал',
+  activityDesc: 'Коопсуздук окуялары жана аудит',
+  settings: 'Жөндөөлөр',
+  settingsDesc: 'Жөндөлө турган бардык нерсе — бир жерде',
+  console: 'Администратордун консолу',
+  search: 'Издөө…',
+  collapse: 'Жыйноо',
+  api: 'API жана интеграциялар',
+  apiDesc: 'Токендер, кирүү үлгүлөрү, вебхуктар жана суроо-талаптар журналы',
+};

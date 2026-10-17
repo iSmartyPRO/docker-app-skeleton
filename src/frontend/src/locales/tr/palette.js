@@ -1,2 +1,10 @@
-// Turkish: fill keys from ../en/palette.js — missing ones fall back to English.
-export default {};
+export default {
+  placeholder: 'Bir sayfaya veya ayara gidin…',
+  empty: 'Hiçbir şey bulunamadı',
+  pages: 'Sayfalar',
+  settings: 'Ayarlar',
+  actions: 'Eylemler',
+  toggleTheme: 'Açık / koyu temayı değiştir',
+  profile: 'Profilim',
+  hint: '↑↓ gezinme · Enter açma · Esc kapatma',
+};

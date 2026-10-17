@@ -1,2 +1,24 @@
-// Turkish: fill keys from ../en/readme.js — missing ones fall back to English.
-export default {};
+export default {
+  label: 'Klasör açıklaması',
+  about: 'Bu klasör hakkında',
+  modified: 'Güncellendi: {when}',
+  open: 'Görüntüleyicide aç',
+  edit: 'Düzenle',
+  download: 'İndir',
+  copyLink: 'Bağlantıyı kopyala',
+  linkCopied: 'Bağlantı kopyalandı',
+  hide: 'Bu klasörde gizle',
+  show: 'Göster',
+  hiddenHere: 'Klasör açıklaması burada gizli',
+  expand: 'Tümünü göster',
+  collapse: 'Daralt',
+  loading: 'Açıklama yükleniyor…',
+  failed: 'README yüklenemedi.',
+  retry: 'Yeniden dene',
+  tooLarge: 'Bu README {size} boyutundan büyük: görüntüleyicide açın.',
+  copy: 'Kopyala',
+  copied: 'Kopyalandı',
+  copyCode: 'Kodu kopyala',
+  showAll: 'Klasör README dosyalarını göster',
+  notFound: 'Bu dosya veya klasör burada yok',
+};

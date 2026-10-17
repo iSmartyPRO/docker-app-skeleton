@@ -1,2 +1,19 @@
-// Simplified Chinese: fill keys from ../en/tasksSettings.js — missing ones fall back to English.
-export default {};
+export default {
+  enabledDesc: '在应用菜单中显示「任务」，地址为 /app/tasks。',
+  access: '谁可以使用',
+  accessDesc: '访问权限按项目设置（项目菜单 → 访问权限）。',
+  openProjects: '打开项目',
+  projects: '项目',
+  projectsDesc: '谁可以创建项目以及项目如何打开。',
+  creation: '谁可以创建项目',
+  creationDesc: '管理员始终可以创建（任务管理员权限）。',
+  creation_everyone: '所有人',
+  creation_admins: '仅管理员',
+  defaultView: '默认视图',
+  reminders: '截止日期提醒',
+  remindersDesc: '截止前提醒执行人；任务逾期时提醒执行人和创建人。',
+  remindersOn: '发送提醒',
+  dueSoon: '截止前提醒',
+  dueSoonDesc: '在截止时间前多少小时提醒。',
+  hours: '小时',
+};

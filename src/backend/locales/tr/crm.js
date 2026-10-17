@@ -1,2 +1,40 @@
-// Turkish: fill keys from ../en/crm.js — missing ones fall back to English.
-export default {};
+export default {
+  notify: {
+    deal: 'Fırsat “{deal}”',
+    due: 'Son tarih: {date}',
+    assigned: { title: '“{title}” fırsatı size atandı' },
+    activity: { title: 'Yeni aktivite: {title}' },
+    activityDue: { title: 'Hatırlatma: {title}' },
+    stage: {
+      title: '“{title}” fırsatı: “{stage}” aşaması',
+      reason: 'Neden: {reason}',
+    },
+  },
+  csv: {
+    yes: 'Evet',
+    no: 'Hayır',
+    columns: {
+      id: 'ID',
+      title: 'Başlık',
+      pipeline: 'Satış hattı',
+      stage: 'Aşama',
+      amount: 'Tutar',
+      currency: 'Para birimi',
+      company: 'Şirket',
+      person: 'Kişi',
+      phone: 'Telefon',
+      email: 'E-posta',
+      owner: 'Sorumlu',
+      source: 'Kaynak',
+      closeDate: 'Kapanış tarihi',
+      createdAt: 'Oluşturulma',
+      updatedAt: 'Güncellenme',
+      closedAt: 'Kapanış',
+      createdBy: 'Oluşturan',
+      comment: 'Yorum',
+      lostReason: 'Kaybetme nedeni',
+      watchers: 'Takipçiler',
+      nextActivity: 'Sonraki aktivite',
+    },
+  },
+};

@@ -1,2 +1,24 @@
-// Simplified Chinese: fill keys from ../en/integrations.js — missing ones fall back to English.
-export default {};
+export default {
+  lead: '所有渠道默认关闭。只启用您已准备好运维的渠道。',
+  host: '主机',
+  port: '端口',
+  user: '用户',
+  password: '密码',
+  from: '发件人地址',
+  token: '机器人令牌',
+  chatId: '默认 Chat ID',
+  server: '网关地址',
+  secure: '使用 SSL/TLS',
+  botUsername: '机器人用户名',
+  documentsUrl: '转换服务器地址',
+  mattermostUrl: '服务器地址',
+  mattermostToken: '机器人访问令牌',
+  mattermostChannel: '告警频道 ID',
+  mattermostAlerts: '发布安全告警',
+  apiKey: 'API 密钥',
+  bindDn: 'Bind DN',
+  baseDn: 'Base DN',
+  tls: '使用 TLS',
+  caCert: 'CA 证书（PEM）',
+  caCertHint: '可选。签发域控制器证书的 CA 的证书（如该 CA 不受公共信任，例如企业内部 CA）。与 TLS（LDAPS）配合使用。粘贴一个或多个 -----BEGIN CERTIFICATE----- 块。',
+};

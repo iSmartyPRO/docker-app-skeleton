@@ -1,2 +1,8 @@
-// Kyrgyz: fill keys from ../en/chatSettings.js — missing ones fall back to English.
-export default {};
+export default {
+  enabledDesc: '/app/chat дарегиндеги жеке жана топтук чаттар, жогорку панелдеги чат баскычы жана тапшырмалардын чаттары.',
+  allowGroups: 'Баары үчүн топтук чаттар',
+  allowGroupsDesc: 'Өчүрүлгөндө топтук чаттарды чат администраторлору гана түзөт.',
+  maxUpload: 'Эң чоң файл',
+  callUrl: 'Видеочалуулар',
+  callUrlDesc: 'Жолугушуу шилтемесинин үлгүсү; {room} уникалдуу код менен алмаштырылат. Демейки боюнча Jitsi; өз серверинизди көрсөтүңүз же чалуу баскычын жашыруу үчүн бош калтырыңыз.',
+};

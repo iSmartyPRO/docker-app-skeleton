@@ -1,3 +1,41 @@
-// Simplified Chinese: translate ../en/approvals.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '审批是一项核心服务：为单据（申请、合同、仓库单据）提供审批流程，支持条件、期限、紧急程度和代理人，并为所有决定提供统一的「待我处理」收件箱。',
+  audience: '所有审批人；管理员按单据类型配置审批流程。',
+  setup: [
+    {
+      title: '审批流程',
+      text: '在[设置](/admin/settings/approvals)中为每种单据类型设置阶段：由谁审批、顺序或并行，以及条件（金额、类型、法人实体）。',
+    },
+    {
+      title: '紧急程度和期限',
+      text: '紧急程度级别及其期限、提醒和升级处理。',
+    },
+    {
+      title: '代理人',
+      text: '休假期间，员工可在「个人中心 → 我的代理人」中指定代理人。',
+    },
+  ],
+  roles: {
+    'approvals.admin': '审批流程、紧急程度和服务设置。',
+  },
+  scenarios: [
+    {
+      title: '大额采购',
+      text: '超过阈值的申请先交负责人，再交财务总监；低于阈值的只需负责人审批。',
+    },
+    {
+      title: '审批人休假',
+      text: '休假期间，代理人在「待我处理」中收到单据；历史记录显示由谁做出决定。',
+    },
+  ],
+  faq: [
+    {
+      q: '为什么无法关闭审批？',
+      a: '这是一项核心服务：采购、合同和仓库单据都要经过它。',
+    },
+    {
+      q: '如果没有设置审批流程会怎样？',
+      a: '模块使用其默认审批流程（通常是发起人的负责人）。',
+    },
+  ],
+};

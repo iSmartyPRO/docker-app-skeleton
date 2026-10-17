@@ -1,2 +1,20 @@
-// Kyrgyz: fill keys from ../en/legalEntities.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Юридикалык жактар',
+  lead: 'Сатып алууларга төлөгөн жана келишимдерге кол койгон топтун компаниялары. Тизме Сатып алуулар жана Келишимдер үчүн жалпы; архивдеги юридикалык жактар эски документтерде калат.',
+  add: 'Юридикалык жак кошуу',
+  edit: 'Юридикалык жак',
+  name: 'Толук аталышы',
+  namePlaceholder: '«Мисал» ЖЧК',
+  nameRequired: 'Аталышын киргизиңиз',
+  shortName: 'Кыска аталышы',
+  taxId: 'ИСН',
+  address: 'Юридикалык дарек',
+  bankDetails: 'Банктык реквизиттер',
+  note: 'Эскертме',
+  isDefault: 'Демейки',
+  sort: 'Тартиби',
+  default: 'Демейки',
+  archived: 'Архивде',
+  archive: 'Архивге',
+  restore: 'Калыбына келтирүү',
+};

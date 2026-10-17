@@ -1,2 +1,20 @@
-// Turkish: fill keys from ../en/legalEntities.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Tüzel kişiler',
+  lead: 'Grubun satın alımları ödeyen ve sözleşmeleri imzalayan şirketleri. Satın Alma ve Sözleşmeler bu listeyi kullanır; arşivlenen tüzel kişiler eski belgelerde kalır.',
+  add: 'Tüzel kişi ekle',
+  edit: 'Tüzel kişi',
+  name: 'Tam unvan',
+  namePlaceholder: 'Örnek Ltd. Şti.',
+  nameRequired: 'Unvanı girin',
+  shortName: 'Kısa unvan',
+  taxId: 'Vergi numarası',
+  address: 'Kayıtlı adres',
+  bankDetails: 'Banka bilgileri',
+  note: 'Not',
+  isDefault: 'Varsayılan',
+  sort: 'Sıra',
+  default: 'Varsayılan',
+  archived: 'Arşivde',
+  archive: 'Arşivle',
+  restore: 'Geri yükle',
+};

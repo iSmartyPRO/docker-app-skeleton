@@ -1,2 +1,17 @@
-// Turkish: fill keys from ../en/roles.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Roller',
+  lead: 'Kişilerin neler yapabileceği. Kullanıcılar rolleri doğrudan veya grupları aracılığıyla alır.',
+  create: 'Yeni rol',
+  name: 'Ad',
+  description: 'Açıklama',
+  permissions: 'İzinler',
+  system: 'Yerleşik',
+  fullAccess: 'Tam erişim',
+  permCount: '{count} / {total} izin',
+  userCount: '{direct} doğrudan · {groups} gruplar aracılığıyla',
+  viaGroups: 'Veren gruplar',
+  lockedHint: 'Süper yönetici rolü her zaman tam erişime sahiptir ve değiştirilemez. Bu rolü koruyun: en az iki süper yönetici bulundurun.',
+  notYours: 'Yalnızca kendinizde olan izinleri verebilirsiniz',
+  confirmDelete: 'Bu rol silinsin mi? Kullanıcılar bu rolün verdiği erişimi kaybeder.',
+  deleted: 'Rol silindi',
+};

@@ -6,7 +6,7 @@ import { DateField } from '../../../components/ui/DateTimeField';
 import { errorMessage } from '../../../lib/errors';
 import { cmpApi } from '../api';
 import { CompanyPicker } from './pickers';
-import { TITLES } from './PersonForm';
+import { titleOptions } from './PersonForm';
 import { HintLabel } from '../../../help/Hint';
 
 // Dates here are calendar days ('YYYY-MM-DD'): DateField edits them without any zone shift.
@@ -15,7 +15,7 @@ const dateProps = {
 };
 
 function JobFields({ prefix = [], withCompany = true, excludeId }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   return (
     <div className="cmp-grid">
       {withCompany && (
@@ -24,7 +24,7 @@ function JobFields({ prefix = [], withCompany = true, excludeId }) {
         </Form.Item>
       )}
       <Form.Item name={[...prefix, 'title']} label={t('companies.p.title')}>
-        <AutoComplete options={TITLES.map((value) => ({ value }))} filterOption={(input, option) => option.value.toLowerCase().includes(input.toLowerCase())} />
+        <AutoComplete options={titleOptions(locale)} filterOption={(input, option) => option.value.toLowerCase().includes(input.toLowerCase())} />
       </Form.Item>
       <Form.Item name={[...prefix, 'department']} label={t('companies.p.department')}>
         <Input />

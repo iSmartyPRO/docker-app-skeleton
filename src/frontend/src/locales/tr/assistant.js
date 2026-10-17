@@ -1,2 +1,201 @@
-// Turkish: fill keys from ../en/assistant.js — missing ones fall back to English.
-export default {};
+export default {
+  robots: {
+    pixel: {
+      name: 'Pixel',
+      desc: 'Anteninde ışık olan klasik, sevimli bir robot',
+    },
+    orbi: {
+      name: 'Orbi',
+      desc: 'Küçük elleri olan parlak, uçan bir küre',
+    },
+    kiko: {
+      name: 'Kiko',
+      desc: 'Kulaklıklı, nane yeşili bir arkadaş',
+    },
+    ermek: {
+      name: 'Ermek',
+      desc: 'Beyaz ak-kalpak ve kırmızı çapan giymiş bir genç',
+    },
+    aichurok: {
+      name: 'Aiçürök',
+      desc: 'Baykuş tüylü kadife topu takmış, örgülü saçlı bir kız',
+    },
+    classic: {
+      name: 'Klasik',
+      desc: 'Yaylı anteni ve göstergeleri olan retro teneke robot',
+    },
+    pro: {
+      name: 'Profesyonel',
+      desc: 'Takım elbiseli, sakin ve ciddi bir yardımcı',
+    },
+    boltik: {
+      name: 'Boltik',
+      desc: 'Konuşkan olanı: kulaklık ve anteninde bir konuşma balonu',
+    },
+    volt: {
+      name: 'Süperbot',
+      desc: '“S” armalı ve kırmızı pelerinli, mavi giysili kahraman',
+    },
+    nova: {
+      name: 'Süper Kız',
+      desc: '“S” armalı, kırmızı etekli ve pelerinli kadın kahraman',
+    },
+    barsik: {
+      name: 'Barsik',
+      desc: 'Bir kar leoparı yavrusu — dağların ruhu',
+    },
+    ryzhik: {
+      name: 'Rıjik',
+      desc: 'Kuyruğunu sallayan neşeli bir tilki yavrusu',
+    },
+    nexus: {
+      name: 'Nexus',
+      desc: 'Holografik haleli, şık, krom bir robot',
+    },
+    bubbles: {
+      name: 'Baloncuk',
+      desc: 'Dönen pervaneli, yuvarlak, küçük bir robot',
+    },
+    doctor: {
+      name: 'Doktor',
+      desc: 'Beyaz önlük, stetoskop ve alın aynası',
+    },
+    toddler: {
+      name: 'Bebek',
+      desc: 'Tepesinde bir bukle, tulum ve kırmızı balon',
+    },
+    zayka: {
+      name: 'Tavşancık',
+      desc: 'Tavşan kulaklı kapüşon giymiş küçük bir kız',
+    },
+    berkut: {
+      name: 'Bürkütçü',
+      desc: 'Kürk tebeteyli, altın kartallı bir kartal avcısı',
+    },
+    jibek: {
+      name: 'Cibek',
+      desc: 'Beyaz eleçek ve kadife kemsel giymiş bir kadın',
+    },
+    shadow: {
+      name: 'Gölge',
+      desc: 'Bir gece bekçisi: kulaklı başlık ve koyu pelerin',
+    },
+    aurora: {
+      name: 'Aurora',
+      desc: 'Yıldızlı taç ve parlayan kementli savaşçı prenses',
+    },
+    bao: {
+      name: 'Bao',
+      desc: 'Bambu dalı tutan bir panda yavrusu',
+    },
+    pingo: {
+      name: 'Pingo',
+      desc: 'Örgü bereli, paytak paytak yürüyen bir penguen yavrusu',
+    },
+    builder: {
+      name: 'İnşaatçı',
+      desc: 'Lambalı baret, reflektörlü yelek ve çekiç',
+    },
+    builder2: {
+      name: 'İnşaatçı Asel',
+      desc: 'Beyaz baret, örgülü saç, yeşil yelek ve tablet',
+    },
+    architect: {
+      name: 'Mimar',
+      desc: 'Yuvarlak gözlük, kalem ve rulo hâlinde bir proje çizimi',
+    },
+    girl: {
+      name: 'Kız',
+      desc: 'Fiyonklu kuyruk saçlar ve pembe elbise',
+    },
+    boy: {
+      name: 'Oğlan',
+      desc: 'Yana çevrilmiş şapka, yıldızlı tişört ve spor ayakkabı',
+    },
+  },
+  sizes: {
+    S: 'Küçük',
+    M: 'Orta',
+    L: 'Büyük',
+  },
+  groups: {
+    robots: 'Robotlar',
+    work: 'Meslekler',
+    kids: 'Çocuklar',
+    kyrgyz: 'Kırgız tarzı',
+    heroes: 'Süper kahramanlar',
+    animals: 'Hayvanlar',
+  },
+  color: {
+    title: 'Renk: {name}',
+    original: 'Tasarlandığı gibi',
+  },
+  open: '{name}, asistanınız: yardımı aç',
+  tooltip: '{name} — yardım için tıklayın, taşımak için sürükleyin',
+  helloFirst: 'Merhaba {first}! Ben {name}, asistanınızım. Her bölümün ne işe yaradığını gösterebilir ve sorularınızı yanıtlayabilirim. Beni engel olmayacağım bir yere sürükleyin.',
+  offer: '“{section}” bölümündesiniz. Burada neler yapabileceğinizi göstereyim mi?',
+  show: 'Göster',
+  later: 'Daha sonra',
+  greeting: {
+    morning: 'Günaydın {first}!',
+    day: 'İyi günler {first}!',
+    evening: 'İyi akşamlar {first}!',
+    night: 'Geç saate kadar mı çalışıyorsunuz, {first}?',
+  },
+  here: 'Ben {name}. “{section}” bölümündesiniz — nasıl yardımcı olabilirim?',
+  intro: 'Ben {name}. Nasıl yardımcı olabilirim?',
+  ask: 'Portal hakkında sorun…',
+  found: 'Bulunan: {n}',
+  nothing: 'Hiçbir şey bulunamadı. Başka sözcükler deneyin veya tam kılavuzu açın.',
+  faqTitle: 'Sık sorulan sorular',
+  back: 'Geri',
+  tip: 'İpucu',
+  nextTip: 'Sonraki',
+  actions: {
+    guide: 'Nasıl çalışır',
+    guideDesc: 'Bu bölüm için kısa kılavuz',
+    full: 'Tam kılavuz',
+    fullDesc: 'Adım adım, örneklerle',
+    faq: 'Sorular',
+    faqDesc: '{n} sık sorulan soru',
+    all: 'Tüm yardım',
+    allDesc: 'Portalın tüm bölümleri',
+  },
+  dragHint: 'Beni ekranın herhangi bir yerine sürükleyin',
+  settings: 'Ayarlar',
+  switch: {
+    open: 'Robotu değiştir',
+    title: 'Size kim yardım etsin?',
+    subtitle: 'Sizin seçiminiz — yalnızca siz görürsünüz',
+    hello: 'Merhaba, ben {name}!',
+    helloText: 'Artık asistanınızım. Bana her şeyi sorabilirsiniz.',
+    useDefault: 'Varsayılan robota dön ({name})',
+    done: 'Bitti',
+  },
+  menu: {
+    title: 'Asistan seçenekleri',
+    robot: 'Robotu değiştir',
+    color: 'Rengi değiştir',
+    size: 'Boyut',
+    corner: 'Köşeye geri dön',
+    hide: 'Sayfa yenilenene kadar gizle',
+    off: 'Asistanı kapat',
+  },
+  account: {
+    title: 'Robot asistan',
+    desc: 'Ekranın köşesinde bir yardımcı: bulunduğunuz bölüm için ipuçları ve soruların yanıtları.',
+    show: 'Asistanı göster',
+    showDesc: 'Kapatılırsa her yerden kaybolur; buradan yeniden açabilirsiniz.',
+    size: 'Boyut',
+    place: 'Konum',
+    placeDesc: 'Robotu fareyle veya parmağınızla sürükleyin; bu cihazda yerini hatırlar.',
+    again: 'Yardım önerileri',
+    againDesc: 'Robot her bölümde bir kez yardım önerir. Önerileri yeniden görmek için baştan başlayın.',
+    againButton: 'Yeniden öner',
+    againDone: 'Robot yeniden yardım önerecek',
+    ownChoice: 'Bu sizin kendi seçiminiz.',
+    useDefault: 'Varsayılan robotu kullan ({name})',
+    defaultChoice: 'Şu anda: kuruluşun varsayılan robotu, {name}. Kendiniz için tutmak üzere başka birini seçin.',
+    fixedChoice: 'Kuruluşunuz herkes için tek bir asistan kullanıyor: {name}.',
+  },
+};

@@ -1,2 +1,19 @@
-// Turkish: fill keys from ../en/tasksSettings.js — missing ones fall back to English.
-export default {};
+export default {
+  enabledDesc: 'Görevler’i uygulama menüsünde /app/tasks adresinde gösterir.',
+  access: 'Kimler kullanabilir',
+  accessDesc: 'Erişim her projede ayrı ayarlanır (proje menüsü → Erişim).',
+  openProjects: 'Projeleri aç',
+  projects: 'Projeler',
+  projectsDesc: 'Projeleri kimlerin başlattığı ve nasıl açıldıkları.',
+  creation: 'Projeleri kimler oluşturur',
+  creationDesc: 'Yöneticiler her zaman oluşturabilir (Görev yöneticisi izni).',
+  creation_everyone: 'Herkes',
+  creation_admins: 'Yalnızca yöneticiler',
+  defaultView: 'Varsayılan görünüm',
+  reminders: 'Son tarih hatırlatıcıları',
+  remindersDesc: 'Sorumlulara son tarihten önce hatırlatılır; görev gecikince sorumluya ve oluşturana bildirilir.',
+  remindersOn: 'Hatırlatıcı gönder',
+  dueSoon: 'Son tarihten önce hatırlat',
+  dueSoonDesc: 'Son tarihten kaç saat önce.',
+  hours: 'sa',
+};

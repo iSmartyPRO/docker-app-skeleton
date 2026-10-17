@@ -1,2 +1,24 @@
-// Simplified Chinese: fill keys from ../en/regional.js — missing ones fall back to English.
-export default {};
+export default {
+  portalTitle: '地区和时间',
+  portalDesc: '整个门户的时区以及日期和时间格式：“今天”、截止日期、提醒和所有显示的日期。每个人可在「个人中心 → 外观」中设置自己的格式。',
+  meTitle: '日期和时间',
+  meDesc: '您的时区和格式。默认与门户一致；出差时可选择“与此设备相同”。',
+  timeZone: '时区',
+  timeZoneDesc: '天数、截止日期和提醒均按此时区计算。',
+  timeZoneDescMe: '时间按此时区显示，提醒也按此时区发送。',
+  dateFormat: '日期格式',
+  timeFormat: '时间格式',
+  weekStart: '每周起始日',
+  monday: '星期一',
+  sunday: '星期日',
+  saturday: '星期六',
+  mondayShort: '周一',
+  sundayShort: '周日',
+  saturdayShort: '周六',
+  asPortal: '与门户相同',
+  asPortalShort: '与门户相同',
+  device: '与此设备相同',
+  sample: '显示效果',
+  dateOnly: '日期',
+  timeOnly: '时间',
+};

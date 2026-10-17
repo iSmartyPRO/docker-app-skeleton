@@ -1,3 +1,47 @@
-// Simplified Chinese: translate ../en/drive.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '文件服务器将公司的 Windows 共享（SMB、Samba）作为一个网络驱动器在浏览器中打开：查看、编辑、上传、链接和操作日志。权限来自服务器（NTFS、Active Directory 组），门户从不绕过它们。',
+  audience: '使用共享文件夹的员工；系统管理员负责连接服务器和管理访问权限。',
+  setup: [
+    {
+      title: '启用并命名驱动器',
+      text: '模块默认关闭。在[设置](/admin/settings/drive)中为其命名，例如“公司网盘”。',
+    },
+    {
+      title: '添加服务器和文件夹',
+      text: '服务器地址以及用户可见的共享。登录使用每个人自己的域账户。',
+    },
+    {
+      title: '连接 Active Directory',
+      text: '「访问权限管理」（文件夹访问组）和重复使用域密码需要 [AD 集成](/admin/settings/ad)。',
+    },
+    {
+      title: '链接和日志',
+      text: '公开链接策略、操作日志及其保留时长。',
+    },
+  ],
+  roles: {
+    'drive.admin': '模块设置、服务器和文件夹。',
+    'drive.audit': '操作日志：谁打开、修改或删除了什么。',
+    'drive.access': 'AD 中文件夹访问组的成员身份（受保护的组除外）。NTFS 权限仅限超级管理员。',
+  },
+  scenarios: [
+    {
+      title: '远程办公',
+      text: '员工在家通过浏览器打开部门文件夹，无需 VPN；权限与在办公室时相同。',
+    },
+    {
+      title: '授予文件夹访问权限',
+      text: '负责人申请访问权限，管理员在「访问权限」面板中将此人加入该文件夹的只读组，并记入日志。',
+    },
+  ],
+  faq: [
+    {
+      q: '门户会保存副本吗？',
+      a: '不会，文件保留在文件服务器上；只缓存预览。',
+    },
+    {
+      q: '没有 Active Directory 能用吗？',
+      a: '普通的共享访问可以使用。没有 AD 时，只有访问组管理不可用。',
+    },
+  ],
+};

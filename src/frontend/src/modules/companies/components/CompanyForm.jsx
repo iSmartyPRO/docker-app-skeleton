@@ -9,6 +9,7 @@ import { cmpApi, relationLabel } from '../api';
 import { useCompanies } from '../CompaniesContext';
 import { formatDate } from './ui';
 import { HintLabel } from '../../../help/Hint';
+import { pick } from '../../../i18n/languages';
 
 // Dates here are calendar days ('YYYY-MM-DD'): DateField edits them without any zone shift.
 const dateProps = {
@@ -26,6 +27,15 @@ const EMPTY = {
   messengers: {},
   ids: {},
   custom: {},
+};
+
+/** Suggestions for the head's title (free text is stored as typed), in the person's language. */
+const DIRECTOR_TITLES = {
+  ru: ['Директор', 'Генеральный директор', 'Руководитель', 'Президент', 'Председатель правления', 'Управляющий'],
+  en: ['Director', 'Chief executive', 'Head', 'President', 'Chairman of the board', 'Managing director'],
+  ky: ['Директор', 'Башкы директор', 'Жетекчи', 'Президент', 'Башкармалыктын төрагасы', 'Башкаруучу'],
+  tr: ['Direktör', 'Genel müdür', 'Yönetici', 'Başkan', 'Yönetim kurulu başkanı', 'Murahhas aza'],
+  zh: ['总监', '总经理', '负责人', '总裁', '董事长', '执行董事'],
 };
 
 function ContactRows({ name, placeholder, labelPlaceholder, addText, type }) {
@@ -309,7 +319,7 @@ export default function CompanyForm({ open, company, onClose }) {
                     <Input />
                   </Form.Item>
                   <Form.Item name="director_title" label={t('companies.f.director_title')}>
-                    <AutoComplete options={['Директор', 'Генеральный директор', 'Руководитель', 'Президент', 'Председатель правления', 'Управляющий'].map((value) => ({ value }))} />
+                    <AutoComplete options={pick(DIRECTOR_TITLES, locale).map((value) => ({ value }))} />
                   </Form.Item>
                 </div>
               ),

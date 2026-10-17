@@ -1,3 +1,45 @@
-// Simplified Chinese: translate ../en/resources.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '在线资源是一块磁贴看板，链接到公司的各项服务：邮箱、CRM、表单、网站和门户模块。很适合作为首页：访客看到公开链接，员工看到自己的链接。',
+  audience: '所有员工以及开放门户的访客；由资源管理员维护。',
+  setup: [
+    {
+      title: '添加资源',
+      text: '链接或门户模块、图标、两种语言的标题和描述、分类。',
+    },
+    {
+      title: '设置可见范围',
+      text: '访客看到公开资源；其余资源按角色和组显示。',
+    },
+    {
+      title: '设为首页',
+      text: '在[网站访问](/admin/settings/access)中将「在线资源」设为首页。',
+    },
+    {
+      title: '外观',
+      text: '标题、副标题、磁贴密度、搜索和个人布局，在[设置](/admin/settings/resources)中配置。',
+    },
+  ],
+  roles: {
+    'resources.admin': '添加、编辑资源和分类并调整其顺序。',
+  },
+  scenarios: [
+    {
+      title: '办公室起始页',
+      text: '首页上有邮箱、财务系统、知识库和 IT 申请；每个人都可以按自己的方式排列磁贴。',
+    },
+    {
+      title: '面向访客的公开链接',
+      text: '开放门户向访客显示网站和联系表单，员工登录后可看到内部服务。',
+    },
+  ],
+  faq: [
+    {
+      q: '某个模块磁贴不见了',
+      a: '模块关闭期间其磁贴会隐藏，重新启用后会恢复。',
+    },
+    {
+      q: '个人布局会被重置吗？',
+      a: '不会。新资源会添加到末尾，已删除的资源直接消失。',
+    },
+  ],
+};

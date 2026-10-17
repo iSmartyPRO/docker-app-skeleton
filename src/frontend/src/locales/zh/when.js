@@ -1,2 +1,28 @@
-// Simplified Chinese: fill keys from ../en/when.js — missing ones fall back to English.
-export default {};
+export default {
+  presets: {
+    m15: '15分钟后',
+    h1: '1小时后',
+    h3: '3小时后',
+    evening: '今晚',
+    tomorrow: '明天上午',
+    monday: '周一',
+  },
+  fires: '触发时间：{date}（{rel}）',
+  past: '该时间已过，请选择更晚的时间',
+  now: '现在',
+  in: '{time}后',
+  d: '{n}天',
+  h: '{n}小时',
+  m: '{n}分钟',
+  warn: {
+    push: '您的所有设备均未启用推送通知：提醒将在铃铛中等待。',
+    messenger: '未连接任何即时通讯工具：请绑定 Telegram（个人资料 → 安全），或在个人资料中填写用于 WhatsApp 的手机号码或 Mattermost 用户名。',
+    messengerOff: '您已在通知设置中关闭即时通讯工具。',
+    email: '您的个人资料中没有电子邮件。',
+    emailOff: '门户尚未配置电子邮件发送。',
+    noMessengers: '门户尚未配置任何即时通讯工具，因此无法通过它们发送消息。',
+    setUp: '设置',
+    connectOne: '门户中可用的即时通讯工具：{list}。请连接其中一个：',
+    fix: '修复',
+  },
+};

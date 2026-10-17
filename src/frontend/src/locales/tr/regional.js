@@ -1,2 +1,24 @@
-// Turkish: fill keys from ../en/regional.js — missing ones fall back to English.
-export default {};
+export default {
+  portalTitle: 'Bölge ve saat',
+  portalDesc: 'Tüm portalın saat dilimi ile tarih ve saat biçimleri: “bugün”, son tarihler, hatırlatıcılar ve gösterilen her tarih. Herkes kendi ayarını Kişisel alan → Görünüm bölümünde seçebilir.',
+  meTitle: 'Tarih ve saat',
+  meDesc: 'Saat diliminiz ve biçimleriniz. Varsayılan olarak portaldaki gibidir; seyahatteyseniz “bu cihazdaki gibi” seçeneğini seçin.',
+  timeZone: 'Saat dilimi',
+  timeZoneDesc: 'Günler, son tarihler ve hatırlatıcılar bu dilime göre hesaplanır.',
+  timeZoneDescMe: 'Saatler bu dilimde gösterilir ve hatırlatıcılar bu dilime göre gelir.',
+  dateFormat: 'Tarih biçimi',
+  timeFormat: 'Saat biçimi',
+  weekStart: 'Haftanın ilk günü',
+  monday: 'Pazartesi',
+  sunday: 'Pazar',
+  saturday: 'Cumartesi',
+  mondayShort: 'Pzt',
+  sundayShort: 'Paz',
+  saturdayShort: 'Cmt',
+  asPortal: 'Portaldaki gibi',
+  asPortalShort: 'Portaldaki gibi',
+  device: 'Bu cihazdaki gibi',
+  sample: 'Görünümü',
+  dateOnly: 'tarih',
+  timeOnly: 'saat',
+};

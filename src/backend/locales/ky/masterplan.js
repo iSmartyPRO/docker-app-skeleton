@@ -1,2 +1,79 @@
-// Kyrgyz: fill keys from ../en/masterplan.js — missing ones fall back to English.
-export default {};
+export default {
+  conflict: {
+    reserved: 'Объектти жаңы эле {manager} резервге алды',
+    changed: 'Объект жаңы эле өзгөртүлдү',
+    changedBy: 'Объектти жаңы эле {actor} өзгөрттү',
+  },
+  status: {
+    not_for_sale: 'Сатыкта эмес',
+    free: 'Бош',
+    reserve: 'Резерв',
+    booking: 'Брондоо',
+    deposit: 'Кепилдик акча',
+    contract: 'Келишим',
+    sold: 'Сатылды',
+    handed: 'Өткөрүлүп берилди',
+  },
+  notify: {
+    reason: 'Себеби: {reason}',
+    until: 'Чейин: {date}',
+    manager: 'Менеджер: {name}',
+    expiring: {
+      reserve: '{code} резервинин мөөнөтү жакында бүтөт',
+      booking: '{code} брондоосунун мөөнөтү жакында бүтөт',
+    },
+    expired: {
+      reserve: '{code} резерви автоматтык түрдө бошотулду',
+      booking: '{code} брондоосу автоматтык түрдө бошотулду',
+      body: 'Мөөнөт бүттү; объект кайра бош.',
+    },
+    bulkStatus: {
+      title_one: '{status}: {count} объект',
+      title_other: '{status}: {count} объект',
+    },
+    report: { title: 'Курулуш боюнча жаңы отчёт: {objects}' },
+    reportReview: { title: 'Текшерүүгө отчёт: {objects}' },
+    reportReviewed: {
+      published: 'Отчёт жарыяланды: {objects}',
+      returned: 'Отчёт кайтарылды: {objects}',
+      comment: 'Комментарий: {note}',
+    },
+    stale: { title: '{days} күндөн ашык отчёттор жок: {count}' },
+    delay: {
+      title: '{days} күн артта калуу: {code}',
+      stage: 'Баскыч: {stage}',
+    },
+    accessRequest: { title: 'Мастерпланга кирүү укугун суроо: {actor}' },
+  },
+  // A system line in a CRM deal's history (written once, in the portal's default language).
+  dealLine: {
+    text: 'Мастерплан: {unit} объекти — {status}{until}{reason}',
+    until: ' {date} чейин',
+    reason: ' ({reason})',
+    expired: {
+      reserve: 'Мастерплан: {unit} объектинин резерви автоматтык түрдө бошотулду — мөөнөт бүттү',
+      booking: 'Мастерплан: {unit} объектинин брондоосу автоматтык түрдө бошотулду — мөөнөт бүттү',
+    },
+  },
+  csv: {
+    code: 'Коду',
+    name: 'Аталышы',
+    type: 'Түрү',
+    status: 'Статус',
+    price: 'Баасы',
+    currency: 'Валюта',
+    pricePerM2: '1 м² баасы',
+    minPrice: 'Мин. баа',
+    areaTotal: 'Аянты, м²',
+    areaPlot: 'Участок, м²',
+    rooms: 'Бөлмөлөр',
+    bedrooms: 'Уктоочу бөлмөлөр',
+    floor: 'Кабат',
+    number: 'Номери',
+    finishing: 'Жасалга',
+    readiness: 'Даярдыгы, %',
+    manager: 'Менеджер',
+    client: 'Кардар',
+    deal: 'Бүтүм',
+  },
+};

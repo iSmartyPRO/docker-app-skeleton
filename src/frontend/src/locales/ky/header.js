@@ -1,2 +1,8 @@
-// Kyrgyz: fill keys from ../en/header.js — missing ones fall back to English.
-export default {};
+export default {
+  language: 'Тил',
+  theme: 'Тема',
+  light: 'Жарык',
+  dark: 'Караңгы',
+  lightTheme: 'Жарык тема',
+  darkTheme: 'Караңгы тема',
+};

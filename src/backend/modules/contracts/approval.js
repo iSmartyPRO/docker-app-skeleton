@@ -26,17 +26,17 @@ export async function approvalSettingsForContracts() {
 }
 
 const STOCK_TYPE_NAMES = {
-  supply: { ru: 'Поставка', en: 'Supply' },
-  services: { ru: 'Услуги', en: 'Services' },
-  lease: { ru: 'Аренда', en: 'Lease' },
-  work: { ru: 'Подряд', en: 'Works' },
-  employment: { ru: 'Трудовой', en: 'Employment' },
-  sale: { ru: 'Купли-продажи', en: 'Sale' },
-  property_sale: { ru: 'Продажа объекта', en: 'Property sale' },
-  agency: { ru: 'Агентский', en: 'Agency' },
-  loan: { ru: 'Займ', en: 'Loan' },
-  nda: { ru: 'NDA', en: 'NDA' },
-  other: { ru: 'Другое', en: 'Other' },
+  supply: { ru: 'Поставка', en: 'Supply', ky: 'Жеткирүү', tr: 'Tedarik', zh: '供货' },
+  services: { ru: 'Услуги', en: 'Services', ky: 'Кызмат көрсөтүү', tr: 'Hizmet', zh: '服务' },
+  lease: { ru: 'Аренда', en: 'Lease', ky: 'Ижара', tr: 'Kira', zh: '租赁' },
+  work: { ru: 'Подряд', en: 'Works', ky: 'Подряд', tr: 'Eser (iş)', zh: '工程' },
+  employment: { ru: 'Трудовой', en: 'Employment', ky: 'Эмгек', tr: 'İş sözleşmesi', zh: '劳动' },
+  sale: { ru: 'Купли-продажи', en: 'Sale', ky: 'Сатып алуу-сатуу', tr: 'Satış', zh: '买卖' },
+  property_sale: { ru: 'Продажа объекта', en: 'Property sale', ky: 'Объектти сатуу', tr: 'Gayrimenkul satışı', zh: '房产买卖' },
+  agency: { ru: 'Агентский', en: 'Agency', ky: 'Агенттик', tr: 'Acentelik', zh: '代理' },
+  loan: { ru: 'Займ', en: 'Loan', ky: 'Карыз', tr: 'Ödünç (kredi)', zh: '借款' },
+  nda: { ru: 'NDA', en: 'NDA', ky: 'NDA', tr: 'Gizlilik (NDA)', zh: '保密协议' },
+  other: { ru: 'Другое', en: 'Other', ky: 'Башка', tr: 'Diğer', zh: '其他' },
 };
 
 /** A type's name: the administrator's label, else the stock name. */
@@ -75,14 +75,14 @@ export function registerContractApproval() {
   return registerApprovalType({
     key: TYPE_KEY,
     module: 'contracts',
-    title: { ru: 'Договор', en: 'Contract' },
+    title: { ru: 'Договор', en: 'Contract', ky: 'Келишим', tr: 'Sözleşme', zh: '合同' },
     adminPermission: 'contracts.admin',
     fields: [
-      { key: 'amount', type: 'money', label: { ru: 'Сумма', en: 'Amount' } },
+      { key: 'amount', type: 'money', label: { ru: 'Сумма', en: 'Amount', ky: 'Сумма', tr: 'Tutar', zh: '金额' } },
       {
         key: 'type',
         type: 'select',
-        label: { ru: 'Тип договора', en: 'Contract type' },
+        label: { ru: 'Тип договора', en: 'Contract type', ky: 'Келишимдин түрү', tr: 'Sözleşme türü', zh: '合同类型' },
         options: async () => {
           const settings = await contractsSettings();
           return (settings.types || []).map((type) => ({ value: type.key, label: typeName(settings, type.key) }));
@@ -91,7 +91,7 @@ export function registerContractApproval() {
       {
         key: 'direction',
         type: 'select',
-        label: { ru: 'Направление', en: 'Direction' },
+        label: { ru: 'Направление', en: 'Direction', ky: 'Багыты', tr: 'Yön', zh: '方向' },
         options: [
           { value: 'supplier', label: 'С поставщиком / Supplier' },
           { value: 'client', label: 'С клиентом / Client' },
@@ -100,10 +100,10 @@ export function registerContractApproval() {
       {
         key: 'legalEntity',
         type: 'select',
-        label: { ru: 'Юрлицо', en: 'Legal entity' },
+        label: { ru: 'Юрлицо', en: 'Legal entity', ky: 'Юридикалык жак', tr: 'Tüzel kişi', zh: '法人实体' },
         options: async () => (await listLegalEntities()).map((entity) => ({ value: entity.id, label: entity.label })),
       },
-      { key: 'framework', type: 'bool', label: { ru: 'Рамочный', en: 'Framework' } },
+      { key: 'framework', type: 'bool', label: { ru: 'Рамочный', en: 'Framework', ky: 'Алкактык', tr: 'Çerçeve', zh: '框架合同' } },
     ],
     canView: async (ctx, docId) => {
       const row = await loadRow(docId);

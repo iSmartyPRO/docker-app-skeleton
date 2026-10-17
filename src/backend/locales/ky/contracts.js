@@ -1,2 +1,80 @@
-// Kyrgyz: fill keys from ../en/contracts.js — missing ones fall back to English.
-export default {};
+export default {
+  status: {
+    draft: 'Долбоор',
+    approval: 'Макулдашууда',
+    question: 'Жооп керек',
+    approved: 'Макулдашылды',
+    signed: 'Кол коюлду',
+    active: 'Күчүндө',
+    expiring: 'Мөөнөтү бүтүүдө',
+    completed: 'Аякталды',
+    rejected: 'Четке кагылды',
+    terminated: 'Бузулду',
+  },
+  notify: {
+    name: '{number} «{title}»',
+    days_one: '{count} күн',
+    days_other: '{count} күн',
+    ends: '{date} аяктайт',
+    importance: { high: 'жогорку', medium: 'орточо', low: 'төмөн' },
+    depositKind: { deposit: 'Кепилдик акча', advance: 'Аванс' },
+    assigned: {
+      lawyer: 'Сиз {name} келишиминин юристисиз',
+      owner: 'Сиз {name} келишими боюнча бизнес тараптан жооптуу адамсыз',
+    },
+    status: { title: '{name} келишими: {status}' },
+    prolonged: {
+      title: '{name} келишими узартылды',
+      body: 'Жаңы мөөнөт: {date} чейин',
+    },
+    version: {
+      title: '{name} келишиминин жаңы {no} версиясы',
+      changed: 'Эмне өзгөрдү: {comment}',
+    },
+    risk: {
+      title: '{name} келишиминдеги №{no} тобокелдик ({importance})',
+      clause: '{clause} пункт',
+    },
+    reminderEnd: { title: '{name} келишими {days} кийин аяктайт' },
+    reminderNotice: {
+      title: '{name} келишими: узартуудан {date} чейин баш тартыңыз',
+      lastDay: 'Бүгүн баш тартууну жөнөтүүнүн акыркы күнү',
+      left: 'Баш тартууну жөнөтүүгө {days} калды',
+      renews: 'Болбосо ал {date} кийин узартылат',
+    },
+    depositReceived: { title: '{kind} түштү: {name} келишими' },
+    depositStatus: {
+      title: '{name} келишиминин {kind}: {status}',
+      expected: 'күтүлүүдө',
+      received: 'түштү',
+      credited: 'баага эсептелди',
+      returned: 'кайтарылды',
+      forfeited: 'кармалып калды',
+    },
+    paymentReceived: {
+      full: 'Толук төлөндү: {name} келишими',
+      part: 'Төлөм түштү: {name} келишими',
+      totals: '{total} ичинен {paid} төлөндү ({percent}%)',
+    },
+    paymentDue: {
+      today: 'Төлөм бүгүн: {name} келишими',
+      in: 'Төлөм {days} кийин: {name} келишими',
+      body: '{amount} — {date} чейин',
+    },
+    paymentOverdue: {
+      title: 'Төлөмдүн мөөнөтү өттү: {name} келишими',
+      body: '{amount} — мөөнөтү {date} болчу',
+    },
+  },
+  csv: {
+    head: ['№', 'Контрагенттин номери', 'Аталышы', 'Контрагент', 'Түрү', 'Багыты', 'Сумма', 'Валюта', 'Түзүлгөн', 'Башталышы', 'Аягы', 'Автоузартуу', 'Статус', 'Жооптуу адам', 'Юрист'],
+    direction: { supplier: 'Жеткирүүчү', client: 'Кардар' },
+    framework: 'алкактык',
+    yes: 'ооба',
+  },
+  paymentsCsv: {
+    head: ['Топ', 'Келишим №', 'Келишим', 'Контрагент', 'Максаты', 'Мөөнөт', 'Сумма', 'Төлөндү', 'Калды', 'Валюта', 'Жооптуу адам'],
+    group: { overdue: 'Мөөнөтү өткөн', today: 'Бүгүн', week: 'Ушул аптада', later: 'Кийинчерээк' },
+    purpose: { deposit: 'Кепилдик акча', advance: 'Аванс', first: 'Биринчи төлөм', monthly: 'Айлык төлөм', rest: 'Калдык', full: 'Толук төлөм' },
+  },
+};

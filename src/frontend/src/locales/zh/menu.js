@@ -1,2 +1,8 @@
-// Simplified Chinese: fill keys from ../en/menu.js — missing ones fall back to English.
-export default {};
+export default {
+  profile: '个人资料',
+  cabinet: '个人中心',
+  adminConsole: '管理控制台',
+  settings: '设置',
+  roleAdmin: '管理员',
+  roleUser: '用户',
+};

@@ -1,2 +1,12 @@
-// Kyrgyz: fill keys from ../en/modules.js — missing ones fall back to English.
-export default {};
+export default {
+  enabled: 'Модуль күйгүзүлдү',
+  disabled: 'Модуль өчүрүлдү',
+  enabledLabel: 'Модуль күйгүзүлгөн',
+  settings: 'Жөндөөлөр',
+  open: 'Ачуу',
+  enableLabel: 'Модуль күйгүзүлгөн',
+  enableOnDesc: 'Модуль кирүү укугу барларга тиркемелер менюсунда жеткиликтүү.',
+  enableOffDesc: 'Өчүрүлгөн: модуль менюдан жашырылган. Колдонуп баштоо үчүн күйгүзүңүз.',
+  footnote: 'Өчүрүлгөн модуль менюдан жоголот, анын даректери «табылган жок» деп жооп берет. Маалыматтар сакталат.',
+  alwaysOn: 'Дайыма күйүк',
+};

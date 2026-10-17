@@ -1,6 +1,7 @@
 import { query, withTransaction } from '../../config/database.js';
+import { localeFor } from '../../services/settings.js';
 import { avatarOf, httpError } from '../shared/acl.js';
-import { DEFAULT_LEVELS, PROJECT_CLASSES, PROJECT_STATUSES, ROLES } from './constants.js';
+import { DEFAULT_LEVELS, PROJECT_CLASSES, PROJECT_STATUSES, ROLES, defaultLevels } from './constants.js';
 import { canConfigure, forbidden, notFound, requireAdmin, requireConfigure, requireProject, visibleProjectIds } from './access.js';
 import { has, readCaps, rolesIn } from './rules.js';
 import { NODE_SELECT, inheritReadiness, visibleNode } from './shapes.js';
@@ -135,7 +136,8 @@ export async function getProject(ctx, id) {
 export async function createProject(ctx, input) {
   requireAdmin(ctx);
   const fields = projectFields({ currency: ctx.settings.currency, ...input, name: input.name ?? '' });
-  if (!fields.settings) fields.settings = JSON.stringify(projectSettings({}));
+  // A new project names its level types in the portal language.
+  if (!fields.settings) fields.settings = JSON.stringify(projectSettings({ levels: defaultLevels(await localeFor(null)) }));
   const keys = Object.keys(fields);
   const { rows } = await query(
     `INSERT INTO mp_projects (${keys.join(', ')}, created_by) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}, $${keys.length + 1}) RETURNING id`,

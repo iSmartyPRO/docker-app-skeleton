@@ -1,2 +1,19 @@
-// Kyrgyz: fill keys from ../en/tasksSettings.js — missing ones fall back to English.
-export default {};
+export default {
+  enabledDesc: '«Тапшырмаларды» /app/tasks дарегинде тиркемелер менюсунда көрсөтөт.',
+  access: 'Ким колдоно алат',
+  accessDesc: 'Кирүү укугу ар бир долбоордо жөндөлөт (долбоордун менюсу → Кирүү укугу).',
+  openProjects: 'Долбоорлорду ачуу',
+  projects: 'Долбоорлор',
+  projectsDesc: 'Долбоорлорду ким түзөт жана алар кантип ачылат.',
+  creation: 'Долбоорлорду ким түзөт',
+  creationDesc: 'Администраторлор дайыма түзө алат («Тапшырмалар администратору» укугу).',
+  creation_everyone: 'Баары',
+  creation_admins: 'Администраторлор гана',
+  defaultView: 'Демейки көрүнүш',
+  reminders: 'Мөөнөт тууралуу эскертүүлөр',
+  remindersDesc: 'Аткаруучуга — мөөнөткө чейин; аткаруучуга жана авторго — тапшырманын мөөнөтү өткөндө.',
+  remindersOn: 'Эскертүүлөрдү жөнөтүү',
+  dueSoon: 'Мөөнөткө чейин эскертүү',
+  dueSoonDesc: 'Мөөнөткө канча саат калганда.',
+  hours: 'с',
+};

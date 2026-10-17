@@ -26,51 +26,51 @@ import { demoMoney, dropNotifications, isoDate, removeDemoBlobs } from '../share
  * warehouse real documents use is kept.
  */
 
-const STOREKEEPER = { key: 'emp.store1', name: { ru: 'Андрей Кладовщиков', en: 'Andrey Store' } };
-const FOREMAN = { key: 'org.foreman', name: { ru: 'Пётр Прорабов', en: 'Peter Foreman' } };
+const STOREKEEPER = { key: 'emp.store1', name: { ru: 'Андрей Кладовщиков', en: 'Andrey Store', ky: 'Андрей Кладовщиков' } };
+const FOREMAN = { key: 'org.foreman', name: { ru: 'Пётр Прорабов', en: 'Peter Foreman', ky: 'Пётр Прорабов' } };
 
 const CATEGORIES = [
-  ['materials', null, { ru: 'Демо: материалы', en: 'Demo: materials' }],
-  ['dry', 'materials', { ru: 'Сухие смеси', en: 'Dry mixes' }],
-  ['electric', 'materials', { ru: 'Электрика', en: 'Electrics' }],
-  ['fasteners', 'materials', { ru: 'Крепёж', en: 'Fasteners' }],
-  ['finish', 'materials', { ru: 'Отделка', en: 'Finishing' }],
-  ['tools', null, { ru: 'Демо: инструмент', en: 'Demo: tools' }],
-  ['ppe', null, { ru: 'Демо: СИЗ и расходники', en: 'Demo: PPE and consumables' }],
+  ['materials', null, { ru: 'Демо: материалы', en: 'Demo: materials', ky: 'Демо: материалдар', tr: 'Demo: malzemeler', zh: '演示：材料' }],
+  ['dry', 'materials', { ru: 'Сухие смеси', en: 'Dry mixes', ky: 'Кургак аралашмалар', tr: 'Kuru karışımlar', zh: '干混料' }],
+  ['electric', 'materials', { ru: 'Электрика', en: 'Electrics', ky: 'Электрика', tr: 'Elektrik', zh: '电气' }],
+  ['fasteners', 'materials', { ru: 'Крепёж', en: 'Fasteners', ky: 'Бекиткичтер', tr: 'Bağlantı elemanları', zh: '紧固件' }],
+  ['finish', 'materials', { ru: 'Отделка', en: 'Finishing', ky: 'Жасалга', tr: 'İç yapı', zh: '装修' }],
+  ['tools', null, { ru: 'Демо: инструмент', en: 'Demo: tools', ky: 'Демо: шаймандар', tr: 'Demo: aletler', zh: '演示：工具' }],
+  ['ppe', null, { ru: 'Демо: СИЗ и расходники', en: 'Demo: PPE and consumables', ky: 'Демо: ЖКК жана сарпталуучу материалдар', tr: 'Demo: KKD ve sarf malzemeleri', zh: '演示：劳保用品和耗材' }],
 ];
 
 // key, sku, name, category, base unit, pack [unit, factor] | null, tracking, price (USD per base unit), expiry
 const ITEMS = [
-  ['cement', 'DEMO-CEM500', { ru: 'Цемент М500, мешок 50 кг', en: 'Cement 42.5, 50 kg bag' }, 'dry', 'мешок', null, 'batch', 7, true],
-  ['plaster', 'DEMO-PLS30', { ru: 'Штукатурка гипсовая 30 кг', en: 'Gypsum plaster 30 kg' }, 'dry', 'мешок', null, 'batch', 8.5, true],
-  ['glue', 'DEMO-GLU25', { ru: 'Клей плиточный 25 кг', en: 'Tile adhesive 25 kg' }, 'dry', 'мешок', null, 'batch', 6, true],
-  ['putty', 'DEMO-PUT20', { ru: 'Шпаклёвка финишная 20 кг', en: 'Finishing putty 20 kg' }, 'dry', 'мешок', null, 'quantity', 9],
-  ['sealant', 'DEMO-SEAL', { ru: 'Герметик силиконовый 280 мл', en: 'Silicone sealant 280 ml' }, 'finish', 'шт', null, 'batch', 3.2, true],
-  ['foam', 'DEMO-FOAM', { ru: 'Пена монтажная 750 мл', en: 'Expanding foam 750 ml' }, 'finish', 'шт', null, 'batch', 5.5, true],
-  ['cable25', 'DEMO-CAB25', { ru: 'Кабель 3×2,5 мм²', en: 'Cable 3×2.5 mm²' }, 'electric', 'м', ['бухта', 100], 'quantity', 0.9],
-  ['cable15', 'DEMO-CAB15', { ru: 'Кабель 3×1,5 мм²', en: 'Cable 3×1.5 mm²' }, 'electric', 'м', ['бухта', 100], 'quantity', 0.6],
-  ['breaker', 'DEMO-BRK16', { ru: 'Автоматический выключатель 16 А', en: 'Circuit breaker 16 A' }, 'electric', 'шт', null, 'quantity', 7],
-  ['socket', 'DEMO-SOCK2', { ru: 'Розетка двойная с заземлением', en: 'Double socket, earthed' }, 'electric', 'шт', null, 'quantity', 4.5],
-  ['lamp', 'DEMO-LED36', { ru: 'Светильник LED 36 Вт', en: 'LED panel 36 W' }, 'electric', 'шт', null, 'quantity', 18],
-  ['screw', 'DEMO-SCR75', { ru: 'Саморез по дереву 4,2×75', en: 'Wood screw 4.2×75' }, 'fasteners', 'шт', ['уп', 200], 'quantity', 0.04],
-  ['dowel', 'DEMO-DWL640', { ru: 'Дюбель-гвоздь 6×40', en: 'Nail plug 6×40' }, 'fasteners', 'шт', ['уп', 100], 'quantity', 0.05],
-  ['anchor', 'DEMO-ANC10', { ru: 'Анкерный болт 10×100', en: 'Anchor bolt 10×100' }, 'fasteners', 'шт', null, 'quantity', 0.6],
-  ['paint', 'DEMO-PNT10', { ru: 'Краска фасадная белая 10 л', en: 'White facade paint 10 l' }, 'finish', 'шт', null, 'batch', 32, true],
-  ['primer', 'DEMO-PRM10', { ru: 'Грунтовка глубокого проникновения 10 л', en: 'Deep primer 10 l' }, 'finish', 'шт', null, 'quantity', 12],
-  ['tile', 'DEMO-TIL3060', { ru: 'Плитка керамическая 30×60', en: 'Ceramic tile 30×60' }, 'finish', 'м²', null, 'quantity', 11],
-  ['laminate', 'DEMO-LAM33', { ru: 'Ламинат 33 класс', en: 'Laminate, class 33' }, 'finish', 'м²', null, 'quantity', 14],
-  ['drill', 'DEMO-RH26', { ru: 'Перфоратор SDS-plus 800 Вт', en: 'SDS-plus rotary hammer 800 W' }, 'tools', 'шт', null, 'serial', 180],
-  ['driver', 'DEMO-CD18', { ru: 'Шуруповёрт аккумуляторный 18 В', en: 'Cordless drill 18 V' }, 'tools', 'шт', null, 'serial', 120],
-  ['grinder', 'DEMO-AG125', { ru: 'Угловая шлифмашина 125 мм', en: 'Angle grinder 125 mm' }, 'tools', 'шт', null, 'serial', 75],
-  ['laser', 'DEMO-LL360', { ru: 'Лазерный уровень 360°', en: '360° laser level' }, 'tools', 'шт', null, 'serial', 160],
-  ['generator', 'DEMO-GEN5', { ru: 'Генератор бензиновый 5 кВт', en: 'Petrol generator 5 kW' }, 'tools', 'шт', null, 'serial', 650],
-  ['gloves', 'DEMO-GLV', { ru: 'Перчатки рабочие', en: 'Work gloves' }, 'ppe', 'пар', null, 'quantity', 1.2],
-  ['helmet', 'DEMO-HLM', { ru: 'Каска строительная', en: 'Safety helmet' }, 'ppe', 'шт', null, 'quantity', 6],
-  ['vest', 'DEMO-VST', { ru: 'Жилет сигнальный', en: 'High-visibility vest' }, 'ppe', 'шт', null, 'quantity', 3],
-  ['disc', 'DEMO-DSC125', { ru: 'Круг отрезной по металлу 125 мм', en: 'Metal cutting disc 125 mm' }, 'ppe', 'шт', null, 'quantity', 0.8],
-  ['bits', 'DEMO-BIT2', { ru: 'Бита PH2, набор 10 шт.', en: 'PH2 bits, set of 10' }, 'ppe', 'уп', null, 'quantity', 3],
-  ['tape', 'DEMO-TAPE', { ru: 'Лента малярная 50 мм', en: 'Masking tape 50 mm' }, 'ppe', 'шт', null, 'quantity', 1.5],
-  ['bags', 'DEMO-BAG120', { ru: 'Мешки для строительного мусора', en: 'Construction waste bags' }, 'ppe', 'шт', null, 'quantity', 0.4],
+  ['cement', 'DEMO-CEM500', { ru: 'Цемент М500, мешок 50 кг', en: 'Cement 42.5, 50 kg bag', ky: 'Цемент 42.5, 50 кг кап', tr: 'Çimento 42.5, 50 kg torba', zh: '水泥 42.5，50 kg 袋装' }, 'dry', 'мешок', null, 'batch', 7, true],
+  ['plaster', 'DEMO-PLS30', { ru: 'Штукатурка гипсовая 30 кг', en: 'Gypsum plaster 30 kg', ky: 'Гипс шыбагы 30 кг', tr: 'Alçı sıva 30 kg', zh: '石膏抹灰 30 kg' }, 'dry', 'мешок', null, 'batch', 8.5, true],
+  ['glue', 'DEMO-GLU25', { ru: 'Клей плиточный 25 кг', en: 'Tile adhesive 25 kg', ky: 'Плитка клейи 25 кг', tr: 'Seramik yapıştırıcısı 25 kg', zh: '瓷砖胶 25 kg' }, 'dry', 'мешок', null, 'batch', 6, true],
+  ['putty', 'DEMO-PUT20', { ru: 'Шпаклёвка финишная 20 кг', en: 'Finishing putty 20 kg', ky: 'Финиш шпаклевкасы 20 кг', tr: 'Son kat macun 20 kg', zh: '面层腻子 20 kg' }, 'dry', 'мешок', null, 'quantity', 9],
+  ['sealant', 'DEMO-SEAL', { ru: 'Герметик силиконовый 280 мл', en: 'Silicone sealant 280 ml', ky: 'Силикон герметиги 280 мл', tr: 'Silikon mastik 280 ml', zh: '硅酮密封胶 280 ml' }, 'finish', 'шт', null, 'batch', 3.2, true],
+  ['foam', 'DEMO-FOAM', { ru: 'Пена монтажная 750 мл', en: 'Expanding foam 750 ml', ky: 'Монтаждык көбүк 750 мл', tr: 'Poliüretan köpük 750 ml', zh: '发泡胶 750 ml' }, 'finish', 'шт', null, 'batch', 5.5, true],
+  ['cable25', 'DEMO-CAB25', { ru: 'Кабель 3×2,5 мм²', en: 'Cable 3×2.5 mm²', ky: 'Кабель 3×2,5 мм²', tr: 'Kablo 3×2,5 mm²', zh: '电缆 3×2.5 mm²' }, 'electric', 'м', ['бухта', 100], 'quantity', 0.9],
+  ['cable15', 'DEMO-CAB15', { ru: 'Кабель 3×1,5 мм²', en: 'Cable 3×1.5 mm²', ky: 'Кабель 3×1,5 мм²', tr: 'Kablo 3×1,5 mm²', zh: '电缆 3×1.5 mm²' }, 'electric', 'м', ['бухта', 100], 'quantity', 0.6],
+  ['breaker', 'DEMO-BRK16', { ru: 'Автоматический выключатель 16 А', en: 'Circuit breaker 16 A', ky: 'Автоматтык өчүргүч 16 А', tr: 'Otomatik sigorta 16 A', zh: '断路器 16 A' }, 'electric', 'шт', null, 'quantity', 7],
+  ['socket', 'DEMO-SOCK2', { ru: 'Розетка двойная с заземлением', en: 'Double socket, earthed', ky: 'Жерге туташтырылган кош розетка', tr: 'Topraklı ikili priz', zh: '带接地双插座' }, 'electric', 'шт', null, 'quantity', 4.5],
+  ['lamp', 'DEMO-LED36', { ru: 'Светильник LED 36 Вт', en: 'LED panel 36 W', ky: 'LED панели 36 Вт', tr: 'LED panel 36 W', zh: 'LED 面板灯 36 W' }, 'electric', 'шт', null, 'quantity', 18],
+  ['screw', 'DEMO-SCR75', { ru: 'Саморез по дереву 4,2×75', en: 'Wood screw 4.2×75', ky: 'Жыгачка шуруп 4,2×75', tr: 'Ahşap vidası 4,2×75', zh: '木螺钉 4.2×75' }, 'fasteners', 'шт', ['уп', 200], 'quantity', 0.04],
+  ['dowel', 'DEMO-DWL640', { ru: 'Дюбель-гвоздь 6×40', en: 'Nail plug 6×40', ky: 'Мык-дюбель 6×40', tr: 'Çivi dübel 6×40', zh: '钉式膨胀管 6×40' }, 'fasteners', 'шт', ['уп', 100], 'quantity', 0.05],
+  ['anchor', 'DEMO-ANC10', { ru: 'Анкерный болт 10×100', en: 'Anchor bolt 10×100', ky: 'Анкер болту 10×100', tr: 'Ankraj cıvatası 10×100', zh: '锚栓 10×100' }, 'fasteners', 'шт', null, 'quantity', 0.6],
+  ['paint', 'DEMO-PNT10', { ru: 'Краска фасадная белая 10 л', en: 'White facade paint 10 l', ky: 'Ак фасад боегу 10 л', tr: 'Beyaz dış cephe boyası 10 l', zh: '白色外墙涂料 10 l' }, 'finish', 'шт', null, 'batch', 32, true],
+  ['primer', 'DEMO-PRM10', { ru: 'Грунтовка глубокого проникновения 10 л', en: 'Deep primer 10 l', ky: 'Терең сиңүүчү грунтовка 10 л', tr: 'Derin nüfuzlu astar 10 l', zh: '深层渗透底漆 10 l' }, 'finish', 'шт', null, 'quantity', 12],
+  ['tile', 'DEMO-TIL3060', { ru: 'Плитка керамическая 30×60', en: 'Ceramic tile 30×60', ky: 'Керамикалык плитка 30×60', tr: 'Seramik karo 30×60', zh: '瓷砖 30×60' }, 'finish', 'м²', null, 'quantity', 11],
+  ['laminate', 'DEMO-LAM33', { ru: 'Ламинат 33 класс', en: 'Laminate, class 33', ky: 'Ламинат, 33-класс', tr: 'Laminat parke, 33. sınıf', zh: '强化地板，33 级' }, 'finish', 'м²', null, 'quantity', 14],
+  ['drill', 'DEMO-RH26', { ru: 'Перфоратор SDS-plus 800 Вт', en: 'SDS-plus rotary hammer 800 W', ky: 'SDS-plus перфоратору 800 Вт', tr: 'SDS-plus kırıcı-delici 800 W', zh: 'SDS-plus 电锤 800 W' }, 'tools', 'шт', null, 'serial', 180],
+  ['driver', 'DEMO-CD18', { ru: 'Шуруповёрт аккумуляторный 18 В', en: 'Cordless drill 18 V', ky: 'Аккумулятордук бурагыч 18 В', tr: 'Akülü vidalama 18 V', zh: '充电式电钻 18 V' }, 'tools', 'шт', null, 'serial', 120],
+  ['grinder', 'DEMO-AG125', { ru: 'Угловая шлифмашина 125 мм', en: 'Angle grinder 125 mm', ky: 'Бурчтук жылмалагыч 125 мм', tr: 'Avuç taşlama 125 mm', zh: '角磨机 125 mm' }, 'tools', 'шт', null, 'serial', 75],
+  ['laser', 'DEMO-LL360', { ru: 'Лазерный уровень 360°', en: '360° laser level', ky: '360° лазердик деңгээл', tr: '360° lazer nivo', zh: '360° 激光水平仪' }, 'tools', 'шт', null, 'serial', 160],
+  ['generator', 'DEMO-GEN5', { ru: 'Генератор бензиновый 5 кВт', en: 'Petrol generator 5 kW', ky: 'Бензин генератору 5 кВт', tr: 'Benzinli jeneratör 5 kW', zh: '汽油发电机 5 kW' }, 'tools', 'шт', null, 'serial', 650],
+  ['gloves', 'DEMO-GLV', { ru: 'Перчатки рабочие', en: 'Work gloves', ky: 'Жумушчу мээлей', tr: 'İş eldiveni', zh: '劳保手套' }, 'ppe', 'пар', null, 'quantity', 1.2],
+  ['helmet', 'DEMO-HLM', { ru: 'Каска строительная', en: 'Safety helmet', ky: 'Курулуш каскасы', tr: 'Baret', zh: '安全帽' }, 'ppe', 'шт', null, 'quantity', 6],
+  ['vest', 'DEMO-VST', { ru: 'Жилет сигнальный', en: 'High-visibility vest', ky: 'Сигналдык жилет', tr: 'Reflektörlü yelek', zh: '反光背心' }, 'ppe', 'шт', null, 'quantity', 3],
+  ['disc', 'DEMO-DSC125', { ru: 'Круг отрезной по металлу 125 мм', en: 'Metal cutting disc 125 mm', ky: 'Металл кесүүчү диск 125 мм', tr: 'Metal kesme diski 125 mm', zh: '金属切割片 125 mm' }, 'ppe', 'шт', null, 'quantity', 0.8],
+  ['bits', 'DEMO-BIT2', { ru: 'Бита PH2, набор 10 шт.', en: 'PH2 bits, set of 10', ky: 'PH2 биталары, 10 даана топтом', tr: 'PH2 uç, 10\'lu set', zh: 'PH2 批头，10 件套' }, 'ppe', 'уп', null, 'quantity', 3],
+  ['tape', 'DEMO-TAPE', { ru: 'Лента малярная 50 мм', en: 'Masking tape 50 mm', ky: 'Малярдык тасма 50 мм', tr: 'Maskeleme bandı 50 mm', zh: '美纹纸胶带 50 mm' }, 'ppe', 'шт', null, 'quantity', 1.5],
+  ['bags', 'DEMO-BAG120', { ru: 'Мешки для строительного мусора', en: 'Construction waste bags', ky: 'Курулуш таштандылары үчүн каптар', tr: 'İnşaat atığı torbaları', zh: '建筑垃圾袋' }, 'ppe', 'шт', null, 'quantity', 0.4],
 ];
 
 // Opening balances of the central warehouse: [item, qty (base units), bin, batch, expires in days]
@@ -100,6 +100,9 @@ registerDemo({
   describe: {
     ru: 'Центральный склад с ячейками и склад объекта, 30 позиций (количество, партии, инструмент с серийными номерами), приход, выдача, перемещение в пути, списание на согласовании, остатки ниже минимума и инвентаризация',
     en: 'A central warehouse with bins and a site warehouse, 30 items (quantity, batches, serial tools), a receipt, an issue, a transfer in transit, a write-off in approval, stock below minimum and an inventory count',
+    ky: 'Уячалары бар борбордук кампа жана объекттин кампасы, 30 позиция (саны, партиялар, сериялык номерлүү шаймандар), кирим, берүү, жолдогу которуу, макулдашуудагы эсептен чыгаруу, минимумдан төмөн калдыктар жана инвентаризация',
+    tr: 'Lokasyonlu bir merkez depo ve bir şantiye deposu, 30 stok kartı (miktar, partiler, seri numaralı aletler), bir giriş, bir çıkış, yoldaki bir transfer, onaydaki bir hurdaya ayırma, asgari seviyenin altında stok ve bir sayım',
+    zh: '带库位的中心仓库和一个工地仓库，30 个物料（按数量、批次、带序列号的工具），一张入库单、一张出库单、一笔在途调拨、一张审批中的报废单、低于最低库存的物料和一次盘点',
   },
   after: ['procurement', 'masterplan', 'companies', 'org', 'employees'],
   async seed(ctx) {
@@ -112,13 +115,13 @@ registerDemo({
     const projectId = (await ctx.records('mp_projects', 'masterplan'))[0] || null;
     const project = projectId ? (await ctx.query(`SELECT id, name FROM mp_projects WHERE id = $1`, [projectId])).rows[0] : null;
     const supplierId = (await ctx.records('cmp_companies', 'companies'))[1] || null;
-    const supplierName = ctx.t({ ru: 'АО «Образец»', en: 'Sample JSC' });
+    const supplierName = ctx.t({ ru: 'АО «Образец»', en: 'Sample JSC', ky: '«Үлгү» АК', tr: 'Numune A.Ş.', zh: '“样本”股份公司' });
 
     // ── Warehouses and bins ────────────────────────────────────────────────
-    const main = await createWarehouse(req, { name: ctx.t({ ru: 'Демо: центральный склад', en: 'Demo: central warehouse' }), code: await freeCode(ctx, 'DEMO-C'), kind: 'main', molId: keeper, address: ctx.t({ ru: 'г. Пример, ул. Складская, 7', en: '7 Store St, Example City' }), binsEnabled: true, note: ctx.t({ ru: 'Демо-данные', en: 'Demo data' }) });
+    const main = await createWarehouse(req, { name: ctx.t({ ru: 'Демо: центральный склад', en: 'Demo: central warehouse', ky: 'Демо: борбордук кампа', tr: 'Demo: merkez depo', zh: '演示：中心仓库' }), code: await freeCode(ctx, 'DEMO-C'), kind: 'main', molId: keeper, address: ctx.t({ ru: 'г. Пример, ул. Складская, 7', en: '7 Store St, Example City', ky: 'Мисал ш., Кампа к., 7', tr: 'Depo Sok. No:7, Örnek Şehir', zh: '示例市仓库街 7 号' }), binsEnabled: true, note: ctx.t({ ru: 'Демо-данные', en: 'Demo data', ky: 'Демо маалыматтар', tr: 'Demo verileri', zh: '演示数据' }) });
     const mainId = main.warehouse?.id ?? main.id;
     await ctx.track('wh_warehouses', mainId);
-    const site = await createWarehouse(req, { name: ctx.t({ ru: 'Демо: склад объекта «Северный квартал»', en: 'Demo: «North Quarter» site store' }), code: await freeCode(ctx, 'DEMO-S'), kind: 'site', molId: foreman, address: ctx.t({ ru: 'г. Северный, ул. Строителей, 5', en: '5 Builders St, North Town' }), ...(project ? { projectId: project.id, projectLabel: project.name } : {}) });
+    const site = await createWarehouse(req, { name: ctx.t({ ru: 'Демо: склад объекта «Северный квартал»', en: 'Demo: «North Quarter» site store', ky: 'Демо: «Түндүк квартал» объектинин кампасы', tr: 'Demo: «Kuzey Mahallesi» şantiye deposu', zh: '演示：“北区”工地仓库' }), code: await freeCode(ctx, 'DEMO-S'), kind: 'site', molId: foreman, address: ctx.t({ ru: 'г. Северный, ул. Строителей, 5', en: '5 Builders St, North Town', ky: 'Түндүк ш., Курулушчулар к., 5', tr: 'İnşaatçılar Sok. No:5, Kuzey Kent', zh: '北城建设者街 5 号' }), ...(project ? { projectId: project.id, projectLabel: project.name } : {}) });
     const siteId = site.warehouse?.id ?? site.id;
     await ctx.track('wh_warehouses', siteId);
     await createBins(req, mainId, { kind: 'zone', codes: ['A', 'B'] });
@@ -151,7 +154,7 @@ registerDemo({
         serviceIntervalDays: tracking === 'serial' ? 180 : undefined,
         supplierName,
         ...(supplierId ? { supplierCompanyId: supplierId } : {}),
-        description: ctx.t({ ru: 'Демо-позиция.', en: 'A demo item.' }),
+        description: ctx.t({ ru: 'Демо-позиция.', en: 'A demo item.', ky: 'Демо позиция.', tr: 'Bir demo stok kartı.', zh: '演示物料。' }),
         barcodes: [{ code: `2990000${String(index + 1).padStart(5, '0')}`, ...(pack ? { unit: pack[0] } : {}) }],
       });
       const item = created.item || created;
@@ -176,7 +179,7 @@ registerDemo({
         type: 'opening',
         toWarehouseId: mainId,
         date: ctx.day(-40, '09:00').toISOString(),
-        comment: ctx.t({ ru: 'Демо: начальные остатки', en: 'Demo: opening balances' }),
+        comment: ctx.t({ ru: 'Демо: начальные остатки', en: 'Demo: opening balances', ky: 'Демо: баштапкы калдыктар', tr: 'Demo: açılış stokları', zh: '演示：期初库存' }),
         lines: [
           ...OPENING_MAIN.map(([key, qty, bin, batch, expires]) => ({
             itemId: items[key].id,
@@ -196,7 +199,7 @@ registerDemo({
         type: 'opening',
         toWarehouseId: siteId,
         date: ctx.day(-35, '09:00').toISOString(),
-        comment: ctx.t({ ru: 'Демо: остатки на объекте', en: 'Demo: site balances' }),
+        comment: ctx.t({ ru: 'Демо: остатки на объекте', en: 'Demo: site balances', ky: 'Демо: объекттеги калдыктар', tr: 'Demo: şantiye stokları', zh: '演示：工地库存' }),
         lines: [['cement', 40, 'P-0901', 30], ['putty', 12], ['screw', 2000], ['gloves', 20], ['helmet', 10], ['breaker', 30], ['cable25', 200]].map(([key, qty, batch, expires]) => ({
           itemId: items[key].id,
           qty,
@@ -222,7 +225,7 @@ registerDemo({
         supplierName,
         ...(supplierId ? { supplierCompanyId: supplierId } : {}),
         currency,
-        comment: ctx.t({ ru: 'Демо: поставка по счёту № 118', en: 'Demo: delivery on invoice 118' }),
+        comment: ctx.t({ ru: 'Демо: поставка по счёту № 118', en: 'Demo: delivery on invoice 118', ky: 'Демо: № 118 эсеп-дүмүрчөк боюнча жеткирүү', tr: 'Demo: 118 numaralı fatura ile teslimat', zh: '演示：按 118 号发票到货' }),
         lines: [
           { itemId: items.cement.id, qty: 60, price: price(7.2), toBinId: bins['A-01'], batchNumber: 'P-1006', expiresOn: isoDate(ctx.day(85)) },
           { itemId: items.screw.id, qty: 10, unit: 'уп', price: price(8), toBinId: bins['A-02'] },
@@ -240,7 +243,7 @@ registerDemo({
         toHolderId: foreman,
         returnBy: isoDate(ctx.day(25)),
         date: ctx.day(-3, '08:30').toISOString(),
-        comment: ctx.t({ ru: 'Демо: на работы по линии A-1', en: 'Demo: for line A-1 works' }),
+        comment: ctx.t({ ru: 'Демо: на работы по линии A-1', en: 'Demo: for line A-1 works', ky: 'Демо: A-1 линиясындагы иштер үчүн', tr: 'Demo: A-1 hattı işleri için', zh: '演示：用于 A-1 排施工' }),
         lines: [
           { itemId: items.drill.id, instanceId: instanceOf('DEMO-INV-001'), qty: 1, binId: bins['B-02'] },
           { itemId: items.driver.id, instanceId: instanceOf('DEMO-INV-003'), qty: 1, binId: bins['B-02'] },
@@ -257,7 +260,7 @@ registerDemo({
         warehouseId: mainId,
         toHolderType: 'employee',
         toHolderId: foreman,
-        comment: ctx.t({ ru: 'Демо: заявка прораба на завтра', en: 'Demo: the foreman’s request for tomorrow' }),
+        comment: ctx.t({ ru: 'Демо: заявка прораба на завтра', en: 'Demo: the foreman’s request for tomorrow', ky: 'Демо: прорабдын эртеңки талабы', tr: 'Demo: şantiye şefinin yarın için talebi', zh: '演示：工长明天的领料申请' }),
         lines: [
           { itemId: items.foam.id, qty: 6 },
           { itemId: items.sealant.id, qty: 10 },
@@ -272,7 +275,7 @@ registerDemo({
         type: 'transfer',
         warehouseId: mainId,
         toWarehouseId: siteId,
-        comment: ctx.t({ ru: 'Демо: электрика для дома 1', en: 'Demo: electrics for building 1' }),
+        comment: ctx.t({ ru: 'Демо: электрика для дома 1', en: 'Demo: electrics for building 1', ky: 'Демо: 1-үй үчүн электрика', tr: 'Demo: 1. Blok için elektrik malzemesi', zh: '演示：1 号楼电气材料' }),
         lines: [
           { itemId: items.cable25.id, qty: 300, unit: 'м', binId: bins['B-01'] },
           { itemId: items.breaker.id, qty: 40, binId: bins['B-02'] },
@@ -285,15 +288,15 @@ registerDemo({
     // Only through a demo route: with a real route in force the write-off stays a draft,
     // so real approvers never get a made-up document (review R1).
     const demoRoute = await ensureDemoRoute(ctx, APPROVAL_TYPE, {
-      name: ctx.t({ ru: 'Демо: списание → администратор склада', en: 'Demo: write-off → warehouse administrator' }),
-      stages: [{ id: 'admin', name: ctx.t({ ru: 'Администратор склада', en: 'Warehouse administrator' }), mode: 'any', approvers: [{ kind: 'permission', key: 'warehouse.admin' }], conditions: [] }],
+      name: ctx.t({ ru: 'Демо: списание → администратор склада', en: 'Demo: write-off → warehouse administrator', ky: 'Демо: эсептен чыгаруу → кампанын администратору', tr: 'Demo: hurdaya ayırma → depo yöneticisi', zh: '演示：报废 → 仓库管理员' }),
+      stages: [{ id: 'admin', name: ctx.t({ ru: 'Администратор склада', en: 'Warehouse administrator', ky: 'Кампанын администратору', tr: 'Depo yöneticisi', zh: '仓库管理员' }), mode: 'any', approvers: [{ kind: 'permission', key: 'warehouse.admin' }], conditions: [] }],
     });
     const writeoff = await doc(
       {
         type: 'writeoff',
         warehouseId: mainId,
         reason: 'damage',
-        reasonText: ctx.t({ ru: 'Демо: повреждено при разгрузке, акт № 7', en: 'Demo: damaged while unloading, report 7' }),
+        reasonText: ctx.t({ ru: 'Демо: повреждено при разгрузке, акт № 7', en: 'Demo: damaged while unloading, report 7', ky: 'Демо: түшүрүүдө бузулду, № 7 акт', tr: 'Demo: boşaltma sırasında hasar gördü, 7 numaralı tutanak', zh: '演示：卸货时损坏，第 7 号单据' }),
         lines: [{ itemId: items.laminate.id, qty: 45, binId: bins['A-02'] }],
       },
       demoRoute ? (id) => postDoc(req, id) : null
@@ -307,15 +310,15 @@ registerDemo({
       qty: 16,
       targetType: building[0] ? 'object' : 'other',
       targetId: building[0]?.id || null,
-      targetLabel: building[0]?.name || ctx.t({ ru: 'Демо: офис продаж', en: 'Demo: sales office' }),
+      targetLabel: building[0]?.name || ctx.t({ ru: 'Демо: офис продаж', en: 'Demo: sales office', ky: 'Демо: сатуу кеңсеси', tr: 'Demo: satış ofisi', zh: '演示：销售办公室' }),
       expiresOn: isoDate(ctx.day(20)),
-      note: ctx.t({ ru: 'Демо: светильники для подъездов', en: 'Demo: lights for the entrances' }),
+      note: ctx.t({ ru: 'Демо: светильники для подъездов', en: 'Demo: lights for the entrances', ky: 'Демо: подъезддер үчүн шамчырактар', tr: 'Demo: giriş holleri için aydınlatma', zh: '演示：楼道照明灯具' }),
     });
     const reserveId = reserve.reserve?.id ?? reserve.id ?? (await ctx.query(`SELECT id FROM wh_reserves WHERE item_id = $1 ORDER BY id DESC LIMIT 1`, [items.lamp.id])).rows[0]?.id;
     if (reserveId) await ctx.track('wh_reserves', reserveId);
 
     // ── An inventory count at the site, half done ──────────────────────────
-    const session = await createSession(req, { warehouseId: siteId, title: ctx.t({ ru: 'Демо: инвентаризация объекта', en: 'Demo: site inventory' }), freezePolicy: 'record', counters: [foreman, keeper], comment: ctx.t({ ru: 'Пересчитать до конца недели', en: 'Count by the end of the week' }) });
+    const session = await createSession(req, { warehouseId: siteId, title: ctx.t({ ru: 'Демо: инвентаризация объекта', en: 'Demo: site inventory', ky: 'Демо: объекттин инвентаризациясы', tr: 'Demo: şantiye sayımı', zh: '演示：工地盘点' }), freezePolicy: 'record', counters: [foreman, keeper], comment: ctx.t({ ru: 'Пересчитать до конца недели', en: 'Count by the end of the week', ky: 'Жуманын аягына чейин кайра эсептөө', tr: 'Hafta sonuna kadar sayın', zh: '本周末前完成盘点' }) });
     const sessionId = session.session?.id ?? session.id;
     await ctx.track('wh_inv_sessions', sessionId);
     for (const [key, qty] of [['cement', 38], ['putty', 12], ['helmet', 9]]) {

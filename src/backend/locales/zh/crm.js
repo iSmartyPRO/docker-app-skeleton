@@ -1,2 +1,40 @@
-// Simplified Chinese: fill keys from ../en/crm.js — missing ones fall back to English.
-export default {};
+export default {
+  notify: {
+    deal: '交易“{deal}”',
+    due: '截止：{date}',
+    assigned: { title: '交易“{title}”已分配给您' },
+    activity: { title: '新活动：{title}' },
+    activityDue: { title: '提醒：{title}' },
+    stage: {
+      title: '交易“{title}”：阶段“{stage}”',
+      reason: '原因：{reason}',
+    },
+  },
+  csv: {
+    yes: '是',
+    no: '否',
+    columns: {
+      id: 'ID',
+      title: '名称',
+      pipeline: '销售漏斗',
+      stage: '阶段',
+      amount: '金额',
+      currency: '货币',
+      company: '公司',
+      person: '联系人',
+      phone: '电话',
+      email: '电子邮件',
+      owner: '负责人',
+      source: '来源',
+      closeDate: '成交日期',
+      createdAt: '创建时间',
+      updatedAt: '更新时间',
+      closedAt: '关闭时间',
+      createdBy: '创建人',
+      comment: '备注',
+      lostReason: '输单原因',
+      watchers: '关注人',
+      nextActivity: '下一活动',
+    },
+  },
+};

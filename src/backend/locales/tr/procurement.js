@@ -1,2 +1,60 @@
-// Turkish: fill keys from ../en/procurement.js — missing ones fall back to English.
-export default {};
+export default {
+  status: {
+    draft: 'Taslak',
+    pending: 'Onayda',
+    question: 'Yanıt bekliyor',
+    returned: 'Düzeltmeye geri gönderildi',
+    to_pay: 'Ödenecek',
+    partially_paid: 'Kısmen ödendi',
+    paid: 'Ödendi',
+    delivered: 'Teslim edildi',
+    closed: 'Kapatıldı',
+    rejected: 'Reddedildi',
+    cancelled: 'İptal edildi',
+  },
+  registryCsv: {
+    head: ['Grup', 'No.', 'Başlık', 'Tedarikçi', 'Tüzel kişi', 'Son ödeme tarihi', 'Tutar', 'Ödenen', 'Kalan', 'Para birimi', 'Durum', 'Oluşturan'],
+    group: { overdue: 'Gecikmiş', today: 'Bugün', week: 'Bu hafta', later: 'Daha sonra' },
+  },
+  // Column headers of the list export (the visible columns).
+  columns: {
+    number: 'No.',
+    title: 'Başlık',
+    amount: 'Tutar',
+    currency: 'Para birimi',
+    paid: 'Ödenen',
+    supplier: 'Tedarikçi',
+    category: 'Kategori',
+    urgency: 'Aciliyet',
+    status: 'Durum',
+    payBy: 'Son ödeme tarihi',
+    deliverBy: 'Son teslim tarihi',
+    responsible: 'Sorumlu',
+    author: 'Oluşturan',
+    legalEntity: 'Tüzel kişi',
+    createdAt: 'Oluşturulma',
+  },
+  notify: {
+    supplier: 'Tedarikçi: {name}',
+    left: 'Ödenecek kalan: {amount}',
+    wasDue: 'Son tarih: {date}',
+    toPay: {
+      title: 'Ödenecek: {doc}',
+      payBy: 'Ödeme tarihi: {date}',
+    },
+    paid: {
+      full: 'Ödendi: {doc}',
+      part: 'Kısmen ödendi: {doc}',
+      totals: 'Ödenen: {paid} / {total}',
+    },
+    delivered: {
+      full: 'Teslim edildi: {doc}',
+      part: 'Kısmen teslim edildi: {doc}',
+    },
+    assigned: { title: 'Sorumlusu sizsiniz: {doc}' },
+    paySoon: { title: 'Ödeme tarihi {date}: {doc}' },
+    payOverdue: { title: 'Ödeme gecikti: {doc}' },
+    deliverSoon: { title: 'Teslim tarihi {date}: {doc}' },
+    deliverOverdue: { title: 'Teslimat gecikti: {doc}' },
+  },
+};

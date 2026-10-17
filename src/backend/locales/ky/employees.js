@@ -1,2 +1,19 @@
-// Kyrgyz: fill keys from ../en/employees.js — missing ones fall back to English.
-export default {};
+export default {
+  notify: {
+    clearance: {
+      expired: 'мөөнөтү {date} бүткөн',
+      today: 'мөөнөтү бүгүн бүтөт',
+      expires: 'мөөнөтү {date} бүтөт ({days} күн калды)',
+      own: 'Сиздин «{clearance}» уруксатыңыздын {state}',
+      other: '«{clearance}» уруксаты: {employee} — {state}',
+      ownBody: 'Аны узартуу үчүн кадрлар бөлүмүнө кайрылыңыз.',
+      otherBody: 'Аны узартыңыз же кызматкерди ал талап кылынган иштерге жибербеңиз.',
+    },
+  },
+  csv: {
+    head: ['Фамилиясы', 'Аты', 'Атасынын аты', 'Кызмат орду', 'Бөлүм', 'Объект', 'Статус', 'Жумушчу почта', 'Жумушчу телефон', 'Мобилдик'],
+    hrHead: ['Табель номери', 'Иштөө түрү', 'Кабыл алынган күнү', 'Бошотулган күнү', 'Эсептик жазуу'],
+    status: { active: 'Иштеп жатат', vacation: 'Өргүүдө', terminated: 'Бошотулган', candidate: 'Талапкер' },
+    employment: { staff: 'Штаттык', part_time: 'Кошумча иштөөчү', contractor: 'Подрядчик', seasonal: 'Мезгилдүү' },
+  },
+};

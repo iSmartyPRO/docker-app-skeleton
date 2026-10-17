@@ -1,4 +1,5 @@
 import { query, withTransaction } from '../../config/database.js';
+import { localeOrDefault, pick } from '../../services/i18n/index.js';
 import { avatarOf, clean, httpError, intId } from '../shared/acl.js';
 import { canView } from './access.js';
 import { COLUMNS, FROM, dealsByIds, logEvent, requireDeal } from './deals.js';
@@ -13,7 +14,14 @@ import { BUCKETS, Params, boundsFor, bucketSql, parseStamp, posInt } from './uti
  */
 
 export const ACTIVITY_KINDS = ['call', 'meeting', 'task', 'email', 'other'];
-const KIND_TITLES = { call: 'Звонок', meeting: 'Встреча', task: 'Задача', email: 'Письмо', other: 'Дело' };
+// Title of an activity created without one, in its creator's language.
+const KIND_TITLES = {
+  call: { ru: 'Звонок', en: 'Call', ky: 'Чалуу', tr: 'Arama', zh: '电话' },
+  meeting: { ru: 'Встреча', en: 'Meeting', ky: 'Жолугушуу', tr: 'Toplantı', zh: '会议' },
+  task: { ru: 'Задача', en: 'Task', ky: 'Тапшырма', tr: 'Görev', zh: '任务' },
+  email: { ru: 'Письмо', en: 'E-mail', ky: 'Кат', tr: 'E-posta', zh: '邮件' },
+  other: { ru: 'Дело', en: 'Activity', ky: 'Иш-чара', tr: 'Aktivite', zh: '活动' },
+};
 const MAX_REMIND = 60 * 24 * 14;
 
 // Open and done activities of a deal, with people, as one query's rows.
@@ -95,7 +103,7 @@ const activityRef = (row) => ({ id: row.id, kind: row.kind, title: row.title, du
 export async function createActivity(ctx, dealId, input = {}) {
   const { row: deal } = await requireDeal(ctx, dealId);
   const kind = ACTIVITY_KINDS.includes(input.kind) ? input.kind : 'task';
-  const title = clean(input.title, 300) || KIND_TITLES[kind];
+  const title = clean(input.title, 300) || pick(KIND_TITLES[kind], localeOrDefault(ctx.locale));
   const ownerId = input.ownerId !== undefined && input.ownerId !== null && input.ownerId !== '' ? await activeUser(input.ownerId) : deal.owner_id || ctx.userId;
   if (!ownerId) throw httpError(400, 'The responsible person is not an active user', 'INVALID_FIELD');
   const dueAt = dueOf(input.dueAt);

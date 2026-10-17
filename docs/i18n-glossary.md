@@ -49,7 +49,7 @@ Style rules:
 | Юрлицо | Legal entity | Юридикалык жак | Tüzel kişi | 法人实体 |
 | Сотрудник | Employee | Кызматкер | Çalışan | 员工 |
 | Должность | Position | Кызмат орду | Pozisyon | 职位 |
-| Руководитель | Manager | Жетекчи | Yönetici (amir) | 负责人 |
+| Руководитель | Manager (head of a unit) | Жетекчи | Amir | 负责人 |
 | Задача | Task | Тапшырма | Görev | 任务 |
 | Проект | Project | Долбоор | Proje | 项目 |
 | Исполнитель | Assignee | Аткаруучу | Sorumlu | 执行人 |
@@ -100,3 +100,74 @@ Style rules:
 | Тур | Tour | Тур | Tur | 导览 |
 | Тема оформления | Theme | Тема | Tema | 主题 |
 | Язык | Language | Тил | Dil | 语言 |
+| Токен | Token | Токен | Belirteç | 令牌 |
+| Вебхук | Webhook | Вебхук | Web kancası | Webhook |
+| Эндпоинт | Endpoint | Эндпоинт | Uç nokta | 端点 |
+| Сессия | Session | Сессия | Oturum | 会话 |
+| Push-уведомления | Push notifications | Push-билдирмелер | Anlık bildirimler | 推送通知 |
+| Почта / e-mail | E-mail | Электрондук почта | E-posta | 电子邮件 |
+| Доменная учётная запись | Domain account | Домендик эсептик жазуу | Etki alanı hesabı | 域账户 |
+| Юнит (Мастерплан) | Unit (Masterplan) | Объект (бирдик) | Bağımsız bölüm | 房源单元 |
+| Ячейка (склад) | Bin | Уяча | Lokasyon | 库位 |
+| Позиция (документа) | Item line | Позиция | Kalem | 明细行 |
+| МОЛ | Financially responsible person | Материалдык жооптуу адам | Zimmet sorumlusu | 物资责任人 |
+| Акт | Act (certificate) | Акт | Tutanak | 单据（证明） |
+| Провести / проведён | Post / posted | Каттоо / катталды | Kaydet / kaydedildi | 过账 / 已过账 |
+| Сторно | Reversal | Сторно | Ters kayıt | 冲销 |
+| Требование на выдачу | Requisition | Берүүгө талап | Malzeme talebi | 领料申请 |
+| Допуск | Clearance | Уруксат (допуск) | Yetki belgesi | 资质证书 |
+| Наблюдатель | Watcher | Байкоочу | Gözlemci (tasks) / Takipçi (CRM) | 关注人 |
+| Соисполнитель | Co-assignee | Кошо аткаруучу | Ortak sorumlu | 协办人 |
+| Дело (CRM) | Activity | Иш-чара | Aktivite | 活动 |
+| Руководитель отдела продаж | Head of sales | Сатуу бөлүмүнүн жетекчиси | Satış müdürü | 销售经理 |
+| Менеджер по продажам | Sales manager | Сатуу менеджери | Satış temsilcisi | 销售代表 |
+| Эскалация | Escalation | Жогору жиберүү | Üst makama iletme | 升级处理 |
+| Наследование (NTFS) | Inheritance | Мурастоо | Devralma | 继承 |
+| Аванс | Advance | Аванс | Avans | 预付款 |
+| Сверка | Reconciliation | Салыштыруу | Mutabakat | 对账 |
+| Личный кабинет | Account area | Жеке кабинет | Kişisel alan | 个人中心 |
+| Этап | Stage | Баскыч | Aşama | 阶段 |
+| Черновик | Draft | Кара жазма | Taslak | 草稿 |
+| По умолчанию | Default | Демейки | Varsayılan | 默认 |
+| Загрузить / скачать | Upload / Download | Жүктөө / Жүктөп алуу | Yükle / İndir | 上传 / 下载 |
+| Пароль | Password | Сырсөз | Parola | 密码 |
+| Корзина | Trash | Себет | Çöp kutusu | 回收站 |
+| Общее пространство | Shared space | Жалпы мейкиндик | Paylaşılan alan | 共享空间 |
+| Папка | Folder | Папка | Klasör | 文件夹 |
+| Доступ | Access | Кирүү укугу | Erişim | 访问权限 |
+| Включено / выключено | On / Off | Күйүк / Өчүк | Açık / Kapalı | 开启 / 关闭 |
+| Событие (календарь) | Event | Иш-чара | Etkinlik | 日程 |
+| Напоминание | Reminder | Эскертүү | Hatırlatıcı | 提醒 |
+| Поставщик | Supplier | Жеткирүүчү | Tedarikçi | 供应商 |
+| Клиент | Client | Кардар | Müşteri | 客户 |
+| Мастер (пошаговый) | Wizard | Мастер | Sihirbaz | 向导 |
+| ИНН | Tax ID | ИСН | Vergi numarası | 税号 |
+| Платёжное поручение | Payment order | Төлөм тапшырмасы | Ödeme talimatı | 付款单 |
+| Накладная | Waybill | Жүк кагазы | İrsaliye | 运单 |
+| Автор (документа на согласовании) | Author | Демилгечи | Oluşturan | 发起人 |
+| Согласующий | Approver | Макулдашуучу | Onaylayan | 审批人 |
+| Делегировать | Delegate | Башкага өткөрүп берүү | Devret | 转交 |
+| Шара (SMB) | Share | Жалпы папка | Paylaşım | 共享 |
+| Ответственный | Responsible | Жооптуу | Sorumlu | 负责人 |
+| Юрист | Lawyer | Юрист | Hukukçu | 律师 |
+| Реестр | Registry | Реестр | Kayıt listesi | 台账 |
+| Справочник | Directory (reference list) | Маалымдама | Rehber | 名录 |
+| Подрядчик | Contractor | Подрядчик | Yüklenici | 承包商 |
+| Карточка | Card | Карточка | Kart | 卡片 |
+| Успех / провал сделки | Won / Lost | Утулду / Уттурулду | Kazanıldı / Kaybedildi | 赢单 / 输单 |
+| Экземпляр (инструмент) | Instance | Нуска | Tekil parça | 单件 |
+| Инвентарный номер | Inventory no. | Инвентардык номер | Demirbaş no. | 资产编号 |
+| Тихие часы | Quiet hours | Тынч саат | Sessiz saatler | 免打扰时段 |
+| Плитка | Tile | Плитка | Kutucuk | 磁贴 |
+| Часовой пояс | Time zone | Саат алкагы | Saat dilimi | 时区 |
+| Чек-лист | Checklist | Текшерүү тизмеси | Kontrol listesi | 检查清单 |
+| Подзадача / родительская задача | Subtask / Parent task | Ички тапшырма / Негизги тапшырма | Alt görev / Üst görev | 子任务 / 父任务 |
+| Поток (задачи) | Flow | Агым | Akış | 任务流 |
+| Шаблон | Template | Үлгү | Şablon | 模板 |
+| Белый / чёрный список | Allow-list / Block-list | Ак тизме / Кара тизме | İzin listesi / Engel listesi | 白名单 / 黑名单 |
+| Этикетка | Label (print) | Этикетка | Etiket | 标签 |
+| Справочный центр | Help center | Жардам борбору | Yardım merkezi | 帮助中心 |
+| Акт расхождений | Discrepancy act | Айырмачылык акты | Fark tutanağı | 差异单 |
+| Слепой пересчёт | Blind count | Сокур эсептөө | Kör sayım | 盲盘 |
+| Посетитель (ссылки) | Visitor | Конок | Ziyaretçi | 访客 |
+| Выписка | Extract | Көчүрмө | Döküm | 摘录 |

@@ -20,7 +20,7 @@ import { isoDayOf, logEvent, notifyToPay, requestUrl, usersByIds, webhook, whenC
  * someone other than its author, responsible person or an administrator.
  */
 
-const TITLE = { ru: 'Заявка на закупку', en: 'Purchase request' };
+const TITLE = { ru: 'Заявка на закупку', en: 'Purchase request', ky: 'Сатып алууга өтүнмө', tr: 'Satın alma talebi', zh: '采购申请' };
 
 async function loadRequest(docId) {
   const id = Number(docId);
@@ -48,30 +48,30 @@ export function registerProcurementApproval() {
     module: 'procurement',
     title: TITLE,
     fields: [
-      { key: 'amount', type: 'money', label: { ru: 'Сумма', en: 'Amount' } },
+      { key: 'amount', type: 'money', label: { ru: 'Сумма', en: 'Amount', ky: 'Сумма', tr: 'Tutar', zh: '金额' } },
       {
         key: 'category',
         type: 'select',
-        label: { ru: 'Категория', en: 'Category' },
+        label: { ru: 'Категория', en: 'Category', ky: 'Категория', tr: 'Kategori', zh: '类别' },
         options: async () => ((await procurementSettings()).categories || []).map((item) => ({ value: item.key, label: item.name })),
       },
       {
         key: 'legalEntity',
         type: 'select',
-        label: { ru: 'Юрлицо-плательщик', en: 'Paying legal entity' },
+        label: { ru: 'Юрлицо-плательщик', en: 'Paying legal entity', ky: 'Төлөөчү юридикалык жак', tr: 'Ödeyen tüzel kişi', zh: '付款法人实体' },
         options: async () => (await listLegalEntities()).map((entity) => ({ value: entity.id, label: entity.label })),
       },
       {
         key: 'project',
         type: 'ref',
-        label: { ru: 'Проект (Мастерплан)', en: 'Project (Masterplan)' },
+        label: { ru: 'Проект (Мастерплан)', en: 'Project (Masterplan)', ky: 'Долбоор (Мастерплан)', tr: 'Proje (Master plan)', zh: '项目（总体规划）' },
         options: async () => {
           if (!(await modulesState()).masterplan) return [];
           const { rows } = await query(`SELECT id, name FROM mp_projects WHERE archived_at IS NULL ORDER BY sort, id`).catch(() => ({ rows: [] }));
           return rows.map((row) => ({ value: row.id, label: row.name }));
         },
       },
-      { key: 'paymentTerms', type: 'select', label: { ru: 'Условия оплаты', en: 'Payment terms' }, options: [
+      { key: 'paymentTerms', type: 'select', label: { ru: 'Условия оплаты', en: 'Payment terms', ky: 'Төлөм шарттары', tr: 'Ödeme koşulları', zh: '付款条件' }, options: [
         { value: 'full', label: '100 %' },
         { value: 'advance', label: 'Аванс / Advance' },
         { value: 'postpay', label: 'Постоплата / Post-payment' },

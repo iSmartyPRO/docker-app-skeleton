@@ -1,2 +1,27 @@
-// Turkish: fill keys from ../en/labelPrint.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Etiket yazdır',
+  format: 'Biçim',
+  formats: {
+    '58x40': '58 × 40 mm',
+    '80x50': '80 × 50 mm',
+    'a4-3x8': 'A4, 3 × 8',
+  },
+  formatHints: {
+    '58x40': 'Termal yazıcı',
+    '80x50': 'Termal yazıcı',
+    'a4-3x8': '24 etiketlik sayfa',
+  },
+  copies: 'Her birinden kopya',
+  preview: 'Önizleme',
+  print: 'Yazdır',
+  total: 'Etiket: {count}',
+  sheets: 'A4 sayfa: {count}',
+  position: '{index} / {total}',
+  prev: 'Önceki etiket',
+  next: 'Sonraki etiket',
+  empty: 'Yazdırılacak bir şey yok',
+  failed: 'Etiketler hazırlanamadı: {error}',
+  fallbackEan: 'Geçerli bir EAN-13 değil — Code 128 olarak yazdırılacak: {codes}',
+  fallbackQr: 'Code 128 bu karakterleri taşıyamaz — QR olarak yazdırılacak: {codes}',
+  tip: 'Yazdırma penceresinde etiket yazıcısını, %100 ölçeği ve kenar boşluğu olmadan seçeneğini seçin.',
+};

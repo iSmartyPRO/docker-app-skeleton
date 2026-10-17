@@ -1,3 +1,50 @@
-// Simplified Chinese: translate ../en/files.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '文件是门户的云存储：每个人的个人文件、部门空间、共享以及带密码和有效期的公开链接。知识库的资料也存放在这里。',
+  audience: '所有员工；文件管理员管理空间、配额和链接策略。',
+  setup: [
+    {
+      title: '限制',
+      text: '在[设置](/admin/settings/files)中：最大文件大小、个人配额、回收站保留期限、允许的文件类型。',
+    },
+    {
+      title: '公开链接策略',
+      text: '是否允许链接、是否必须设置密码、最长有效期、访客是否可以上传。',
+    },
+    {
+      title: '共享空间',
+      text: '决定由谁创建（所有人或管理员），并创建带组访问权限的部门空间。',
+    },
+    {
+      title: 'Office 文档预览',
+      text: '连接[文档服务器](/admin/settings/documents)（Collabora），以获得精确预览和在线编辑。',
+    },
+  ],
+  roles: {
+    'files.admin': '在其他人无权创建时仍可创建共享空间，管理所有空间和模块设置。不能打开他人的个人文件。',
+  },
+  access: '访问权限设置在空间、文件夹或文件上：查看、编辑、管理，可授予用户、组或角色。',
+  scenarios: [
+    {
+      title: '与客户交换文件',
+      text: '经办人为“给客户”文件夹创建链接，设置密码、14 天有效期和上传权限，客户无需电子邮件即可发送文件。',
+    },
+    {
+      title: '财务部空间',
+      text: '该空间向“财务部”组开放编辑权限，向管理层开放查看权限。',
+    },
+  ],
+  faq: [
+    {
+      q: '文件存放在哪里？',
+      a: '存放在门户服务器的上传文件夹中；只有通过访问权限检查后才会提供。',
+    },
+    {
+      q: '如果关闭公开链接会怎样？',
+      a: '所有现有链接会立即失效。',
+    },
+    {
+      q: '已删除的文件可以恢复吗？',
+      a: '可以，在保留期限内可从回收站恢复。',
+    },
+  ],
+};

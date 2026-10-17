@@ -574,7 +574,7 @@ export default {
       importantHours: 'Important tasks',
       importantHoursDesc: 'Tasks marked with the flame get less time.',
       groups: 'Leadership groups',
-      groupsDesc: 'Tasks that members of these groups give to others are orders («Поручения»). Any task can also be flagged as an order by hand.',
+      groupsDesc: 'Tasks that members of these groups give to others are orders. Any task can also be flagged as an order by hand.',
       groupsPlaceholder: 'Choose groups',
     },
     project: {

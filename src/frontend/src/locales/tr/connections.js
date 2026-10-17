@@ -1,2 +1,23 @@
-// Turkish: fill keys from ../en/connections.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Bağlı hesaplar',
+  lead: 'Oturum açmak için kullandığınız hesaplar ve portalın sizin adınıza çalıştığı hizmetler.',
+  googleDesc: 'Google ile oturum açın ve Google takvimlerinizi portal takvimlerinin yanında görün.',
+  none: 'Kullanılabilir harici hesap yok. Yönetici, ayarlardan Google’ı etkinleştirebilir.',
+  notConnected: 'Bağlı değil',
+  connectHint: 'Tek tıklamayla oturum açmak için Google’ı bağlayın.',
+  connectHintCalendar: 'Tek tıklamayla oturum açmak ve Google Takvim’inizi burada görmek için Google’ı bağlayın.',
+  connect: 'Google’ı bağla',
+  grantCalendar: 'Takvim erişimine izin ver',
+  disconnect: 'Bağlantıyı kes',
+  disconnectConfirm: 'Google bağlantısı kesilsin mi? Yeniden bağlayana kadar Google ile oturum açma ve Google Takvim çalışmaz.',
+  connected: 'Google bağlandı',
+  disconnected: 'Google bağlantısı kesildi',
+  signIn: 'Oturum açma',
+  calendarOn: 'Takvim',
+  calendarOff: 'Takvim erişimi yok',
+  calendarRevoked: 'Erişim iptal edildi',
+  calendarsTitle: 'Google takvimleri',
+  calendarsDesc: 'Google takvimlerinizden hangilerinin Takvim modülünde gösterileceği.',
+  primary: 'Ana',
+  readOnly: 'Salt okunur',
+};

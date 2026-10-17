@@ -208,18 +208,21 @@ export function toCsv(header, rows) {
 
 // ── Import ──────────────────────────────────────────────────────────────────
 
-const STATUS_WORDS = {
-  active: 'active', работает: 'active', работающий: 'active', 'в штате': 'active',
-  vacation: 'vacation', отпуск: 'vacation', 'в отпуске': 'vacation',
-  terminated: 'terminated', уволен: 'terminated', уволена: 'terminated', уволенный: 'terminated',
-  candidate: 'candidate', кандидат: 'candidate',
-};
-const EMPLOYMENT_WORDS = {
-  staff: 'staff', штат: 'staff', штатный: 'staff', 'в штате': 'staff',
-  part_time: 'part_time', 'part-time': 'part_time', совместитель: 'part_time', совместительство: 'part_time',
-  contractor: 'contractor', подрядчик: 'contractor', гпх: 'contractor',
-  seasonal: 'seasonal', сезонный: 'seasonal', сезонная: 'seasonal',
-};
+// Accepted spellings in every portal language (also the interface labels); keys go through importWord().
+const importWord = (value) => String(value ?? '').trim().toLowerCase().replace(/\u0307/g, '').replace(/ı/g, 'i').replace(/\s+/g, ' ');
+const wordMap = (entries) => Object.fromEntries(Object.entries(entries).map(([word, value]) => [importWord(word), value]));
+const STATUS_WORDS = wordMap({
+  active: 'active', working: 'active', работает: 'active', работающий: 'active', 'в штате': 'active', 'иштеп жатат': 'active', 'çalışıyor': 'active', aktif: 'active', 在职: 'active',
+  vacation: 'vacation', 'on vacation': 'vacation', отпуск: 'vacation', 'в отпуске': 'vacation', өргүүдө: 'vacation', өргүү: 'vacation', izinde: 'vacation', izin: 'vacation', 休假中: 'vacation', 休假: 'vacation',
+  terminated: 'terminated', уволен: 'terminated', уволена: 'terminated', уволенный: 'terminated', бошотулган: 'terminated', 'işten ayrıldı': 'terminated', 已离职: 'terminated', 离职: 'terminated',
+  candidate: 'candidate', кандидат: 'candidate', талапкер: 'candidate', aday: 'candidate', 候选人: 'candidate',
+});
+const EMPLOYMENT_WORDS = wordMap({
+  staff: 'staff', штат: 'staff', штатный: 'staff', 'в штате': 'staff', штаттык: 'staff', kadrolu: 'staff', 正式员工: 'staff', 正式: 'staff',
+  part_time: 'part_time', 'part-time': 'part_time', совместитель: 'part_time', совместительство: 'part_time', 'кошумча иштөөчү': 'part_time', 'yarı zamanlı': 'part_time', 兼职: 'part_time',
+  contractor: 'contractor', подрядчик: 'contractor', гпх: 'contractor', sözleşmeli: 'contractor', 外包: 'contractor',
+  seasonal: 'seasonal', сезонный: 'seasonal', сезонная: 'seasonal', мезгилдүү: 'seasonal', mevsimlik: 'seasonal', 季节工: 'seasonal',
+});
 
 /**
  * Validates import rows (already mapped to keys by the browser) against the
@@ -257,10 +260,10 @@ export function planImport(rows, lookups) {
     } catch (error) {
       err(error.info?.field || 'row', error.code || 'BAD_ROW', error.message);
     }
-    const status = raw.status ? STATUS_WORDS[String(raw.status).trim().toLowerCase()] : 'active';
+    const status = raw.status ? STATUS_WORDS[importWord(raw.status)] : 'active';
     if (!status) err('status', 'BAD_STATUS', `Unknown status «${raw.status}»`);
     else values.status = status;
-    const employment = raw.employment ? EMPLOYMENT_WORDS[String(raw.employment).trim().toLowerCase()] : 'staff';
+    const employment = raw.employment ? EMPLOYMENT_WORDS[importWord(raw.employment)] : 'staff';
     if (!employment) err('employment', 'BAD_EMPLOYMENT', `Unknown employment type «${raw.employment}»`);
     else values.employment = employment;
     for (const [field, key] of [['unit', 'unitId'], ['site', 'siteId']]) {

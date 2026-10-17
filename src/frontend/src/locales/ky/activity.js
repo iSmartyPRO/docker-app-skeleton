@@ -1,2 +1,4 @@
-// Kyrgyz: fill keys from ../en/activity.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Журнал',
+  lead: 'Акыркы 90 күндөгү коопсуздук окуялары. Эсептегичтер акыркы 24 саатты камтыйт.',
+};

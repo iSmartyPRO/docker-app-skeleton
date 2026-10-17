@@ -1,2 +1,60 @@
-// Simplified Chinese: fill keys from ../en/procurement.js — missing ones fall back to English.
-export default {};
+export default {
+  status: {
+    draft: '草稿',
+    pending: '审批中',
+    question: '待答复',
+    returned: '已退回修改',
+    to_pay: '待付款',
+    partially_paid: '部分付款',
+    paid: '已付款',
+    delivered: '已交货',
+    closed: '已关闭',
+    rejected: '已拒绝',
+    cancelled: '已取消',
+  },
+  registryCsv: {
+    head: ['分组', '编号', '标题', '供应商', '法人实体', '付款截止', '金额', '已付', '剩余', '货币', '状态', '发起人'],
+    group: { overdue: '已逾期', today: '今天', week: '本周', later: '以后' },
+  },
+  // Column headers of the list export (the visible columns).
+  columns: {
+    number: '编号',
+    title: '标题',
+    amount: '金额',
+    currency: '货币',
+    paid: '已付',
+    supplier: '供应商',
+    category: '类别',
+    urgency: '紧急程度',
+    status: '状态',
+    payBy: '付款截止',
+    deliverBy: '交货截止',
+    responsible: '负责人',
+    author: '发起人',
+    legalEntity: '法人实体',
+    createdAt: '创建时间',
+  },
+  notify: {
+    supplier: '供应商：{name}',
+    left: '待付：{amount}',
+    wasDue: '应于 {date} 完成',
+    toPay: {
+      title: '待付款：{doc}',
+      payBy: '请于 {date} 前付款',
+    },
+    paid: {
+      full: '已付款：{doc}',
+      part: '部分付款：{doc}',
+      totals: '已付 {paid} / {total}',
+    },
+    delivered: {
+      full: '已交货：{doc}',
+      part: '部分交货：{doc}',
+    },
+    assigned: { title: '您是 {doc} 的负责人' },
+    paySoon: { title: '{date} 到期付款：{doc}' },
+    payOverdue: { title: '付款已逾期：{doc}' },
+    deliverSoon: { title: '{date} 到期交货：{doc}' },
+    deliverOverdue: { title: '交货已逾期：{doc}' },
+  },
+};

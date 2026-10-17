@@ -1,3 +1,57 @@
-// Simplified Chinese: translate ../en/warehouse.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '仓库用于业务层面的库存管理：带条形码的物料、仓库和库位、入库、出库、调拨、报废、按单件管理的工具、用手机盘点。它不是会计核算：数据会导出到财务系统。',
+  audience: '仓管员、工长、供应部门和财务部。',
+  setup: [
+    {
+      title: '启用模块',
+      text: '模块默认关闭；报废通过「审批」进行审批。',
+    },
+    {
+      title: '仓库和仓管员',
+      text: '创建仓库，指定负责的仓管员，如有需要还可设置库位。',
+    },
+    {
+      title: '物料',
+      text: '从 Excel 导入或手动创建：单位、包装、条形码、最低库存。',
+    },
+    {
+      title: '货币和阈值',
+      text: '本位币、汇率和报废审批阈值，在[设置](/admin/settings/warehouse)中配置。',
+    },
+    {
+      title: '关联',
+      text: '启用采购后，入库可依据申请进行；启用总体规划后，出库可发往对象。',
+    },
+  ],
+  roles: {
+    'warehouse.view': '查看所有仓库的库存。',
+    'warehouse.request': '提交领料申请。',
+    'warehouse.operate': '单据过账（入库、出库、调拨）。',
+    'warehouse.writeoff': '报废。',
+    'warehouse.inventory': '盘点。',
+    'warehouse.cost': '查看金额和成本；没有此权限时金额会被隐藏。',
+    'warehouse.backdate': '补录以前日期的单据。',
+    'warehouse.admin': '设置、名录及其他所有操作。',
+  },
+  access: '权限可以是全局的（一项权限），也可以按仓库分配；仓库的仓管员拥有该仓库的权限。',
+  scenarios: [
+    {
+      title: '依据申请入库',
+      text: '已批准的采购申请到货：仓管员用手机扫描货物并过账入库单。',
+    },
+    {
+      title: '向工地发放工具',
+      text: '将一台电钻发放给工长并设定归还日期；逾期未还会显示在小组件和通知中。',
+    },
+  ],
+  faq: [
+    {
+      q: '库存可以为负吗？',
+      a: '不可以，库存不足的单据会被拒绝。',
+    },
+    {
+      q: '数据如何传给财务部？',
+      a: '通过 CSV 导出和 API。',
+    },
+  ],
+};

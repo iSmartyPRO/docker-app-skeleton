@@ -22,15 +22,15 @@ import { bestOn, ensureContrast, isDark, isHexColor, mix, mutedShare } from './c
  */
 
 export const THEMES = [
-  { id: 'light', kind: 'base', scheme: 'light', name: { ru: 'Светлая', en: 'Light' }, desc: { ru: 'Фирменные цвета портала', en: 'The portal’s brand colours' } },
-  { id: 'dark', kind: 'base', scheme: 'dark', name: { ru: 'Тёмная', en: 'Dark' }, desc: { ru: 'Фирменные цвета, тёмный вариант', en: 'Brand colours, dark variant' } },
-  { id: 'system', kind: 'base', scheme: 'auto', name: { ru: 'Как в системе', en: 'As the system' }, desc: { ru: 'Светлая днём, тёмная — если так в устройстве', en: 'Follows the device setting' } },
+  { id: 'light', kind: 'base', scheme: 'light', name: { ru: 'Светлая', en: 'Light', ky: 'Жарык', tr: 'Açık', zh: '浅色' }, desc: { ru: 'Фирменные цвета портала', en: 'The portal’s brand colours', ky: 'Порталдын фирмалык түстөрү', tr: 'Portalın kurumsal renkleri', zh: '门户的品牌色' } },
+  { id: 'dark', kind: 'base', scheme: 'dark', name: { ru: 'Тёмная', en: 'Dark', ky: 'Караңгы', tr: 'Koyu', zh: '深色' }, desc: { ru: 'Фирменные цвета, тёмный вариант', en: 'Brand colours, dark variant', ky: 'Фирмалык түстөр, караңгы вариант', tr: 'Kurumsal renkler, koyu varyant', zh: '品牌色，深色版本' } },
+  { id: 'system', kind: 'base', scheme: 'auto', name: { ru: 'Как в системе', en: 'As the system', ky: 'Системалык', tr: 'Sistemdeki gibi', zh: '跟随系统' }, desc: { ru: 'Светлая днём, тёмная — если так в устройстве', en: 'Follows the device setting', ky: 'Түзмөктүн жөндөөсүнө ылайык', tr: 'Cihaz ayarını izler', zh: '跟随设备设置' } },
   {
     id: 'graphite',
     kind: 'palette',
     scheme: 'dark',
-    name: { ru: 'Графит', en: 'Graphite' },
-    desc: { ru: 'Спокойный тёмно-серый, стальной акцент', en: 'Calm charcoal with a steel accent' },
+    name: { ru: 'Графит', en: 'Graphite', ky: 'Графит', tr: 'Grafit', zh: '石墨' },
+    desc: { ru: 'Спокойный тёмно-серый, стальной акцент', en: 'Calm charcoal with a steel accent', ky: 'Стал түстүү акценти бар токтоо күңүрт боз', tr: 'Çelik vurgulu sakin antrasit', zh: '沉稳的炭灰色，钢蓝色点缀' },
     colors: {
       colorPrimary: '#8FB8DE',
       colorSuccess: '#7DC59A',
@@ -48,8 +48,8 @@ export const THEMES = [
     id: 'ocean',
     kind: 'palette',
     scheme: 'light',
-    name: { ru: 'Океан', en: 'Ocean' },
-    desc: { ru: 'Свежий бирюзово-голубой', en: 'Fresh sea blue and teal' },
+    name: { ru: 'Океан', en: 'Ocean', ky: 'Океан', tr: 'Okyanus', zh: '海洋' },
+    desc: { ru: 'Свежий бирюзово-голубой', en: 'Fresh sea blue and teal', ky: 'Сергек деңиз көгү жана көгүш-жашыл', tr: 'Ferah deniz mavisi ve camgöbeği', zh: '清新的海蓝与青绿' },
     colors: {
       colorPrimary: '#0A6A86',
       colorSuccess: '#1F7A55',
@@ -67,8 +67,8 @@ export const THEMES = [
     id: 'forest',
     kind: 'palette',
     scheme: 'dark',
-    name: { ru: 'Лес', en: 'Forest' },
-    desc: { ru: 'Глубокий хвойный зелёный', en: 'Deep pine green' },
+    name: { ru: 'Лес', en: 'Forest', ky: 'Токой', tr: 'Orman', zh: '森林' },
+    desc: { ru: 'Глубокий хвойный зелёный', en: 'Deep pine green', ky: 'Терең карагай жашылы', tr: 'Derin çam yeşili', zh: '深邃的松绿' },
     colors: {
       colorPrimary: '#7FD1A0',
       colorSuccess: '#9AD98F',
@@ -86,8 +86,8 @@ export const THEMES = [
     id: 'sand',
     kind: 'palette',
     scheme: 'light',
-    name: { ru: 'Песок', en: 'Sand' },
-    desc: { ru: 'Тёплый бежевый, как бумага', en: 'Warm paper beige' },
+    name: { ru: 'Песок', en: 'Sand', ky: 'Кум', tr: 'Kum', zh: '沙色' },
+    desc: { ru: 'Тёплый бежевый, как бумага', en: 'Warm paper beige', ky: 'Кагаздай жылуу саргыч', tr: 'Sıcak kâğıt beji', zh: '温暖的纸张米色' },
     colors: {
       colorPrimary: '#8F5320',
       colorSuccess: '#3E7A4A',
@@ -105,8 +105,8 @@ export const THEMES = [
     id: 'midnight',
     kind: 'palette',
     scheme: 'dark',
-    name: { ru: 'Полночь', en: 'Midnight' },
-    desc: { ru: 'Глубокий синий, мягкий индиго', en: 'Deep blue with soft indigo' },
+    name: { ru: 'Полночь', en: 'Midnight', ky: 'Түн жарымы', tr: 'Gece yarısı', zh: '午夜' },
+    desc: { ru: 'Глубокий синий, мягкий индиго', en: 'Deep blue with soft indigo', ky: 'Жумшак индиго кошулган терең көк', tr: 'Yumuşak çivit tonlu derin mavi', zh: '深蓝配柔和靛青' },
     colors: {
       colorPrimary: '#94A6FF',
       colorSuccess: '#6FD3A6',
@@ -124,8 +124,8 @@ export const THEMES = [
     id: 'lavender',
     kind: 'palette',
     scheme: 'light',
-    name: { ru: 'Лаванда', en: 'Lavender' },
-    desc: { ru: 'Светлый сиреневый, фиолетовый акцент', en: 'Soft lilac, violet accent' },
+    name: { ru: 'Лаванда', en: 'Lavender', ky: 'Лаванда', tr: 'Lavanta', zh: '薰衣草' },
+    desc: { ru: 'Светлый сиреневый, фиолетовый акцент', en: 'Soft lilac, violet accent', ky: 'Ачык кызгылт көк, сыя түстүү акцент', tr: 'Yumuşak leylak, mor vurgu', zh: '柔和的淡紫，紫罗兰色点缀' },
     colors: {
       colorPrimary: '#5B45B0',
       colorSuccess: '#2E7D5B',
@@ -143,8 +143,8 @@ export const THEMES = [
     id: 'contrast',
     kind: 'palette',
     scheme: 'dark',
-    name: { ru: 'Высокий контраст', en: 'High contrast' },
-    desc: { ru: 'Максимальная читаемость, чёткие рамки', en: 'Maximum legibility, strong outlines' },
+    name: { ru: 'Высокий контраст', en: 'High contrast', ky: 'Жогорку контраст', tr: 'Yüksek kontrast', zh: '高对比度' },
+    desc: { ru: 'Максимальная читаемость, чёткие рамки', en: 'Maximum legibility, strong outlines', ky: 'Эң жакшы окулат, так чектер', tr: 'En yüksek okunabilirlik, belirgin çerçeveler', zh: '最佳可读性，清晰的轮廓' },
     colors: {
       colorPrimary: '#FFD60A',
       colorSuccess: '#4BE08A',
@@ -165,8 +165,8 @@ export const THEMES = [
     kind: 'dynamic',
     scheme: 'light',
     motion: 'gradient',
-    name: { ru: 'Рассвет', en: 'Dawn' },
-    desc: { ru: 'Медленно плывущий тёплый градиент', en: 'A slowly drifting warm gradient' },
+    name: { ru: 'Рассвет', en: 'Dawn', ky: 'Таң', tr: 'Şafak', zh: '黎明' },
+    desc: { ru: 'Медленно плывущий тёплый градиент', en: 'A slowly drifting warm gradient', ky: 'Жай агып турган жылуу градиент', tr: 'Yavaşça süzülen sıcak bir gradyan', zh: '缓缓流动的暖色渐变' },
     colors: {
       colorPrimary: '#A23E5E',
       colorSuccess: '#2F7A55',
@@ -186,8 +186,8 @@ export const THEMES = [
     kind: 'dynamic',
     scheme: 'dark',
     motion: 'aurora',
-    name: { ru: 'Сияние', en: 'Aurora' },
-    desc: { ru: 'Мягкие переливы северного сияния', en: 'Soft northern-lights glow' },
+    name: { ru: 'Сияние', en: 'Aurora', ky: 'Аврора', tr: 'Kutup ışıkları', zh: '极光' },
+    desc: { ru: 'Мягкие переливы северного сияния', en: 'Soft northern-lights glow', ky: 'Түндүк жаркылдоосунун жумшак шооласы', tr: 'Yumuşak kuzey ışıkları parıltısı', zh: '柔和的北极光辉' },
     colors: {
       colorPrimary: '#5EE0B5',
       colorSuccess: '#5EE0B5',
@@ -207,8 +207,8 @@ export const THEMES = [
     kind: 'dynamic',
     scheme: 'dark',
     motion: 'particles',
-    name: { ru: 'Созвездие', en: 'Constellation' },
-    desc: { ru: 'Лёгкая сетка мерцающих точек', en: 'A gentle grid of drifting stars' },
+    name: { ru: 'Созвездие', en: 'Constellation', ky: 'Топ жылдыз', tr: 'Takımyıldız', zh: '星座' },
+    desc: { ru: 'Лёгкая сетка мерцающих точек', en: 'A gentle grid of drifting stars', ky: 'Жылмышкан жылдыздардын назик тору', tr: 'Süzülen yıldızlardan zarif bir ızgara', zh: '缓缓漂移的星点网格' },
     colors: {
       colorPrimary: '#9DB7FF',
       colorSuccess: '#74D8A8',
@@ -224,7 +224,7 @@ export const THEMES = [
     // Small dots, not a ground under text: no contrast pairs (ground: false).
     backdrop: { colors: ['#C9D6FF'], opacity: 0.5, ground: false },
   },
-  { id: 'custom', kind: 'custom', scheme: 'custom', name: { ru: 'Своя', en: 'Custom' }, desc: { ru: 'Ваша картинка и цвет', en: 'Your picture and colour' } },
+  { id: 'custom', kind: 'custom', scheme: 'custom', name: { ru: 'Своя', en: 'Custom', ky: 'Өзүңүздүкү', tr: 'Özel', zh: '自定义' }, desc: { ru: 'Ваша картинка и цвет', en: 'Your picture and colour', ky: 'Сиздин сүрөтүңүз жана түсүңүз', tr: 'Kendi resminiz ve renginiz', zh: '您的图片和颜色' } },
 ];
 
 export const THEME_IDS = THEMES.map((theme) => theme.id);

@@ -1,2 +1,15 @@
-// Simplified Chinese: fill keys from ../en/appError.js — missing ones fall back to English.
-export default {};
+export default {
+  details: '提供给技术支持的信息',
+  copy: '复制信息',
+  copied: '已复制',
+  code: '代码',
+  session: '会话',
+  incident: '事件',
+  title: '页面未能加载',
+  text: '打开页面时出现问题。请刷新页面，您的数据是安全的。',
+  updateTitle: '有新版本可用',
+  updateText: '在此标签页打开期间门户已更新。请刷新页面以继续。',
+  updating: '正在加载新版本…',
+  reload: '刷新',
+  home: '返回首页',
+};

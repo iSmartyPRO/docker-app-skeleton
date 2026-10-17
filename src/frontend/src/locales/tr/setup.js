@@ -1,2 +1,19 @@
-// Turkish: fill keys from ../en/setup.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'İlk kurulum',
+  lead: 'PostgreSQL’i yapılandırın, ilk yöneticiyi oluşturun ve ürünün nasıl açılacağını seçin.',
+  database: 'Veritabanı',
+  admin: 'Yönetici',
+  access: 'Erişim modu',
+  done: 'Hazır',
+  closedTitle: 'Kapalı',
+  closedText: 'Konuklar her zaman oturum açma formunu görür. Oturum açılana kadar site gizlidir.',
+  openTitle: 'Açık',
+  openText: 'Herkese açık giriş sayfası ve seçilen sayfalar görünür kalır. Kişisel alan ve yönetim yine oturum açmayı gerektirir.',
+  saveAccess: 'Kaydet ve bitir',
+  token: 'Kurulum belirteci',
+  tokenHint: '.env dosyasında SETUP_TOKEN tanımlıysa gereklidir. Sihirbazın kilidini açmak için yapıştırın.',
+  tokenRequired: 'Devam etmek için .env dosyasındaki kurulum belirtecini girin.',
+  unlock: 'Kurulumun kilidini aç',
+  demoUsers: 'Örnek kullanıcılar ekle',
+  demoUsersHint: 'Rollerin nasıl çalıştığını göstermek için varsayılan gruplara dağıtılmış beş kişi. Parolaları yoktur; siz parola belirleyene kadar oturum açamazlar.',
+};

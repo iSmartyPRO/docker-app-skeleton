@@ -1,3 +1,49 @@
-// Simplified Chinese: translate ../en/calendar.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '日历汇集会议、团队和会议室的共享日历、带回复的邀请以及任务截止日期。员工可以在一个地方查看自己的一天，并同时显示 Google 日历。',
+  audience: '所有员工；行政人员管理共享日历（会议室、节假日、公司活动）。',
+  setup: [
+    {
+      title: '设置工作日',
+      text: '在[设置](/admin/settings/calendar)中设置：每周起始日、工作时间、默认视图和默认提醒。每个人都可以为自己更改。',
+    },
+    {
+      title: '决定谁可以创建共享日历',
+      text: '「所有人」或「仅管理员」（calendar.admin）。',
+    },
+    {
+      title: '创建共享日历',
+      text: '例如“会议室”“节假日”“公司活动”，并向各组开放查看或编辑权限。',
+    },
+    {
+      title: '连接 Google（可选）',
+      text: '在 [Google 集成](/admin/settings/google)中开启日历，用户即可在门户中显示自己的 Google 日历。',
+    },
+  ],
+  roles: {
+    'calendar.admin': '管理所有共享日历。个人日历即使对管理员也保持私密。',
+  },
+  scenarios: [
+    {
+      title: '预订会议室',
+      text: '创建对所有人开放编辑的共享日历“会议室”：预订时段就是在其中添加一个日程。',
+    },
+    {
+      title: '周一例会',
+      text: '带参与者的重复日程：每人都会收到邀请，并在开始前 15 分钟收到提醒。',
+    },
+  ],
+  faq: [
+    {
+      q: '为什么我的日历里有任务？',
+      a: '启用「任务」模块后，日历会显示此人参与的任务的截止日期。可在个人设置中关闭。',
+    },
+    {
+      q: '提醒如何送达？',
+      a: '通过通知中心：在门户内，以及通过此人选择的渠道（电子邮件、Telegram 等）。',
+    },
+    {
+      q: '与 Google 是双向同步吗？',
+      a: 'Google 日历实时显示；如果此人已授予权限，还可以从门户在其中创建日程。',
+    },
+  ],
+};

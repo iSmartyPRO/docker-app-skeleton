@@ -334,8 +334,8 @@ Which tasks to show (the ones you do, all yours, or all you can see) and whether
 1. The reminder's date and time, and that the task has a deadline if the reminder is «before the deadline».
 2. The task is not completed or deferred.
 3. Channels: Telegram linked in [Profile → Security](/account/security), Mattermost entered in the [Profile](/account), push enabled on the device, an e-mail in your profile.
-5. [Notification settings](/account/notifications) show «Recent notifications» at the bottom: where each one went and why it did not arrive. «Send a test» checks every channel.
 4. Messengers are not switched off in [notification settings](/account/notifications).
+5. [Notification settings](/account/notifications) show «Recent notifications» at the bottom: where each one went and why it did not arrive. «Send a test» checks every channel.
 
 The reminder is always in the portal's bell.`,
     },

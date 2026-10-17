@@ -1,2 +1,79 @@
-// Turkish: fill keys from ../en/masterplan.js — missing ones fall back to English.
-export default {};
+export default {
+  conflict: {
+    reserved: 'Bölüm az önce şu kişi tarafından ön rezerve edildi: {manager}',
+    changed: 'Bölüm az önce değiştirildi',
+    changedBy: 'Bölüm az önce şu kişi tarafından değiştirildi: {actor}',
+  },
+  status: {
+    not_for_sale: 'Satışa kapalı',
+    free: 'Müsait',
+    reserve: 'Ön rezervasyonda',
+    booking: 'Rezervasyonda',
+    deposit: 'Kaparo',
+    contract: 'Sözleşme',
+    sold: 'Satıldı',
+    handed: 'Teslim edildi',
+  },
+  notify: {
+    reason: 'Neden: {reason}',
+    until: 'Bitiş: {date}',
+    manager: 'Satış temsilcisi: {name}',
+    expiring: {
+      reserve: 'Ön rezervasyon yakında bitiyor: {code}',
+      booking: 'Rezervasyon yakında bitiyor: {code}',
+    },
+    expired: {
+      reserve: 'Ön rezervasyon otomatik olarak kaldırıldı: {code}',
+      booking: 'Rezervasyon otomatik olarak kaldırıldı: {code}',
+      body: 'Süre doldu; bağımsız bölüm yeniden müsait.',
+    },
+    bulkStatus: {
+      title_one: '{status}: {count} bağımsız bölüm',
+      title_other: '{status}: {count} bağımsız bölüm',
+    },
+    report: { title: 'Yeni inşaat raporu: {objects}' },
+    reportReview: { title: 'İncelenecek rapor: {objects}' },
+    reportReviewed: {
+      published: 'Rapor yayımlandı: {objects}',
+      returned: 'Rapor geri gönderildi: {objects}',
+      comment: 'Yorum: {note}',
+    },
+    stale: { title: '{days} günden uzun süredir rapor yok: {count}' },
+    delay: {
+      title: '{days} gün gecikme: {code}',
+      stage: 'Aşama: {stage}',
+    },
+    accessRequest: { title: 'Master plan erişim talebi: {actor}' },
+  },
+  // A system line in a CRM deal's history (written once, in the portal's default language).
+  dealLine: {
+    text: 'Master plan: bağımsız bölüm {unit} — {status}{until}{reason}',
+    until: ' ({date} tarihine kadar)',
+    reason: ' ({reason})',
+    expired: {
+      reserve: 'Master plan: bağımsız bölüm {unit} ön rezervasyonu otomatik olarak kaldırıldı — süre doldu',
+      booking: 'Master plan: bağımsız bölüm {unit} rezervasyonu otomatik olarak kaldırıldı — süre doldu',
+    },
+  },
+  csv: {
+    code: 'Kod',
+    name: 'Ad',
+    type: 'Tür',
+    status: 'Durum',
+    price: 'Fiyat',
+    currency: 'Para birimi',
+    pricePerM2: 'm² fiyatı',
+    minPrice: 'Min. fiyat',
+    areaTotal: 'Alan, m²',
+    areaPlot: 'Arsa, m²',
+    rooms: 'Oda',
+    bedrooms: 'Yatak odası',
+    floor: 'Kat',
+    number: 'Numara',
+    finishing: 'İç yapı',
+    readiness: 'Hazırlık, %',
+    manager: 'Satış temsilcisi',
+    client: 'Müşteri',
+    deal: 'Fırsat',
+  },
+};

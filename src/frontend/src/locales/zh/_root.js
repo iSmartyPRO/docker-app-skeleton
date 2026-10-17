@@ -1,2 +1,4 @@
-// Simplified Chinese: fill keys from ../en/_root.js — missing ones fall back to English.
-export default {};
+export default {
+  brand: '门户',
+  footer: '开发',
+};

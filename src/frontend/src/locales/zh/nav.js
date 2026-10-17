@@ -1,2 +1,19 @@
-// Simplified Chinese: fill keys from ../en/nav.js — missing ones fall back to English.
-export default {};
+export default {
+  overview: '概览',
+  overviewDesc: '产品运行状况一目了然',
+  users: '用户',
+  usersDesc: '账户、角色和访问权限',
+  groups: '组',
+  groupsDesc: '团队及其授予的角色',
+  roles: '角色',
+  rolesDesc: '权限及其拥有者',
+  activity: '日志',
+  activityDesc: '安全事件和审计记录',
+  settings: '设置',
+  settingsDesc: '所有可配置项，集中在一处',
+  console: '管理控制台',
+  search: '搜索…',
+  collapse: '收起',
+  api: 'API 与集成',
+  apiDesc: '令牌、访问模板、Webhook 和请求日志',
+};

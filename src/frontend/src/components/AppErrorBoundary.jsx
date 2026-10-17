@@ -126,6 +126,9 @@ export class RootErrorBoundary extends Component {
       {
         ru: { title: 'Не удалось открыть портал', body: 'Обновите страницу. Если ошибка повторяется, сообщите в поддержку код сессии:', reload: 'Обновить' },
         en: { title: 'The portal could not start', body: 'Reload the page. If it happens again, tell support this session code:', reload: 'Reload' },
+        ky: { title: 'Порталды ачуу мүмкүн болгон жок', body: 'Бетти жаңыртыңыз. Ката кайталанса, колдоо кызматына бул сессиянын кодун айтыңыз:', reload: 'Жаңыртуу' },
+        tr: { title: 'Portal başlatılamadı', body: 'Sayfayı yenileyin. Sorun tekrarlanırsa destek ekibine bu oturum kodunu iletin:', reload: 'Yenile' },
+        zh: { title: '门户无法启动', body: '请刷新页面。如果问题再次出现，请将此会话代码告知技术支持：', reload: '刷新' },
       },
       lang
     );

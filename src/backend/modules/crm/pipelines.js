@@ -2,6 +2,7 @@ import { query, withTransaction } from '../../config/database.js';
 import { HEX, clean, httpError, intId } from '../shared/acl.js';
 import { inPipelineLimits, visibleSql } from './access.js';
 import { Params, RANK_STEP } from './util.js';
+import { localeOrDefault, pick } from '../../services/i18n/index.js';
 
 /*
  * Pipelines and their stages. Every pipeline keeps its open stages first,
@@ -86,18 +87,20 @@ export function normalizeStages(list) {
   return [...open.map((item, index) => ({ ...item, color: item.color || palette[index % palette.length] })), { ...won[0], color: won[0].color || '#10B981' }, { ...lost[0], color: lost[0].color || '#EF4444' }];
 }
 
+/** Stages of a pipeline created without any, in the creator's language. */
 const DEFAULT_NEW_STAGES = [
-  { name: 'Новая', kind: 'open' },
-  { name: 'В работе', kind: 'open' },
-  { name: 'Успешно', kind: 'won' },
-  { name: 'Провалена', kind: 'lost' },
+  { name: { ru: 'Новая', en: 'New', ky: 'Жаңы', tr: 'Yeni', zh: '新建' }, kind: 'open' },
+  { name: { ru: 'В работе', en: 'In progress', ky: 'Иште', tr: 'Devam ediyor', zh: '进行中' }, kind: 'open' },
+  { name: { ru: 'Успешно', en: 'Won', ky: 'Ийгиликтүү', tr: 'Kazanıldı', zh: '赢单' }, kind: 'won' },
+  { name: { ru: 'Провалена', en: 'Lost', ky: 'Ийгиликсиз', tr: 'Kaybedildi', zh: '输单' }, kind: 'lost' },
 ];
+const newStages = (locale) => DEFAULT_NEW_STAGES.map((stage) => ({ ...stage, name: pick(stage.name, localeOrDefault(locale)) }));
 
 export async function createPipeline(ctx, input = {}) {
   requireAdmin(ctx);
   const name = clean(input.name, 120);
   if (!name) throw httpError(400, 'Pipeline name is required', 'NAME_REQUIRED');
-  const stages = normalizeStages(Array.isArray(input.stages) && input.stages.length ? input.stages.map((stage) => ({ ...stage, id: null })) : DEFAULT_NEW_STAGES);
+  const stages = normalizeStages(Array.isArray(input.stages) && input.stages.length ? input.stages.map((stage) => ({ ...stage, id: null })) : newStages(ctx.locale));
   const id = await withTransaction(async (client) => {
     const sort = await client.query(`SELECT COALESCE(MAX(sort), -1) + 1 AS n FROM crm_pipelines`);
     const any = await client.query(`SELECT 1 FROM crm_pipelines WHERE archived_at IS NULL LIMIT 1`);

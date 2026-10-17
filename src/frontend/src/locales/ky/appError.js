@@ -1,2 +1,15 @@
-// Kyrgyz: fill keys from ../en/appError.js — missing ones fall back to English.
-export default {};
+export default {
+  details: 'Колдоо кызматы үчүн маалымат',
+  copy: 'Маалыматты көчүрүү',
+  copied: 'Көчүрүлдү',
+  code: 'Код',
+  session: 'Сессия',
+  incident: 'Инцидент',
+  title: 'Бет жүктөлгөн жок',
+  text: 'Ачууда бир нерсе туура эмес болду. Бетти жаңыртыңыз — маалыматтарыңыз сакталган.',
+  updateTitle: 'Жаңы версия жеткиликтүү',
+  updateText: 'Бул өтмөк ачык турганда портал жаңыртылды. Улантуу үчүн бетти жаңыртыңыз.',
+  updating: 'Жаңы версия жүктөлүүдө…',
+  reload: 'Жаңыртуу',
+  home: 'Башкы бетке',
+};

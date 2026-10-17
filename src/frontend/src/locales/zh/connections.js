@@ -1,2 +1,23 @@
-// Simplified Chinese: fill keys from ../en/connections.js — missing ones fall back to English.
-export default {};
+export default {
+  title: '已关联账户',
+  lead: '用于登录的账户，以及门户代表您使用的服务。',
+  googleDesc: '使用 Google 登录，并在门户日历旁查看您的 Google 日历。',
+  none: '没有可用的外部账户。管理员可在设置中启用 Google。',
+  notConnected: '未关联',
+  connectHint: '关联 Google 后可一键登录。',
+  connectHintCalendar: '关联 Google 后可一键登录，并在此查看您的 Google 日历。',
+  connect: '关联 Google',
+  grantCalendar: '允许访问日历',
+  disconnect: '解除关联',
+  disconnectConfirm: '解除关联 Google？在重新关联之前，Google 登录和 Google 日历将无法使用。',
+  connected: 'Google 已关联',
+  disconnected: 'Google 已解除关联',
+  signIn: '登录',
+  calendarOn: '日历',
+  calendarOff: '无日历访问权限',
+  calendarRevoked: '访问权限已撤销',
+  calendarsTitle: 'Google 日历',
+  calendarsDesc: '选择在「日历」模块中显示哪些 Google 日历。',
+  primary: '主日历',
+  readOnly: '只读',
+};

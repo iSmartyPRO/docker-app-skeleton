@@ -1,2 +1,19 @@
-// Turkish: fill keys from ../en/nav.js — missing ones fall back to English.
-export default {};
+export default {
+  overview: 'Genel bakış',
+  overviewDesc: 'Ürünün durumu tek bakışta',
+  users: 'Kullanıcılar',
+  usersDesc: 'Hesaplar, roller ve erişim',
+  groups: 'Gruplar',
+  groupsDesc: 'Ekipler ve verdikleri roller',
+  roles: 'Roller',
+  rolesDesc: 'İzinler ve bunlara sahip olanlar',
+  activity: 'Günlük',
+  activityDesc: 'Güvenlik olayları ve denetim kaydı',
+  settings: 'Ayarlar',
+  settingsDesc: 'Yapılandırılabilen her şey tek yerde',
+  console: 'Yönetim konsolu',
+  search: 'Ara…',
+  collapse: 'Daralt',
+  api: 'API ve entegrasyonlar',
+  apiDesc: 'Belirteçler, erişim şablonları, web kancaları ve istek günlüğü',
+};

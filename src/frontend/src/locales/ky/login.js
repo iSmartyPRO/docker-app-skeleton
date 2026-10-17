@@ -1,2 +1,6 @@
-// Kyrgyz: fill keys from ../en/login.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Кайра кош келиңиз',
+  lead: 'Орнотуу учурунда түзүлгөн же администратор берген эсептик жазуу менен кириңиз.',
+  username: 'Логин',
+  password: 'Сырсөз',
+};

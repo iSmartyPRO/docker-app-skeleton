@@ -1,3 +1,41 @@
-// Simplified Chinese: translate ../en/dashboard.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '仪表板是一个个人页面，汇集来自所有模块的小组件：我的任务、会议、文件、申请、库存和数据。管理员设置初始布局，每个人都可以重新排列。',
+  audience: '所有员工；对负责人而言，一眼掌握当天情况。',
+  setup: [
+    {
+      title: '初始布局',
+      text: '在[设置](/admin/settings/dashboard)中配置新员工看到的小组件组合。',
+    },
+    {
+      title: '个人布局',
+      text: '允许或禁止用户更改自己的布局。',
+    },
+    {
+      title: '设为首页',
+      text: '在[网站访问](/admin/settings/access)中选择「仪表板」。',
+    },
+  ],
+  roles: {
+    'dashboard.admin': '初始布局和模块设置。',
+  },
+  scenarios: [
+    {
+      title: '负责人的早晨',
+      text: '「待我处理」、团队的逾期任务、今天的会议和合同付款都在一个屏幕上。',
+    },
+    {
+      title: '仓管员',
+      text: '用「低于最低库存」和「待验收」小组件代替便签和图表。',
+    },
+  ],
+  faq: [
+    {
+      q: '某个小组件不见了',
+      a: '已关闭模块的小组件，或此人无权使用的小组件，会自动隐藏。',
+    },
+    {
+      q: '更改初始布局会影响所有人吗？',
+      a: '只影响尚未自行排列布局的人，以及点击「重置」的人。',
+    },
+  ],
+};

@@ -11,6 +11,15 @@ import { Hero, WarehouseSelect } from '../components/bits';
 import { ITEM_COLUMNS, OPENING_COLUMNS, importTemplate, readImportFile } from '../xlsx';
 import { pick } from '../../../i18n/languages';
 
+/** Example rows of the templates, in the person's language. */
+const EXAMPLE_TEXTS = {
+  ru: { name: 'Цемент М500 Д0', category: 'Материалы / Сухие смеси', unit: 'кг', bag: 'мешок', supplier: 'ОсОО «Стройснаб»' },
+  en: { name: 'Cement M500 D0', category: 'Materials / Dry mixes', unit: 'kg', bag: 'bag', supplier: 'Stroysnab LLC' },
+  ky: { name: 'Цемент М500 Д0', category: 'Материалдар / Кургак аралашмалар', unit: 'кг', bag: 'кап', supplier: '«Стройснаб» ЖЧК' },
+  tr: { name: 'Çimento M500 D0', category: 'Malzemeler / Kuru karışımlar', unit: 'kg', bag: 'torba', supplier: 'Stroysnab Ltd. Şti.' },
+  zh: { name: '水泥 M500 D0', category: '材料 / 干混料', unit: 'kg', bag: '袋', supplier: 'Stroysnab 有限责任公司' },
+};
+
 /** Import from Excel / CSV (spec §11): items and opening balances, checked first, with a report of errors. */
 export default function ImportPage() {
   const { t, locale } = useLocale();
@@ -58,10 +67,11 @@ export default function ImportPage() {
       setBusy(false);
     }
   };
+  const sample = EXAMPLE_TEXTS[locale] || EXAMPLE_TEXTS.en;
   const example =
     kind === 'items'
-      ? { name: 'Цемент М500 Д0', sku: 'CEM-500', category: 'Материалы / Сухие смеси', unit: 'кг', units: 'мешок=50', barcodes: '4600000000017', tracking: 'партионный', brand: 'Кант', supplier: 'ОсОО «Стройснаб»', price: 0.12, minQty: 500, warehouse: '' }
-      : { sku: 'CEM-500', qty: 40, unit: 'мешок', price: 6, batch: 'P-0425', expiresOn: '2026-12-31', bin: 'A-01-1' };
+      ? { name: sample.name, sku: 'CEM-500', category: sample.category, unit: sample.unit, units: `${sample.bag}=50`, barcodes: '4600000000017', tracking: t('wh.tracking.batch'), brand: 'Kant', supplier: sample.supplier, price: 0.12, minQty: 500, warehouse: '' }
+      : { sku: 'CEM-500', qty: 40, unit: sample.bag, price: 6, batch: 'P-0425', expiresOn: '2026-12-31', bin: 'A-01-1' };
   return (
     <div className="wh-page">
       <Hero icon="upload" title={t('wh.nav.import')} lead={t('wh.import.lead')}>

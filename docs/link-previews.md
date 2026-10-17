@@ -61,8 +61,15 @@ browser / crawler ──► nginx  ── built file exists? (assets, sw.js, ver
     [`@resvg/resvg-js`](https://github.com/yisibl/resvg-js) (prebuilt for
     glibc and musl/Alpine, no system libraries). Text is drawn in the bundled
     **Inter** font (`src/backend/assets/fonts`, SIL OFL 1.1 — full Cyrillic
-    incl. Kyrgyz/Kazakh letters); widths are read from the font
-    (`fontMetrics.js`), so wrapping and ellipses are exact. At most two
+    incl. Kyrgyz/Kazakh letters, Turkish), with **Noto Sans SC** as the
+    fallback for Chinese (`NotoSansSC-Regular/Bold.ttf`, SIL OFL 1.1, a
+    subset: GB2312 — 6 763 hanzi — CJK and full-width punctuation and every
+    character of the zh texts, ≈2.3 MB per weight, so ≈4.8 MB of the image;
+    rebuild it with fontTools `pyftsubset` from Google Fonts' NotoSansSC[wght]
+    when the zh texts gain rare characters). Characters neither font has are
+    dropped. Widths are read from the fonts (`fontMetrics.js`; a character is
+    measured in the first font that has it), so wrapping and ellipses are
+    exact; text without spaces breaks between characters. At most two
     pictures are drawn at a time.
   - `index.js` — page routes, the shell middleware, the picture routes.
   - per module: `modules/files/preview.js`, `modules/drive/preview.js`,

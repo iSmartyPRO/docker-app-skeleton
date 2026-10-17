@@ -1,6 +1,6 @@
 import { query, withTransaction } from '../../config/database.js';
 import { httpError } from '../shared/acl.js';
-import { FINISHINGS, HELD, MAX_DEPTH, STATUSES, TIMED } from './constants.js';
+import { DEFAULT_TYPES, FINISHINGS, HELD, MAX_DEPTH, STATUSES, TIMED } from './constants.js';
 import { requireConfigure, requireProject, visibleProjectIds } from './access.js';
 import { capsOf, has, readCaps } from './rules.js';
 import { NODE_SELECT, visibleNode } from './shapes.js';
@@ -219,7 +219,9 @@ async function validateImport(ctx, project, rows, client = { query }, input = {}
   ]);
   const typeBy = (value) => {
     const key = String(value || '').trim().toLowerCase();
-    return types.find((type) => type.key === key || type.name.toLowerCase() === key) || null;
+    // Its key, its name, or a stock type's name in any portal language.
+    const stock = DEFAULT_TYPES.find((type) => Object.values(type.name).some((name) => name.toLowerCase() === key));
+    return types.find((type) => type.key === key || type.name.toLowerCase() === key) || (stock && types.find((type) => type.key === stock.key)) || null;
   };
   const byCode = new Map(nodes.filter((node) => node.code).map((node) => [node.code.toLowerCase(), node]));
   const managerNames = rows.some((raw) => String(raw?.manager ?? '').trim())

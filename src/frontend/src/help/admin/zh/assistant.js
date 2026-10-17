@@ -1,3 +1,38 @@
-// Simplified Chinese: translate ../en/assistant.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '机器人助手是每个页面上的友好角色：首次进入某个版块时给出提示，打开简要指南和完整指南，并搜索帮助内容。管理员会少收到很多“在哪里？”之类的问题。',
+  audience: '所有员工，尤其是新员工。',
+  setup: [
+    {
+      title: '选择默认角色',
+      text: '在[设置](/admin/settings/assistant)中进行。可以允许任意角色、仅限选定角色，或为所有人统一指定一个（例如公司吉祥物）。',
+    },
+    {
+      title: '开启版块提示',
+      text: '机器人会在每个新版块中主动提供一次帮助。',
+    },
+    {
+      title: '允许更改颜色',
+      text: '用户可以为自己的角色重新配色。',
+    },
+  ],
+  scenarios: [
+    {
+      title: '门户上线',
+      text: '最初几周，机器人在每个版块提供帮助；之后用户可在「外观」中将其隐藏。',
+    },
+    {
+      title: '统一风格',
+      text: '选择「所有人统一」，全公司使用同一个助手。',
+    },
+  ],
+  faq: [
+    {
+      q: '机器人碍事，如何隐藏？',
+      a: '任何人都可以在「个人中心 → 外观」中隐藏它；管理员也可以关闭该模块。',
+    },
+    {
+      q: '答案从哪里来？',
+      a: '来自门户内置的帮助内容，不使用任何外部服务。',
+    },
+  ],
+};

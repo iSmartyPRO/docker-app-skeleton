@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../../config/database.js';
-import { getSetting, setSetting } from '../../services/settings.js';
+import { getSetting, localeFor, setSetting } from '../../services/settings.js';
+import { pick } from '../../services/i18n/index.js';
 import { registerJob } from '../../services/scheduler.js';
 import { runReminders } from './reminders.js';
 import { registerDealChat } from './chat.js';
@@ -17,12 +18,12 @@ import { registerDealChat } from './chat.js';
  */
 
 export const DEFAULT_STAGES = [
-  { name: 'Новая', color: '#94A3B8', kind: 'open' },
-  { name: 'Квалификация', color: '#3B82F6', kind: 'open' },
-  { name: 'Предложение', color: '#8B5CF6', kind: 'open' },
-  { name: 'Переговоры', color: '#F59E0B', kind: 'open' },
-  { name: 'Успешно', color: '#10B981', kind: 'won' },
-  { name: 'Провалена', color: '#EF4444', kind: 'lost' },
+  { name: { ru: 'Новая', en: 'New', ky: 'Жаңы', tr: 'Yeni', zh: '新建' }, color: '#94A3B8', kind: 'open' },
+  { name: { ru: 'Квалификация', en: 'Qualification', ky: 'Квалификация', tr: 'Nitelendirme', zh: '资格审核' }, color: '#3B82F6', kind: 'open' },
+  { name: { ru: 'Предложение', en: 'Proposal', ky: 'Сунуш', tr: 'Teklif', zh: '方案报价' }, color: '#8B5CF6', kind: 'open' },
+  { name: { ru: 'Переговоры', en: 'Negotiation', ky: 'Сүйлөшүүлөр', tr: 'Müzakere', zh: '谈判' }, color: '#F59E0B', kind: 'open' },
+  { name: { ru: 'Успешно', en: 'Won', ky: 'Ийгиликтүү', tr: 'Kazanıldı', zh: '赢单' }, color: '#10B981', kind: 'won' },
+  { name: { ru: 'Провалена', en: 'Lost', ky: 'Ийгиликсиз', tr: 'Kaybedildi', zh: '输单' }, color: '#EF4444', kind: 'lost' },
 ];
 
 export async function ensureCrmSchema() {
@@ -144,15 +145,18 @@ export async function ensureCrmSchema() {
   registerDealChat();
 }
 
-/** The default pipeline "Продажи", once. */
+const DEFAULT_PIPELINE = { ru: 'Продажи', en: 'Sales', ky: 'Сатуу', tr: 'Satış', zh: '销售' };
+
+/** The default pipeline "Продажи", once, named in the portal language. */
 async function seedPipeline() {
   if ((await getSetting('crm_seeded')) === 'true') return;
+  const locale = await localeFor(null);
   await withTransaction(async (client) => {
     const existing = await client.query(`SELECT 1 FROM crm_pipelines LIMIT 1`);
     if (existing.rows.length) return;
-    const { rows } = await client.query(`INSERT INTO crm_pipelines (name, color, sort, is_default) VALUES ('Продажи', '#2563EB', 0, TRUE) RETURNING id`);
+    const { rows } = await client.query(`INSERT INTO crm_pipelines (name, color, sort, is_default) VALUES ($1, '#2563EB', 0, TRUE) RETURNING id`, [pick(DEFAULT_PIPELINE, locale)]);
     for (const [index, stage] of DEFAULT_STAGES.entries()) {
-      await client.query(`INSERT INTO crm_stages (pipeline_id, name, color, sort, kind) VALUES ($1, $2, $3, $4, $5)`, [rows[0].id, stage.name, stage.color, index, stage.kind]);
+      await client.query(`INSERT INTO crm_stages (pipeline_id, name, color, sort, kind) VALUES ($1, $2, $3, $4, $5)`, [rows[0].id, pick(stage.name, locale), stage.color, index, stage.kind]);
     }
   });
   await setSetting('crm_seeded', 'true');

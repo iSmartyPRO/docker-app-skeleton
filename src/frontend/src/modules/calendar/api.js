@@ -31,7 +31,8 @@ export const calendarApi = {
 export const localTimeZone = () => getRegional().timeZone;
 
 /** Personal calendars keep their default name in the UI language. */
-const DEFAULT_PERSONAL = ['My calendar', 'Мой календарь'];
+// The names the server gives them in every language (backend locales/<lang>/calendar.js → personal).
+const DEFAULT_PERSONAL = ['My calendar', 'Мой календарь', 'Менин календарым', 'Takvimim', '我的日历'];
 export function calendarLabel(calendar, t) {
   const name = calendar.personal && DEFAULT_PERSONAL.includes(calendar.name) ? t('calendar.myCalendar') : calendar.name;
   return calendar.personal && !calendar.mine ? `${name} · ${calendar.owner}` : name;

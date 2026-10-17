@@ -22,34 +22,34 @@ const yearsAgo = (today, years, inDays = 40) => {
 };
 
 const POSITIONS = {
-  ceo: { ru: 'Генеральный директор', en: 'Chief executive' },
-  cfo: { ru: 'Главный бухгалтер', en: 'Chief accountant' },
-  accountant: { ru: 'Бухгалтер', en: 'Accountant' },
-  hrHead: { ru: 'Руководитель отдела кадров', en: 'Head of HR' },
-  hrSpecialist: { ru: 'Специалист по кадрам', en: 'HR specialist' },
-  sysadmin: { ru: 'Системный администратор', en: 'System administrator' },
-  developer: { ru: 'Программист', en: 'Developer' },
-  buyer: { ru: 'Менеджер по закупкам', en: 'Buyer' },
-  branchHead: { ru: 'Директор филиала', en: 'Branch director' },
-  sales: { ru: 'Менеджер по продажам', en: 'Sales manager' },
-  foreman: { ru: 'Прораб', en: 'Foreman' },
-  installer: { ru: 'Монтажник', en: 'Installer' },
-  welder: { ru: 'Сварщик', en: 'Welder' },
-  crane: { ru: 'Машинист крана', en: 'Crane operator' },
-  concrete: { ru: 'Бетонщик', en: 'Concrete worker' },
-  storekeeper: { ru: 'Кладовщик', en: 'Storekeeper' },
-  forklift: { ru: 'Водитель погрузчика', en: 'Forklift driver' },
-  electrician: { ru: 'Электрик', en: 'Electrician' },
-  officeManager: { ru: 'Офис-менеджер', en: 'Office manager' },
+  ceo: { ru: 'Генеральный директор', en: 'Chief executive', ky: 'Башкы директор', tr: 'Genel müdür', zh: '首席执行官' },
+  cfo: { ru: 'Главный бухгалтер', en: 'Chief accountant', ky: 'Башкы бухгалтер', tr: 'Mali işler müdürü', zh: '总会计师' },
+  accountant: { ru: 'Бухгалтер', en: 'Accountant', ky: 'Бухгалтер', tr: 'Muhasebeci', zh: '会计' },
+  hrHead: { ru: 'Руководитель отдела кадров', en: 'Head of HR', ky: 'Кадрлар бөлүмүнүн жетекчиси', tr: 'İK müdürü', zh: '人事主管' },
+  hrSpecialist: { ru: 'Специалист по кадрам', en: 'HR specialist', ky: 'Кадрлар боюнча адис', tr: 'İK uzmanı', zh: '人事专员' },
+  sysadmin: { ru: 'Системный администратор', en: 'System administrator', ky: 'Системалык администратор', tr: 'Sistem yöneticisi', zh: '系统管理员' },
+  developer: { ru: 'Программист', en: 'Developer', ky: 'Программист', tr: 'Yazılım geliştirici', zh: '程序员' },
+  buyer: { ru: 'Менеджер по закупкам', en: 'Buyer', ky: 'Сатып алуулар боюнча менеджер', tr: 'Satın alma uzmanı', zh: '采购专员' },
+  branchHead: { ru: 'Директор филиала', en: 'Branch director', ky: 'Филиалдын директору', tr: 'Şube müdürü', zh: '分公司总经理' },
+  sales: { ru: 'Менеджер по продажам', en: 'Sales manager', ky: 'Сатуу менеджери', tr: 'Satış temsilcisi', zh: '销售代表' },
+  foreman: { ru: 'Прораб', en: 'Foreman', ky: 'Прораб', tr: 'Şantiye şefi', zh: '工长' },
+  installer: { ru: 'Монтажник', en: 'Installer', ky: 'Монтажчы', tr: 'Montajcı', zh: '安装工' },
+  welder: { ru: 'Сварщик', en: 'Welder', ky: 'Ширетүүчү', tr: 'Kaynakçı', zh: '焊工' },
+  crane: { ru: 'Машинист крана', en: 'Crane operator', ky: 'Крандын машинисти', tr: 'Vinç operatörü', zh: '吊车司机' },
+  concrete: { ru: 'Бетонщик', en: 'Concrete worker', ky: 'Бетончу', tr: 'Betoncu', zh: '混凝土工' },
+  storekeeper: { ru: 'Кладовщик', en: 'Storekeeper', ky: 'Кампачы', tr: 'Depo sorumlusu', zh: '仓管员' },
+  forklift: { ru: 'Водитель погрузчика', en: 'Forklift driver', ky: 'Жүк көтөргүчтүн айдоочусу', tr: 'Forklift operatörü', zh: '叉车司机' },
+  electrician: { ru: 'Электрик', en: 'Electrician', ky: 'Электрик', tr: 'Elektrikçi', zh: '电工' },
+  officeManager: { ru: 'Офис-менеджер', en: 'Office manager', ky: 'Офис-менеджер', tr: 'Ofis yöneticisi', zh: '行政主管' },
 };
 
 const CLEARANCES = {
-  height: { ru: 'Допуск к работам на высоте', en: 'Work at height' },
-  welding: { ru: 'Аттестация сварщика', en: 'Welder certification' },
-  crane: { ru: 'Удостоверение машиниста крана', en: 'Crane operator licence' },
-  forklift: { ru: 'Удостоверение водителя погрузчика', en: 'Forklift licence' },
-  electrical: { ru: 'Группа по электробезопасности', en: 'Electrical safety group' },
-  firstAid: { ru: 'Первая помощь', en: 'First aid' },
+  height: { ru: 'Допуск к работам на высоте', en: 'Work at height', ky: 'Бийиктикте иштөөгө уруксат', tr: 'Yüksekte çalışma', zh: '高空作业' },
+  welding: { ru: 'Аттестация сварщика', en: 'Welder certification', ky: 'Ширетүүчүнү аттестациялоо', tr: 'Kaynakçı sertifikası', zh: '焊工资格认证' },
+  crane: { ru: 'Удостоверение машиниста крана', en: 'Crane operator licence', ky: 'Крандын машинистинин күбөлүгү', tr: 'Vinç operatörü belgesi', zh: '吊车司机操作证' },
+  forklift: { ru: 'Удостоверение водителя погрузчика', en: 'Forklift licence', ky: 'Жүк көтөргүчтүн айдоочусунун күбөлүгү', tr: 'Forklift operatörü belgesi', zh: '叉车司机操作证' },
+  electrical: { ru: 'Группа по электробезопасности', en: 'Electrical safety group', ky: 'Электр коопсуздугу боюнча топ', tr: 'Elektrik güvenliği yetki sınıfı', zh: '电气安全等级' },
+  firstAid: { ru: 'Первая помощь', en: 'First aid', ky: 'Биринчи жардам', tr: 'İlk yardım', zh: '急救' },
 };
 
 // [key, last, first, middle (ru), last, first (en), position, unit, site, extra]
@@ -86,6 +86,9 @@ registerDemo({
   describe: {
     ru: '25 сотрудников «ООО «Пример»»: офис, два филиала и объекты; часть без доступа к порталу; допуски, которые скоро истекают',
     en: '25 employees of «Example LLC»: office, two branches and sites; some without portal access; clearances expiring soon',
+    ky: '«Мисал» ЖЧКнын 25 кызматкери: кеңсе, эки филиал жана объекттер; айрымдарынын порталга кирүү укугу жок; мөөнөтү жакында бүтө турган уруксаттар',
+    tr: '«Örnek Ltd. Şti.»nin 25 çalışanı: ofis, iki şube ve şantiyeler; bazılarının portal erişimi yok; süresi yakında dolacak yetki belgeleri',
+    zh: '“示例”有限责任公司的 25 名员工：办公室、两家分公司和工地；部分人员没有门户访问权限；部分资质证书即将到期',
   },
   after: ['org'],
   async seed(ctx) {
@@ -120,8 +123,8 @@ registerDemo({
     let number = 0;
     for (const [key, lastRu, firstRu, middleRu, lastEn, firstEn, position, unit, site, extra] of PEOPLE) {
       number += 1;
-      // Russian names for a Russian portal, English ones for every other language.
-      const en = ctx.locale !== 'ru';
+      // Cyrillic names for a Russian or Kyrgyz portal, English ones for every other language.
+      const en = !['ru', 'ky'].includes(ctx.locale);
       const status = extra.status || 'active';
       const hireDate = extra.hireYears ? yearsAgo(today, extra.hireYears, extra.hireIn ?? 40 + number) : status === 'candidate' ? null : addDays(today, -120 - number * 3);
       const birthDate = yearsAgo(today, 24 + ((number * 7) % 30), extra.birthIn ?? 20 + number * 9);
@@ -145,7 +148,7 @@ registerDemo({
           site ? null : email,
           `+1 555 01${String(number).padStart(2, '0')}`,
           `+1 555 02${String(number).padStart(2, '0')}`,
-          number % 6 === 0 ? ctx.t({ ru: 'Демо: заметка отдела кадров.', en: 'Demo: an HR note.' }) : null,
+          number % 6 === 0 ? ctx.t({ ru: 'Демо: заметка отдела кадров.', en: 'Demo: an HR note.', ky: 'Демо: кадрлар бөлүмүнүн жазуусу.', tr: 'Demo: bir İK notu.', zh: '演示：人事备注。' }) : null,
           ctx.userId,
         ]
       );
@@ -161,7 +164,7 @@ registerDemo({
         ]);
       }
       if (extra.account) {
-        const names = DEMO_HEADS[extra.account] || { ru: `${firstRu} ${lastRu}`, en: `${firstEn} ${lastEn}` };
+        const names = DEMO_HEADS[extra.account] || { ru: `${firstRu} ${lastRu}`, en: `${firstEn} ${lastEn}`, ky: `${firstRu} ${lastRu}` };
         const userKey = DEMO_HEADS[extra.account] ? `org.${extra.account}` : `emp.${extra.account}`;
         const userId = await ctx.demoUser(userKey, { displayName: ctx.t(names) });
         const free = await ctx.query(`SELECT 1 FROM employees WHERE user_id = $1`, [userId]);

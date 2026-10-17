@@ -1,2 +1,27 @@
-// Simplified Chinese: fill keys from ../en/labelPrint.js — missing ones fall back to English.
-export default {};
+export default {
+  title: '打印标签',
+  format: '格式',
+  formats: {
+    '58x40': '58 × 40 mm',
+    '80x50': '80 × 50 mm',
+    'a4-3x8': 'A4，3 × 8',
+  },
+  formatHints: {
+    '58x40': '热敏打印机',
+    '80x50': '热敏打印机',
+    'a4-3x8': '每张24个标签',
+  },
+  copies: '每个份数',
+  preview: '预览',
+  print: '打印',
+  total: '标签：{count}',
+  sheets: 'A4 纸张：{count}',
+  position: '{index}/{total}',
+  prev: '上一个标签',
+  next: '下一个标签',
+  empty: '没有可打印的内容',
+  failed: '无法准备标签：{error}',
+  fallbackEan: '不是有效的 EAN-13，将按 Code 128 打印：{codes}',
+  fallbackQr: 'Code 128 无法承载这些字符，将按二维码打印：{codes}',
+  tip: '在打印对话框中选择标签打印机，缩放 100%，无边距。',
+};

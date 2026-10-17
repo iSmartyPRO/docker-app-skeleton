@@ -1,3 +1,49 @@
-// Simplified Chinese: translate ../en/chat.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '聊天是门户内置的即时通讯工具：私聊和群聊，以及对任务、交易、申请和合同的讨论。工作沟通留在公司内部、紧挨相关记录，而不是散落在个人通讯软件中。',
+  audience: '所有员工。',
+  setup: [
+    {
+      title: '允许或禁止群聊',
+      text: '在[设置](/admin/settings/chat)中决定是否所有人都可以创建群聊。',
+    },
+    {
+      title: '限制文件大小',
+      text: '附件的最大大小（MB）。',
+    },
+    {
+      title: '设置视频通话',
+      text: '会议链接模板；`{room}` 会被替换为唯一代码。留空则隐藏通话按钮。',
+    },
+    {
+      title: '检查推送通知',
+      text: '通过[通知](/admin/settings/notifications)，消息能送达未在查看的人。',
+    },
+  ],
+  roles: {
+    'chat.admin': '在禁止他人创建群聊时仍可创建群聊，并可删除任何消息。不能阅读他人的私聊。',
+  },
+  scenarios: [
+    {
+      title: '部门群聊',
+      text: '负责人创建“销售部”群聊并置顶重要消息；新员工一键即可加入。',
+    },
+    {
+      title: '讨论任务',
+      text: '每个任务都有自己的聊天：参与者可以同时看到变更历史和讨论内容。',
+    },
+  ],
+  faq: [
+    {
+      q: '如果关闭聊天会怎样？',
+      a: '会话将被隐藏但会保留。任务、交易和申请将不再显示讨论选项卡。',
+    },
+    {
+      q: '管理员能阅读私聊消息吗？',
+      a: '不能。私聊仅对其参与者可见。',
+    },
+    {
+      q: '需要什么通话服务？',
+      a: '任何可通过链接打开会议的服务（默认是 Jitsi Meet）。也可以指定您自己的服务器。',
+    },
+  ],
+};

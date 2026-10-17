@@ -1,2 +1,23 @@
-// Kyrgyz: fill keys from ../en/connections.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Туташуулар',
+  lead: 'Кирүү үчүн аккаунттар жана портал сиздин атыңыздан иштеген кызматтар.',
+  googleDesc: 'Google аркылуу кирүү жана Google календарларыңыз портал календарларынын жанында.',
+  none: 'Тышкы аккаунттар жеткиликсиз. Администратор Google\'ду жөндөөлөрдөн күйгүзө алат.',
+  notConnected: 'Туташкан эмес',
+  connectHint: 'Бир басуу менен кирүү үчүн Google\'ду туташтырыңыз.',
+  connectHintCalendar: 'Бир басуу менен кирүү жана бул жерден Google Календарыңызды көрүү үчүн Google\'ду туташтырыңыз.',
+  connect: 'Google\'ду туташтыруу',
+  grantCalendar: 'Календарга кирүүгө уруксат берүү',
+  disconnect: 'Ажыратуу',
+  disconnectConfirm: 'Google\'ду ажыратасызбы? Ал аркылуу кирүү жана Google Календарь кайра туташтырганга чейин иштебей калат.',
+  connected: 'Google туташты',
+  disconnected: 'Google ажыратылды',
+  signIn: 'Кирүү',
+  calendarOn: 'Календарь',
+  calendarOff: 'Календарга кирүү укугу жок',
+  calendarRevoked: 'Кирүү укугу кайтарылып алынды',
+  calendarsTitle: 'Google календарлары',
+  calendarsDesc: 'Google календарларыңыздын кайсынысын «Календарь» модулунда көрсөтүү.',
+  primary: 'Негизги',
+  readOnly: 'Окуу гана',
+};

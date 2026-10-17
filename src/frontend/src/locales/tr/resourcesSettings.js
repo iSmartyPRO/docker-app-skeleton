@@ -1,2 +1,20 @@
-// Turkish: fill keys from ../en/resourcesSettings.js — missing ones fall back to English.
-export default {};
+export default {
+  enabledDesc: 'Şirket bağlantıları kutucuklar hâlinde; ana sayfada veya /app/resources adresinde.',
+  catalogue: 'Katalog',
+  catalogueDesc: 'Kaynaklar, simgeler, kategoriler ve görünürlük.',
+  homePage: 'Ana sayfada göster',
+  homePageDesc: 'Site erişimi bölümünde ana sayfa olarak “Çevrimiçi kaynaklar”ı seçin.',
+  look: 'Görünüm',
+  lookDesc: 'Panonun herkese nasıl göründüğü.',
+  title: 'Başlık',
+  titleDesc: 'Kutucukların üstünde gösterilir.',
+  subtitle: 'Alt başlık',
+  density: 'Kutucuk boyutu',
+  comfortable: 'Rahat',
+  compact: 'Sıkışık',
+  showDescriptions: 'Açıklamaları göster',
+  showSearch: 'Arama ve kategoriler',
+  showSearchDesc: 'Kutucukların üstünde bir arama alanı ve kategori düğmeleri.',
+  personalize: 'Kişisel düzen',
+  personalizeDesc: 'Herkes kutucukları kendisi için yeniden sıralayabilir ve gizleyebilir. Konuklarda düzen tarayıcıda, çalışanlarda tüm cihazlarda saklanır.',
+};

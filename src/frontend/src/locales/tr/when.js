@@ -1,2 +1,28 @@
-// Turkish: fill keys from ../en/when.js — missing ones fall back to English.
-export default {};
+export default {
+  presets: {
+    m15: '15 dk sonra',
+    h1: '1 saat sonra',
+    h3: '3 saat sonra',
+    evening: 'Bu akşam',
+    tomorrow: 'Yarın sabah',
+    monday: 'Pazartesi',
+  },
+  fires: 'Tetiklenme: {date} — {rel}',
+  past: 'Bu an geçti — daha sonraki bir zaman seçin',
+  now: 'şimdi',
+  in: '{time} sonra',
+  d: '{n} g',
+  h: '{n} sa',
+  m: '{n} dk',
+  warn: {
+    push: 'Cihazlarınızın hiçbirinde anlık bildirim açık değil: hatırlatıcı zil simgesinde bekleyecek.',
+    messenger: 'Bağlı mesajlaşma uygulaması yok: Telegram’ı bağlayın (Profil → Güvenlik) veya WhatsApp için cep telefonu ya da Mattermost adı ekleyin (Profil).',
+    messengerOff: 'Mesajlaşma uygulamaları bildirim ayarlarınızda kapalı.',
+    email: 'Profilinizde e-posta adresi yok.',
+    emailOff: 'Portalda e-posta gönderimi ayarlanmamış.',
+    noMessengers: 'Portalda henüz hiçbir mesajlaşma uygulaması ayarlanmadığından oraya mesaj gönderilemez.',
+    setUp: 'Ayarla',
+    connectOne: 'Portalda kullanılabilen mesajlaşma uygulamaları: {list}. Bunlardan birini bağlayın:',
+    fix: 'Düzelt',
+  },
+};

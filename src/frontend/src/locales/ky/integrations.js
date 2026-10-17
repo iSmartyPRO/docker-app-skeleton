@@ -1,2 +1,24 @@
-// Kyrgyz: fill keys from ../en/integrations.js — missing ones fall back to English.
-export default {};
+export default {
+  lead: 'Бардык каналдар демейки боюнча өчүрүлгөн. Колдонууга даяр болгонуңузду гана күйгүзүңүз.',
+  host: 'Хост',
+  port: 'Порт',
+  user: 'Колдонуучу',
+  password: 'Сырсөз',
+  from: 'Жөнөтүүчү',
+  token: 'Боттун токени',
+  chatId: 'Демейки Chat ID',
+  server: 'Шлюздун дареги',
+  secure: 'SSL/TLS колдонуу',
+  botUsername: 'Боттун аты',
+  documentsUrl: 'Конвертация серверинин дареги',
+  mattermostUrl: 'Сервердин дареги',
+  mattermostToken: 'Боттун токени',
+  mattermostChannel: 'Билдирүүлөр каналынын ID',
+  mattermostAlerts: 'Коопсуздук билдирүүлөрүн жөнөтүү',
+  apiKey: 'API ачкычы',
+  bindDn: 'Bind DN',
+  baseDn: 'Base DN',
+  tls: 'TLS колдонуу',
+  caCert: 'CA сертификаты (PEM)',
+  caCertHint: 'Милдеттүү эмес. Домен контроллеринин сертификатын берген күбөлөндүрүү борборунун сертификаты, эгер ал ачык ишенимдүү болбосо (ички корпоративдик CA). TLS (LDAPS) менен колдонулат. Бир же бир нече -----BEGIN CERTIFICATE----- блогун чаптаңыз.',
+};

@@ -1,2 +1,19 @@
-// Kyrgyz: fill keys from ../en/folderUpload.js — missing ones fall back to English.
-export default {};
+export default {
+  uploadFiles: 'Файлдарды жүктөө',
+  uploadFolder: 'Папканы жүктөө',
+  uploadFolderHint: 'Компьютериңизден папка тандаңыз: анын ички папкалары бул жерде түзүлөт, ал эми бардык файлдар өз ордуна жүктөлөт.',
+  scanning: 'Папка окулууда…',
+  preparing: 'Папкалар түзүлүүдө ({n})…',
+  progress: '{total} файлдан {done}',
+  bytes: '{total} ичинен {done}',
+  failedN: 'Жүктөлгөн жок: {n}',
+  skippedN: 'Өткөрүлүп жиберилди (мурунтан бар): {n}',
+  cancelled: 'Жокко чыгарылды',
+  cancel: 'Жокко чыгаруу',
+  items: 'Объекттер: {n}',
+  tooMany: 'Файлдар өтө көп: бир жолку жүктөөдө {max} ашпашы керек. Папканы бөлүктөп жүктөңүз.',
+  tooDeep: 'Папкалардын уясы өтө терең: {max} деңгээлден ашпашы керек.',
+  folderFailed: 'Папканы түзүү мүмкүн болбоду',
+  readFailed: 'Папканы окуу мүмкүн болбоду: {error}',
+  empty: 'Папка бош.',
+};

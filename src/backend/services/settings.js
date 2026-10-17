@@ -356,7 +356,8 @@ export function parseSettings(raw) {
     integrations,
     security,
     auth,
-    modules: resolveModules(parseJson(raw.modules, {})),
+    // Stock texts of unsaved module settings follow the portal language (browser → the fallback).
+    modules: resolveModules(parseJson(raw.modules, {}), { locale: localization.default === 'browser' ? localization.fallback : localization.default }),
   };
 }
 

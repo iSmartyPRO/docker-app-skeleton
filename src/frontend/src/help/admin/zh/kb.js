@@ -1,3 +1,46 @@
-// Simplified Chinese: translate ../en/kb.js here (same structure; ids, icons and links stay as in English).
-// Anything missing falls back to English.
-export default {};
+export default {
+  purpose: '知识库是制度、操作指南和模板的资料库：任意层级的文件夹、文章、文件和链接，在浏览器中预览 PDF 和 Office 文档，支持文件夹权限和公开链接。',
+  audience: '所有人阅读；各部门的编辑者（人事、法务、IT）维护各自的版块。',
+  setup: [
+    {
+      title: '默认外观',
+      text: '未单独设置的文件夹所用的图标和颜色，在[设置](/admin/settings/kb)中配置。',
+    },
+    {
+      title: '文件类型和大小',
+      text: '允许上传哪些文件类别以及最大大小。',
+    },
+    {
+      title: '结构和访问权限',
+      text: '按部门创建版块，为编辑者授予其文件夹的编辑权限，其他人授予查看权限。',
+    },
+    {
+      title: '公开链接',
+      text: '如需向外部共享资料，请允许公开链接；必要时要求设置密码。',
+    },
+  ],
+  roles: {
+    'kb.admin': '对所有文件夹和模块设置拥有完全访问权限。',
+  },
+  access: '访问权限沿文件夹向下继承；文件夹或资料也可以有自己的访问权限。',
+  scenarios: [
+    {
+      title: '新员工入职',
+      text: '“新员工”版块，包含“入职第一天”“谁负责什么”以及表单链接。',
+    },
+    {
+      title: '合同模板',
+      text: '律师维护一个模板文件夹；其他人只能看到当前版本。',
+    },
+  ],
+  faq: [
+    {
+      q: '为什么 Word 显示为 PDF？',
+      a: '精确版式需要文档服务器（Collabora）。没有它时显示简化视图。',
+    },
+    {
+      q: '知识库的文件与「文件」模块相关联吗？',
+      a: '是的，它们存放在「文件」中；同一个文件可以出现在多篇文章中。',
+    },
+  ],
+};

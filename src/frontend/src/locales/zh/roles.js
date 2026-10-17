@@ -1,2 +1,17 @@
-// Simplified Chinese: fill keys from ../en/roles.js — missing ones fall back to English.
-export default {};
+export default {
+  title: '角色',
+  lead: '规定用户可以做什么。角色可直接分配给用户，也可通过组获得。',
+  create: '新建角色',
+  name: '名称',
+  description: '描述',
+  permissions: '权限',
+  system: '内置',
+  fullAccess: '完全访问',
+  permCount: '{count}/{total} 项权限',
+  userCount: '直接 {direct} · 通过组 {groups}',
+  viaGroups: '授予来源',
+  lockedHint: '超级管理员角色始终拥有完全访问权限，不可更改。请保护好它：至少保留两名超级管理员。',
+  notYours: '只能授予您自己拥有的权限',
+  confirmDelete: '删除此角色？用户将失去该角色授予的访问权限。',
+  deleted: '角色已删除',
+};

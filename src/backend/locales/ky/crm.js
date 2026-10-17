@@ -1,2 +1,40 @@
-// Kyrgyz: fill keys from ../en/crm.js — missing ones fall back to English.
-export default {};
+export default {
+  notify: {
+    deal: '«{deal}» бүтүмү',
+    due: 'Мөөнөт: {date}',
+    assigned: { title: '«{title}» бүтүмү Сизге дайындалды' },
+    activity: { title: 'Жаңы иш-чара: {title}' },
+    activityDue: { title: 'Эскертүү: {title}' },
+    stage: {
+      title: '«{title}» бүтүмү: «{stage}» баскычы',
+      reason: 'Себеби: {reason}',
+    },
+  },
+  csv: {
+    yes: 'Ооба',
+    no: 'Жок',
+    columns: {
+      id: 'ID',
+      title: 'Аталышы',
+      pipeline: 'Воронка',
+      stage: 'Баскыч',
+      amount: 'Сумма',
+      currency: 'Валюта',
+      company: 'Компания',
+      person: 'Байланыш',
+      phone: 'Телефон',
+      email: 'Электрондук почта',
+      owner: 'Жооптуу адам',
+      source: 'Булак',
+      closeDate: 'Жабылуу күнү',
+      createdAt: 'Түзүлгөн',
+      updatedAt: 'Жаңыланган',
+      closedAt: 'Жабылган',
+      createdBy: 'Түзгөн',
+      comment: 'Комментарий',
+      lostReason: 'Ийгиликсиздик себеби',
+      watchers: 'Байкоочулар',
+      nextActivity: 'Жакынкы иш-чара',
+    },
+  },
+};

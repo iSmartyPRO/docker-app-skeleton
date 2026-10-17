@@ -1,2 +1,19 @@
-// Simplified Chinese: fill keys from ../en/folderUpload.js — missing ones fall back to English.
-export default {};
+export default {
+  uploadFiles: '上传文件',
+  uploadFolder: '上传文件夹',
+  uploadFolderHint: '选择电脑上的一个文件夹：其子文件夹会在此处创建，所有文件都会上传到对应位置。',
+  scanning: '正在读取文件夹…',
+  preparing: '正在创建文件夹（{n}）…',
+  progress: '{done}/{total} 个文件',
+  bytes: '{done}/{total}',
+  failedN: '未上传：{n}',
+  skippedN: '已跳过（已存在）：{n}',
+  cancelled: '已取消',
+  cancel: '取消',
+  items: '{n} 项',
+  tooMany: '文件过多：单次上传最多 {max} 个。请分批上传该文件夹。',
+  tooDeep: '文件夹嵌套过深：最多 {max} 层。',
+  folderFailed: '无法创建文件夹',
+  readFailed: '无法读取文件夹：{error}',
+  empty: '文件夹为空。',
+};

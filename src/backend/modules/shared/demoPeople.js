@@ -8,14 +8,14 @@
  */
 
 export const DEMO_COLLEAGUES = {
-  director: { key: 'org.director', name: { ru: 'Анна Демова', en: 'Anna Demo' } },
-  finance: { key: 'org.finance', name: { ru: 'Олег Счётов', en: 'Oleg Ledger' } },
-  hr: { key: 'org.hr', name: { ru: 'Мария Кадрова', en: 'Maria People' } },
-  north: { key: 'org.north', name: { ru: 'Игорь Северов', en: 'Igor North' } },
-  foreman: { key: 'org.foreman', name: { ru: 'Пётр Прорабов', en: 'Peter Foreman' } },
-  it: { key: 'emp.it', name: { ru: 'Денис Сетевой', en: 'Denis Network' } },
-  buyer: { key: 'emp.buyer', name: { ru: 'Татьяна Закупова', en: 'Tatiana Supply' } },
-  sales1: { key: 'emp.sales1', name: { ru: 'Алексей Продажин', en: 'Alexey Seller' } },
+  director: { key: 'org.director', name: { ru: 'Анна Демова', en: 'Anna Demo', ky: 'Анна Демова' } },
+  finance: { key: 'org.finance', name: { ru: 'Олег Счётов', en: 'Oleg Ledger', ky: 'Олег Счётов' } },
+  hr: { key: 'org.hr', name: { ru: 'Мария Кадрова', en: 'Maria People', ky: 'Мария Кадрова' } },
+  north: { key: 'org.north', name: { ru: 'Игорь Северов', en: 'Igor North', ky: 'Игорь Северов' } },
+  foreman: { key: 'org.foreman', name: { ru: 'Пётр Прорабов', en: 'Peter Foreman', ky: 'Пётр Прорабов' } },
+  it: { key: 'emp.it', name: { ru: 'Денис Сетевой', en: 'Denis Network', ky: 'Денис Сетевой' } },
+  buyer: { key: 'emp.buyer', name: { ru: 'Татьяна Закупова', en: 'Tatiana Supply', ky: 'Татьяна Закупова' } },
+  sales1: { key: 'emp.sales1', name: { ru: 'Алексей Продажин', en: 'Alexey Seller', ky: 'Алексей Продажин' } },
 };
 
 /** { role: { id, username, name } } of the asked colleagues (all of them by default). */

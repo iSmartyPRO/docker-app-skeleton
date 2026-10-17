@@ -1,2 +1,23 @@
-// Simplified Chinese: fill keys from ../en/calendarSettings.js — missing ones fall back to English.
-export default {};
+export default {
+  enabledDesc: '在应用菜单中显示「日历」，地址为 /app/calendar。',
+  googleDesc: '用户可以将自己的 Google 日历与门户日历并排显示。',
+  calendars: '日历',
+  calendarsDesc: '每个人都有个人日历。共享日历用于团队和资源。',
+  creation: '谁可以创建共享日历',
+  creationDesc: '管理员始终可以创建（日历管理员权限）。',
+  showTasks: '显示任务截止日期',
+  showTasksDesc: '我的任务截止日期显示在日历中（需启用「任务」模块）。',
+  view: '视图',
+  viewDesc: '所有人的默认设置；手机上打开日视图。',
+  defaultView: '默认视图',
+  weekStart: '每周起始日',
+  weekday_1: '星期一',
+  weekday_0: '星期日',
+  weekday_6: '星期六',
+  workday: '工作时间',
+  workdayDesc: '在周视图和日视图中高亮显示；视图会滚动到工作时间开始处。',
+  reminders: '提醒',
+  remindersDesc: '通过通知中心发送：铃铛、推送、电子邮件、Telegram、Mattermost。',
+  remindersOn: '发送日程提醒',
+  defaultReminder: '新日程的默认提醒',
+};

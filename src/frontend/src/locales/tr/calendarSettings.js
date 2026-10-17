@@ -1,2 +1,23 @@
-// Turkish: fill keys from ../en/calendarSettings.js — missing ones fall back to English.
-export default {};
+export default {
+  enabledDesc: 'Takvim’i uygulama menüsünde /app/calendar adresinde gösterir.',
+  googleDesc: 'Kullanıcılar Google takvimlerini portal takvimlerinin yanında gösterebilir.',
+  calendars: 'Takvimler',
+  calendarsDesc: 'Herkesin kişisel bir takvimi vardır. Paylaşılan takvimler ekipler ve kaynaklar içindir.',
+  creation: 'Paylaşılan takvimleri kimler oluşturur',
+  creationDesc: 'Yöneticiler her zaman oluşturabilir (Takvim yöneticisi izni).',
+  showTasks: 'Görev son tarihlerini göster',
+  showTasksDesc: 'Görevlerimin son tarihleri takvimde görünür (Görevler açıksa).',
+  view: 'Görünüm',
+  viewDesc: 'Herkes için varsayılanlar; telefonlarda gün görünümü açılır.',
+  defaultView: 'Varsayılan görünüm',
+  weekStart: 'Haftanın ilk günü',
+  weekday_1: 'Pazartesi',
+  weekday_0: 'Pazar',
+  weekday_6: 'Cumartesi',
+  workday: 'Çalışma saatleri',
+  workdayDesc: 'Hafta ve gün görünümlerinde vurgulanır; görünüm günün başına kaydırılır.',
+  reminders: 'Hatırlatıcılar',
+  remindersDesc: 'Bildirim merkezi üzerinden gönderilir: zil, anlık bildirim, e-posta, Telegram, Mattermost.',
+  remindersOn: 'Etkinlik hatırlatıcıları gönder',
+  defaultReminder: 'Yeni etkinlikler için varsayılan',
+};

@@ -1,2 +1,7 @@
-// Turkish: fill keys from ../en/appUpdate.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Yeni sürüm yayımlandı',
+  text: 'Yenilikleri görmek için güncelleyin — yalnızca bir saniye sürer.',
+  button: 'Güncelle',
+  updating: 'Güncelleniyor…',
+  later: 'Daha sonra',
+};

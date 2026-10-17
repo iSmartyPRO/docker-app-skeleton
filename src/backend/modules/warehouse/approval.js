@@ -17,11 +17,11 @@ import { warehouseMessage } from './messages.js';
  */
 
 const TYPE_NAMES = {
-  writeoff: { ru: 'Списание', en: 'Write-off' },
-  correction: { ru: 'Корректировка', en: 'Correction' },
-  inventory: { ru: 'Акт инвентаризации', en: 'Inventory act' },
-  supplier_return: { ru: 'Возврат поставщику', en: 'Return to supplier' },
-  issue: { ru: 'Выдача', en: 'Issue' },
+  writeoff: { ru: 'Списание', en: 'Write-off', ky: 'Эсептен чыгаруу', tr: 'Hurdaya ayırma', zh: '报废' },
+  correction: { ru: 'Корректировка', en: 'Correction', ky: 'Оңдоо', tr: 'Düzeltme', zh: '调整' },
+  inventory: { ru: 'Акт инвентаризации', en: 'Inventory act', ky: 'Инвентаризация акты', tr: 'Sayım tutanağı', zh: '盘点单' },
+  supplier_return: { ru: 'Возврат поставщику', en: 'Return to supplier', ky: 'Жеткирүүчүгө кайтаруу', tr: 'Tedarikçiye iade', zh: '退货给供应商' },
+  issue: { ru: 'Выдача', en: 'Issue', ky: 'Берүү', tr: 'Çıkış', zh: '出库' },
 };
 
 const deferred = new Set();
@@ -49,16 +49,16 @@ export function registerWarehouseApproval() {
   return registerApprovalType({
     key: APPROVAL_TYPE,
     module: 'warehouse',
-    title: { ru: 'Складской документ', en: 'Warehouse document' },
+    title: { ru: 'Складской документ', en: 'Warehouse document', ky: 'Кампа документи', tr: 'Depo belgesi', zh: '仓库单据' },
     adminPermission: 'warehouse.admin',
     fields: [
-      { key: 'amount', type: 'money', label: { ru: 'Сумма', en: 'Amount' } },
-      { key: 'docType', type: 'select', label: { ru: 'Тип документа', en: 'Document type' }, options: Object.entries(TYPE_NAMES).map(([value, label]) => ({ value, label: `${label.ru} / ${label.en}` })) },
-      { key: 'reason', type: 'select', label: { ru: 'Причина списания', en: 'Write-off reason' }, options: WRITEOFF_REASONS.map((value) => ({ value, label: value })) },
+      { key: 'amount', type: 'money', label: { ru: 'Сумма', en: 'Amount', ky: 'Сумма', tr: 'Tutar', zh: '金额' } },
+      { key: 'docType', type: 'select', label: { ru: 'Тип документа', en: 'Document type', ky: 'Документтин түрү', tr: 'Belge türü', zh: '单据类型' }, options: Object.entries(TYPE_NAMES).map(([value, label]) => ({ value, label: `${label.ru} / ${label.en}` })) },
+      { key: 'reason', type: 'select', label: { ru: 'Причина списания', en: 'Write-off reason', ky: 'Эсептен чыгаруунун себеби', tr: 'Hurdaya ayırma nedeni', zh: '报废原因' }, options: WRITEOFF_REASONS.map((value) => ({ value, label: value })) },
       {
         key: 'warehouse',
         type: 'select',
-        label: { ru: 'Склад', en: 'Warehouse' },
+        label: { ru: 'Склад', en: 'Warehouse', ky: 'Кампа', tr: 'Depo', zh: '仓库' },
         options: async () => {
           const { query } = await import('../../config/database.js');
           const { rows } = await query(`SELECT id, name FROM wh_warehouses WHERE archived_at IS NULL ORDER BY sort, name`);

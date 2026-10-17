@@ -1,2 +1,17 @@
-// Kyrgyz: fill keys from ../en/roles.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Ролдор',
+  lead: 'Адамдарга эмне уруксат берилген. Ролдор түз же топтор аркылуу берилет.',
+  create: 'Жаңы роль',
+  name: 'Аталышы',
+  description: 'Сүрөттөмө',
+  permissions: 'Укуктар',
+  system: 'Камтылган',
+  fullAccess: 'Толук кирүү укугу',
+  permCount: '{total} укуктан {count}',
+  userCount: '{direct} түз · {groups} топтор аркылуу',
+  viaGroups: 'Берген топтор',
+  lockedHint: 'Супер администратордо дайыма толук кирүү укугу бар, ролду өзгөртүүгө болбойт. Аны коргоңуз: кеминде эки супер администратор болсун.',
+  notYours: 'Өзүңүздө бар укуктарды гана бере аласыз',
+  confirmDelete: 'Ролду өчүрөсүзбү? Колдонуучулар ал берген кирүү укугунан ажырашат.',
+  deleted: 'Роль өчүрүлдү',
+};

@@ -36,6 +36,8 @@ export function crmContext(req, settings) {
     canAll,
     seesAll: canAll || settings?.visibility !== 'own',
     settings,
+    // The person's language: texts the server makes for them (stock stage names).
+    locale: req.locale,
   };
 }
 

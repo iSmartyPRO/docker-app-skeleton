@@ -31,17 +31,48 @@ export const CRM_FIELD_TYPES = ['text', 'textarea', 'number', 'money', 'date', '
 export const CRM_BUILTIN_FIELDS = ['title', 'amount', 'client', 'owner', 'source', 'close_date', 'comment', 'watchers'];
 const CRM_RESERVED_KEYS = new Set([...CRM_BUILTIN_FIELDS, 'id', 'currency', 'company', 'person', 'stage', 'pipeline', 'closedate', 'custom', 'version', 'rank']);
 
+/*
+ * Stock lists of a new portal, per language. Until an administrator saves the CRM settings these are
+ * system values in the portal language (resolveModules → localizedDefaults); saved lists are the
+ * portal's own and stay as written. Deals store the source / reason text itself.
+ */
+const CRM_STOCK = {
+  sources: [
+    { ru: 'Сайт', en: 'Website', ky: 'Сайт', tr: 'Web sitesi', zh: '网站' },
+    { ru: 'Звонок', en: 'Phone call', ky: 'Чалуу', tr: 'Telefon', zh: '来电' },
+    { ru: 'Рекомендация', en: 'Referral', ky: 'Сунуштама', tr: 'Tavsiye', zh: '推荐' },
+    { ru: 'WhatsApp', en: 'WhatsApp', ky: 'WhatsApp', tr: 'WhatsApp', zh: 'WhatsApp' },
+    { ru: 'Instagram', en: 'Instagram', ky: 'Instagram', tr: 'Instagram', zh: 'Instagram' },
+    { ru: 'Выставка', en: 'Exhibition', ky: 'Көргөзмө', tr: 'Fuar', zh: '展会' },
+    { ru: 'Другое', en: 'Other', ky: 'Башка', tr: 'Diğer', zh: '其他' },
+  ],
+  lostReasons: [
+    { ru: 'Дорого', en: 'Too expensive', ky: 'Кымбат', tr: 'Pahalı', zh: '价格太高' },
+    { ru: 'Выбрали конкурента', en: 'Chose a competitor', ky: 'Атаандашты тандашты', tr: 'Rakibi seçti', zh: '选择了竞争对手' },
+    { ru: 'Нет бюджета', en: 'No budget', ky: 'Бюджет жок', tr: 'Bütçe yok', zh: '没有预算' },
+    { ru: 'Не актуально', en: 'No longer relevant', ky: 'Актуалдуу эмес', tr: 'Artık ilgilenmiyor', zh: '需求已取消' },
+    { ru: 'Не дозвонились', en: 'Could not reach', ky: 'Байланышуу мүмкүн болгон жок', tr: 'Ulaşılamadı', zh: '无法联系' },
+  ],
+  sections: {
+    about: { ru: 'О сделке', en: 'About the deal', ky: 'Бүтүм жөнүндө', tr: 'Fırsat hakkında', zh: '交易信息' },
+    extra: { ru: 'Дополнительно', en: 'More', ky: 'Кошумча', tr: 'Ek bilgiler', zh: '更多' },
+  },
+};
+const stockText = (value, locale) => value[locale] || value.en;
+/** The stock entries with their texts in every language (demo data writes them in the portal language). */
+export const CRM_STOCK_LISTS = CRM_STOCK;
+
 export const CRM_DEFAULTS = {
   // Default currency of new deals (one of `currencies`).
   currency: 'KGS',
   currencies: ['KGS', 'USD', 'EUR', 'RUB', 'KZT', 'CNY'],
   // 'all': everyone sees every deal; 'own': deals they own, watch or created (crm.all / crm.admin see all).
   visibility: 'all',
-  sources: ['Сайт', 'Звонок', 'Рекомендация', 'WhatsApp', 'Instagram', 'Выставка', 'Другое'],
-  lostReasons: ['Дорого', 'Выбрали конкурента', 'Нет бюджета', 'Не актуально', 'Не дозвонились'],
+  sources: CRM_STOCK.sources.map((item) => item.ru),
+  lostReasons: CRM_STOCK.lostReasons.map((item) => item.ru),
   sections: [
-    { key: 'about', title: 'О сделке' },
-    { key: 'extra', title: 'Дополнительно' },
+    { key: 'about', title: CRM_STOCK.sections.about.ru },
+    { key: 'extra', title: CRM_STOCK.sections.extra.ru },
   ],
   // Custom fields: { key, label, type, options, section, listColumn, required }; values live in crm_deals.custom[key].
   fields: [],
@@ -49,6 +80,17 @@ export const CRM_DEFAULTS = {
   builtinSections: {},
   activityReminders: true,
 };
+
+/** CRM_DEFAULTS with the stock lists in a language (Russian: CRM_DEFAULTS itself). */
+export function crmDefaults(locale) {
+  if (!locale || locale === 'ru') return CRM_DEFAULTS;
+  return {
+    ...CRM_DEFAULTS,
+    sources: CRM_STOCK.sources.map((item) => stockText(item, locale)),
+    lostReasons: CRM_STOCK.lostReasons.map((item) => stockText(item, locale)),
+    sections: Object.entries(CRM_STOCK.sections).map(([key, title]) => ({ key, title: stockText(title, locale) })),
+  };
+}
 
 const crmText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
 const crmHash = (label) => {
@@ -89,7 +131,7 @@ export function sanitizeCrm(current, incoming = {}) {
       .filter((item) => item.key && item.title && !seen.has(item.key) && seen.add(item.key))
       .slice(0, 12);
     // Built-in fields live in 'about' unless moved: it always exists.
-    if (!sections.some((item) => item.key === 'about')) sections.unshift({ key: 'about', title: 'О сделке' });
+    if (!sections.some((item) => item.key === 'about')) sections.unshift({ key: 'about', title: current.sections?.find((item) => item.key === 'about')?.title || CRM_STOCK.sections.about.ru });
     next.sections = sections.slice(0, 12);
   }
   const sectionKeys = new Set((next.sections || []).map((item) => item.key));
@@ -911,6 +953,8 @@ export const MODULE_CATALOG = [
     // crm.admin: settings, pipelines, every deal; crm.all: sees and edits every deal.
     permissions: ['crm.admin', 'crm.all'],
     defaults: CRM_DEFAULTS,
+    // Unsaved settings: the stock lists in the portal language.
+    localizedDefaults: crmDefaults,
     sanitize: sanitizeCrm,
   },
   {
@@ -1242,15 +1286,17 @@ export const MODULE_CATALOG = [
 export const MODULE_IDS = MODULE_CATALOG.map((module) => module.id);
 
 /** Stored state merged over defaults: `{ kb: { enabled, settings } }`. */
-export function resolveModules(stored = {}) {
+/** `locale`: the portal language, for modules whose stock settings have per-language texts (localizedDefaults). */
+export function resolveModules(stored = {}, { locale } = {}) {
   return Object.fromEntries(
     MODULE_CATALOG.map((module) => {
       const saved = stored[module.id] || {};
+      const defaults = locale && module.localizedDefaults ? module.localizedDefaults(locale) : module.defaults;
       return [
         module.id,
         {
           enabled: module.core ? true : typeof saved.enabled === 'boolean' ? saved.enabled : module.defaultEnabled,
-          settings: module.upgrade ? module.upgrade({ ...module.defaults, ...(saved.settings || {}) }, saved.settings || {}) : { ...module.defaults, ...(saved.settings || {}) },
+          settings: module.upgrade ? module.upgrade({ ...defaults, ...(saved.settings || {}) }, saved.settings || {}) : { ...defaults, ...(saved.settings || {}) },
         },
       ];
     })

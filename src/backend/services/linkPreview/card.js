@@ -11,8 +11,11 @@ import { loadMetrics } from './fontMetrics.js';
  * SVG and rasterised by resvg (a Rust renderer with prebuilt binaries for
  * glibc and musl/Alpine; no system libraries). Text uses the bundled Inter
  * font (SIL OFL, assets/fonts), which covers Latin and the whole Cyrillic
- * range (Kyrgyz and Kazakh letters too); widths come from the font itself, so
- * titles wrap and shorten exactly as drawn.
+ * range (Kyrgyz and Kazakh letters too) and Turkish, with Noto Sans SC as the
+ * fallback for Chinese (SIL OFL; a subset: GB2312 — 6 763 hanzi — CJK and
+ * full-width punctuation and every character of the zh texts, ≈2.3 MB per
+ * weight). Widths come from the fonts themselves, so titles wrap and shorten
+ * exactly as drawn. Text without spaces (Chinese) breaks between characters.
  *
  * Pictures are cached under uploads/.previews/og/<hash>.png, where the hash
  * covers everything drawn (texts, colours, logo, thumbnail version): a
@@ -24,15 +27,45 @@ export const WIDTH = 1200;
 export const HEIGHT = 630;
 // WhatsApp drops preview images above ~300 KB.
 export const MAX_BYTES = 290 * 1024;
-const CARD_VERSION = 4;
+const CARD_VERSION = 5;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FONT_DIR = resolve(here, '../../assets/fonts');
 const FONTS = { regular: join(FONT_DIR, 'Inter-Regular.ttf'), bold: join(FONT_DIR, 'Inter-Bold.ttf') };
+// Glyphs Inter lacks (Chinese) come from here; resvg falls back along FAMILY.
+const CJK_FONTS = { regular: join(FONT_DIR, 'NotoSansSC-Regular.ttf'), bold: join(FONT_DIR, 'NotoSansSC-Bold.ttf') };
+const FAMILY = `Inter, 'Noto Sans SC'`;
+
+/** Metrics of a font with its fallback: a character is measured in the first font that has it. */
+export function fontStackMetrics(primary, fallback) {
+  const source = (char) => (primary.has(char) || !fallback?.has(char) ? primary : fallback);
+  return {
+    unitsPerEm: primary.unitsPerEm,
+    has: (char) => primary.has(char) || Boolean(fallback?.has(char)),
+    width(text, size) {
+      let total = 0;
+      for (const char of String(text)) total += source(char).width(char, size);
+      return total;
+    },
+  };
+}
+
+const optionalMetrics = (path) => {
+  try {
+    return loadMetrics(path);
+  } catch {
+    return null;
+  }
+};
 
 let metrics = null;
 function fonts() {
-  if (!metrics) metrics = { regular: loadMetrics(FONTS.regular), bold: loadMetrics(FONTS.bold) };
+  if (!metrics) {
+    metrics = {
+      regular: fontStackMetrics(loadMetrics(FONTS.regular), optionalMetrics(CJK_FONTS.regular)),
+      bold: fontStackMetrics(loadMetrics(FONTS.bold), optionalMetrics(CJK_FONTS.bold)),
+    };
+  }
   return metrics;
 }
 
@@ -159,7 +192,7 @@ function documentIcon(color, badge) {
       <rect x="28" y="88" width="150" height="12" rx="6" fill="#E2E8F0"/>
       <rect x="28" y="116" width="128" height="12" rx="6" fill="#E2E8F0"/>
       <rect x="-14" y="164" width="200" height="84" rx="18" fill="${e(color)}"/>
-      <text x="86" y="${206 + size * 0.36}" text-anchor="middle" font-family="Inter" font-weight="700" font-size="${size}" fill="#FFFFFF">${e(label)}</text>
+      <text x="86" y="${206 + size * 0.36}" text-anchor="middle" font-family="${FAMILY}" font-weight="700" font-size="${size}" fill="#FFFFFF">${e(label)}</text>
     </g>`;
 }
 
@@ -201,7 +234,7 @@ function thumbBlock(thumb, card) {
     <rect x="-6" y="-6" width="292" height="312" rx="32" fill="#FFFFFF" opacity="0.9"/>
     <image href="${e(thumb.dataUrl)}" x="0" y="0" width="280" height="300" preserveAspectRatio="xMidYMid slice" clip-path="url(#thumb)"/>
     ${label ? `<rect x="16" y="236" width="${40 + fonts().bold.width(label, 28)}" height="48" rx="12" fill="${e(card.color || '#8E4EC6')}"/>
-    <text x="${36}" y="270" font-family="Inter" font-weight="700" font-size="28" fill="#FFFFFF">${e(label)}</text>` : ''}`;
+    <text x="${36}" y="270" font-family="${FAMILY}" font-weight="700" font-size="28" fill="#FFFFFF">${e(label)}</text>` : ''}`;
 }
 
 // ── The card ────────────────────────────────────────────────────────────────
@@ -217,7 +250,7 @@ function brandBadge(site, logo, x, y, size) {
   const letter = drawable(site.name, fonts().bold).charAt(0).toUpperCase() || 'P';
   return `
     <rect x="${x}" y="${y}" width="${size}" height="${size}" rx="${radius}" fill="#FFFFFF"/>
-    <text x="${x + size / 2}" y="${y + size * 0.68}" text-anchor="middle" font-family="Inter" font-weight="700" font-size="${Math.round(size * 0.5)}" fill="${e(site.color)}">${e(letter)}</text>`;
+    <text x="${x + size / 2}" y="${y + size * 0.68}" text-anchor="middle" font-family="${FAMILY}" font-weight="700" font-size="${Math.round(size * 0.5)}" fill="${e(site.color)}">${e(letter)}</text>`;
 }
 
 /**
@@ -257,9 +290,9 @@ export function cardSvg({ card, site, host, logo = null, thumb = null }) {
     const titleTop = 330;
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">${head}
   ${brandBadge(site, logo, 72, 80, 150)}
-  ${title.lines.map((line, i) => `<text x="72" y="${titleTop + i * Math.round(title.size * 1.12)}" font-family="Inter" font-weight="700" font-size="${title.size}" fill="#FFFFFF">${e(line)}</text>`).join('\n  ')}
-  ${lines.map((line, i) => `<text x="72" y="${titleTop + (title.lines.length - 1) * Math.round(title.size * 1.12) + 64 + i * 46}" font-family="Inter" font-size="36" fill="#FFFFFF" fill-opacity="0.82">${e(line)}</text>`).join('\n  ')}
-  <text x="72" y="574" font-family="Inter" font-size="26" fill="#FFFFFF" fill-opacity="0.7">${e(hostText)}</text>
+  ${title.lines.map((line, i) => `<text x="72" y="${titleTop + i * Math.round(title.size * 1.12)}" font-family="${FAMILY}" font-weight="700" font-size="${title.size}" fill="#FFFFFF">${e(line)}</text>`).join('\n  ')}
+  ${lines.map((line, i) => `<text x="72" y="${titleTop + (title.lines.length - 1) * Math.round(title.size * 1.12) + 64 + i * 46}" font-family="${FAMILY}" font-size="36" fill="#FFFFFF" fill-opacity="0.82">${e(line)}</text>`).join('\n  ')}
+  <text x="72" y="574" font-family="${FAMILY}" font-size="26" fill="#FFFFFF" fill-opacity="0.7">${e(hostText)}</text>
 </svg>`;
   }
 
@@ -277,21 +310,21 @@ export function cardSvg({ card, site, host, logo = null, thumb = null }) {
   // Vertically centred next to the icon (which spans y 166–466).
   const top = Math.max(176, Math.round(316 - blockHeight / 2)) + Math.round(title.size * 0.8);
   const titleSvg = title.lines
-    .map((line, i) => `<text x="${textX}" y="${top + i * lineHeight}" font-family="Inter" font-weight="700" font-size="${title.size}" fill="#FFFFFF">${e(line)}</text>`)
+    .map((line, i) => `<text x="${textX}" y="${top + i * lineHeight}" font-family="${FAMILY}" font-weight="700" font-size="${title.size}" fill="#FFFFFF">${e(line)}</text>`)
     .join('\n  ');
   const factsTop = top + (title.lines.length - 1) * lineHeight + 30 + 34;
   const factsSvg = facts
-    .map((line, i) => `<text x="${textX}" y="${factsTop + i * 44}" font-family="Inter" font-size="30" fill="#FFFFFF" fill-opacity="${i === 0 || given.length === 1 ? 0.9 : 0.72}">${e(line)}</text>`)
+    .map((line, i) => `<text x="${textX}" y="${factsTop + i * 44}" font-family="${FAMILY}" font-size="30" fill="#FFFFFF" fill-opacity="${i === 0 || given.length === 1 ? 0.9 : 0.72}">${e(line)}</text>`)
     .join('\n  ');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">${head}
   ${brandBadge(site, logo, 72, 56, 72)}
-  <text x="164" y="104" font-family="Inter" font-weight="700" font-size="34" fill="#FFFFFF">${e(siteName)}</text>
+  <text x="164" y="104" font-family="${FAMILY}" font-weight="700" font-size="34" fill="#FFFFFF">${e(siteName)}</text>
   <g transform="translate(72 166)">${thumb ? thumbBlock(thumb, card) : iconFor(card)}</g>
   ${titleSvg}
   ${factsSvg}
-  <text x="72" y="584" font-family="Inter" font-size="26" fill="#FFFFFF" fill-opacity="0.7">${e(hostText)}</text>
-  ${footer ? `<text x="1128" y="584" text-anchor="end" font-family="Inter" font-size="26" fill="#FFFFFF" fill-opacity="0.7">${e(footer)}</text>` : ''}
+  <text x="72" y="584" font-family="${FAMILY}" font-size="26" fill="#FFFFFF" fill-opacity="0.7">${e(hostText)}</text>
+  ${footer ? `<text x="1128" y="584" text-anchor="end" font-family="${FAMILY}" font-size="26" fill="#FFFFFF" fill-opacity="0.7">${e(footer)}</text>` : ''}
 </svg>`;
 }
 
@@ -386,7 +419,7 @@ export async function renderPng(svg) {
   return renderSlot(async () => {
     const instance = new Resvg(svg, {
       fitTo: { mode: 'width', value: WIDTH },
-      font: { fontFiles: [FONTS.regular, FONTS.bold], loadSystemFonts: false, defaultFontFamily: 'Inter' },
+      font: { fontFiles: [FONTS.regular, FONTS.bold, CJK_FONTS.regular, CJK_FONTS.bold], loadSystemFonts: false, defaultFontFamily: 'Inter' },
       imageRendering: 0,
       shapeRendering: 2,
       textRendering: 1,

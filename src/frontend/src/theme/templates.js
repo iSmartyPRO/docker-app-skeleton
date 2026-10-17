@@ -5,7 +5,7 @@ export { FONT_OPTIONS, TYPOGRAPHY_PRESETS } from './typography.js';
 export const THEME_TEMPLATES = {
   navy: {
     id: 'navy',
-    name: { en: 'Navy', ru: 'Тёмно-синий' },
+    name: { en: 'Navy', ky: 'Кочкул көк', tr: 'Lacivert', zh: '藏青', ru: 'Тёмно-синий' },
     light: {
       colorPrimary: '#1E3A6E',
       colorInfo: '#1E3A6E',
@@ -33,7 +33,7 @@ export const THEME_TEMPLATES = {
   },
   aurora: {
     id: 'aurora',
-    name: { en: 'Aurora Gold', ru: 'Аврора' },
+    name: { en: 'Aurora Gold', ky: 'Аврора алтыны', tr: 'Aurora altını', zh: '极光金', ru: 'Аврора' },
     light: {
       colorPrimary: '#B8863B',
       colorInfo: '#B8863B',
@@ -61,7 +61,7 @@ export const THEME_TEMPLATES = {
   },
   merlot: {
     id: 'merlot',
-    name: { en: 'Merlot', ru: 'Мерло' },
+    name: { en: 'Merlot', ky: 'Мерло', tr: 'Merlot', zh: '梅洛红', ru: 'Мерло' },
     light: {
       colorPrimary: '#7A2E3A',
       colorInfo: '#7A2E3A',
@@ -89,7 +89,7 @@ export const THEME_TEMPLATES = {
   },
   graphite: {
     id: 'graphite',
-    name: { en: 'Graphite Copper', ru: 'Графит' },
+    name: { en: 'Graphite Copper', ky: 'Графит жана жез', tr: 'Grafit bakır', zh: '石墨铜', ru: 'Графит' },
     light: {
       colorPrimary: '#9A5B34',
       colorInfo: '#9A5B34',
@@ -117,7 +117,7 @@ export const THEME_TEMPLATES = {
   },
   glacier: {
     id: 'glacier',
-    name: { en: 'Glacier', ru: 'Ледник' },
+    name: { en: 'Glacier', ky: 'Мөңгү', tr: 'Buzul', zh: '冰川', ru: 'Ледник' },
     light: {
       colorPrimary: '#2F5E73',
       colorInfo: '#2F5E73',

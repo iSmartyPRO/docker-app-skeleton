@@ -17,7 +17,13 @@ import { createDoc, getDoc, postDoc } from './documents.js';
  */
 
 const MAX_ROWS = 5000;
-const TRACKING_WORDS = { quantity: 'quantity', количественный: 'quantity', batch: 'batch', партионный: 'batch', партия: 'batch', serial: 'serial', серийный: 'serial', серия: 'serial' };
+// Accepted spellings in every portal language (also the interface labels); keys go through importWord().
+const importWord = (value) => String(value ?? '').trim().toLowerCase().replace(/\u0307/g, '').replace(/ı/g, 'i').replace(/\s+/g, ' ');
+const TRACKING_WORDS = Object.fromEntries(Object.entries({
+  quantity: 'quantity', количественный: 'quantity', количество: 'quantity', сандык: 'quantity', miktar: 'quantity', 按数量: 'quantity', 数量: 'quantity',
+  batch: 'batch', batches: 'batch', партионный: 'batch', партия: 'batch', партиялык: 'batch', parti: 'batch', partiler: 'batch', 按批次: 'batch', 批次: 'batch',
+  serial: 'serial', серийный: 'serial', серия: 'serial', сериялык: 'serial', 'seri numaralı': 'serial', seri: 'serial', 按序列号: 'serial', 序列号: 'serial',
+}).map(([word, value]) => [importWord(word), value]));
 
 const s = (value, max = 300) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 
@@ -66,7 +72,7 @@ export async function importItems(req, input = {}) {
     const sku = s(raw.sku, 60) || null;
     if (sku && seenSku.has(sku.toLowerCase())) err('sku', 'DUPLICATE', `SKU ${sku} repeats in the file`);
     if (sku) seenSku.add(sku.toLowerCase());
-    const trackingWord = s(raw.tracking).toLowerCase();
+    const trackingWord = importWord(s(raw.tracking));
     const tracking = trackingWord ? TRACKING_WORDS[trackingWord] : 'quantity';
     if (!tracking || !TRACKING.includes(tracking)) err('tracking', 'BAD_TRACKING', `Unknown tracking «${raw.tracking}»`);
     const baseUnit = s(raw.unit, 16) || 'шт';

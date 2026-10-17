@@ -1,2 +1,20 @@
-// Kyrgyz: fill keys from ../en/groups.js — missing ones fall back to English.
-export default {};
+export default {
+  title: 'Топтор',
+  lead: 'Командалар жана бөлүмдөр. Ар бир мүчө өз тобунун ролдорун алат.',
+  create: 'Жаңы топ',
+  name: 'Аталышы',
+  description: 'Сүрөттөмө',
+  default: 'Демейки топ',
+  defaultHint: 'Жаңы эсептик жазуулар (администратор, Active Directory же Telegram аркылуу түзүлгөн) ушул топко кошулат.',
+  defaultLocked: 'Бул демейки топ. Өзгөртүү үчүн башка топту демейки кылып дайындаңыз.',
+  defaultTag: 'Демейки',
+  roles: 'Мүчөлөргө берилүүчү ролдор',
+  rolesHint: 'Өзүңүздө жок ролдорду берүүгө болбойт.',
+  members: 'Мүчөлөр',
+  addMembers: 'Адамдарды кошуу…',
+  memberCount: 'Мүчөлөр: {count}',
+  noRoles: 'Ролсуз',
+  empty: 'Азырынча топтор жок',
+  confirmDelete: 'Топту өчүрөсүзбү? Мүчөлөр ал берген ролдордон ажырашат.',
+  deleted: 'Топ өчүрүлдү',
+};

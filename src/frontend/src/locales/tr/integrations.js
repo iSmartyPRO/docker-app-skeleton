@@ -1,2 +1,24 @@
-// Turkish: fill keys from ../en/integrations.js — missing ones fall back to English.
-export default {};
+export default {
+  lead: 'Tüm kanallar varsayılan olarak kapalıdır. Yalnızca işletmeye hazır olduklarınızı açın.',
+  host: 'Ana bilgisayar',
+  port: 'Bağlantı noktası',
+  user: 'Kullanıcı',
+  password: 'Parola',
+  from: 'Gönderen adresi',
+  token: 'Bot belirteci',
+  chatId: 'Varsayılan sohbet kimliği (Chat ID)',
+  server: 'Ağ geçidi URL’si',
+  secure: 'SSL/TLS kullan',
+  botUsername: 'Bot kullanıcı adı',
+  documentsUrl: 'Dönüştürme sunucusu URL’si',
+  mattermostUrl: 'Sunucu URL’si',
+  mattermostToken: 'Bot erişim belirteci',
+  mattermostChannel: 'Uyarı kanalı kimliği',
+  mattermostAlerts: 'Güvenlik uyarılarını gönder',
+  apiKey: 'API anahtarı',
+  bindDn: 'Bind DN',
+  baseDn: 'Base DN',
+  tls: 'TLS kullan',
+  caCert: 'CA sertifikası (PEM)',
+  caCertHint: 'İsteğe bağlı. Etki alanı denetleyicisinin sertifikasını veren sertifika yetkilisinin (CA) sertifikası; genel olarak güvenilir değilse (kurum içi CA). TLS (LDAPS) ile kullanılır. Bir veya daha fazla -----BEGIN CERTIFICATE----- bloğu yapıştırın.',
+};

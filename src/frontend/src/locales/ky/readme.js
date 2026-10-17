@@ -1,2 +1,24 @@
-// Kyrgyz: fill keys from ../en/readme.js — missing ones fall back to English.
-export default {};
+export default {
+  label: 'Папканын сүрөттөмөсү',
+  about: 'Папканын сүрөттөмөсү',
+  modified: 'Жаңыртылды: {when}',
+  open: 'Көрүүчүдө ачуу',
+  edit: 'Түзөтүү',
+  download: 'Жүктөп алуу',
+  copyLink: 'Шилтемени көчүрүү',
+  linkCopied: 'Шилтеме көчүрүлдү',
+  hide: 'Бул папкада жашыруу',
+  show: 'Көрсөтүү',
+  hiddenHere: 'Папканын сүрөттөмөсү бул жерде жашырылган',
+  expand: 'Толук көрсөтүү',
+  collapse: 'Жыйноо',
+  loading: 'Сүрөттөмө жүктөлүүдө…',
+  failed: 'README жүктөлгөн жок.',
+  retry: 'Кайталоо',
+  tooLarge: 'README {size} өлчөмүнөн чоң — аны көрүүчүдө ачыңыз.',
+  copy: 'Көчүрүү',
+  copied: 'Көчүрүлдү',
+  copyCode: 'Кодду көчүрүү',
+  showAll: 'Папкалардын README файлдарын көрсөтүү',
+  notFound: 'Мындай файл же папка бул жерде жок',
+};

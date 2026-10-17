@@ -74,7 +74,7 @@ export async function afterUnitStatus(ctx, node, { before, after, booking, reaso
         await query(`UPDATE crm_deals SET amount = $2, currency = $3, version = version + 1, updated_at = NOW(), updated_by = $4 WHERE id = $1`, [after.deal_id, amount, currency, ctx.userId]);
         await query(`INSERT INTO crm_events (deal_id, kind, data, author_id) VALUES ($1, 'field', $2, $3)`, [
           after.deal_id,
-          JSON.stringify({ field: 'amount', label: 'Сумма', from: { amount: money(deal.amount), currency: (deal.currency || '').trim() }, to: { amount, currency } }),
+          JSON.stringify({ field: 'amount', label: 'Amount', from: { amount: money(deal.amount), currency: (deal.currency || '').trim() }, to: { amount, currency } }),
           ctx.userId,
         ]);
       }
