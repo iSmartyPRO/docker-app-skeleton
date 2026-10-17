@@ -197,7 +197,7 @@ Reactivating the author's account makes their links work again. Deleting the acc
 
 ## Security
 
-- **SMB gateway.** SMB runs in a small Python process (`modules/drive/gateway/smbgate.py`, smbprotocol) that Node starts on first use and restarts if it dies. It listens on a private Unix socket (mode `0600`) and accepts only requests that carry a random per-start key. No credentials touch the disk there.
+- **SMB gateway.** SMB runs in a small Python process (`modules/drive/gateway/smbgate.py`, smbprotocol) that Node starts on first use and restarts if it dies. It listens on a private Unix socket (mode `0600`) and accepts only requests that carry a random per-start key. No credentials touch the disk there. SMB sessions are pooled per server and credential (one pool for all users of a service-account server); `SMBGATE_READS` (default 4) bounds parallel SMB read calls per pool — each `stat`, `open` and chunk read takes a slot only for that call, never while the chunk is written to a (possibly slow) client, so any number of downloads share a pool; a call that waits more than 30 s for a slot answers `503 SMB_BUSY` (tests: `gateway/test_gate_busy.py`).
 - **Paths are validated twice** (Node and the gateway):
   - no `..`;
   - no alternate data streams (`:`);

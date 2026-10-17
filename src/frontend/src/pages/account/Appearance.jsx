@@ -138,10 +138,13 @@ export default function AccountAppearance() {
     [user?.locale, user?.theme, user?.regional, user?.ui, languages]
   );
   const { form, dirty, saving, submit, reset, formProps, recompute } = useSettingsForm(initial, async (values) => {
-    const res = await updateAccountProfile({ locale: values.locale, theme: values.theme, regional: values.regional });
+    // The language only when it was changed here: a stored language that is disabled at the moment
+    // reads as «As the portal» above and must survive a save of the theme (it returns when re-enabled).
+    const localeChanged = values.locale !== initial.locale;
+    const res = await updateAccountProfile({ ...(localeChanged ? { locale: values.locale } : {}), theme: values.theme, regional: values.regional });
     const ui = await api.put('/account/ui', { motion: values.motion, custom: values.custom });
     setUser(ui.data.user || res.data.user);
-    setLocale(values.locale === 'auto' ? null : values.locale);
+    if (localeChanged) setLocale(values.locale === 'auto' ? null : values.locale);
     setMode(values.theme);
     clearPersonalPreview();
   });

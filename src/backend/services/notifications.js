@@ -165,7 +165,7 @@ export function prefsWithZone(user, portal) {
 }
 
 /** Delivery columns of users, region settings included. */
-const DELIVERY_COLUMNS = `id, email, phone, locale, telegram_id, mattermost, notify_prefs, regional, device_tz`;
+const DELIVERY_COLUMNS = `id, email, phone, locale, last_locale, telegram_id, mattermost, notify_prefs, regional, device_tz`;
 
 /** 'paused' | 'quiet' | null — whether external delivery should hold back now. */
 export function quietState(prefs, now = new Date()) {

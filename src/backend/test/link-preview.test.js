@@ -115,7 +115,9 @@ test('link preview: site card and skeleton defaults', () => {
   assert.equal(info.name, 'Портал');
   assert.equal(info.description, 'Корпоративный портал');
   assert.equal(info.color, '#0F766E');
-  assert.equal(previewLocale({ defaultLocale: 'auto' }), 'ru');
+  // Browser mode: the fallback, as for messages sent outside a request (recipientLocale).
+  assert.equal(previewLocale({ defaultLocale: 'auto' }), 'en');
+  assert.equal(previewLocale({ localization: { enabled: ['en', 'ru'], default: 'browser', fallback: 'ru' } }), 'ru');
   assert.equal(previewLocale({ defaultLocale: 'en' }), 'en');
   const text = describePreview({ state: 'site' }, { site, locale: 'ru' });
   assert.equal(text.title, 'Example');

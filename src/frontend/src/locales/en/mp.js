@@ -497,6 +497,8 @@ export default {
       REQUIRED: 'required',
       DUPLICATE: 'the code repeats in the file',
       UNKNOWN_TYPE: 'unknown type',
+      AMBIGUOUS_TYPE: 'several types have this name — use the type key',
+      AMBIGUOUS_STATUS: 'several statuses have this name — use the status key',
       TYPE_CHANGE: 'the type of an existing object is changed in its card',
       UNKNOWN_PARENT: 'no object with this code',
       TOO_DEEP: 'the tree would be deeper than 8 levels',

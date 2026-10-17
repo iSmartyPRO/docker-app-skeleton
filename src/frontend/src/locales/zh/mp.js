@@ -497,6 +497,8 @@ export default {
       REQUIRED: '必填',
       DUPLICATE: '代码在文件中重复',
       UNKNOWN_TYPE: '未知类型',
+      AMBIGUOUS_TYPE: '多个类型使用此名称——请填写类型键',
+      AMBIGUOUS_STATUS: '多个状态使用此名称——请填写状态键',
       TYPE_CHANGE: '现有对象的类型需在其卡片中修改',
       UNKNOWN_PARENT: '没有此代码的对象',
       TOO_DEEP: '树的层级将超过8层',

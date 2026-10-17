@@ -35,7 +35,7 @@ Limiter: 20 requests / 15 minutes / IP on the `POST` endpoints. `GET /status` is
 |--------|------|--------|
 | `POST` | `/api/auth/login` | `{ username, password }` → local password, then Active Directory. 20 / 15 min |
 | `POST` | `/api/auth/telegram` | Telegram Login Widget fields (`id`, `auth_date`, `hash`, …) |
-| `POST` | `/api/auth/code/request` | `{ channel: "whatsapp" \| "email" \| "telegram" \| "mattermost", identifier, mode: "code" \| "link" }` → always `{ success: true }`. 10 / 15 min |
+| `POST` | `/api/auth/code/request` | `{ channel: "whatsapp" \| "email" \| "telegram" \| "mattermost", identifier, mode: "code" \| "link" }` → always `{ success: true }`. 10 / 15 min per address and account, 20 / 15 min per address |
 | `POST` | `/api/auth/code/verify` | `{ channel, identifier, code }` |
 | `POST` | `/api/auth/magic` | `{ token }` from `/auth/magic#token` |
 | `POST` | `/api/auth/logout` | Clears cookie |

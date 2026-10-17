@@ -62,9 +62,13 @@ IDLE_SECONDS = int(os.environ.get("SMBGATE_IDLE", "300"))
 # Sessions are renewed after this age so AD group changes apply (like a new logon).
 MAX_AGE_SECONDS = int(os.environ.get("SMBGATE_MAX_AGE", "900"))
 CHUNK = 1024 * 1024
-# Parallel file reads per SMB session. Phones open a PDF with a burst of
-# range requests; past the server's SMB credit grant smbprotocol fails them
-# with "Request requires N credits but only 0 credits are available".
+# Parallel SMB read calls (stat, open, one chunk read, close) per SMB session.
+# Phones open a PDF with a burst of range requests; past the server's SMB
+# credit grant smbprotocol fails them with "Request requires N credits but
+# only 0 credits are available". The slot covers one SMB call, never the
+# write of a chunk to the client, so slow clients don't block others and a
+# pool shared by many users (service account, public links) streams any
+# number of files at once: they just take turns on the wire.
 READS_PER_POOL = max(1, int(os.environ.get("SMBGATE_READS", "4")))
 READ_WAIT_SECONDS = 30
 # Seconds an upload body may stay silent before the gateway gives up on it.
@@ -204,6 +208,36 @@ class hold_pool:
             self.pool.active = max(0, self.pool.active - 1)
             self.pool.touch()
         return False
+
+
+class read_slot:
+    """`with read_slot(pool):` one SMB read call; 503 SMB_BUSY after READ_WAIT_SECONDS."""
+
+    def __init__(self, pool):
+        self.pool = pool
+
+    def __enter__(self):
+        if not self.pool.reads.acquire(timeout=READ_WAIT_SECONDS):
+            raise GateError(503, "SMB_BUSY", "Too many parallel reads on this file server session")
+        return self.pool
+
+    def __exit__(self, *_exc):
+        self.pool.reads.release()
+        return False
+
+
+def close_quietly(handle, slot):
+    """Closes a read handle inside a slot; a busy pool or a dead session must not leak an error."""
+    try:
+        with slot():
+            handle.close()
+    except GateError:
+        try:
+            handle.close()  # no slot in time: close anyway rather than leak the handle
+        except Exception:  # noqa: BLE001
+            pass
+    except Exception:  # noqa: BLE001 - the session is gone; the server drops the handle
+        pass
 
 
 RETIRED = []
@@ -1305,17 +1339,13 @@ class Handler(BaseHTTPRequestHandler):
     # Streaming file read with an optional byte range.
     def op_read(self, req):
         kwargs, pool = session(req)
-        if not pool.reads.acquire(timeout=READ_WAIT_SECONDS):
-            raise GateError(503, "SMB_BUSY", "Too many parallel reads on this file server session")
-        try:
-            self.read_file(req, kwargs)
-        finally:
-            pool.reads.release()
+        self.read_file(req, kwargs, lambda: read_slot(pool))
 
-    def read_file(self, req, kwargs):
+    def read_file(self, req, kwargs, slot):
         target = unc(req)
         parts = clean_parts(req.get("path"))
-        st = smbclient.stat(target, **kwargs)
+        with slot():
+            st = smbclient.stat(target, **kwargs)
         shape = stat_shape(parts[-1] if parts else "", st)
         if shape["dir"]:
             raise GateError(400, "IS_A_FOLDER", "Is a folder")
@@ -1327,9 +1357,11 @@ class Handler(BaseHTTPRequestHandler):
             raise GateError(416, "RANGE", "Bad range")
         length = max(0, end - start + 1) if size else 0
         # Others may keep the file open (Word, Excel): share read/write so we can still read it.
-        with smbclient.open_file(target, mode="rb", share_access="rw", **kwargs) as handle:
+        with slot():
+            handle = smbclient.open_file(target, mode="rb", share_access="rw", **kwargs)
+        try:
             if start:
-                handle.seek(start)
+                handle.seek(start)  # local: only moves the offset of the next read
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
             self.send_header("Content-Length", str(length))
@@ -1338,11 +1370,19 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             remaining = length
             while remaining > 0:
-                chunk = handle.read(min(CHUNK, remaining))
+                with slot():
+                    chunk = handle.read(min(CHUNK, remaining))
                 if not chunk:
                     break
+                # Outside the slot: a slow client only holds its own stream.
                 self.wfile.write(chunk)
                 remaining -= len(chunk)
+        except Exception:
+            # Headers may be out already: never reuse this connection for an error body.
+            self.close_connection = True
+            raise
+        finally:
+            close_quietly(handle, slot)
 
     # Upload: the body goes to a hidden temporary file that is renamed at the end,
     # so a broken upload never leaves a half-written document behind.

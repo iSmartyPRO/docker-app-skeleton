@@ -59,3 +59,18 @@ test('attemptAccount: username, identifier or telegram id, trimmed and lower-cas
   assert.equal(attemptAccount({}), '');
   assert.equal(attemptAccount({ body: { username: 'x'.repeat(500) } }).length, 128);
 });
+
+test('sign-in limiter: AD spellings and phone shapes of one account share a bucket', async () => {
+  await withApp(failedSignInLimiters({ perAccount: 3, perAddress: 100 }), async (post) => {
+    assert.equal(await post('ivan', 'bad'), 401);
+    assert.equal(await post('CORP\\Ivan', 'bad'), 401);
+    assert.equal(await post('ivan@corp.local', 'bad'), 401);
+    assert.equal(await post('Ivan', 'bad'), 429, 'three spellings, one account');
+    assert.equal(await post('petr', 'bad'), 401);
+  });
+  await withApp([signInLimiter({ max: 2, key: addressAndAccount })], async (post) => {
+    assert.equal(await post('+996 555 123 456', 'ok'), 200);
+    assert.equal(await post('996555123456', 'ok'), 200);
+    assert.equal(await post('(996) 555-123-456', 'ok'), 429);
+  });
+});

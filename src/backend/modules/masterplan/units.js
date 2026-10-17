@@ -10,6 +10,11 @@ import { Params, csvCell, idList, intOr, likePattern, logEvent, parseNumber, tex
 import { looseDay, migrateLocked } from './migration.js';
 import { SUPPORTED, localeOrDefault, tr } from '../../services/i18n/index.js';
 import { statusName } from './messages.js';
+import { importWord, matchByLanguage } from '../shared/importWords.js';
+
+// Import vocabularies: stock type names and status names in every language (test/import-vocabulary.test.js).
+export const STOCK_TYPE_NAMES = DEFAULT_TYPES.map((type) => ({ value: type.key, names: type.name }));
+export const statusNames = () => STATUSES.map((key) => ({ value: key, names: Object.fromEntries(SUPPORTED.map((lang) => [lang, statusName(key, lang)])) }));
 
 /*
  * The registry of units (spec §9.3): filters, sorting, pages, CSV export,
@@ -217,11 +222,18 @@ async function validateImport(ctx, project, rows, client = { query }, input = {}
     client.query(`SELECT * FROM mp_types WHERE archived_at IS NULL`),
     client.query(`SELECT n.id, n.code, n.path, n.depth, n.kind, n.type_id, u.status, u.price, u.currency FROM mp_nodes n LEFT JOIN mp_units u ON u.node_id = n.id WHERE n.project_id = $1`, [project.id]),
   ]);
+  const locale = ctx.locale || null;
+  // Its key, its name in the portal, or a stock type's name by language (the person's, English, others).
   const typeBy = (value) => {
-    const key = String(value || '').trim().toLowerCase();
-    // Its key, its name, or a stock type's name in any portal language.
-    const stock = DEFAULT_TYPES.find((type) => Object.values(type.name).some((name) => name.toLowerCase() === key));
-    return types.find((type) => type.key === key || type.name.toLowerCase() === key) || (stock && types.find((type) => type.key === stock.key)) || null;
+    const word = importWord(value);
+    const own = types.find((type) => type.key === word) || null;
+    if (own) return own;
+    const named = types.filter((type) => importWord(type.name) === word);
+    if (named.length > 1) return { ambiguous: named.map((type) => type.name) };
+    if (named.length) return named[0];
+    const stock = matchByLanguage(value, STOCK_TYPE_NAMES, locale, SUPPORTED);
+    if (stock?.ambiguous) return stock;
+    return (stock && types.find((type) => type.key === stock.value)) || null;
   };
   const byCode = new Map(nodes.filter((node) => node.code).map((node) => [node.code.toLowerCase(), node]));
   const managerNames = rows.some((raw) => String(raw?.manager ?? '').trim())
@@ -243,8 +255,10 @@ async function validateImport(ctx, project, rows, client = { query }, input = {}
     if (seen.has(key)) return err('code', 'DUPLICATE', `Code repeats row ${seen.get(key)}`);
     seen.set(key, line);
     const existing = byCode.get(key);
-    const type = row.type ? typeBy(row.type) : null;
-    if (row.type && !type) err('type', 'UNKNOWN_TYPE', `Unknown type “${row.type}”`);
+    const typeMatch = row.type ? typeBy(row.type) : null;
+    const type = typeMatch?.ambiguous ? null : typeMatch;
+    if (typeMatch?.ambiguous) err('type', 'AMBIGUOUS_TYPE', `“${row.type}” names several types; use the type key`);
+    else if (row.type && !type) err('type', 'UNKNOWN_TYPE', `Unknown type “${row.type}”`);
     if (!existing && !row.type) err('type', 'REQUIRED', 'Type is required for a new object');
     if (type && existing && existing.type_id !== type.id) err('type', 'TYPE_CHANGE', 'The type of an existing object is changed in its card');
     let parent = null;
@@ -256,8 +270,10 @@ async function validateImport(ctx, project, rows, client = { query }, input = {}
     let migration = null;
     if (row.status) {
       // A status key, or its name in any portal language («Свободно», «Available»…).
-      const status = STATUSES.includes(row.status) ? row.status : STATUSES.find((key) => SUPPORTED.some((lang) => statusName(key, lang).toLowerCase() === row.status.toLowerCase()));
-      if (!status) err('status', 'STATUS', `Unknown status “${row.status}”`);
+      const statusMatch = STATUSES.includes(importWord(row.status)) ? { value: importWord(row.status) } : matchByLanguage(row.status, statusNames(), locale, SUPPORTED);
+      const status = statusMatch?.value || null;
+      if (statusMatch?.ambiguous) err('status', 'AMBIGUOUS_STATUS', `“${row.status}” names several statuses; use the status key`);
+      else if (!status) err('status', 'STATUS', `Unknown status “${row.status}”`);
       else row.status = status;
       // A held status is a migration; so is the unit's own held status repeated with new client / contract data.
       if (status && HELD.has(status)) migration = { to: status };

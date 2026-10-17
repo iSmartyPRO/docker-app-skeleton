@@ -32,9 +32,12 @@ export const CRM_BUILTIN_FIELDS = ['title', 'amount', 'client', 'owner', 'source
 const CRM_RESERVED_KEYS = new Set([...CRM_BUILTIN_FIELDS, 'id', 'currency', 'company', 'person', 'stage', 'pipeline', 'closedate', 'custom', 'version', 'rank']);
 
 /*
- * Stock lists of a new portal, per language. Until an administrator saves the CRM settings these are
- * system values in the portal language (resolveModules → localizedDefaults); saved lists are the
- * portal's own and stay as written. Deals store the source / reason text itself.
+ * Stock lists of a new portal, per language. Deals store the source / reason text itself, so these
+ * lists are never relabelled once a portal has them: setup stores them in the portal language
+ * (services/setup.js → localizeCrmStockLists, only while there are no deals) and an upgrade stores
+ * the Russian lists older versions always showed (services/settings.js → migrateCrmStockLists).
+ * Only the section titles (not stored in deals) follow the portal language while unsaved
+ * (resolveModules → localizedDefaults).
  */
 const CRM_STOCK = {
   sources: [
@@ -80,6 +83,20 @@ export const CRM_DEFAULTS = {
   builtinSections: {},
   activityReminders: true,
 };
+
+/** The stock sources and lost reasons in a language: what setup stores for a brand-new portal. */
+export function crmStockLists(locale) {
+  return {
+    sources: CRM_STOCK.sources.map((item) => stockText(item, locale || 'ru')),
+    lostReasons: CRM_STOCK.lostReasons.map((item) => stockText(item, locale || 'ru')),
+  };
+}
+
+/** Unsaved CRM settings in the portal language: only the section titles change, never data-bearing lists. */
+export function crmLocalizedDefaults(locale) {
+  if (!locale || locale === 'ru') return CRM_DEFAULTS;
+  return { ...CRM_DEFAULTS, sections: Object.entries(CRM_STOCK.sections).map(([key, title]) => ({ key, title: stockText(title, locale) })) };
+}
 
 /** CRM_DEFAULTS with the stock lists in a language (Russian: CRM_DEFAULTS itself). */
 export function crmDefaults(locale) {
@@ -953,8 +970,8 @@ export const MODULE_CATALOG = [
     // crm.admin: settings, pipelines, every deal; crm.all: sees and edits every deal.
     permissions: ['crm.admin', 'crm.all'],
     defaults: CRM_DEFAULTS,
-    // Unsaved settings: the stock lists in the portal language.
-    localizedDefaults: crmDefaults,
+    // Unsaved settings: section titles in the portal language (stock lists are stored, see CRM_STOCK).
+    localizedDefaults: crmLocalizedDefaults,
     sanitize: sanitizeCrm,
   },
   {
@@ -1291,7 +1308,8 @@ export function resolveModules(stored = {}, { locale } = {}) {
   return Object.fromEntries(
     MODULE_CATALOG.map((module) => {
       const saved = stored[module.id] || {};
-      const defaults = locale && module.localizedDefaults ? module.localizedDefaults(locale) : module.defaults;
+      // A copy: callers may change their settings without touching the module-level defaults.
+      const defaults = structuredClone(locale && module.localizedDefaults ? module.localizedDefaults(locale) : module.defaults);
       return [
         module.id,
         {

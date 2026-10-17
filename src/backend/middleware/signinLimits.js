@@ -1,5 +1,6 @@
 import rateLimit from 'express-rate-limit';
 import { clientIp } from './ipGuard.js';
+import { lockoutKey } from '../services/security.js';
 
 /**
  * Sign-in rate limiters (15-minute window by default). `key` picks the
@@ -30,8 +31,12 @@ export function attemptAccount(req) {
   return String(name || '').trim().toLowerCase().slice(0, 128);
 }
 
-/** Bucket key: the address plus the account it tries. */
-export const addressAndAccount = (req) => `${clientIp(req)}|${attemptAccount(req)}`;
+/**
+ * Bucket key: the address plus the account it tries, folded like the per-account lockout of
+ * directory sign-ins (lockoutKey with `directory`): `ivan`, `CORP\ivan` and `ivan@corp` share one
+ * bucket, and phone numbers count by their digits.
+ */
+export const addressAndAccount = (req) => `${clientIp(req)}|${lockoutKey(attemptAccount(req), { directory: true })}`;
 
 /**
  * Limiter pair for a sign-in endpoint that answers 200 on success:

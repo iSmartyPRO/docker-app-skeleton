@@ -118,10 +118,10 @@ export const CATEGORY_COLORS = { residential: '#3B82F6', land: '#84CC16', commer
 const t = (key, name, category, nodeKind, sellable, stageSet, icon) => ({ key, name, category, nodeKind, sellable, stageSet, icon, color: CATEGORY_COLORS[category] });
 
 export const DEFAULT_TYPES = [
-  t('cottage', { ru: 'Коттедж', en: 'Cottage', ky: 'Коттедж', tr: 'Villa', zh: '别墅' }, 'residential', 'object', true, 'lowrise', 'house'),
+  t('cottage', { ru: 'Коттедж', en: 'Cottage', ky: 'Коттедж', tr: 'Müstakil ev', zh: '别墅' }, 'residential', 'object', true, 'lowrise', 'house'),
   t('townhouse', { ru: 'Таунхаус (блок)', en: 'Townhouse (block)', ky: 'Таунхаус (блок)', tr: 'Sıra ev (blok)', zh: '联排别墅（单元）' }, 'residential', 'object', true, 'lowrise', 'townhouse'),
   t('duplex', { ru: 'Дуплекс', en: 'Duplex', ky: 'Дуплекс', tr: 'Dubleks', zh: '双拼别墅' }, 'residential', 'object', true, 'lowrise', 'townhouse'),
-  t('villa', { ru: 'Вилла', en: 'Villa', ky: 'Вилла', tr: 'Müstakil villa', zh: '独栋别墅' }, 'residential', 'object', true, 'lowrise', 'villa'),
+  t('villa', { ru: 'Вилла', en: 'Villa', ky: 'Вилла', tr: 'Villa', zh: '独栋别墅' }, 'residential', 'object', true, 'lowrise', 'villa'),
   t('apartment_building', { ru: 'Многоквартирный дом', en: 'Apartment building', ky: 'Көп батирлүү үй', tr: 'Apartman', zh: '住宅楼' }, 'residential', 'object', false, 'apartment', 'building'),
   t('apartment', { ru: 'Квартира', en: 'Flat', ky: 'Батир', tr: 'Daire', zh: '公寓' }, 'residential', 'unit', true, null, 'apartment'),
   t('penthouse', { ru: 'Пентхаус', en: 'Penthouse', ky: 'Пентхаус', tr: 'Çatı dairesi', zh: '顶层复式' }, 'residential', 'unit', true, null, 'apartment'),

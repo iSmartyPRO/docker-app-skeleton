@@ -16,14 +16,16 @@ import { createDoc, getDoc, postDoc } from './documents.js';
  *            quantity, unit, price, batch, expiry, bin, inventory / serial numbers
  */
 
+import { importWord, wordMap } from '../shared/importWords.js';
+
 const MAX_ROWS = 5000;
-// Accepted spellings in every portal language (also the interface labels); keys go through importWord().
-const importWord = (value) => String(value ?? '').trim().toLowerCase().replace(/\u0307/g, '').replace(/ı/g, 'i').replace(/\s+/g, ' ');
-const TRACKING_WORDS = Object.fromEntries(Object.entries({
-  quantity: 'quantity', количественный: 'quantity', количество: 'quantity', сандык: 'quantity', miktar: 'quantity', 按数量: 'quantity', 数量: 'quantity',
-  batch: 'batch', batches: 'batch', партионный: 'batch', партия: 'batch', партиялык: 'batch', parti: 'batch', partiler: 'batch', 按批次: 'batch', 批次: 'batch',
-  serial: 'serial', серийный: 'serial', серия: 'serial', сериялык: 'serial', 'seri numaralı': 'serial', seri: 'serial', 按序列号: 'serial', 序列号: 'serial',
-}).map(([word, value]) => [importWord(word), value]));
+// Accepted spellings in every portal language (also the interface labels), folded by importWord().
+export const TRACKING_WORD_GROUPS = {
+  quantity: ['quantity', 'количественный', 'количество', 'сандык', 'miktar', '按数量', '数量'],
+  batch: ['batch', 'batches', 'партионный', 'партия', 'партиялык', 'parti', 'partiler', '按批次', '批次'],
+  serial: ['serial', 'серийный', 'серия', 'сериялык', 'seri numaralı', 'seri', '按序列号', '序列号'],
+};
+const TRACKING_WORDS = wordMap(TRACKING_WORD_GROUPS);
 
 const s = (value, max = 300) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 

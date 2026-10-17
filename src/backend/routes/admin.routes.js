@@ -40,6 +40,7 @@ import {
   PERMISSION_CATALOG,
   SETTINGS_PERMISSIONS,
   deniedSettingsKeys,
+  dropUnchangedSettingsKeys,
   hasPermission,
 } from '../services/permissions.js';
 import {
@@ -150,7 +151,8 @@ router.get('/settings', anySettings, wrap(async (req, res) => {
 
 /** Each top-level key of the patch needs its own permission. */
 router.put('/settings', anySettings, wrap(async (req, res) => {
-  const patch = req.body || {};
+  // An unchanged defaultLocale from an older General form is ignored without its permission.
+  const patch = dropUnchangedSettingsKeys(req.body || {}, req.actor.permissions, parseSettings(await getSettings()));
   // Unknown keys are refused too, so a new setting can never slip through
   // with only settings.view.
   const denied = deniedSettingsKeys(patch, req.actor.permissions);

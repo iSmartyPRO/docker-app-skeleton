@@ -497,6 +497,8 @@ export default {
       REQUIRED: 'zorunlu',
       DUPLICATE: 'kod dosyada tekrarlanıyor',
       UNKNOWN_TYPE: 'bilinmeyen tür',
+      AMBIGUOUS_TYPE: 'bu ad birden fazla türde var — tür anahtarını kullanın',
+      AMBIGUOUS_STATUS: 'bu ad birden fazla durumda var — durum anahtarını kullanın',
       TYPE_CHANGE: 'mevcut bir nesnenin türü kartında değiştirilir',
       UNKNOWN_PARENT: 'bu koda sahip nesne yok',
       TOO_DEEP: 'ağaç 8 düzeyden derin olur',

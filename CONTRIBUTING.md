@@ -20,6 +20,17 @@ Before pushing:
 make test        # backend unit tests + frontend production build
 ```
 
+Database tests (`src/backend/test/*.db.test.js`) are skipped by `npm test`. Run them against a **test**
+database only (never production), with the module flags set —
+`grep -ho '[A-Z0-9_]*_DB_TEST=1' src/backend/test/*.js | sort -u` lists them — and one file at a time:
+
+```bash
+cd src/backend && I18N_DB_TEST=1 MASTERPLAN_DB_TEST=1 … ENV_FILE_PATH=/path/to/test.env node --test --test-concurrency=1 test/*.test.js
+```
+
+`test/rbac-access.db.test.js` (read-only core checks) runs whenever any of these flags is set
+(or its own `CORE_SECURITY_DB_TEST=1`), so every database run covers it.
+
 How to add screens, endpoints, settings and integrations: [docs/extending.md](docs/extending.md).
 
 ## Commit messages and versions

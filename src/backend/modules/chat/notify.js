@@ -26,7 +26,7 @@ export async function deliverMessage(room, message, recipients, { authorId, ment
   const others = recipients.filter((id) => id !== authorId);
   if (!others.length) return;
   const { rows: people } = await query(
-    `SELECT u.id, u.username, u.locale, u.notify_prefs, u.regional, u.device_tz, m.muted,
+    `SELECT u.id, u.username, u.locale, u.last_locale, u.notify_prefs, u.regional, u.device_tz, m.muted,
             (SELECT COUNT(*)::int FROM notifications n WHERE n.user_id = u.id AND n.read_at IS NULL) AS unread
      FROM users u LEFT JOIN chat_members m ON m.user_id = u.id AND m.room_id = $2
      WHERE u.id = ANY($1) AND u.is_active IS NOT FALSE AND u.is_blocked IS NOT TRUE`,

@@ -5,7 +5,7 @@ import {
   query,
 } from '../config/database.js';
 import { writeEnvValues, writePostgresEnv, getCurrentDbConfigPublic } from './envFile.js';
-import { getSettings, invalidateSettings, parseSettings, setSetting } from './settings.js';
+import { getSettings, invalidateSettings, localizeCrmStockLists, parseSettings, setSetting } from './settings.js';
 import { hasAdminUser, createAdminUser, assertUsername } from './users.js';
 import { bootstrapSchema } from './schema.js';
 import { seedDemoUsers, seedRbac } from './rbac.js';
@@ -173,6 +173,8 @@ export async function completeSetup(body) {
   const enabled = [...new Set([locale, ...DEFAULT_LOCALIZATION.enabled])];
   await query(`INSERT INTO app_settings (key, value) VALUES ('localization', $1) ON CONFLICT (key) DO NOTHING`, [JSON.stringify({ enabled, default: locale, fallback: 'en' })]);
   invalidateSettings();
+  // Brand-new portal: CRM stock sources / lost reasons in its language (stored, never relabelled later).
+  await localizeCrmStockLists(locale);
   await seedRbac({ locale });
   // Sample accounts only when asked for (the wizard's checkbox starts off).
   const demoUsers = body.demoUsers === true ? await seedDemoUsers() : 0;

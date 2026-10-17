@@ -15,6 +15,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `npm run i18n:check` (frontend) and `test/i18n.test.js` (backend): coverage, missing / extra keys, placeholder and plural checks; Russian and English must be complete. Glossary for translators: [docs/i18n-glossary.md](docs/i18n-glossary.md).
 - Font stacks get Kyrgyz (Cyrillic Extended) and CJK fallbacks in every typography preset.
 
+### Fixed
+
+- **File server**: the per-session read limit (`SMBGATE_READS`) now covers each SMB call (stat, open, one chunk) instead of a whole download, so slow clients or a few long streams on a shared service-account pool no longer make everyone else wait and get `503 SMB_BUSY`.
+- **CRM**: stock sources and lost reasons are stored, never relabelled by the portal language — existing portals that never saved CRM settings keep the Russian lists their deals hold (start-up migration); a brand-new portal gets them in the installer's language.
+- **Masterplan import**: type and status names are matched in the person's language, then English, then the others (Turkish dotted / dotless i folded); ambiguous names are refused (`AMBIGUOUS_TYPE`, `AMBIGUOUS_STATUS`). Turkish «Villa» is the villa now, the cottage is «Müstakil ev». `test/import-vocabulary.test.js` keeps every import vocabulary unique per language.
+- **Languages**: saving Account → Appearance keeps a personal language that is disabled for now; a language that failed to download is retried (once by itself, and on choosing it again); messages sent outside a request (notifications, e-mails, chat pushes) use the language of the person's last request in browser mode (`users.last_locale`); link previews use the fallback in browser mode; an unchanged `defaultLocale` from an older General form is ignored instead of refusing the save (403).
+- **Settings cache**: the parsed hot-path view can no longer keep an older snapshot after a save, and freezing it no longer freezes module defaults.
+- **Updates**: only a page that fails to load reloads after a deploy; other failed background imports show the update banner instead of reloading under someone typing.
+- **Sign-in limits**: AD spellings of an account (`ivan`, `CORP\ivan`, `ivan@corp`) and phone shapes share one rate-limit bucket; sign-in code requests are capped at 20 per address again (10 per account).
+
 ## [1.5.1] - 2026-10-16
 
 - fix(chat): redesign the header chats popover

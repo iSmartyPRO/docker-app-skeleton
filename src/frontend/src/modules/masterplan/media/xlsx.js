@@ -101,7 +101,7 @@ const TEMPLATE_SAMPLE = {
   ru: { cottage: 'Коттедж', apartment: 'Квартира', cottageName: 'Коттедж «Модерн 220»', flatName: 'Кв. 101' },
   en: { cottage: 'Cottage', apartment: 'Flat', cottageName: 'Cottage «Modern 220»', flatName: 'Flat 101' },
   ky: { cottage: 'Коттедж', apartment: 'Батир', cottageName: '«Модерн 220» коттеджи', flatName: '101-батир' },
-  tr: { cottage: 'Villa', apartment: 'Daire', cottageName: '«Modern 220» villası', flatName: 'Daire 101' },
+  tr: { cottage: 'Müstakil ev', apartment: 'Daire', cottageName: '«Modern 220» müstakil ev', flatName: 'Daire 101' },
   zh: { cottage: '别墅', apartment: '公寓', cottageName: '“现代 220”别墅', flatName: '101 号公寓' },
 };
 

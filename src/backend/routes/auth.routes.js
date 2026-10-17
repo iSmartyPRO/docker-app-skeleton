@@ -52,9 +52,9 @@ function limited(message) {
 // address+account and 100 per address (middleware/signinLimits.js).
 const loginLimiter = failedSignInLimiters({ perAccount: 20, perAddress: 100, onLimited: limited('Sign-in rate limit exceeded') });
 // Asking for a code always answers 200, so every request counts: 10 per
-// address+account, 60 per address.
+// address+account, 20 per address (each request may send an SMS / WhatsApp / e-mail).
 const codeLimiter = [
-  signInLimiter({ max: 60, onLimited: limited('Sign-in code rate limit exceeded (address)') }),
+  signInLimiter({ max: 20, onLimited: limited('Sign-in code rate limit exceeded (address)') }),
   signInLimiter({ max: 10, key: addressAndAccount, onLimited: limited('Sign-in code rate limit exceeded') }),
 ];
 

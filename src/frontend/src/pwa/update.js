@@ -49,6 +49,14 @@ export function checkForUpdate() {
   return checking;
 }
 
+/**
+ * A chunk of the running build is gone from the server (lib/chunkReload: a background import
+ * failed): a new version is out even if /version.json was not checked yet. Shows the banner.
+ */
+export function markUpdateAvailable() {
+  if (!state.available) set({ available: true });
+}
+
 export function applyUpdate() {
   // While busy the browser asks "leave the page?"; if the person stays, the
   // banner button must keep working, so it is not switched to "updating".

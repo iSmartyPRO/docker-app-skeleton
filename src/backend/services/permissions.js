@@ -147,6 +147,26 @@ export const SETTINGS_PATCH_PERMISSIONS = {
   modules: 'settings.modules',
 };
 
+/*
+ * Keys older clients always send with an unrelated form: the General form of the version before
+ * Settings → Languages sent `defaultLocale` on every save, and so may API token clients. Unchanged,
+ * such a key is dropped silently for holders without its permission (no 403 for the whole save);
+ * a real change still needs the permission. Documented in docs/i18n.md.
+ */
+const DROPPED_WHEN_UNCHANGED = {
+  defaultLocale: (value, current) => String(value ?? '').trim().toLowerCase() === String(current?.defaultLocale ?? '').toLowerCase(),
+};
+
+/** The patch without keys the holder may not change but sent unchanged (see DROPPED_WHEN_UNCHANGED). */
+export function dropUnchangedSettingsKeys(patch, perms, current) {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return patch;
+  const out = { ...patch };
+  for (const [key, same] of Object.entries(DROPPED_WHEN_UNCHANGED)) {
+    if (Object.hasOwn(out, key) && !hasPermission(perms, SETTINGS_PATCH_PERMISSIONS[key]) && same(out[key], current)) delete out[key];
+  }
+  return out;
+}
+
 /**
  * Keys of a settings patch the holder may not change: unknown keys (never
  * allowed, even with `*`) and keys whose permission is not held.

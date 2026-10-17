@@ -49,6 +49,9 @@ export async function ensureUsersTable() {
       await query(`INSERT INTO app_settings (key, value) VALUES ('users_locale_cleared', 'true') ON CONFLICT (key) DO NOTHING`);
     }
   }
+  // Language of the person's last request when they chose none (browser mode): messages sent
+  // outside a request (notifications, e-mails, pushes) use it (settings.js → recipientLocale).
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_locale VARCHAR(8)`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(16) DEFAULT 'system'`);
   // Interface preferences: moving backgrounds, «Не показывать туры», the custom theme (services/themeCatalog.js).
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ui JSONB NOT NULL DEFAULT '{}'::jsonb`);
@@ -93,7 +96,7 @@ export async function ensureUsersTable() {
 }
 
 const USER_COLUMNS = `
-  id, username, email, display_name, avatar_path, locale, theme,
+  id, username, email, display_name, avatar_path, locale, last_locale, theme,
   role, is_active, is_blocked, last_login_at, token_version, created_at, updated_at,
   phone, telegram_id, telegram_username, instagram, mattermost, auth_source, external_id, directory_guid, last_login_method, email_trusted,
   regional, device_tz, ui,

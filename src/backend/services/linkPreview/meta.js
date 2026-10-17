@@ -187,11 +187,13 @@ export function texts(locale) {
 
 /**
  * The portal language for previews (crawlers have no account): the default
- * language, or the first enabled one when the default is "browser language".
+ * language, or the fallback when the default is "browser language" — the same
+ * language messages sent outside a request get for a person without one
+ * (services/settings.js → recipientLocale).
  */
 export function previewLocale(parsed) {
   const settings = sanitizeLocalization(parsed?.localization, parsed?.defaultLocale);
-  return settings.default === 'browser' ? settings.enabled[0] : settings.default;
+  return settings.default === 'browser' ? settings.fallback : settings.default;
 }
 
 const SKELETON_NAMES = new Set(['docker-app-skeleton', '']);

@@ -18,10 +18,15 @@ import { demoMoney, dropEntityChats, dropNotifications, isoDate } from '../share
  * `unit` (DEMO_DEALS is tracked in this order).
  */
 
-/** A stock source / lost reason (written in Russian below) in the portal language, as the CRM settings list it. */
-const stockText = (ctx, list, ru) => {
+/**
+ * A stock source / lost reason (written in Russian below) as the portal's CRM settings list it
+ * (whatever language the stored list has), else in the portal language.
+ */
+const stockText = (ctx, settings, list, ru) => {
   const entry = CRM_STOCK_LISTS[list].find((item) => item.ru === ru);
-  return entry ? ctx.t(entry) : ru;
+  if (!entry) return ru;
+  const listed = (settings?.[list] || []).find((value) => Object.values(entry).includes(value));
+  return listed || ctx.t(entry);
 };
 
 export const DEMO_SELLERS = {
@@ -171,10 +176,10 @@ registerDemo({
           liveCompanies.has(companyId) ? companyId : null,
           livePeople.has(personId) ? personId : null,
           owners[def.owner],
-          def.source ? stockText(ctx, 'sources', def.source) : null,
+          def.source ? stockText(ctx, settings, 'sources', def.source) : null,
           ctx.t({ ru: 'Демо-сделка. Удаляется кнопкой «Удалить демо-данные».', en: 'A demo deal. «Remove demo data» deletes it.', ky: 'Демо бүтүм. «Демо маалыматтарды өчүрүү» баскычы аны өчүрөт.', tr: 'Bir demo fırsat. «Demo verilerini kaldır» onu siler.', zh: '演示交易。“删除演示数据”会将其删除。' }),
           isoDate(ctx.day(def.close)),
-          def.lost ? stockText(ctx, 'lostReasons', def.lost) : null,
+          def.lost ? stockText(ctx, settings, 'lostReasons', def.lost) : null,
           (index + 1) * RANK_STEP,
           ctx.day(-Math.max(1, (index * 3) % 9), '12:00'),
           closed ? ctx.day(def.close, '17:00') : null,
@@ -197,7 +202,7 @@ registerDemo({
         await ctx.query(`INSERT INTO crm_events (deal_id, kind, data, author_id, created_at) VALUES ($1, $2, $3, $4, $5)`, [
           dealId,
           kind,
-          JSON.stringify({ from: { id: from.id, name: from.name, color: from.color, kind: from.kind }, to: { id: stage.id, name: stage.name, color: stage.color, kind: stage.kind }, ...(def.lost ? { lostReason: stockText(ctx, 'lostReasons', def.lost) } : {}) }),
+          JSON.stringify({ from: { id: from.id, name: from.name, color: from.color, kind: from.kind }, to: { id: stage.id, name: stage.name, color: stage.color, kind: stage.kind }, ...(def.lost ? { lostReason: stockText(ctx, settings, 'lostReasons', def.lost) } : {}) }),
           owners[def.owner],
           ctx.day(-Math.max(1, (index * 3) % 9), '12:00'),
         ]);

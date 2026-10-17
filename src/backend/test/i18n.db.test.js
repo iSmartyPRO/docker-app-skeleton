@@ -23,7 +23,7 @@ const userIds = [];
 after(async () => {
   if (!db) return;
   if (saved) {
-    for (const key of ['localization', 'default_locale']) {
+    for (const key of ['localization', 'default_locale', 'modules']) {
       const row = saved.find((item) => item.key === key);
       if (row) await db.query(`UPDATE app_settings SET value = $2 WHERE key = $1`, [key, row.value]);
       else await db.query(`DELETE FROM app_settings WHERE key = $1`, [key]);
@@ -38,7 +38,7 @@ test('database: language settings, personal languages and recipients', { skip },
   db = await import('../config/database.js');
   const settings = await import('../services/settings.js');
   const users = await import('../services/users.js');
-  saved = (await db.query(`SELECT key, value FROM app_settings WHERE key = ANY($1)`, [['localization', 'default_locale']])).rows;
+  saved = (await db.query(`SELECT key, value FROM app_settings WHERE key = ANY($1)`, [['localization', 'default_locale', 'modules']])).rows;
 
   await settings.updateAdminSettings({ localization: { enabled: ['ky', 'ru', 'en'], default: 'browser', fallback: 'ru' } });
   let parsed = settings.parseSettings(await settings.getSettings({ fresh: true }));
@@ -76,4 +76,52 @@ test('database: language settings, personal languages and recipients', { skip },
   await settings.updateAdminSettings({ localization: { enabled: ['ru', 'en'], default: 'browser', fallback: 'en' } });
   assert.equal(await settings.localeFor(null, { acceptLanguage: 'de-DE,ru;q=0.5' }), 'ru');
   assert.equal(await settings.localeFor(null, { acceptLanguage: 'de-DE' }), 'en');
+});
+
+test('database: CRM stock lists of an existing portal are stored once and never relabelled', { skip }, async () => {
+  db = db || (await import('../config/database.js'));
+  const settings = await import('../services/settings.js');
+  const { CRM_DEFAULTS } = await import('../modules/catalog.js');
+  if (!saved) saved = (await db.query(`SELECT key, value FROM app_settings WHERE key = ANY($1)`, [['localization', 'default_locale', 'modules']])).rows;
+  const modules = JSON.parse(saved.find((row) => row.key === 'modules')?.value || '{}');
+  // A portal from before: CRM on, its settings never saved, the language English.
+  const legacy = { ...modules, crm: { enabled: true } };
+  await db.query(`INSERT INTO app_settings (key, value) VALUES ('modules', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify(legacy)]);
+  await settings.updateAdminSettings({ localization: { enabled: ['en', 'ru'], default: 'en', fallback: 'en' } });
+  assert.deepEqual(await settings.migrateCrmStockLists(), ['sources', 'lostReasons']);
+  assert.deepEqual(await settings.migrateCrmStockLists(), [], 'idempotent');
+  settings.invalidateSettings();
+  let parsed = settings.parseSettings(await settings.getSettings({ fresh: true }));
+  assert.deepEqual(parsed.modules.crm.settings.sources, CRM_DEFAULTS.sources, 'the Russian lists the deals hold');
+  assert.deepEqual(parsed.modules.crm.settings.lostReasons, CRM_DEFAULTS.lostReasons);
+  assert.equal(parsed.modules.crm.enabled, true);
+  // A later language change relabels nothing; setup's localisation refuses once deals exist.
+  await settings.updateAdminSettings({ localization: { enabled: ['en', 'ru', 'tr'], default: 'tr', fallback: 'en' } });
+  parsed = settings.parseSettings(await settings.getSettings({ fresh: true }));
+  assert.deepEqual(parsed.modules.crm.settings.sources, CRM_DEFAULTS.sources);
+  const deals = (await db.query(`SELECT to_regclass('public.crm_deals') AS t`)).rows[0].t;
+  if (deals && (await db.query(`SELECT 1 FROM crm_deals LIMIT 1`)).rows.length) {
+    assert.equal(await settings.localizeCrmStockLists('tr'), false);
+  }
+  // The start-up path runs it too (ensureSettingsTable).
+  await db.query(`UPDATE app_settings SET value = $1 WHERE key = 'modules'`, [JSON.stringify(legacy)]);
+  await settings.ensureSettingsTable();
+  parsed = settings.parseSettings(await settings.getSettings({ fresh: true }));
+  assert.deepEqual(parsed.modules.crm.settings.sources, CRM_DEFAULTS.sources);
+});
+
+test('database: the last request language is stored for messages outside requests', { skip }, async () => {
+  db = db || (await import('../config/database.js'));
+  const settings = await import('../services/settings.js');
+  const name = `i18nl${Date.now().toString(36)}`;
+  const { rows } = await db.query(`INSERT INTO users (username, email, password_hash, role, display_name) VALUES ($1, $2, '!', 'user', $1) RETURNING id, locale, last_locale`, [name, `${name}@test.invalid`]);
+  userIds.push(rows[0].id);
+  assert.equal(settings.rememberRequestLocale(rows[0], 'ru'), true);
+  let row = null;
+  for (let i = 0; i < 50 && row?.last_locale !== 'ru'; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    row = (await db.query(`SELECT locale, last_locale FROM users WHERE id = $1`, [rows[0].id])).rows[0];
+  }
+  assert.equal(row.last_locale, 'ru');
+  assert.equal(settings.recipientLocale(row, { enabled: ['en', 'ru'], default: 'browser', fallback: 'en' }), 'ru');
 });

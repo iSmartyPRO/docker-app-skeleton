@@ -3,7 +3,7 @@ import { verifyToken } from '../services/auth.js';
 import { hasAnyPermission } from '../services/permissions.js';
 import { getSessionUser, tokenLockedChanges, toPublicUser } from '../services/users.js';
 import { isReadMethod, requestPath } from '../api/scopes.js';
-import { localeFor } from '../services/settings.js';
+import { localeFor, rememberRequestLocale } from '../services/settings.js';
 import { isSessionRevoked } from '../services/security.js';
 import { createSession, getSession, legacySessionId, requestDetails, sessionState, touchSession } from '../services/sessions.js';
 
@@ -67,6 +67,8 @@ async function loadSessionUser(req) {
   req.user = toPublicUser(row, access);
   // Language for server-made texts: the person's choice, else the portal default.
   req.locale = await localeFor(row, { acceptLanguage: req.headers['accept-language'] });
+  // For messages sent later outside a request; not from "sign in as" (the administrator's browser).
+  if (!payload.imp) rememberRequestLocale(row, req.locale);
   req.actor = { id: row.id, permissions: new Set(access.permissions) };
   // A superadministrator acting as this person ("sign in as"): who, for the banner and audit.
   if (impersonator) {

@@ -23,6 +23,7 @@ import { tokenGate, versionPrefix } from './api/gate.js';
 import { closeAllStreams } from './modules/chat/realtime.js';
 import { shellMiddleware } from './services/linkPreview/index.js';
 import { maskToken } from './services/office/tokens.js';
+import { readyHandler } from './services/readiness.js';
 
 const app = express();
 const PORT = config.server.port;
@@ -74,22 +75,8 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', version: APP_VERSION, timestamp: new Date().toISOString() });
 });
 
-app.get('/ready', async (req, res) => {
-  // Draining after SIGTERM: a load balancer stops sending new work here.
-  if (shuttingDown) return res.status(503).json({ status: 'shutting_down' });
-  const db = await tryConnectDB();
-  if (!db.ok) {
-    return res.status(503).json({
-      status: 'not_ready',
-      database: false,
-      schema: schemaBootstrapped(),
-    });
-  }
-  // The database is back but the delayed bootstrap has not run yet: try it now.
-  if (!schemaBootstrapped()) await bootstrapLate().catch(() => {});
-  if (!schemaBootstrapped()) return res.status(503).json({ status: 'not_ready', database: true, schema: false });
-  return res.json({ status: 'ready', database: true, schema: true });
-});
+// Draining after SIGTERM answers 503, so a load balancer stops sending new work here.
+app.get('/ready', readyHandler({ draining: () => shuttingDown, connect: tryConnectDB, bootstrapped: schemaBootstrapped, bootstrapLate: () => bootstrapLate() }));
 
 app.use(ipGuard);
 // Only avatars and logos are public; every other upload (files, chat, tasks,

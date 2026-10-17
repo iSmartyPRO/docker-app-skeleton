@@ -8,10 +8,13 @@ import assert from 'node:assert/strict';
  * on a transaction client. Needs a test database (never production!):
  *
  *   CORE_SECURITY_DB_TEST=1 ENV_FILE_PATH=/path/to/test.env node --test test/rbac-access.db.test.js
+ *
+ * It only reads, so it also runs whenever any other database flag (NAME_DB_TEST) is 1: every database run
+ * of any module checks it (CONTRIBUTING.md).
  */
 
-const enabled = process.env.CORE_SECURITY_DB_TEST === '1';
-const skip = enabled ? false : 'set CORE_SECURITY_DB_TEST=1 and a test database to run';
+const enabled = Object.entries(process.env).some(([name, value]) => /_DB_TEST$/.test(name) && value === '1');
+const skip = enabled ? false : 'set CORE_SECURITY_DB_TEST=1 (or any other database flag) and a test database to run';
 
 let db = null;
 after(async () => {

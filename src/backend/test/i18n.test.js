@@ -25,8 +25,8 @@ import {
   translator,
 } from '../services/i18n/index.js';
 import { compareTranslation, coverageOf, writtenErrors } from '../services/i18n/check.js';
-import { deniedSettingsKeys } from '../services/permissions.js';
-import { parseSettings, recipientLocale, validateLocalization } from '../services/settings.js';
+import { deniedSettingsKeys, dropUnchangedSettingsKeys } from '../services/permissions.js';
+import { parseSettings, recipientLocale, rememberRequestLocale, validateLocalization } from '../services/settings.js';
 
 /*
  * Localization (docs/i18n.md): the language registry, locale resolution,
@@ -87,6 +87,33 @@ test('i18n: locale resolution — profile, device, portal default, browser, disa
   assert.equal(recipientLocale({ locale: 'zh' }, off), 'ru');
   assert.equal(recipientLocale(null, localization, ['tr', 'ky']), 'ky');
   assert.equal(recipientLocale(null, { enabled: ['ru'], default: 'browser' }), 'ru');
+  // Outside a request (no browser languages): the language of the person's last request.
+  assert.equal(recipientLocale({ locale: null, last_locale: 'ru' }, localization), 'ru');
+  assert.equal(recipientLocale({ locale: 'ky', last_locale: 'ru' }, localization), 'ky', 'the profile wins');
+  assert.equal(recipientLocale({ locale: null, last_locale: 'ru' }, localization, ['ky']), 'ky', 'a request has its own languages');
+  assert.equal(recipientLocale({ locale: null, last_locale: 'ru' }, { ...localization, default: 'en' }), 'en', 'only in browser mode');
+  assert.equal(recipientLocale({ locale: null, last_locale: 'zh' }, localization), 'en', 'a disabled last language: the fallback');
+});
+
+test('i18n: the last request language is written only when it changes', async () => {
+  const writes = [];
+  const write = async (id, value) => writes.push([id, value]);
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+  assert.equal(rememberRequestLocale({ id: 9001, locale: null, last_locale: 'ru' }, 'ru', { write }), false, 'stored already');
+  assert.equal(rememberRequestLocale({ id: 9001, locale: null, last_locale: 'ru' }, 'en', { write }), true);
+  // The session row may be cached with the old value: still one write per change.
+  assert.equal(rememberRequestLocale({ id: 9001, locale: null, last_locale: 'ru' }, 'en', { write }), false);
+  assert.equal(rememberRequestLocale({ id: 9002, locale: 'ky' }, 'ky', { write }), false, 'the profile language is in effect');
+  assert.equal(rememberRequestLocale({ id: 9003, locale: 'zh', last_locale: null }, 'ru', { write }), true, 'a disabled profile language falls through');
+  await flush();
+  assert.deepEqual(writes, [[9001, 'en'], [9003, 'ru']]);
+  // A failed write is tried again by a later request.
+  const failing = async () => {
+    throw new Error('db down');
+  };
+  assert.equal(rememberRequestLocale({ id: 9004, locale: null }, 'tr', { write: failing }), true);
+  await flush();
+  assert.equal(rememberRequestLocale({ id: 9004, locale: null }, 'tr', { write }), true);
 });
 
 test('i18n: language settings are validated strictly and only superadministrators change them', () => {
@@ -113,6 +140,14 @@ test('i18n: language settings are validated strictly and only superadministrator
   assert.deepEqual(deniedSettingsKeys({ localization: { enabled: ['ru'] } }, admin), ['localization']);
   assert.deepEqual(deniedSettingsKeys({ defaultLocale: 'ru' }, admin), ['defaultLocale']);
   assert.deepEqual(deniedSettingsKeys({ localization: { enabled: ['ru'] }, appName: 'X' }, new Set(['*'])), []);
+  // An older General form always sends defaultLocale: unchanged, it is dropped instead of refusing the save.
+  const general = new Set(['settings.general']);
+  const current = { defaultLocale: 'auto' };
+  const kept = dropUnchangedSettingsKeys({ appName: 'X', defaultLocale: 'auto' }, general, current);
+  assert.deepEqual(kept, { appName: 'X' });
+  assert.deepEqual(deniedSettingsKeys(kept, general), []);
+  assert.deepEqual(deniedSettingsKeys(dropUnchangedSettingsKeys({ appName: 'X', defaultLocale: 'ru' }, general, current), general), ['defaultLocale'], 'a change is still refused');
+  assert.deepEqual(dropUnchangedSettingsKeys({ defaultLocale: 'auto' }, new Set(['*']), current), { defaultLocale: 'auto' }, 'superadministrators keep it');
 });
 
 test('i18n: CLDR plural categories for en, ru, ky, tr, zh', () => {

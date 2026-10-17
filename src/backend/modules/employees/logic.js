@@ -5,6 +5,8 @@
  * test/employees.test.js.
  */
 
+import { importWord, wordMap } from '../shared/importWords.js';
+
 export const STATUSES = ['active', 'vacation', 'terminated', 'candidate'];
 /** Statuses the directory (employees.view) shows; HR sees every status. */
 export const DIRECTORY_STATUSES = ['active', 'vacation'];
@@ -208,21 +210,21 @@ export function toCsv(header, rows) {
 
 // ── Import ──────────────────────────────────────────────────────────────────
 
-// Accepted spellings in every portal language (also the interface labels); keys go through importWord().
-const importWord = (value) => String(value ?? '').trim().toLowerCase().replace(/\u0307/g, '').replace(/ı/g, 'i').replace(/\s+/g, ' ');
-const wordMap = (entries) => Object.fromEntries(Object.entries(entries).map(([word, value]) => [importWord(word), value]));
-const STATUS_WORDS = wordMap({
-  active: 'active', working: 'active', работает: 'active', работающий: 'active', 'в штате': 'active', 'иштеп жатат': 'active', 'çalışıyor': 'active', aktif: 'active', 在职: 'active',
-  vacation: 'vacation', 'on vacation': 'vacation', отпуск: 'vacation', 'в отпуске': 'vacation', өргүүдө: 'vacation', өргүү: 'vacation', izinde: 'vacation', izin: 'vacation', 休假中: 'vacation', 休假: 'vacation',
-  terminated: 'terminated', уволен: 'terminated', уволена: 'terminated', уволенный: 'terminated', бошотулган: 'terminated', 'işten ayrıldı': 'terminated', 已离职: 'terminated', 离职: 'terminated',
-  candidate: 'candidate', кандидат: 'candidate', талапкер: 'candidate', aday: 'candidate', 候选人: 'candidate',
-});
-const EMPLOYMENT_WORDS = wordMap({
-  staff: 'staff', штат: 'staff', штатный: 'staff', 'в штате': 'staff', штаттык: 'staff', kadrolu: 'staff', 正式员工: 'staff', 正式: 'staff',
-  part_time: 'part_time', 'part-time': 'part_time', совместитель: 'part_time', совместительство: 'part_time', 'кошумча иштөөчү': 'part_time', 'yarı zamanlı': 'part_time', 兼职: 'part_time',
-  contractor: 'contractor', подрядчик: 'contractor', гпх: 'contractor', sözleşmeli: 'contractor', 外包: 'contractor',
-  seasonal: 'seasonal', сезонный: 'seasonal', сезонная: 'seasonal', мезгилдүү: 'seasonal', mevsimlik: 'seasonal', 季节工: 'seasonal',
-});
+// Accepted spellings in every portal language (also the interface labels), folded by importWord().
+export const STATUS_WORD_GROUPS = {
+  active: ['active', 'working', 'работает', 'работающий', 'в штате', 'иштеп жатат', 'çalışıyor', 'aktif', '在职'],
+  vacation: ['vacation', 'on vacation', 'отпуск', 'в отпуске', 'өргүүдө', 'өргүү', 'izinde', 'izin', '休假中', '休假'],
+  terminated: ['terminated', 'уволен', 'уволена', 'уволенный', 'бошотулган', 'işten ayrıldı', '已离职', '离职'],
+  candidate: ['candidate', 'кандидат', 'талапкер', 'aday', '候选人'],
+};
+export const EMPLOYMENT_WORD_GROUPS = {
+  staff: ['staff', 'штат', 'штатный', 'в штате', 'штаттык', 'kadrolu', '正式员工', '正式'],
+  part_time: ['part_time', 'part-time', 'совместитель', 'совместительство', 'кошумча иштөөчү', 'yarı zamanlı', '兼职'],
+  contractor: ['contractor', 'подрядчик', 'гпх', 'sözleşmeli', '外包'],
+  seasonal: ['seasonal', 'сезонный', 'сезонная', 'мезгилдүү', 'mevsimlik', '季节工'],
+};
+const STATUS_WORDS = wordMap(STATUS_WORD_GROUPS);
+const EMPLOYMENT_WORDS = wordMap(EMPLOYMENT_WORD_GROUPS);
 
 /**
  * Validates import rows (already mapped to keys by the browser) against the

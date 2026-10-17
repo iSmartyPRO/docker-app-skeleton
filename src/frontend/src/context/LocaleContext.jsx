@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AVAILABLE_LOCALES, getDictionary, loadDictionary, setActiveLocale, translate } from '../i18n/translations';
 import { REFERENCE_LOCALE, languageInfo, normalizeLocale, resolveLocale, sanitizeLocalization } from '../i18n/languages';
 import { loadVendorLocales } from '../i18n/vendor';
@@ -11,6 +11,8 @@ import { updateAccountProfile } from '../services/api';
 const LocaleContext = createContext(null);
 const DEVICE_KEY = 'da_locale';
 const WAIT_MS = 1500;
+// A language that failed to download (network blip) is tried once more by itself after this long.
+const RETRY_MS = 5000;
 
 function safeGet(key) {
   try {
@@ -55,6 +57,9 @@ function activate(code) {
  *
  * Each language is a separate chunk. The interface waits for the first one;
  * on a switch the previous language stays on screen until the new one is in.
+ * When the wanted language cannot be downloaded, English is shown and the
+ * download is tried once more after RETRY_MS; choosing a language again
+ * (setLocale, even the same one) tries again at any time.
  */
 export function LocaleProvider({ children }) {
   const { user, setUser, ready: authReady } = useAuth();
@@ -79,10 +84,14 @@ export function LocaleProvider({ children }) {
 
   // What is on screen: a language whose dictionary (and dayjs/antd data) is downloaded.
   const [shown, setShown] = useState(() => ({ locale: null, dict: null, antd: undefined }));
+  // Bumped to download the wanted language again: by setLocale, and once automatically after a failure.
+  const [attempt, setAttempt] = useState(0);
+  const autoRetried = useRef(null);
 
   useEffect(() => {
     if (!known) return undefined;
     let alive = true;
+    let retry = null;
     const load = (code) => Promise.all([loadDictionary(code), loadVendorLocales(code).catch(() => undefined)]);
     load(wanted)
       .catch(() => (wanted === REFERENCE_LOCALE ? Promise.reject(new Error('i18n')) : load(REFERENCE_LOCALE).then((pair) => ({ fallback: true, pair }))))
@@ -92,6 +101,12 @@ export function LocaleProvider({ children }) {
         const code = result.fallback ? REFERENCE_LOCALE : wanted;
         activate(code);
         setShown({ locale: code, dict, antd });
+        if (!result.fallback) autoRetried.current = null;
+        else if (autoRetried.current !== wanted) {
+          // English is on screen instead of the wanted language: one more try by itself.
+          autoRetried.current = wanted;
+          retry = setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
+        }
       })
       .catch(() => {
         // Not even English could be downloaded (offline right after a deploy):
@@ -100,8 +115,9 @@ export function LocaleProvider({ children }) {
       });
     return () => {
       alive = false;
+      clearTimeout(retry);
     };
-  }, [wanted, known]);
+  }, [wanted, known, attempt]);
 
   /** `next` = a language code, or null to follow the portal default again. */
   const setLocale = useCallback(
@@ -110,6 +126,8 @@ export function LocaleProvider({ children }) {
       const value = code && localization.enabled.includes(code) ? code : null;
       safeSet(DEVICE_KEY, value);
       setDevice(value);
+      // Same language again after a failed download: try it again.
+      setAttempt((n) => n + 1);
       if (user && user.locale !== value) {
         setUser({ ...user, locale: value });
         updateAccountProfile({ locale: value || 'auto' })
@@ -138,13 +156,11 @@ export function LocaleProvider({ children }) {
       languages: localization.enabled.map((code) => languageInfo(code)),
       localization,
       portalDefault,
-      /** True while a newly chosen language is still downloading. */
-      switching: wanted !== locale,
       source: resolved.source,
       t: (path, params) => translate(locale, path, params) ?? path,
       setLocale,
     };
-  }, [locale, shown, localization, portalDefault, wanted, resolved.source, setLocale]);
+  }, [locale, shown, localization, portalDefault, resolved.source, setLocale]);
 
   if (shown.failed) throw new Error('Interface texts could not be loaded');
   // Nothing to show until the first language arrives (a few hundred ms at most).

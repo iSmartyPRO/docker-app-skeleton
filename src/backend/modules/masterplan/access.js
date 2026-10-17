@@ -44,6 +44,8 @@ export async function mpContext(req, settings) {
   const roles = globalRoles(access.permissions || []);
   return {
     userId,
+    // The person's resolved language (import words are matched in it first).
+    locale: req.locale || null,
     globalRoles: roles,
     isAdmin: roles.has('admin'),
     assignments: await loadAssignments(userId, access.groupIds || []),
