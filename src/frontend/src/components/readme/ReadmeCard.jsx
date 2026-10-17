@@ -3,7 +3,7 @@ import DOMPurify from 'dompurify';
 import { App, Tooltip } from 'antd';
 import { DownloadOutlined, EditOutlined, EyeInvisibleOutlined, EyeOutlined, ExpandOutlined, LinkOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useLocale } from '../../context/LocaleContext';
-import { formatDateTime } from '../../lib/format';
+import { formatBytes, formatDateTime } from '../../lib/format';
 import {
   ANCHOR_PREFIX,
   README_MAX_BYTES,
@@ -405,7 +405,7 @@ export default function ReadmeCard({ file, url, version = '', folderKey, resolve
 
       {status === 'large' ? (
         <div className="rd-note">
-          <span>{t('readme.tooLarge', { size: `${Math.round(README_MAX_BYTES / 1024)} KB` })}</span>
+          <span>{t('readme.tooLarge', { size: formatBytes(README_MAX_BYTES) })}</span>
           {onOpen && <button type="button" className="rd-pill is-primary" onClick={onOpen}>{t('readme.open')}</button>}
         </div>
       ) : status === 'error' ? (

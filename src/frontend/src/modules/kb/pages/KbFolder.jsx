@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { App, Button, Dropdown, Result, Segmented, Skeleton, Tooltip } from 'antd';
+import { App, Button, Dropdown, Result, Skeleton, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { AppstoreOutlined, MoreOutlined, PlusOutlined, ShareAltOutlined, TeamOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';

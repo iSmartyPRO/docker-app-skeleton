@@ -1,4 +1,5 @@
-import { App, Button, Modal, Segmented, Tooltip } from 'antd';
+import { App, Button, Modal, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { fmtTime, inZone } from '../../../lib/datetime';

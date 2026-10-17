@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Grid, Input, Pagination, Segmented, Skeleton, Table, TreeSelect } from 'antd';
+import { Button, Grid, Input, Pagination, Skeleton, Table, TreeSelect } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { ApartmentOutlined, PlusOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { HelpButton } from '../../../help/Hint';

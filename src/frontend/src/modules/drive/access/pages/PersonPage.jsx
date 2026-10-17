@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { App, Button, Empty, Modal, Popconfirm, Result, Segmented, Select, Spin, Table, Tooltip } from 'antd';
+import { App, Button, Empty, Modal, Popconfirm, Result, Select, Spin, Table, Tooltip } from 'antd';
+import Segmented from '../../../../components/ui/Segmented';
 import { CopyOutlined, DeleteOutlined, LockOutlined, PlusOutlined, StopOutlined, SwapOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../../context/LocaleContext';
 import ModuleHeader from '../../../shared/ModuleHeader';
@@ -144,7 +145,7 @@ export default function PersonPage() {
   const revokeAll = () =>
     modal.confirm({
       title: t('folderAccess.revoke.title', { name: person.name }),
-      content: t('folderAccess.revoke.text', { n: editableCount }),
+      content: t('folderAccess.revoke.text', { count: editableCount }),
       okText: t('folderAccess.revoke.submit'),
       okButtonProps: { danger: true },
       onOk: () => run(() => faApi.revokeAll(person.dn)),

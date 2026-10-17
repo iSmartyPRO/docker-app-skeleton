@@ -48,12 +48,12 @@ function FilesForm({ settings, save }) {
       <SettingsSection title={t('filesSettings.storage')} description={t('filesSettings.storageDesc')}>
         <SettingRow label={t('filesSettings.maxUpload')}>
           <Form.Item name="maxUploadMb" noStyle>
-            <InputNumber min={1} max={4096} addonAfter="MB" style={{ width: 160 }} />
+            <InputNumber min={1} max={4096} addonAfter={t('format.bytes.mb')} style={{ width: 160 }} />
           </Form.Item>
         </SettingRow>
         <SettingRow label={<HintLabel id="files.quota">{t('filesSettings.quota')}</HintLabel>} description={t('filesSettings.quotaDesc')}>
           <Form.Item name="quotaMb" noStyle>
-            <InputNumber min={0} max={10000000} addonAfter="MB" style={{ width: 180 }} />
+            <InputNumber min={0} max={10000000} addonAfter={t('format.bytes.mb')} style={{ width: 180 }} />
           </Form.Item>
         </SettingRow>
         <SettingRow label={t('filesSettings.trashDays')} description={t('filesSettings.trashDaysDesc')}>
@@ -125,7 +125,7 @@ function FilesForm({ settings, save }) {
         </SettingRow>
         <SettingRow label={t('filesSettings.linkQuota')} description={t('filesSettings.linkQuotaDesc')}>
           <Form.Item name="linkQuotaMb" noStyle>
-            <InputNumber min={0} max={10000000} disabled={!links || writeLinks === false} addonAfter="MB" style={{ width: 180 }} />
+            <InputNumber min={0} max={10000000} disabled={!links || writeLinks === false} addonAfter={t('format.bytes.mb')} style={{ width: 180 }} />
           </Form.Item>
         </SettingRow>
       </SettingsSection>

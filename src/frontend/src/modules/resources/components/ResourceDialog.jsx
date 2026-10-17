@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App, Button, Form, Input, Modal, Popconfirm, Segmented, Select, Switch } from 'antd';
+import { App, Button, Form, Input, Modal, Popconfirm, Select, Switch } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { translate } from '../../../i18n/translations';
 import { errorMessage } from '../../../lib/errors';

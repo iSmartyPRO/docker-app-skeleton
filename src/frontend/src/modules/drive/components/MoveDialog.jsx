@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { App, Empty, Modal, Segmented, Spin } from 'antd';
+import { App, Empty, Modal, Spin } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { driveApi } from '../api';

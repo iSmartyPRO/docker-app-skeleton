@@ -5,6 +5,7 @@ import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import { formatDateTime, formatRelative } from '../../lib/format';
 import { listSecurityEvents } from '../../services/api';
+import { translate } from '../../i18n/translations';
 import Incidents from './Incidents';
 
 const { Text } = Typography;
@@ -60,6 +61,19 @@ export const EVENT_TAG = {
   code_delivery_failed: 'error',
   secret_unreadable: 'error',
 };
+
+/**
+ * The detail of an event in the reader's language: events carry a text code and
+ * its parameters (activity.detail.<code>); older rows and codes without a text
+ * show the English detail stored with them.
+ */
+export function eventDetail(row, locale) {
+  if (row?.detail_code) {
+    const text = translate(locale, `activity.detail.${row.detail_code}`, row.detail_params || {});
+    if (text) return text;
+  }
+  return row?.detail || '';
+}
 
 const SUMMARY = [
   ['login_failed', 'admin.eventLoginFailed'],
@@ -162,7 +176,7 @@ export default function AdminActivity() {
             {
               title: t('admin.historyDetail'),
               dataIndex: 'detail',
-              render: (value) => <Text type="secondary">{value || '—'}</Text>,
+              render: (value, row) => <Text type="secondary">{eventDetail(row, locale) || '—'}</Text>,
             },
           ]}
         />

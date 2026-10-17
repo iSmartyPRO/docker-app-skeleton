@@ -63,6 +63,13 @@ export default {
       body: 'Проведите документ ещё раз, когда остаток появится.',
     },
   },
+  // Tool states in the CSV (logic.js INSTANCE_STATES).
+  toolState: {
+    ok: 'Исправен',
+    repair: 'В ремонте',
+    written_off: 'Списан',
+    lost: 'Не найден (инвентаризация)',
+  },
   csv: {
     item: 'Позиция',
     sku: 'Артикул',

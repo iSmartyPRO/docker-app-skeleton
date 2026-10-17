@@ -1,4 +1,9 @@
 export default {
+  urgency: {
+    critical: 'Critical',
+    urgent: 'Urgent',
+    normal: 'Normal',
+  },
   status: {
     draft: 'Draft',
     pending: 'In approval',

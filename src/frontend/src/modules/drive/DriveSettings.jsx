@@ -70,7 +70,7 @@ function GeneralForm({ settings, save }) {
         </SettingRow>
         <SettingRow label={t('filesSettings.maxUpload')}>
           <Form.Item name="maxUploadMb" noStyle>
-            <InputNumber min={1} max={10240} addonAfter="MB" style={{ width: 170 }} />
+            <InputNumber min={1} max={10240} addonAfter={t('format.bytes.mb')} style={{ width: 170 }} />
           </Form.Item>
         </SettingRow>
       </SettingsSection>
@@ -349,7 +349,7 @@ function ShareDialog({ open, server, share, preset, groups, onClose }) {
               onSelect={(value) => {
                 if (!form.getFieldValue('title')) form.setFieldValue('title', value.replace(/\$$/, ''));
               }}
-              placeholder="Finance"
+              placeholder={t('common.a11y.shareExample')}
             />
           </Form.Item>
         </div>
@@ -367,7 +367,7 @@ function ShareDialog({ open, server, share, preset, groups, onClose }) {
           </div>
         )}
         <Form.Item name="rootPath" label={t('driveSettings.rootPath')} extra={t('driveSettings.rootPathHint')}>
-          <Input placeholder="Departments/Accounting" addonBefore={`\\\\${server?.host || ''}\\${shareName || '…'}\\`} />
+          <Input placeholder={t('common.a11y.pathExample')} addonBefore={`\\\\${server?.host || ''}\\${shareName || '…'}\\`} />
         </Form.Item>
         <Form.Item name="description" label={t('driveSettings.description')}>
           <Input.TextArea rows={2} maxLength={500} placeholder={t('driveSettings.descriptionPlaceholder')} />

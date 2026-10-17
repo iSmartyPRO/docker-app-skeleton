@@ -368,10 +368,14 @@ export default {
     rec: {
       every: 'Repeat every',
       units: {
-        day: 'day(s)',
-        week: 'week(s)',
-        month: 'month(s)',
-        year: 'year(s)',
+        day_one: 'day',
+        day_other: 'days',
+        week_one: 'week',
+        week_other: 'weeks',
+        month_one: 'month',
+        month_other: 'months',
+        year_one: 'year',
+        year_other: 'years',
       },
       start: 'Start on',
       time: 'create at',

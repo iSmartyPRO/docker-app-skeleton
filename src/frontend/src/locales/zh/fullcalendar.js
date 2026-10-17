@@ -1,0 +1,28 @@
+export default {
+  allDay: '全天',
+  weekShort: '周',
+  weekLong: '周',
+  moreLink_other: '另外 {count} 个',
+  moreLinkHint_other: '显示另外 {count} 个事件',
+  noEvents: '没有事件',
+  buttons: {
+    prev: '上一页',
+    next: '下一页',
+    today: '今天',
+    year: '年',
+    month: '月',
+    week: '周',
+    day: '日',
+    list: '列表',
+  },
+  hints: {
+    prev: '上一{unit}',
+    next: '下一{unit}',
+    today: '本{unit}',
+    view: '{view}视图',
+    navLink: '转到 {date}',
+    close: '关闭',
+    time: '时间',
+    event: '事件',
+  },
+};

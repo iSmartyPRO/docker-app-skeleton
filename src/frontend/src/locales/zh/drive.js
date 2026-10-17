@@ -326,7 +326,7 @@ export default {
     renameTitle: '重命名',
     newFolderName: '新建文件夹',
     deleted: '已删除（{n}）',
-    deleteTitle: '删除 {n} 项？',
+    deleteTitle_other: '删除 {count} 项？',
     deleteWarnTitle: '此操作无法撤销',
     deleteWarn: '文件服务器没有回收站。已删除的文件和文件夹无法恢复。',
     deleteSure: '我已了解，永久删除',

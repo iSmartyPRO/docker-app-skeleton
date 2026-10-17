@@ -50,8 +50,8 @@ export function Welcome({ widget }) {
   const events = data.events;
 
   const parts = [];
-  if (tasks?.today) parts.push(t('dashboard.welcome.tasksToday', { n: tasks.today }));
-  if (events?.today) parts.push(t('dashboard.welcome.eventsToday', { n: events.today }));
+  if (tasks?.today) parts.push(t('dashboard.welcome.tasksToday', { count: tasks.today }));
+  if (events?.today) parts.push(t('dashboard.welcome.eventsToday', { count: events.today }));
   const summary = state.data ? (parts.length ? t('dashboard.welcome.youHave', { list: parts.join(t('dashboard.welcome.and')) }) : t('dashboard.welcome.clear')) : ' ';
   const next = events?.next;
   const until = next ? untilText(next.start, now, t) : null;

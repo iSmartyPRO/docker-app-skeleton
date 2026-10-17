@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Button, Segmented, Skeleton } from 'antd';
+import { Button, Skeleton } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { FolderOpenOutlined, LinkOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useLocale } from '../../../context/LocaleContext';

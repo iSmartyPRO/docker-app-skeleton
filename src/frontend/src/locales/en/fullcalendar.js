@@ -1,0 +1,31 @@
+// Texts inside FullCalendar (calendar and CRM calendar views), see i18n/fullcalendar.js.
+export default {
+  allDay: 'All day',
+  weekShort: 'W',
+  weekLong: 'Week',
+  moreLink_one: '+{count} more',
+  moreLink_other: '+{count} more',
+  moreLinkHint_one: 'Show {count} more event',
+  moreLinkHint_other: 'Show {count} more events',
+  noEvents: 'No events to display',
+  buttons: {
+    prev: 'Previous',
+    next: 'Next',
+    today: 'Today',
+    year: 'Year',
+    month: 'Month',
+    week: 'Week',
+    day: 'Day',
+    list: 'List',
+  },
+  hints: {
+    prev: 'Previous {unit}',
+    next: 'Next {unit}',
+    today: 'This {unit}',
+    view: '{view} view',
+    navLink: 'Go to {date}',
+    close: 'Close',
+    time: 'Time',
+    event: 'Event',
+  },
+};

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Segmented, Select } from 'antd';
+import { Select } from 'antd';
+import Segmented from './Segmented';
 import { useLocale } from '../../context/LocaleContext';
 import { DATE_FORMATS, deviceZone, fmtDate, fmtDateTime, fmtTime, resolveRegional, zoneLabel, zoneName, zoneOptions } from '../../lib/datetime';
 import { SettingRow } from './SettingsSection';
@@ -35,6 +36,10 @@ export default function RegionalFields({ value = {}, onChange, portal = null, pe
           onChange={(timeZone) => set({ timeZone: timeZone === 'portal' ? null : timeZone })}
           filterOption={(input, option) => (option.search || '').includes(input.toLowerCase())}
           style={{ width: 340, maxWidth: '100%' }}
+          // The chosen "as the portal / this device" reads short in the field (fits a phone); the list keeps the zone names.
+          labelRender={({ value: chosen, label }) =>
+            chosen === 'portal' && portalR.timeZone ? `${t('regional.asPortalShort')} · ${zoneLabel(portalR.timeZone)}` : chosen === 'device' ? `${t('regional.device')} · ${zoneLabel(deviceZone())}` : label
+          }
           options={[
             ...(personal
               ? [

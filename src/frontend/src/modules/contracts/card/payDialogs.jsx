@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { App, Button, Checkbox, Drawer, Input, InputNumber, Modal, Popconfirm, Segmented, Select, Skeleton } from 'antd';
+import { App, Button, Checkbox, Drawer, Input, InputNumber, Modal, Popconfirm, Select, Skeleton } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { DeleteOutlined, PaperClipOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';

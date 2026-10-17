@@ -630,7 +630,7 @@ export default {
     lowEmpty: 'Her şey asgari seviyenin üzerinde',
     incomingEmpty: 'Kabul bekleyen bir şey yok',
     toolsEmpty: 'Zimmetinizde alet yok',
-    toConfirm: 'Onaylanacak teslim: {n}',
+    toConfirm: 'Onaylanacak teslim: {count}',
     service: 'Bakım',
   },
   errors: {

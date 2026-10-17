@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { App, Button, Dropdown, Input, Segmented, Tooltip } from 'antd';
+import { App, Button, Dropdown, Input, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';

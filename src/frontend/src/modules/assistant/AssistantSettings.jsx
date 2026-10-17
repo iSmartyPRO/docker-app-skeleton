@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Button, Form, Segmented, Switch } from 'antd';
+import { Button, Form, Switch } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import SaveBar from '../../components/ui/SaveBar';
 import LoadState from '../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';

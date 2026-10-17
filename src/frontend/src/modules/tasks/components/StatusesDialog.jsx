@@ -63,7 +63,7 @@ export default function StatusesDialog({ open, project, statuses, onClose }) {
               <button type="button" onClick={() => move(index, 1)} disabled={index === list.length - 1}>▼</button>
             </div>
             <Popover trigger="click" content={<ColorSwatches small value={status.color} onChange={(color) => patch(index, { color })} />}>
-              <button type="button" className="status-editor__color" style={{ background: status.color }} aria-label="color" />
+              <button type="button" className="status-editor__color" style={{ background: status.color }} aria-label={t('common.a11y.color')} />
             </Popover>
             <Input value={status.name} maxLength={60} onChange={(event) => patch(index, { name: event.target.value })} />
             <Select

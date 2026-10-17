@@ -1,4 +1,5 @@
 import api from '../../services/api';
+import { formatBytes } from '../../lib/format';
 
 const base = '/app/drive';
 
@@ -154,18 +155,8 @@ export const IMAGE = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
 export const CAD = new Set(['dwg', 'dxf']);
 export const EDITABLE = new Set(['md', 'txt', 'csv', 'json', 'xml', 'log']);
 
-export function formatBytes(bytes) {
-  const value = Number(bytes) || 0;
-  if (value < 1024) return `${value} B`;
-  const units = ['KB', 'MB', 'GB', 'TB', 'PB'];
-  let size = value / 1024;
-  let index = 0;
-  while (size >= 1024 && index < units.length - 1) {
-    size /= 1024;
-    index += 1;
-  }
-  return `${size < 10 ? size.toFixed(1) : Math.round(size)} ${units[index]}`;
-}
+/** File size in the interface language (lib/format.js). */
+export { formatBytes };
 
 /** Folder path → URL under /app/drive/s/:shareId/… */
 export function folderUrl(shareId, path = '') {

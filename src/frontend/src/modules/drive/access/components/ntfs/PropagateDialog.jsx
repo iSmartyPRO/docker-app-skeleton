@@ -123,7 +123,7 @@ export default function PropagateDialog({ open, folder, job: initialJob, onClose
         <Counters progress={job.progress} />
         {job.current && running && <div className="fa-muted fa-code">{job.current}</div>}
         {job.error && <Alert type="error" showIcon message={faError({ response: { data: { code: job.error.code, error: job.error.message } } }, t)} />}
-        {(job.protectedList || []).length > 0 && <Alert type="info" showIcon message={t('folderAccess.ntfs.propagate.protected', { n: job.protectedList.length })} />}
+        {(job.protectedList || []).length > 0 && <Alert type="info" showIcon message={t('folderAccess.ntfs.propagate.protected', { count: job.protectedList.length })} />}
         {(job.failedList || []).length > 0 && (
           <Table
             size="small"

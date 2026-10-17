@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Segmented, Tooltip } from 'antd';
+import { Button, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { useMp } from '../MpContext';
 import { STATUSES, descendants, formatArea, formatMoney, formatNumber, statusColor } from '../lib';

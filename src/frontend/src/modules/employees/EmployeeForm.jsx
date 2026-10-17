@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App, Button, DatePicker, Divider, Drawer, Form, Input, Segmented, Select } from 'antd';
+import { App, Button, DatePicker, Divider, Drawer, Form, Input, Select } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useLocale } from '../../context/LocaleContext';

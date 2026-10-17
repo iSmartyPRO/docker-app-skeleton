@@ -82,7 +82,7 @@ export function GroupColumn({ slot, group, members, otherGroup, onChanged, onDes
               {t('folderAccess.moveTo', { type: t(`folderAccess.type.${OTHER[slot]}`) })}
             </Button>
           )}
-          <Popconfirm title={t('folderAccess.removeConfirm', { n: selected.length })} onConfirm={() => remove(selected)}>
+          <Popconfirm title={t('folderAccess.removeConfirm', { count: selected.length })} onConfirm={() => remove(selected)}>
             <Button size="small" danger icon={<DeleteOutlined />} loading={busy}>
               {t('folderAccess.remove')}
             </Button>
@@ -190,7 +190,7 @@ export function InheritedList({ folders }) {
                   <span key={pair.groups[slot].dn} className="fa-inherited__group">
                     <TypeTag type={pair.groups[slot].type} />
                     <code>{pair.groups[slot].name}</code>
-                    <span className="fa-muted">{t('folderAccess.panel.members', { n: pair.groups[slot].memberCount })}</span>
+                    <span className="fa-muted">{t('folderAccess.panel.members', { count: pair.groups[slot].memberCount })}</span>
                   </span>
                 ))
               )}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, InputNumber, Segmented, Select, Spin, Tooltip } from 'antd';
+import { Button, InputNumber, Select, Spin, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 // The legacy build bundles polyfills (Uint8Array#toHex, Promise.withResolvers…)
 // so documents open in browsers that are a few versions behind as well.
 import { GlobalWorkerOptions, TextLayer, getDocument } from 'pdfjs-dist/legacy/build/pdf.min.mjs';

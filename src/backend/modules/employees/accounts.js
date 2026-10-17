@@ -27,7 +27,7 @@ import { fullName, httpError, intOrNull } from './logic.js';
 
 export const SIGN_IN_METHODS = ['password', 'code', 'directory'];
 
-const audit = (req, detail) => recordSecurityEvent({ kind: 'employee_account', severity: 'info', username: req?.user?.username, ip: req?.ip, detail }).catch(() => {});
+const audit = (req, detail, code, params) => recordSecurityEvent({ kind: 'employee_account', severity: 'info', username: req?.user?.username, ip: req?.ip, detail, code, params }).catch(() => {});
 
 async function cardRow(id) {
   const { rows } = await query(`SELECT * FROM employees WHERE id = $1`, [intOrNull(id) || 0]);
@@ -103,7 +103,7 @@ export async function createAccount(req, id, input = {}) {
     await query(`DELETE FROM users WHERE id = $1`, [user.id]).catch(() => {});
     throw err;
   }
-  audit(req, `created account ${user.username} for employee #${row.id}`);
+  audit(req, `created account ${user.username} for employee #${row.id}`, 'employee_created', { account: user.username, employee: row.id });
   emitEvent('user.created', { data: { user, actorId: req.user?.id || null }, visible: (r) => hasPermission(r.access?.permissions || [], 'users.view') }).catch?.(() => {});
   return { ...(await getEmployee(req, row.id)), created: { id: user.id, username: user.username, method } };
 }
@@ -131,7 +131,7 @@ export async function linkAccount(req, id, { userId } = {}) {
     await syncUser(client, row.id);
     await logEvent(client, row.id, 'account_linked', req.user?.id || null, { userId: target, username: rows[0].username, previous: row.user_id || null });
   });
-  audit(req, `linked account ${rows[0].username} to employee #${row.id}`);
+  audit(req, `linked account ${rows[0].username} to employee #${row.id}`, 'employee_linked', { account: rows[0].username, employee: row.id });
   return getEmployee(req, row.id);
 }
 
@@ -145,7 +145,7 @@ export async function unlinkAccount(req, id) {
     await client.query(`UPDATE employees SET user_id = NULL, updated_at = NOW() WHERE id = $1`, [row.id]);
     await logEvent(client, row.id, 'account_unlinked', req.user?.id || null, { userId: row.user_id });
   });
-  audit(req, `unlinked account #${row.user_id} from employee #${row.id}`);
+  audit(req, `unlinked account #${row.user_id} from employee #${row.id}`, 'employee_unlinked', { account: `#${row.user_id}`, employee: row.id });
   return getEmployee(req, row.id);
 }
 
@@ -158,7 +158,7 @@ export async function blockAccount(req, id, { blocked = true } = {}) {
   if (!row.user_id) throw httpError(409, 'The employee has no portal account', 'NOT_LINKED');
   await updateUser(row.user_id, { isBlocked: Boolean(blocked) }, { actor: actorOf(req) });
   await logEvent({ query }, row.id, blocked ? 'account_blocked' : 'account_unblocked', req.user?.id || null, { userId: row.user_id });
-  audit(req, `${blocked ? 'blocked' : 'unblocked'} account #${row.user_id} of employee #${row.id}`);
+  audit(req, `${blocked ? 'blocked' : 'unblocked'} account #${row.user_id} of employee #${row.id}`, blocked ? 'employee_blocked' : 'employee_unblocked', { account: `#${row.user_id}`, employee: row.id });
   return getEmployee(req, row.id);
 }
 

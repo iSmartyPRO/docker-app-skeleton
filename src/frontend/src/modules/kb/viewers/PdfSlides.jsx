@@ -189,7 +189,7 @@ export default function PdfSlides({ doc, sizes, page, onPage, presenting = false
       onKeyDown={onKeyDown}
       onMouseMove={wake}
       role="region"
-      aria-roledescription="slides"
+      aria-roledescription={t('common.a11y.slides')}
       aria-label={t('kb.viewer.viewSlides')}
     >
       {overview ? (
@@ -230,11 +230,11 @@ export default function PdfSlides({ doc, sizes, page, onPage, presenting = false
         <span style={{ width: `${(page / total) * 100}%` }} />
       </div>
       <div className="pdfs-bar" onClick={(event) => event.stopPropagation()} role="toolbar">
-        <button type="button" onClick={() => go(page - 1)} disabled={page <= 1} aria-label="Previous">‹</button>
+        <button type="button" onClick={() => go(page - 1)} disabled={page <= 1} aria-label={t('common.a11y.previous')}>‹</button>
         <span className="pdfs-bar__count">
           {page} <em>/ {total}</em>
         </span>
-        <button type="button" onClick={() => go(page + 1)} disabled={page >= total} aria-label="Next">›</button>
+        <button type="button" onClick={() => go(page + 1)} disabled={page >= total} aria-label={t('common.a11y.next')}>›</button>
         <span className="pdfs-bar__sep" />
         <Tooltip title={t('kb.viewer.overview')} getPopupContainer={() => rootRef.current || document.body}>
           <button type="button" className={overview ? 'is-on' : ''} onClick={() => setOverview((value) => !value)} aria-label={t('kb.viewer.overview')}>▦</button>

@@ -1,19 +1,181 @@
 /*
- * antd has no Kyrgyz locale. This one keeps antd's English component texts
- * (pagination, table filters, empty states…) and switches the date pickers
- * to Kyrgyz month and day names (dayjs/locale/ky). Translators: put Kyrgyz
- * texts into OVERRIDES — same shape as antd/es/locale/en_GB.
+ * antd has no Kyrgyz locale; this is one, in the shape of antd/es/locale/en_GB
+ * (plus QRCode and ColorPicker from en_US). Date pickers take their month and
+ * day names from dayjs/locale/ky. Keys antd adds in a later version fall back
+ * to English (the en_GB spread). Terms: docs/i18n-glossary.md.
  */
 import enGB from 'antd/es/locale/en_GB';
 
-const OVERRIDES = {};
+const typeTemplate = '${label} жарактуу ${type} эмес';
 
-const withLang = (picker) => (picker ? { ...picker, lang: { ...picker.lang, locale: 'ky' } } : picker);
+const pickerLang = {
+  locale: 'ky',
+  placeholder: 'Күндү тандаңыз',
+  yearPlaceholder: 'Жылды тандаңыз',
+  quarterPlaceholder: 'Чейректи тандаңыз',
+  monthPlaceholder: 'Айды тандаңыз',
+  weekPlaceholder: 'Аптаны тандаңыз',
+  rangePlaceholder: ['Башталыш күнү', 'Аяктоо күнү'],
+  rangeYearPlaceholder: ['Башталыш жылы', 'Аяктоо жылы'],
+  rangeQuarterPlaceholder: ['Башталыш чейреги', 'Аяктоо чейреги'],
+  rangeMonthPlaceholder: ['Башталыш айы', 'Аяктоо айы'],
+  rangeWeekPlaceholder: ['Башталыш аптасы', 'Аяктоо аптасы'],
+  yearFormat: 'YYYY',
+  dayFormat: 'D',
+  cellMeridiemFormat: 'A',
+  monthBeforeYear: true,
+  today: 'Бүгүн',
+  now: 'Азыр',
+  backToToday: 'Бүгүнкү күнгө',
+  ok: 'OK',
+  clear: 'Тазалоо',
+  week: 'Апта',
+  month: 'Ай',
+  year: 'Жыл',
+  timeSelect: 'Убакытты тандоо',
+  dateSelect: 'Күндү тандоо',
+  monthSelect: 'Айды тандоо',
+  yearSelect: 'Жылды тандоо',
+  decadeSelect: 'Он жылдыкты тандоо',
+  dateFormat: 'D.M.YYYY',
+  dateTimeFormat: 'D.M.YYYY HH:mm:ss',
+  previousMonth: 'Мурунку ай (PageUp)',
+  nextMonth: 'Кийинки ай (PageDown)',
+  previousYear: 'Мурунку жыл (Control + left)',
+  nextYear: 'Кийинки жыл (Control + right)',
+  previousDecade: 'Мурунку он жылдык',
+  nextDecade: 'Кийинки он жылдык',
+  previousCentury: 'Мурунку кылым',
+  nextCentury: 'Кийинки кылым',
+};
+
+const timePickerLocale = {
+  placeholder: 'Убакытты тандаңыз',
+  rangePlaceholder: ['Башталыш убактысы', 'Аяктоо убактысы'],
+};
+
+const picker = { lang: { ...enGB.DatePicker?.lang, ...pickerLang }, timePickerLocale: { ...enGB.DatePicker?.timePickerLocale, ...timePickerLocale } };
 
 export default {
   ...enGB,
-  ...OVERRIDES,
   locale: 'ky',
-  DatePicker: withLang(enGB.DatePicker),
-  Calendar: withLang(enGB.Calendar),
+  Pagination: {
+    ...enGB.Pagination,
+    items_per_page: '/ бет',
+    jump_to: 'Өтүү',
+    jump_to_confirm: 'ырастоо',
+    page: 'Бет',
+    prev_page: 'Мурунку бет',
+    next_page: 'Кийинки бет',
+    prev_5: 'Мурунку 5 бет',
+    next_5: 'Кийинки 5 бет',
+    prev_3: 'Мурунку 3 бет',
+    next_3: 'Кийинки 3 бет',
+    page_size: 'Беттин өлчөмү',
+  },
+  DatePicker: picker,
+  TimePicker: { ...enGB.TimePicker, ...timePickerLocale },
+  Calendar: picker,
+  global: { ...enGB.global, placeholder: 'Тандаңыз', close: 'Жабуу' },
+  Table: {
+    ...enGB.Table,
+    filterTitle: 'Чыпка',
+    filterConfirm: 'OK',
+    filterReset: 'Тазалоо',
+    filterEmptyText: 'Чыпкалар жок',
+    filterCheckAll: 'Баарын тандоо',
+    filterSearchPlaceholder: 'Чыпкалардан издөө',
+    emptyText: 'Маалымат жок',
+    selectAll: 'Учурдагы бетти тандоо',
+    selectInvert: 'Учурдагы бетте тандоону алмаштыруу',
+    selectNone: 'Тандоону тазалоо',
+    selectionAll: 'Бардык маалыматты тандоо',
+    sortTitle: 'Иреттөө',
+    expand: 'Сапты жаюу',
+    collapse: 'Сапты жыйноо',
+    triggerDesc: 'Кемүү боюнча иреттөө үчүн басыңыз',
+    triggerAsc: 'Өсүү боюнча иреттөө үчүн басыңыз',
+    cancelSort: 'Иреттөөнү жокко чыгаруу үчүн басыңыз',
+  },
+  Tour: { ...enGB.Tour, Next: 'Кийинки', Previous: 'Мурунку', Finish: 'Бүтүрүү' },
+  Modal: { ...enGB.Modal, okText: 'OK', cancelText: 'Жокко чыгаруу', justOkText: 'OK' },
+  Popconfirm: { ...enGB.Popconfirm, okText: 'OK', cancelText: 'Жокко чыгаруу' },
+  Transfer: {
+    ...enGB.Transfer,
+    titles: ['', ''],
+    searchPlaceholder: 'Бул жерден издөө',
+    itemUnit: 'элемент',
+    itemsUnit: 'элемент',
+    remove: 'Алып салуу',
+    selectCurrent: 'Учурдагы бетти тандоо',
+    removeCurrent: 'Учурдагы бетти алып салуу',
+    selectAll: 'Бардык маалыматты тандоо',
+    removeAll: 'Бардык маалыматты алып салуу',
+    selectInvert: 'Учурдагы бетте тандоону алмаштыруу',
+  },
+  Upload: {
+    ...enGB.Upload,
+    uploading: 'Жүктөлүүдө…',
+    removeFile: 'Файлды өчүрүү',
+    uploadError: 'Жүктөө катасы',
+    previewFile: 'Файлды алдын ала көрүү',
+    downloadFile: 'Файлды жүктөп алуу',
+  },
+  Empty: { ...enGB.Empty, description: 'Маалымат жок' },
+  Icon: { ...enGB.Icon, icon: 'сүрөтчө' },
+  Text: { ...enGB.Text, edit: 'Түзөтүү', copy: 'Көчүрүү', copied: 'Көчүрүлдү', expand: 'Жаюу', collapse: 'Жыйноо' },
+  Form: {
+    ...enGB.Form,
+    optional: '(милдеттүү эмес)',
+    defaultValidateMessages: {
+      default: '${label} талаасын текшерүү катасы',
+      required: '${label} киргизиңиз',
+      enum: '${label} [${enum}] маанилеринин бири болушу керек',
+      whitespace: '${label} бош боло албайт',
+      date: {
+        format: '${label}: күндүн форматы туура эмес',
+        parse: '${label} күнгө айландырылбайт',
+        invalid: '${label}: жараксыз күн',
+      },
+      types: {
+        string: typeTemplate,
+        method: typeTemplate,
+        array: typeTemplate,
+        object: typeTemplate,
+        number: typeTemplate,
+        date: typeTemplate,
+        boolean: typeTemplate,
+        integer: typeTemplate,
+        float: typeTemplate,
+        regexp: typeTemplate,
+        email: typeTemplate,
+        url: typeTemplate,
+        hex: typeTemplate,
+      },
+      string: {
+        len: '${label} ${len} белгиден турушу керек',
+        min: '${label} кеминде ${min} белгиден турушу керек',
+        max: '${label} ${max} белгиден ашпашы керек',
+        range: '${label} ${min}–${max} белгиден турушу керек',
+      },
+      number: {
+        len: '${label} ${len} барабар болушу керек',
+        min: '${label} кеминде ${min} болушу керек',
+        max: '${label} ${max} ашпашы керек',
+        range: '${label} ${min}–${max} аралыгында болушу керек',
+      },
+      array: {
+        len: '${label}: ${len} болушу керек',
+        min: '${label}: кеминде ${min}',
+        max: '${label}: көп дегенде ${max}',
+        range: '${label} саны ${min}–${max} аралыгында болушу керек',
+      },
+      pattern: {
+        mismatch: '${label} ${pattern} үлгүсүнө дал келбейт',
+      },
+    },
+  },
+  Image: { ...enGB.Image, preview: 'Алдын ала көрүү' },
+  QRCode: { expired: 'QR коддун мөөнөтү бүттү', refresh: 'Жаңылоо', scanned: 'Сканерленди' },
+  ColorPicker: { presetEmpty: 'Бош', transparent: 'Тунук', singleColor: 'Бир түс', gradientColor: 'Градиент' },
 };

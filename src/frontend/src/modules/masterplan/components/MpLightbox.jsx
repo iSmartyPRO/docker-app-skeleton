@@ -5,23 +5,13 @@ import { useLocale } from '../../../context/LocaleContext';
 import { fmtDate, fmtDateTime } from '../../../lib/datetime';
 import { PALETTE, UserAvatar } from '../../shared/People';
 import { formatPercent } from '../lib';
-import { localeTag } from '../../../i18n/languages';
-import { translate } from '../../../i18n/translations';
+import { formatBytes } from '../../../lib/format';
 
 const MAX = 6;
 const isVideo = (item) => item?.kind === 'video' || /^video\//.test(item?.mime || '');
 
 function fileSize(bytes, locale) {
-  const n = Number(bytes) || 0;
-  if (!n) return null;
-  const units = ['b', 'kb', 'mb', 'gb'].map((key) => translate(locale, `format.bytes.${key}`) ?? key.toUpperCase());
-  let value = n;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toLocaleString(localeTag(locale), { maximumFractionDigits: unit ? 1 : 0 })} ${units[unit]}`;
+  return Number(bytes) ? formatBytes(bytes, locale) : null;
 }
 
 /**

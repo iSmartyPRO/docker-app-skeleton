@@ -1,4 +1,28 @@
 export default {
   title: 'Activity',
   lead: 'Security incidents from the last 90 days. Counters cover the last 24 hours.',
+  // Event details by code (backend recordSecurityEvent code/params); older rows show their stored English text.
+  detail: {
+    rate_limit_signin: 'Sign-in rate limit exceeded',
+    rate_limit_code_address: 'Sign-in code rate limit exceeded (address)',
+    rate_limit_code: 'Sign-in code rate limit exceeded',
+    lockout: 'Sign-in locked after repeated failures',
+    signin_login_failed: 'Invalid credentials ({method})',
+    signin_account_disabled: 'Disabled account ({method})',
+    signin_account_blocked: 'Blocked account ({method})',
+    signin_failed: 'Sign-in failed ({method})',
+    google_failed: 'Google sign-in failed: {error}',
+    impersonation: 'as @{user}',
+    ip_not_allowed: 'Address is not on the allow-list',
+    ip_rule: 'Blocked by rule {rule}',
+    code_inactive: '{channel}: account disabled or blocked',
+    code_no_match: '{channel}: no single active account matches',
+    code_delivery: '{channel}: {error}',
+    secret_unreadable: '{label} cannot be decrypted (encryption key changed; see docs/security.md) {detail}',
+    employee_created: 'Created account {account} for employee #{employee}',
+    employee_linked: 'Linked account {account} to employee #{employee}',
+    employee_unlinked: 'Unlinked account {account} from employee #{employee}',
+    employee_blocked: 'Blocked account {account} of employee #{employee}',
+    employee_unblocked: 'Unblocked account {account} of employee #{employee}',
+  },
 };

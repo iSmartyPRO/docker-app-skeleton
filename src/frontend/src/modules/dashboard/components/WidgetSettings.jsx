@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Input, InputNumber, Modal, Segmented, Select, Switch } from 'antd';
+import { Input, InputNumber, Modal, Select, Switch } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
 import { useSettings } from '../../../context/SettingsContext';

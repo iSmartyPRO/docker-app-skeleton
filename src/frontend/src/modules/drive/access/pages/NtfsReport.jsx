@@ -110,7 +110,7 @@ export default function NtfsReport() {
       {report && !running && (
         <div className="fa-filters">
           <span className="fa-muted">
-            {t('folderAccess.ntfs.report.finished', { at: report.finishedAt ? formatDateTime(report.finishedAt, locale) : '—', n: report.progress.total })}
+            {t('folderAccess.ntfs.report.finished', { at: report.finishedAt ? formatDateTime(report.finishedAt, locale) : '—', count: report.progress.total })}
             {report.state === 'cancelled' ? ` · ${t('folderAccess.ntfs.report.cancelled')}` : ''}
           </span>
           <Select

@@ -34,7 +34,7 @@ import { getUserAccess } from '../services/rbac.js';
 const router = Router();
 
 /** Answers a refused sign-in request and records it once per 5 minutes. */
-function limited(message) {
+function limited(message, code) {
   return async (req, res) => {
     await recordSecurityEvent({
       kind: 'rate_limited',
@@ -42,6 +42,7 @@ function limited(message) {
       username: String(req.body?.username || req.body?.identifier || '').trim().slice(0, 64),
       ip: clientIp(req),
       detail: message,
+      code,
       debounceMinutes: 5,
     }).catch(() => {});
     res.status(429).json({ success: false, error: 'Too many attempts. Try again later.', code: 'RATE_LIMITED' });
@@ -50,12 +51,12 @@ function limited(message) {
 
 // Password / code / Telegram / magic link: failed attempts only, 20 per
 // address+account and 100 per address (middleware/signinLimits.js).
-const loginLimiter = failedSignInLimiters({ perAccount: 20, perAddress: 100, onLimited: limited('Sign-in rate limit exceeded') });
+const loginLimiter = failedSignInLimiters({ perAccount: 20, perAddress: 100, onLimited: limited('Sign-in rate limit exceeded', 'rate_limit_signin') });
 // Asking for a code always answers 200, so every request counts: 10 per
 // address+account, 20 per address (each request may send an SMS / WhatsApp / e-mail).
 const codeLimiter = [
-  signInLimiter({ max: 20, onLimited: limited('Sign-in code rate limit exceeded (address)') }),
-  signInLimiter({ max: 10, key: addressAndAccount, onLimited: limited('Sign-in code rate limit exceeded') }),
+  signInLimiter({ max: 20, onLimited: limited('Sign-in code rate limit exceeded (address)', 'rate_limit_code_address') }),
+  signInLimiter({ max: 10, key: addressAndAccount, onLimited: limited('Sign-in code rate limit exceeded', 'rate_limit_code') }),
 ];
 
 async function sessionDays() {
@@ -90,6 +91,7 @@ function signIn(identify, attempt, { directory = false } = {}) {
           username: login,
           ip,
           detail: 'Sign-in locked after repeated failures',
+          code: 'lockout',
           debounceMinutes: 10,
         });
         return res.status(429).json({ success: false, error: 'Too many failed attempts. Try again later.', code: 'LOCKED' });
@@ -110,6 +112,8 @@ function signIn(identify, attempt, { directory = false } = {}) {
         username: login,
         ip,
         detail: `${EVENT_DETAIL[kind] || 'Sign-in failed'} (${req.path.replace(/^\//, '') || 'login'})`,
+        code: EVENT_DETAIL[kind] ? `signin_${kind}` : 'signin_failed',
+        params: { method: req.path.replace(/^\//, '') || 'login' },
         debounceMinutes: kind === 'login_failed' ? 1 : 0,
       }).catch(() => {});
       // Disabled and blocked accounts get the same message as a wrong password.
@@ -282,6 +286,8 @@ router.get('/google/callback', googleLimiter, optionalAuth, async (req, res) => 
         username: login,
         ip,
         detail: `Google sign-in failed: ${err.code || err.message}`.slice(0, 200),
+        code: 'google_failed',
+        params: { error: err.code || err.message },
         debounceMinutes: 1,
       }).catch(() => {});
     } else if ((err.statusCode || 500) >= 500) {
@@ -346,7 +352,7 @@ router.post('/impersonate/stop', requireAuth, async (req, res, next) => {
     } catch {
       admin = null;
     }
-    await recordSecurityEvent({ kind: 'impersonation_end', severity: 'info', username: req.impersonator?.username || String(req.auth.imp), ip: req.ip, detail: `as @${req.user.username}` }).catch(() => {});
+    await recordSecurityEvent({ kind: 'impersonation_end', severity: 'info', username: req.impersonator?.username || String(req.auth.imp), ip: req.ip, detail: `as @${req.user.username}`, code: 'impersonation', params: { user: req.user.username } }).catch(() => {});
     if (!admin) {
       res.status(401).json({ success: false, code: 'SESSION_REQUIRED', error: 'Sign in again' });
       return;

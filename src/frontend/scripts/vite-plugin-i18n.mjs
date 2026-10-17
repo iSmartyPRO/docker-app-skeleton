@@ -13,6 +13,11 @@
  *       any per-language data file (help articles, admin docs) laid over its
  *       English sibling ./content/en/<id>.js. Works with import.meta.glob:
  *       import.meta.glob('./content/*\/*.js', { query: '?l10n', import: 'default' }).
+ *   import { loaders } from 'virtual:i18n/help-index'
+ *       { en: () => import('virtual:i18n/help-index/en'), … }: per language the
+ *       table of contents of the help center — [{ id, icon, title, tagline,
+ *       sections, faq }] for every article (sections / faq are counts), so the
+ *       help center downloads only the article being read plus this list.
  *
  * Build: the files are evaluated in Node and the merged result is emitted as a
  * JSON literal (fast to parse, nothing English left to fetch). Dev server: the
@@ -30,6 +35,7 @@ import { assemble, englishPlurals, overlay } from '../src/i18n/merge.js';
 const CATALOG = 'virtual:i18n/catalog';
 const DICT = 'virtual:i18n/dict/';
 const QUERY = '?l10n';
+const HELP_INDEX = 'virtual:i18n/help-index';
 const REFERENCE = 'en';
 
 const toPosix = (path) => path.split('\\').join('/');
@@ -98,10 +104,32 @@ export async function translationCoverage(localesDir, langs = languagesIn(locale
 /** `…/help/content/ky/start.js` → `…/help/content/en/start.js`. */
 const referenceSibling = (file) => join(dirname(dirname(file)), REFERENCE, basename(file));
 
-export default function i18nPlugin({ localesDir = 'src/locales' } = {}) {
+/** Help center table of contents in one language (articles laid over English). */
+export async function helpIndex(helpDir, lang) {
+  const reference = join(helpDir, REFERENCE);
+  if (!existsSync(reference)) return [];
+  const out = [];
+  for (const name of readdirSync(reference).filter((file) => file.endsWith('.js')).sort()) {
+    const base = await evaluate(join(reference, name));
+    const own = lang === REFERENCE ? {} : await evaluate(join(helpDir, lang, name));
+    const article = lang === REFERENCE ? base : overlay(base, own);
+    out.push({
+      id: article.id || name.slice(0, -3),
+      icon: article.icon,
+      title: article.title,
+      tagline: article.tagline,
+      sections: (article.sections || []).length,
+      faq: (article.faq || []).length,
+    });
+  }
+  return out;
+}
+
+export default function i18nPlugin({ localesDir = 'src/locales', helpContentDir = 'src/help/content' } = {}) {
   let root = process.cwd();
   let serve = false;
   let dir = resolve(root, localesDir);
+  let helpDir = resolve(root, helpContentDir);
   const mergeModule = () => toPosix(resolve(root, 'src/i18n/merge.js'));
 
   return {
@@ -111,9 +139,10 @@ export default function i18nPlugin({ localesDir = 'src/locales' } = {}) {
       root = config.root;
       serve = config.command === 'serve';
       dir = resolve(root, localesDir);
+      helpDir = resolve(root, helpContentDir);
     },
     resolveId(id) {
-      if (id === CATALOG || id.startsWith(DICT)) return `\0${id}`;
+      if (id === CATALOG || id.startsWith(DICT) || id === HELP_INDEX || id.startsWith(`${HELP_INDEX}/`)) return `\0${id}`;
       return null;
     },
     async load(id) {
@@ -123,6 +152,15 @@ export default function i18nPlugin({ localesDir = 'src/locales' } = {}) {
         for (const lang of langs) for (const { file } of namespaceFiles(join(dir, lang))) this.addWatchFile(file);
         const coverage = await translationCoverage(dir, langs);
         return `export const loaders = {\n${entries.join('\n')}\n};\n// Share of English texts each language has (0…1), for Settings → Languages.\nexport const coverage = ${JSON.stringify(coverage)};\n`;
+      }
+      if (id === `\0${HELP_INDEX}`) {
+        const langs = existsSync(helpDir) ? languagesIn(helpDir) : [];
+        return `export const loaders = {\n${langs.map((lang) => `  ${JSON.stringify(lang)}: () => import(${JSON.stringify(`${HELP_INDEX}/${lang}`)}),`).join('\n')}\n};\n`;
+      }
+      if (id.startsWith(`\0${HELP_INDEX}/`)) {
+        const lang = id.slice(HELP_INDEX.length + 2);
+        for (const code of new Set([REFERENCE, lang])) for (const { file } of namespaceFiles(join(helpDir, code))) this.addWatchFile(file);
+        return `export default JSON.parse(${JSON.stringify(JSON.stringify(await helpIndex(helpDir, lang)))});\n`;
       }
       if (id.startsWith(`\0${DICT}`)) {
         const lang = id.slice(DICT.length + 1);

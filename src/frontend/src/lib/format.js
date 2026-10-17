@@ -1,6 +1,6 @@
 import { fmtDate, fmtDateTime, fmtTime, getRegional, intlOptions } from './datetime';
 import { localeTag, normalizeLocale } from '../i18n/languages';
-import { translate } from '../i18n/translations';
+import { activeLocale, translate } from '../i18n/translations';
 
 /** BCP 47 tag of a portal language for Intl: 'ru' → 'ru-RU' (i18n/languages.js). */
 export { localeTag };
@@ -54,17 +54,34 @@ export function formatDuration(totalSeconds, locale) {
   return parts.join(' ');
 }
 
-export function formatBytes(bytes) {
-  const n = Number(bytes) || 0;
-  if (n < 1024) return `${n} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let value = n / 1024;
+const numberFormats = new Map();
+function numberFormat(tag, digits) {
+  const key = `${tag}|${digits}`;
+  if (!numberFormats.has(key)) numberFormats.set(key, new Intl.NumberFormat(tag, { minimumFractionDigits: digits, maximumFractionDigits: digits }));
+  return numberFormats.get(key);
+}
+
+const BYTE_UNITS = ['b', 'kb', 'mb', 'gb', 'tb', 'pb'];
+
+/**
+ * "3,9 KB" — a size in the language's decimal separator and unit names
+ * (format.bytes.*). The one formatter for file sizes; module helpers delegate here.
+ */
+export function formatBytes(bytes, locale = activeLocale()) {
+  let value = Math.max(0, Number(bytes) || 0);
   let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
+  while (value >= 1024 && unit < BYTE_UNITS.length - 1) {
     value /= 1024;
     unit += 1;
   }
-  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
+  const digits = unit === 0 || value >= 10 ? 0 : 1;
+  const key = BYTE_UNITS[unit];
+  return `${numberFormat(localeTag(locale), digits).format(value)} ${translate(locale, `format.bytes.${key}`) ?? key.toUpperCase()}`;
+}
+
+/** A plain number in the language's separators ("1 234,5"). */
+export function formatNumber(value, locale = activeLocale(), options) {
+  return new Intl.NumberFormat(localeTag(locale), options).format(Number(value) || 0);
 }
 
 export function initials(name = '?') {

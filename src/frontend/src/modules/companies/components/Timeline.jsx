@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Button, Input, Popconfirm, Segmented, Skeleton } from 'antd';
+import { App, Button, Input, Popconfirm, Skeleton } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatRelative } from '../../../lib/format';
@@ -57,9 +58,9 @@ function describe(event, t, type) {
     case 'created':
       return d.source ? t('companies.ev.createdFrom', { source: d.source }) : t(`companies.ev.created_${type}`);
     case 'changed':
-      return t('companies.ev.changed', { n: d.changes?.length || 0 });
+      return t('companies.ev.changed', { count: d.changes?.length || 0 });
     case 'registry':
-      return d.changes?.length ? t('companies.ev.registry', { source: d.source || '', n: d.changes.length }) : t('companies.ev.registrySame', { source: d.source || '' });
+      return d.changes?.length ? t('companies.ev.registry', { source: d.source || '', count: d.changes.length }) : t('companies.ev.registrySame', { source: d.source || '' });
     case 'archived':
       return t(`companies.ev.archived_${type}`);
     case 'restored':

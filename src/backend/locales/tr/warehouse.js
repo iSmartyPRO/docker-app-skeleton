@@ -64,6 +64,13 @@ export default {
       body: 'Stok mevcut olduğunda yeniden kaydedin.',
     },
   },
+  // Tool states in the CSV (logic.js INSTANCE_STATES).
+  toolState: {
+    ok: 'Sağlam',
+    repair: 'Onarımda',
+    written_off: 'Hurdaya ayrıldı',
+    lost: 'Bulunamadı (sayım)',
+  },
   csv: {
     item: 'Stok kartı',
     sku: 'Stok kodu',

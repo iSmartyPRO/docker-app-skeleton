@@ -167,7 +167,8 @@ export default {
     reload: 'Refresh',
     none: 'This Wazzup account has no channels yet.',
     notSelected: 'Not used',
-    count: '{count} channel(s) in Wazzup',
+    count_one: '{count} channel in Wazzup',
+    count_other: '{count} channels in Wazzup',
     states: {
       active: 'Active',
       init: 'Starting',

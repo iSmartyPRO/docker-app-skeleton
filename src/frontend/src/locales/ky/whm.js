@@ -75,7 +75,8 @@ export default {
     photo: 'Сүрөт',
     photoWaybill: 'Жүк кагазын сүрөткө тартуу',
     photoAny: 'Сүрөткө тартуу (каалоо боюнча)',
-    photos: 'Сүрөттөр: {n}',
+    photos_one: '{count} сүрөт',
+    photos_other: '{count} сүрөт',
   },
   done: {
     receipt: '{number} кирими катталды',
@@ -263,7 +264,7 @@ export default {
     binPlaceholder: 'Уячанын коду',
     myBins: 'Менин уячаларым · {n}',
     allBins: 'Баары · {n}',
-    recountsAsked: 'Кайра эсептөө суралды: {n}',
+    recountsAsked: 'Кайра эсептөө суралды: {count}',
     openReview: 'Салыштыруу',
     binTitle: '{bin} уячасы',
     closed: 'Бул жерде эсептөө жабылган',

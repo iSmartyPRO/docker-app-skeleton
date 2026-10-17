@@ -16,8 +16,8 @@ export default function Overview({ overview, go, openEditor }) {
   const errorRate = totals.total ? Math.round((totals.errors / totals.total) * 1000) / 10 : 0;
   const hour = (value) => formatDateTime(value, locale, { timeStyle: 'short' });
   const attention = [
-    counts.expiringSoon ? { tone: 'warn', text: t('api.expiring', { n: counts.expiringSoon }), action: () => go('tokens') } : null,
-    counts.unusedMonth ? { tone: 'info', text: t('api.unused', { n: counts.unusedMonth }), action: () => go('tokens') } : null,
+    counts.expiringSoon ? { tone: 'warn', text: t('api.expiring', { count: counts.expiringSoon }), action: () => go('tokens') } : null,
+    counts.unusedMonth ? { tone: 'info', text: t('api.unused', { count: counts.unusedMonth }), action: () => go('tokens') } : null,
     ...(counts.failing || []).map((hook) => ({ tone: 'bad', text: t('api.failing', { name: hook.name }), action: () => go('webhooks') })),
   ].filter(Boolean);
 

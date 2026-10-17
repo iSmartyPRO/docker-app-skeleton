@@ -630,7 +630,8 @@ export default {
     lowEmpty: 'Everything is above the minimum',
     incomingEmpty: 'Nothing waits for acceptance',
     toolsEmpty: 'No tools on you',
-    toConfirm: '{n} hand-over(s) to confirm',
+    toConfirm_one: '{count} hand-over to confirm',
+    toConfirm_other: '{count} hand-overs to confirm',
     service: 'Service',
   },
   errors: {

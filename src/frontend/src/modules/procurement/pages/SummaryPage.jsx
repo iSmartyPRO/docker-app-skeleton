@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Segmented, Skeleton, Tooltip } from 'antd';
+import { Skeleton, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { HelpButton } from '../../../help/Hint';
@@ -34,9 +35,10 @@ function Bars({ rows, currency, locale }) {
 
 /** Columns per month for one currency. */
 function Months({ rows, currency, locale }) {
+  const { t } = useLocale();
   const max = Math.max(1, ...rows.map((row) => row.amount));
   return (
-    <div className="prc-months" role="img" aria-label="months">
+    <div className="prc-months" role="img" aria-label={t('common.a11y.months')}>
       {rows.map((row) => {
         const [y, m] = row.month.split('-').map(Number);
         const label = new Intl.DateTimeFormat(localeTag(locale), intlOptions({ month: 'short', timeZone: 'UTC' })).format(new Date(Date.UTC(y, m - 1, 15)));

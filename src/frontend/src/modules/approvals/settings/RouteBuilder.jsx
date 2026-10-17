@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App, Button, Empty, Input, InputNumber, Popconfirm, Segmented, Select, Skeleton, Tag, Tooltip } from 'antd';
+import { App, Button, Empty, Input, InputNumber, Popconfirm, Select, Skeleton, Tag, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { PlusOutlined } from '@ant-design/icons';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';

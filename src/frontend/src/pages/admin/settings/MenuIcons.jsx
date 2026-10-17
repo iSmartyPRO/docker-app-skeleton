@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, App, Form, Popover, Segmented } from 'antd';
+import { Alert, App, Form, Popover } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import SaveBar from '../../../components/ui/SaveBar';
 import { SettingRow, SettingsSection } from '../../../components/ui/SettingsSection';
 import {

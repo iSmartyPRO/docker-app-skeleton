@@ -1,18 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  App,
-  Button,
-  Empty,
-  Form,
-  Input,
-  Popconfirm,
-  Segmented,
-  Select,
-  Switch,
-  Table,
-  Tag,
-  Typography,
-} from 'antd';
+import { App, Button, Empty, Form, Input, Popconfirm, Select, Switch, Table, Tag, Typography } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import SaveBar from '../../../components/ui/SaveBar';
 import LoadState from '../../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../../components/ui/SettingsSection';

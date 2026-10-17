@@ -55,6 +55,14 @@ export default {
       booking: 'Master plan: bağımsız bölüm {unit} rezervasyonu otomatik olarak kaldırıldı — süre doldu',
     },
   },
+  // Finishing codes (constants.js FINISHINGS) in the units CSV.
+  finishing: {
+    pso: 'Kaba yapı (alıcı tamamlar)',
+    rough: 'Ön ince işler',
+    whitebox: 'White box',
+    turnkey: 'Anahtar teslim',
+    furnished: 'Eşyalı',
+  },
   csv: {
     code: 'Kod',
     name: 'Ad',

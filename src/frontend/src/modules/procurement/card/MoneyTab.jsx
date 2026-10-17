@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { App, Button, Checkbox, Input, InputNumber, Modal, Popconfirm, Segmented } from 'antd';
+import { App, Button, Checkbox, Input, InputNumber, Modal, Popconfirm } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { DeleteOutlined, PaperClipOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { fmtDate, todayISO } from '../../../lib/datetime';

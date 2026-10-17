@@ -97,12 +97,18 @@
   box-shadow: var(--da-shadow-sm), inset 0 0 0 1px var(--da-hairline);
 }
 
+/* Up to two lines, so long names in any language ("Beni bekleyenler (tüm
+   modüller)") stay readable; longer ones end with an ellipsis. */
 .mod-nav__text {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  line-height: 1.3;
 }
 
 .mod-nav__count {

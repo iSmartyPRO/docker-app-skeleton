@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Badge, Button, Input, InputNumber, Popover, Segmented, Select, Space, Switch } from 'antd';
+import { Badge, Button, Input, InputNumber, Popover, Select, Space, Switch } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { useMp } from '../MpContext';
 import { EMPTY_FILTER, STATUSES, can, countByStatus, filterActive, formatNumber, readinessColor, statusColor } from '../lib';

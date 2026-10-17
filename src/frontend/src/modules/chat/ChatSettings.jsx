@@ -29,7 +29,7 @@ function ChatForm({ settings, save }) {
         </SettingRow>
         <SettingRow label={<HintLabel id="chat.maxUploadMb">{t('chatSettings.maxUpload')}</HintLabel>}>
           <Form.Item name="maxUploadMb" noStyle>
-            <InputNumber min={1} max={2048} addonAfter="MB" style={{ width: 170 }} />
+            <InputNumber min={1} max={2048} addonAfter={t('format.bytes.mb')} style={{ width: 170 }} />
           </Form.Item>
         </SettingRow>
         <SettingRow label={<HintLabel id="chat.callUrl">{t('chatSettings.callUrl')}</HintLabel>} description={t('chatSettings.callUrlDesc')}>

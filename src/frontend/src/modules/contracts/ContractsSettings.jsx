@@ -122,7 +122,7 @@ export function ContractsForm({ state, onSave, inApp }) {
         </SettingRow>
         <SettingRow label={t('contracts.settings.maxUpload')}>
           <Form.Item name="maxUploadMb" noStyle>
-            <InputNumber min={1} max={500} addonAfter="MB" style={{ width: 160 }} />
+            <InputNumber min={1} max={500} addonAfter={t('format.bytes.mb')} style={{ width: 160 }} />
           </Form.Item>
         </SettingRow>
       </SettingsSection>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, App, Button, Dropdown, Input, Result, Segmented, Select, Skeleton, Switch } from 'antd';
+import { Alert, App, Button, Dropdown, Input, Result, Select, Skeleton, Switch } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { MoreOutlined, TeamOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';

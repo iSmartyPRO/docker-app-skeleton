@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { App, Button, Empty as AntEmpty, Input, Popconfirm, Segmented, Select, Space, Switch, Tooltip, Upload } from 'antd';
+import { App, Button, Empty as AntEmpty, Input, Popconfirm, Select, Space, Switch, Tooltip, Upload } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';

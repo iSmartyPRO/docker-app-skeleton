@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Empty, Grid, Segmented, Select, Skeleton, Table, Tag, Tooltip } from 'antd';
+import { Empty, Grid, Select, Skeleton, Table, Tag, Tooltip } from 'antd';
+import Segmented from '../../../../components/ui/Segmented';
 import { FolderOpenOutlined, LockOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../../context/LocaleContext';
 import ModuleHeader from '../../../shared/ModuleHeader';
@@ -172,7 +173,7 @@ export default function Folders() {
         <section key={name} className="panel fa-project">
           <header className="fa-project__head">
             <span className="fa-project__name">{name === '~other' ? t('folderAccess.folders.other') : name === '~none' ? t('folderAccess.folders.noProject') : name}</span>
-            <span className="fa-muted">{t('folderAccess.folders.inProject', { n: list.length })}</span>
+            <span className="fa-muted">{t('folderAccess.folders.inProject', { count: list.length })}</span>
             {list.some((folder) => folder.needsReview) && <Tag color="orange" bordered={false}>{t('folderAccess.needsReview')} · {list.filter((folder) => folder.needsReview).length}</Tag>}
           </header>
           <Table

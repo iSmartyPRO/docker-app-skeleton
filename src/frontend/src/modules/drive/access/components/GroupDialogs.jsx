@@ -154,7 +154,7 @@ export function DeleteGroupDialog({ group, onClose }) {
       okButtonProps={{ danger: true, loading: busy, disabled: confirm.trim().toLowerCase() !== group.name.toLowerCase() }}
       title={t('folderAccess.delete.title', { name: group.name })}
     >
-      <Alert type="error" showIcon message={t('folderAccess.delete.warning', { n: group.memberCount })} style={{ marginBottom: 12 }} />
+      <Alert type="error" showIcon message={t('folderAccess.delete.warning', { count: group.memberCount })} style={{ marginBottom: 12 }} />
       <p>{t('folderAccess.delete.typeName', { name: group.name })}</p>
       <Input value={confirm} onChange={(event) => setConfirm(event.target.value)} placeholder={group.name} />
     </Modal>

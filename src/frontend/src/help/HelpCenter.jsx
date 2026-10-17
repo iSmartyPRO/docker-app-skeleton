@@ -5,7 +5,7 @@ import Chrome from '../components/Chrome';
 import { MenuIcon } from '../components/icons/menuIcons';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
-import { loadAllHelp, tr } from './registry';
+import { loadAllHelp, loadHelp, loadHelpIndex, tr } from './registry';
 import Rich from './Rich';
 import './help.css';
 
@@ -16,16 +16,20 @@ import './help.css';
 
 const plain = (value) => String(value || '').replace(/\*\*|`|\[|\]\([^)]*\)/g, '');
 
-function useAllHelp(locale) {
-  const [all, setAll] = useState(null);
+/** Resolves a promise into state; `null` while loading or when `make` returns null. */
+function useLoaded(make, deps) {
+  const [value, setValue] = useState(null);
   useEffect(() => {
     let alive = true;
-    loadAllHelp(locale).then((list) => alive && setAll(list));
+    const promise = make();
+    if (!promise) setValue(null);
+    else promise.then((result) => alive && setValue(result)).catch(() => alive && setValue(null));
     return () => {
       alive = false;
     };
-  }, [locale]);
-  return all;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  return value;
 }
 
 function searchIndex(all, locale) {
@@ -175,11 +179,28 @@ export default function HelpCenter() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const all = useAllHelp(locale);
   const [q, setQ] = useState('');
   const [nav, setNav] = useState(false);
   const main = useRef(null);
-  const content = all?.find((item) => item.id === id) || null;
+  const needle = q.trim().toLowerCase();
+  // The table of contents (one small chunk), the article being read, and every
+  // article only once the person searches — a language switch fetches no more.
+  const all = useLoaded(() => loadHelpIndex(locale), [locale]);
+  const known = Boolean(id && all?.some((item) => item.id === id));
+  const article = useLoaded(() => (known ? loadHelp(id, locale) : null), [known, id, locale]);
+  const searching = needle.length >= 2;
+  const [searchWanted, setSearchWanted] = useState(false);
+  useEffect(() => {
+    if (searching) setSearchWanted(true);
+  }, [searching]);
+  // A language switch drops the old search data; it is fetched again on the next search.
+  useEffect(() => {
+    if (!searching) setSearchWanted(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale]);
+  const everything = useLoaded(() => (searchWanted ? loadAllHelp(locale) : null), [searchWanted, locale]);
+  const content = known && article?.id === id ? article : null;
+  const ready = Boolean(all) && (!known || Boolean(content));
 
   useEffect(() => {
     document.title = `${t('help.center')}`;
@@ -187,7 +208,7 @@ export default function HelpCenter() {
 
   // Hash anchors after the article renders; otherwise start at the top.
   useEffect(() => {
-    if (!all) return;
+    if (!ready) return;
     const hash = location.hash.slice(1);
     if (hash) {
       setTimeout(() => {
@@ -196,10 +217,9 @@ export default function HelpCenter() {
         target?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       }, 80);
     } else window.scrollTo({ top: 0 });
-  }, [all, id, location.hash]);
+  }, [ready, id, location.hash]);
 
-  const index = useMemo(() => (all ? searchIndex(all, locale) : []), [all, locale]);
-  const needle = q.trim().toLowerCase();
+  const index = useMemo(() => (everything ? searchIndex(everything, locale) : []), [everything, locale]);
   const results = useMemo(() => {
     if (needle.length < 2) return [];
     const words = needle.split(/\s+/);
@@ -246,7 +266,7 @@ export default function HelpCenter() {
         </Drawer>
         <main className="hp-main" ref={main}>
           <div className="hp-searchbar">
-            <button type="button" className="hp-burger" onClick={() => setNav(true)} aria-label="Menu">
+            <button type="button" className="hp-burger" onClick={() => setNav(true)} aria-label={t('common.menu')}>
               ☰
             </button>
             <Input size="large" allowClear value={q} onChange={(event) => setQ(event.target.value)} placeholder={t('help.search')} prefix={<span className="hp-muted">⌕</span>} />
@@ -261,13 +281,13 @@ export default function HelpCenter() {
                     </button>
                   ))
                 ) : (
-                  <p className="hp-muted">{t('help.nothing')}</p>
+                  <p className="hp-muted">{everything ? t('help.nothing') : t('common.loading')}</p>
                 )}
               </div>
             )}
           </div>
 
-          {!all ? (
+          {!ready ? (
             <div className="hp-skeleton is-tall" />
           ) : content ? (
             <>
@@ -316,7 +336,7 @@ export default function HelpCenter() {
                     <strong>{tr(item.title, locale)}</strong>
                     <span>{tr(item.tagline, locale)}</span>
                     <em>
-                      {t('help.counts', { sections: (item.sections || []).length, faq: (item.faq || []).length })}
+                      {t('help.counts', { sections: item.sections, faq: item.faq })}
                     </em>
                   </Link>
                 ))}

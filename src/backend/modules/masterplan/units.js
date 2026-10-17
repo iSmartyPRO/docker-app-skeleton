@@ -14,6 +14,12 @@ import { importWord, matchByLanguage } from '../shared/importWords.js';
 
 // Import vocabularies: stock type names and status names in every language (test/import-vocabulary.test.js).
 export const STOCK_TYPE_NAMES = DEFAULT_TYPES.map((type) => ({ value: type.key, names: type.name }));
+/** A finishing code in a language (the code itself when it has no text). */
+const finishingName = (key, locale) => {
+  const text = tr(locale, `masterplan.finishing.${key}`);
+  return text === `masterplan.finishing.${key}` ? key : text;
+};
+
 export const statusNames = () => STATUSES.map((key) => ({ value: key, names: Object.fromEntries(SUPPORTED.map((lang) => [lang, statusName(key, lang)])) }));
 
 /*
@@ -164,7 +170,7 @@ export async function exportCsv(ctx, input, res) {
     ['bedrooms', (n) => n.unit?.bedrooms],
     ['floor', (n) => n.unit?.floor],
     ['number', (n) => n.unit?.number],
-    ['finishing', (n) => n.unit?.finishing],
+    ['finishing', (n) => (n.unit?.finishing ? finishingName(n.unit.finishing, locale) : n.unit?.finishing)],
     ['readiness', (n) => n.readiness],
     ['manager', (n) => n.unit?.manager?.name],
     ['client', (n) => n.unit?.client?.name],

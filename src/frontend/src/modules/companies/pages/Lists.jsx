@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Input, Segmented, Select, Table } from 'antd';
+import { Button, Input, Select, Table } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatRelative } from '../../../lib/format';

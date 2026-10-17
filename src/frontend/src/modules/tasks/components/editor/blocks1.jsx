@@ -6,7 +6,7 @@ import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities';
 import { useLocale } from '../../../../context/LocaleContext';
 import { errorMessage } from '../../../../lib/errors';
-import { formatDateTime } from '../../../../lib/format';
+import { formatBytes, formatDateTime } from '../../../../lib/format';
 import { UserAvatar } from '../../../shared/People';
 import FolderBrowser from '../../../files/components/FolderBrowser';
 import { driveApi } from '../../../drive/api';
@@ -15,12 +15,7 @@ import { PeopleSelect } from './pickers';
 import { HintLabel } from '../../../../help/Hint';
 
 export const uid = () => `k${Math.random().toString(36).slice(2, 9)}`;
-const formatSize = (bytes) => {
-  const n = Number(bytes) || 0;
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-};
+const formatSize = (bytes) => formatBytes(bytes);
 
 /** Block frame: title, optional actions on the right, a close cross. */
 export function Block({ icon, title, extra, onRemove, children, tone }) {

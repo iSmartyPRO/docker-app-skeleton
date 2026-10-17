@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { App, Button, Checkbox, Input, Popconfirm, Segmented, Tooltip } from 'antd';
+import { App, Button, Checkbox, Input, Popconfirm, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { fmtTime } from '../../../lib/datetime';

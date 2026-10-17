@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Segmented, Skeleton, Space } from 'antd';
+import { Button, Skeleton, Space } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';

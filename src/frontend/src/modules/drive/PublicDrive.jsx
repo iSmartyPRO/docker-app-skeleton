@@ -137,7 +137,7 @@ function DeleteDialog({ state, onClose, onConfirm }) {
     <Modal
       open
       onCancel={onClose}
-      title={t('drive.public.deleteTitle', { n: names.length })}
+      title={t('drive.public.deleteTitle', { count: names.length })}
       okText={t('common.delete')}
       okButtonProps={{ danger: true, disabled: !sure, loading: busy }}
       cancelText={t('common.cancel')}

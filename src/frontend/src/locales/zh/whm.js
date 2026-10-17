@@ -75,7 +75,7 @@ export default {
     photo: '照片',
     photoWaybill: '拍摄运单',
     photoAny: '拍照（可选）',
-    photos: '{n} 张照片',
+    photos_other: '{count} 张照片',
   },
   done: {
     receipt: '入库单 {number} 已过账',
@@ -263,7 +263,7 @@ export default {
     binPlaceholder: '库位代码',
     myBins: '我的库位 · {n}',
     allBins: '全部 · {n}',
-    recountsAsked: '{n} 处需要复盘',
+    recountsAsked: '{count} 处需要复盘',
     openReview: '对账',
     binTitle: '库位 {bin}',
     closed: '此处盘点已关闭',

@@ -75,7 +75,8 @@ export default {
     photo: 'Fotoğraf',
     photoWaybill: 'İrsaliyenin fotoğrafını çekin',
     photoAny: 'Fotoğraf çekin (isteğe bağlı)',
-    photos: '{n} fotoğraf',
+    photos_one: '{count} fotoğraf',
+    photos_other: '{count} fotoğraf',
   },
   done: {
     receipt: '{number} numaralı giriş kaydedildi',
@@ -263,7 +264,7 @@ export default {
     binPlaceholder: 'Lokasyon kodu',
     myBins: 'Lokasyonlarım · {n}',
     allBins: 'Tümü · {n}',
-    recountsAsked: '{n} yerde yeniden sayım istendi',
+    recountsAsked: '{count} yerde yeniden sayım istendi',
     openReview: 'Mutabakat',
     binTitle: 'Lokasyon {bin}',
     closed: 'Burada sayım kapatıldı',

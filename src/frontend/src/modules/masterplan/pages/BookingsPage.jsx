@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Button, Segmented, Select, Skeleton } from 'antd';
+import { App, Button, Select, Skeleton } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { fmtDateTime, inZone, nowInZone } from '../../../lib/datetime';

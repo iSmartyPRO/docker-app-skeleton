@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { App, Button, Empty, Segmented, Skeleton } from 'antd';
+import { App, Button, Empty, Skeleton } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';

@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { FolderIcon } from './Icons';
+import { useLocale } from '../../../context/LocaleContext';
 
 function Branch({ node, byParent, depth, config, openIds, toggle, onNavigate }) {
   const children = byParent.get(node.id) || [];
   const open = openIds.has(node.id);
+  const { t } = useLocale();
   return (
     <li>
       <div className="kb-tree__row" style={{ paddingLeft: 6 + depth * 14 }}>
@@ -12,7 +14,8 @@ function Branch({ node, byParent, depth, config, openIds, toggle, onNavigate }) 
           type="button"
           className={`kb-tree__caret${children.length ? '' : ' is-empty'}${open ? ' is-open' : ''}`}
           onClick={() => toggle(node.id)}
-          aria-label="Toggle"
+          aria-label={t('common.a11y.toggleFolder')}
+          aria-expanded={children.length ? open : undefined}
           tabIndex={children.length ? 0 : -1}
         >
           ▸

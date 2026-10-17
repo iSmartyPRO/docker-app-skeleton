@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
-import { Form, Input, Segmented, Select } from 'antd';
+import { Form, Input, Select } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import { useLocale } from '../../context/LocaleContext';
 import { MenuIcon } from '../../components/icons/menuIcons';
 import { zoneOptions } from '../../lib/datetime';

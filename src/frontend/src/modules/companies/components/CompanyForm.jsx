@@ -39,6 +39,7 @@ const DIRECTOR_TITLES = {
 };
 
 function ContactRows({ name, placeholder, labelPlaceholder, addText, type }) {
+  const { t } = useLocale();
   return (
     <Form.List name={name}>
       {(fields, { add, remove }) => (
@@ -51,7 +52,7 @@ function ContactRows({ name, placeholder, labelPlaceholder, addText, type }) {
               <Form.Item name={[field.name, 'label']} noStyle>
                 <Input placeholder={labelPlaceholder} className="cmp-rows__label" />
               </Form.Item>
-              <Button type="text" onClick={() => remove(field.name)} aria-label="remove">✕</Button>
+              <Button type="text" onClick={() => remove(field.name)} aria-label={t('common.a11y.remove')}>✕</Button>
             </div>
           ))}
           <Button type="dashed" size="small" onClick={() => add({ value: '', label: '' })}>+ {addText}</Button>

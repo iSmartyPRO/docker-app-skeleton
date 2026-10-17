@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { App, Alert, Input, InputNumber, Modal, Segmented } from 'antd';
+import { App, Alert, Input, InputNumber, Modal } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { mpApi } from '../api';

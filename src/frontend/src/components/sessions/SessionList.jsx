@@ -204,7 +204,7 @@ export default function SessionList({ load, revoke, revokeAll, revokeAllLabel, r
             onConfirm={onRevokeAll}
             disabled={nothingToEnd}
           >
-            <Button danger loading={busy === 'all'} disabled={nothingToEnd}>
+            <Button danger loading={busy === 'all'} disabled={nothingToEnd} className="btn-wrap">
               {revokeAllLabel}
             </Button>
           </Popconfirm>

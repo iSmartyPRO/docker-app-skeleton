@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Avatar, Button, Empty, Segmented, Tooltip } from 'antd';
+import { Avatar, Button, Empty, Tooltip } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import { CompressOutlined, MinusOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
 import { useLocale } from '../../context/LocaleContext';
 import { MenuIcon } from '../../components/icons/menuIcons';

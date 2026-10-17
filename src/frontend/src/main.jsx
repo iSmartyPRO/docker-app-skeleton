@@ -1,3 +1,5 @@
+// First: browsers without Kyrgyz Intl data get a fallback before any module formats a date.
+import './i18n/intl-install';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';

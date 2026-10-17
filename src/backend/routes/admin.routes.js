@@ -436,7 +436,7 @@ router.post('/users/:id/impersonate', manageUsers, superadminOnly, wrap(async (r
   res.cookie(IMPERSONATOR_COOKIE, req.cookies?.[config.auth.cookieName], options);
   const token = await issueSessionToken(req, target, { method: 'impersonation', sessionDays: 1, impersonatedBy: req.actor.id });
   res.cookie(config.auth.cookieName, token, options);
-  await recordSecurityEvent({ kind: 'impersonation_start', severity: 'warning', username: req.user.username, ip: req.ip, detail: `as @${target.username}` }).catch(() => {});
+  await recordSecurityEvent({ kind: 'impersonation_start', severity: 'warning', username: req.user.username, ip: req.ip, detail: `as @${target.username}`, code: 'impersonation', params: { user: target.username } }).catch(() => {});
   res.json({ success: true });
 }));
 

@@ -1,5 +1,6 @@
 import { formatMoney } from '../approvals/lib';
 import { todayISO } from '../../lib/datetime';
+import { formatBytes } from '../../lib/format';
 
 export { formatMoney };
 
@@ -54,12 +55,8 @@ const FILE_PREVIEW = /\.(pdf|png|jpe?g|gif|webp|bmp)$/i;
 export const canPreview = (doc) => FILE_PREVIEW.test(doc?.name || '');
 export const isImage = (doc) => /\.(png|jpe?g|gif|webp|bmp)$/i.test(doc?.name || '');
 
-export function formatSize(bytes) {
-  const n = Number(bytes) || 0;
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${Math.round(n / 102.4) / 10} KB`;
-  return `${Math.round(n / 104857.6) / 10} MB`;
-}
+/** File size in the interface language (lib/format.js). */
+export const formatSize = (bytes) => formatBytes(bytes);
 
 /** Remembers small per-person UI choices (view, filters); never required. */
 export function readStore(key, fallback) {

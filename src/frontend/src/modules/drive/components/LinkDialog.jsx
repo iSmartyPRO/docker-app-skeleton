@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, App, Button, Input, Modal, Segmented, Skeleton, Tag } from 'antd';
+import { Alert, App, Button, Input, Modal, Skeleton, Tag } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { ArrowLeftOutlined, DeleteOutlined, LinkOutlined, PlusOutlined, StopOutlined, UndoOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';

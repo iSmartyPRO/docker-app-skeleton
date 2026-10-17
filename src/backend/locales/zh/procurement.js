@@ -1,4 +1,9 @@
 export default {
+  urgency: {
+    critical: '紧急重大',
+    urgent: '紧急',
+    normal: '普通',
+  },
   status: {
     draft: '草稿',
     pending: '审批中',

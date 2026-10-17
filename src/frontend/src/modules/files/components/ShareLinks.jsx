@@ -151,7 +151,7 @@ function LinkRow({ link, onEdit, onRun, fresh }) {
   const facts = (
     <>
       {link.uploads > 0 && <span className="sl-fact">⬆ {t('files.links.uploadsN', { n: link.uploads, size: formatBytes(link.uploadedBytes) })}</span>}
-      {link.quotaMb && <span className="sl-fact">{t('files.links.quotaOf', { used: formatBytes(link.uploadedBytes || 0), total: `${link.quotaMb} MB` })}</span>}
+      {link.quotaMb && <span className="sl-fact">{t('files.links.quotaOf', { used: formatBytes(link.uploadedBytes || 0), total: formatBytes(link.quotaMb * 1048576) })}</span>}
       {!link.mine && link.createdBy && <span className="sl-fact">{t('files.links.by', { name: link.createdBy.name })}</span>}
     </>
   );

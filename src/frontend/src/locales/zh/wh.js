@@ -630,7 +630,7 @@ export default {
     lowEmpty: '所有物料均高于最低库存',
     incomingEmpty: '没有待验收的货物',
     toolsEmpty: '您名下没有工具',
-    toConfirm: '{n} 项交接待确认',
+    toConfirm: '{count} 项交接待确认',
     service: '维保',
   },
   errors: {

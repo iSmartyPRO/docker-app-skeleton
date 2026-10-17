@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App, AutoComplete, Button, Drawer, Form, Grid, Input, InputNumber, Segmented, Select, Switch, TreeSelect } from 'antd';
+import { App, AutoComplete, Button, Drawer, Form, Grid, Input, InputNumber, Select, Switch, TreeSelect } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { ScanButton } from '../../../components/ui/BarcodeScanner';

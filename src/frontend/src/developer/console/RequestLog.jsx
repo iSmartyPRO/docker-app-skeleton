@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { App, Button, Input, Segmented, Select } from 'antd';
+import { App, Button, Input, Select } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';

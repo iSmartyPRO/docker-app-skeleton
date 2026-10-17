@@ -2007,12 +2007,25 @@ a.ctr-linkrow:hover {
 
   .ctr-page__head.is-stack .ctr-page__actions {
     flex: 1 1 100%;
+    flex-wrap: wrap;
     justify-content: space-between;
   }
 
+  /* The tabs take their own row; a long label (ky "Баш тартуу мөөнөттөрү") wraps instead of being cut. */
   .ctr-page__head.is-stack .ctr-page__actions > .ant-segmented {
-    flex: 1 1 auto;
+    flex: 1 1 100%;
     min-width: 0;
+    overflow-x: visible;
+  }
+
+  .ctr-page__head.is-stack .ctr-page__actions > .ant-segmented .ant-segmented-item-label {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .ctr-page__head.is-stack .ctr-page__actions > .ant-segmented .ant-segmented-item {

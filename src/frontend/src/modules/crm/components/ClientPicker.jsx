@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { App, Form, Input, Modal, Segmented, Select } from 'antd';
+import { App, Form, Input, Modal, Select } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { crmApi } from '../api';

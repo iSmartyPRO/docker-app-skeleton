@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Badge, Button, Input, Segmented, Switch, Tag, Tooltip } from 'antd';
+import { Badge, Button, Input, Switch, Tag, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { BookOutlined, ExperimentOutlined, ExportOutlined, PlayCircleOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import LoadState from '../../../components/ui/LoadState';
 import { MenuIcon } from '../../../components/icons/menuIcons';

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Button, Drawer, InputNumber, Segmented, Select, Switch } from 'antd';
+import { App, Button, Drawer, InputNumber, Select, Switch } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { TimeField } from '../../../components/ui/DateTimeField';
 import { useRegional } from '../../../lib/datetime';
 import { useLocale } from '../../../context/LocaleContext';

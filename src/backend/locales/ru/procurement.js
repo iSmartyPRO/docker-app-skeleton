@@ -1,4 +1,9 @@
 export default {
+  urgency: {
+    critical: 'Критично',
+    urgent: 'Срочно',
+    normal: 'Обычно',
+  },
   status: {
     draft: 'Черновик',
     pending: 'На согласовании',

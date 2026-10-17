@@ -166,12 +166,12 @@ function UserForm({ user, onUpdated, roles, groups }) {
           </SettingRow>
           <SettingRow label="Mattermost" description={t('users.mattermostDesc')}>
             <Form.Item name="mattermost" style={{ margin: 0 }}>
-              <Input prefix="@" placeholder="username" />
+              <Input prefix="@" placeholder={t('common.a11y.username')} />
             </Form.Item>
           </SettingRow>
           <SettingRow label="Instagram">
             <Form.Item name="instagram" style={{ margin: 0 }}>
-              <Input prefix="@" placeholder="username" />
+              <Input prefix="@" placeholder={t('common.a11y.username')} />
             </Form.Item>
           </SettingRow>
         </SettingsSection>

@@ -7,7 +7,8 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import luxonPlugin from '@fullcalendar/luxon3';
-import { App, Button, Calendar as MiniCalendar, Drawer, Dropdown, Modal, Result, Segmented, Select, Spin } from 'antd';
+import { App, Button, Calendar as MiniCalendar, Drawer, Dropdown, Modal, Result, Select, Spin } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import { CheckSquareOutlined, LeftOutlined, MenuOutlined, PlusOutlined, RightOutlined, SettingOutlined } from '@ant-design/icons';
 import Chrome from '../../components/Chrome';
 import { MenuIcon } from '../../components/icons/menuIcons';
@@ -533,8 +534,8 @@ function Shell() {
             <div className="cal-mini__head">
               <strong>{value.format('MMMM YYYY')}</strong>
               <span>
-                <button type="button" onClick={() => onChange(value.subtract(1, 'month'))} aria-label="prev">‹</button>
-                <button type="button" onClick={() => onChange(value.add(1, 'month'))} aria-label="next">›</button>
+                <button type="button" onClick={() => onChange(value.subtract(1, 'month'))} aria-label={t('common.a11y.prevMonth')}>‹</button>
+                <button type="button" onClick={() => onChange(value.add(1, 'month'))} aria-label={t('common.a11y.nextMonth')}>›</button>
               </span>
             </div>
           )}

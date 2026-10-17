@@ -86,6 +86,8 @@ export function reportUnreadableSecret(label = 'secret', detail = '') {
         kind: 'secret_unreadable',
         severity: 'danger',
         detail: `${label} cannot be decrypted (encryption key changed; see docs/security.md)${detail ? ` · ${detail}` : ''}`,
+        code: 'secret_unreadable',
+        params: { label, detail: detail || '' },
         debounceMinutes: 60,
       })
     )

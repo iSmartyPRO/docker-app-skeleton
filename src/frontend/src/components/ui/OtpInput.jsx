@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useLocale } from '../../context/LocaleContext';
 
 /**
  * Six separate digit cells, bank-style.
@@ -7,6 +8,7 @@ import { useEffect, useRef } from 'react';
  *  - `onComplete` fires as soon as the last digit is entered
  */
 export default function OtpInput({ value = '', onChange, onComplete, length = 6, disabled, error, autoFocus = true }) {
+  const { t } = useLocale();
   const refs = useRef([]);
   const digits = Array.from({ length }, (_, index) => value[index] || '');
 
@@ -68,7 +70,7 @@ export default function OtpInput({ value = '', onChange, onComplete, length = 6,
   };
 
   return (
-    <div className={`otp${error ? ' is-error' : ''}`} role="group" aria-label="One-time code">
+    <div className={`otp${error ? ' is-error' : ''}`} role="group" aria-label={t('common.a11y.oneTimeCode')}>
       {digits.map((digit, index) => (
         <input
           // eslint-disable-next-line react/no-array-index-key
@@ -83,7 +85,7 @@ export default function OtpInput({ value = '', onChange, onComplete, length = 6,
           autoComplete={index === 0 ? 'one-time-code' : 'off'}
           maxLength={index === 0 ? length : 1}
           disabled={disabled}
-          aria-label={`Digit ${index + 1}`}
+          aria-label={t('common.a11y.digit', { n: index + 1 })}
           onChange={(event) => onInput(index, event.target.value)}
           onKeyDown={(event) => onKeyDown(index, event)}
           onPaste={onPaste}

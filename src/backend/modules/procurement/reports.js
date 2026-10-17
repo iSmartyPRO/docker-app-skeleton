@@ -2,6 +2,7 @@ import { query } from '../../config/database.js';
 import { formatDate, formatDateTime } from '../../services/datetime.js';
 import { requestRegional } from '../../services/regional.js';
 import { exportLocale, tr } from '../../services/i18n/index.js';
+import { approvalSettings } from '../approvals/engine.js';
 import { Params, visibleSql } from './access.js';
 import { PAYABLE, STATUSES, cents, httpError, payGroup, toCsv, totalsByCurrency } from './logic.js';
 import { SELECT, contextOf, hydrate, listRequests, todayFor } from './service.js';
@@ -45,6 +46,14 @@ const statusText = (status, locale) => {
   const text = tr(locale, key);
   return text === key ? status : text;
 };
+/** An urgency level: the administrator's name for it, else the stock name in the language, else the key. */
+const urgencyText = (key, ctx) => {
+  if (!key) return '';
+  const level = (ctx.urgencies || []).find((item) => item.key === key);
+  if (level?.label) return level.label;
+  const text = tr(ctx.locale, `procurement.urgency.${key}`);
+  return text === `procurement.urgency.${key}` ? key : text;
+};
 const num = (value) => (value === null || value === undefined ? '' : String(cents(value)));
 
 /** CSV of the registry, in the person's language and date format. */
@@ -82,7 +91,7 @@ export const EXPORT_COLUMNS = {
   paid: { value: (item) => num(item.paid) },
   supplier: { value: (item) => item.supplier?.name || '' },
   category: { value: (item, ctx) => ctx.categories.get(item.category) || item.category || '' },
-  urgency: { value: (item) => item.urgency || '' },
+  urgency: { value: (item, ctx) => urgencyText(item.urgency, ctx) },
   status: { value: (item, ctx) => statusText(item.status, ctx.locale) },
   payBy: { value: (item, ctx) => (item.payBy ? formatDate(item.payBy, ctx.regional, ctx.locale) : '') },
   deliverBy: { value: (item, ctx) => (item.deliverBy ? formatDate(item.deliverBy, ctx.regional, ctx.locale) : '') },
@@ -105,7 +114,8 @@ export async function listCsv(req, input = {}) {
     items.push(...result.items);
     if (items.length >= result.total || !result.items.length) break;
   }
-  const helpers = { regional, locale, categories: new Map((ctx.settings.categories || []).map((item) => [item.key, item.name])) };
+  const urgencies = (await approvalSettings().catch(() => ({})))?.urgencies || [];
+  const helpers = { regional, locale, urgencies, categories: new Map((ctx.settings.categories || []).map((item) => [item.key, item.name])) };
   const csv = toCsv(columns.map((key) => tr(locale, `procurement.columns.${key}`)), items.map((item) => columns.map((key) => EXPORT_COLUMNS[key].value(item, helpers))));
   return { csv, filename: `procurement-${await todayFor(req)}.csv` };
 }

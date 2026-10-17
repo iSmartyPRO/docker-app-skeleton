@@ -48,7 +48,7 @@ export default function Rating({ type, id, onChange }) {
         <div className="cmp-rating__big">
           <strong>{summary.avg ? summary.avg.toFixed(1) : '—'}</strong>
           <Stars value={summary.avg || 0} size={20} />
-          <span>{t('companies.ratingsN', { n: summary.count })}</span>
+          <span>{t('companies.ratingsN', { count: summary.count })}</span>
         </div>
         <div className="cmp-rating__bars">
           {summary.distribution.map((row) => (

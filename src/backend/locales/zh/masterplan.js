@@ -54,6 +54,14 @@ export default {
       booking: '总体规划：房源单元 {unit} 的预订已自动解除 — 时限已到',
     },
   },
+  // Finishing codes (constants.js FINISHINGS) in the units CSV.
+  finishing: {
+    pso: '毛坯（自行装修）',
+    rough: '粗装修',
+    whitebox: '白盒',
+    turnkey: '精装修',
+    furnished: '带家具',
+  },
   csv: {
     code: '编码',
     name: '名称',

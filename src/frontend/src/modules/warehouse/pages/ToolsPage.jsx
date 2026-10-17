@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { App, Button, DatePicker, Drawer, Grid, Input, InputNumber, Result, Segmented, Skeleton, Table } from 'antd';
+import { App, Button, DatePicker, Drawer, Grid, Input, InputNumber, Result, Skeleton, Table } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { SearchOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { HelpButton } from '../../../help/Hint';

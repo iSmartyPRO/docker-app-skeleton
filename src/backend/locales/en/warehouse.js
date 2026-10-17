@@ -64,6 +64,13 @@ export default {
       body: 'Post it again when the stock is there.',
     },
   },
+  // Tool states in the CSV (logic.js INSTANCE_STATES).
+  toolState: {
+    ok: 'OK',
+    repair: 'In repair',
+    written_off: 'Written off',
+    lost: 'Not found (inventory)',
+  },
   csv: {
     item: 'Item',
     sku: 'SKU',

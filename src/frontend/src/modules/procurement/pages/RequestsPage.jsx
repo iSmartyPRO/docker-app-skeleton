@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { App, Button, Checkbox, Dropdown, Grid, Input, Pagination, Popover, Segmented, Select, Skeleton, Table } from 'antd';
+import { App, Button, Checkbox, Dropdown, Grid, Input, Pagination, Popover, Select, Skeleton, Table } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { DownOutlined, DownloadOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Avatar, Segmented } from 'antd';
+import { Avatar } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import { useLocale } from '../../context/LocaleContext';
 import { WidgetState } from '../dashboard/widgets/common';
 import { empApi } from './api';

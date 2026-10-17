@@ -63,6 +63,13 @@ export default {
       body: '库存到位后请重新过账。',
     },
   },
+  // Tool states in the CSV (logic.js INSTANCE_STATES).
+  toolState: {
+    ok: '正常',
+    repair: '维修中',
+    written_off: '已报废',
+    lost: '未找到（盘点）',
+  },
   csv: {
     item: '物料',
     sku: '物料编码',

@@ -1,6 +1,7 @@
 import { createContext, useContext, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Dropdown, Input, Segmented, Skeleton, Space, Tooltip } from 'antd';
+import { Button, Dropdown, Input, Skeleton, Space, Tooltip } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import {
   AppstoreOutlined,
   ArrowDownOutlined,

@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { App, Button, Modal, Segmented, Spin, Tooltip } from 'antd';
+import { App, Button, Modal, Spin, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Button, Drawer, Input, Segmented, Switch } from 'antd';
+import { Button, Drawer, Input, Switch } from 'antd';
+import Segmented from '../components/ui/Segmented';
 import { DownloadOutlined, MenuOutlined } from '@ant-design/icons';
 import BrandMark from '../components/BrandMark';
 import LanguageSwitch from '../components/LanguageSwitch';

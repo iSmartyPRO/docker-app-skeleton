@@ -49,7 +49,7 @@ export default {
   online: '在线',
   owner: '群主',
   membersN: '{n} 名成员',
-  filesN: '{n} 个文件',
+  filesN_other: '{count} 个文件',
   dropHere: '松开即可发送文件',
   tooLarge: '“{name}”大于 {mb} MB',
   taskChat: '任务聊天',

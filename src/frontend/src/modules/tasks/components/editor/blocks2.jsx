@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { App, Button, Checkbox, Input, InputNumber, Modal, Radio, Segmented, Select, Switch, Tag } from 'antd';
+import { App, Button, Checkbox, Input, InputNumber, Modal, Radio, Select, Switch, Tag } from 'antd';
+import Segmented from '../../../../components/ui/Segmented';
 import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../../context/LocaleContext';
 import { errorMessage } from '../../../../lib/errors';
@@ -502,7 +503,7 @@ export function RecurrenceForm({ value, onChange, disabled }) {
       <div className="te-inline">
         <span>{t('tasks.v2.rec.every')}</span>
         <InputNumber min={1} max={365} value={rec.every} disabled={disabled} onChange={(every) => set({ every: every || 1 })} style={{ width: 80 }} />
-        <Select value={rec.unit} disabled={disabled} onChange={(unit) => set({ unit })} options={['day', 'week', 'month', 'year'].map((key) => ({ value: key, label: t(`tasks.v2.rec.units.${key}`) }))} style={{ width: 130 }} />
+        <Select value={rec.unit} disabled={disabled} onChange={(unit) => set({ unit })} options={['day', 'week', 'month', 'year'].map((key) => ({ value: key, label: t(`tasks.v2.rec.units.${key}`, { count: rec.every || 1 }) }))} style={{ width: 130 }} />
       </div>
       {rec.unit === 'week' && (
         <div className="te-weekdays">

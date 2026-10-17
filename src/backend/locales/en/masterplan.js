@@ -55,6 +55,14 @@ export default {
       booking: 'Masterplan: the booking of unit {unit} was released automatically — the time ran out',
     },
   },
+  // Finishing codes (constants.js FINISHINGS) in the units CSV.
+  finishing: {
+    pso: 'Self-finish (shell)',
+    rough: 'Rough finish',
+    whitebox: 'White box',
+    turnkey: 'Turnkey',
+    furnished: 'Furnished',
+  },
   csv: {
     code: 'Code',
     name: 'Name',

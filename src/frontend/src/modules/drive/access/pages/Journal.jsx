@@ -126,7 +126,7 @@ export default function Journal() {
     if (NTFS.includes(row.action)) return ntfsText(row);
     if (row.action === 'group_describe') return `${row.before?.description || '∅'} → ${row.after?.description || '∅'}`;
     if (row.action === 'group_create') return row.after?.description || '';
-    if (row.action === 'group_delete') return t('folderAccess.journal.deleted', { n: row.before?.memberCount ?? 0 });
+    if (row.action === 'group_delete') return t('folderAccess.journal.deleted', { count: row.before?.memberCount ?? 0 });
     return row.member ? `${row.member.name}${row.member.login ? ` (${row.member.login})` : ''}` : '';
   };
 

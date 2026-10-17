@@ -8,7 +8,7 @@ export function lastText(room, t, locale) {
   if (!last) return room.kind === 'entity' ? t('chat.noMessagesYet') : '';
   if (last.deleted) return t('chat.deleted');
   if (last.kind === 'system') return systemView(last.data, { t, locale, actor: last.author?.name || t('chat.someone') })?.text || '';
-  const text = last.text || (last.files ? `📎 ${t('chat.filesN', { n: last.files })}` : '');
+  const text = last.text || (last.files ? `📎 ${t('chat.filesN', { count: last.files })}` : '');
   if (room.kind === 'direct' || !last.author) return text;
   return `${last.author.name.split(' ')[0]}: ${text}`;
 }

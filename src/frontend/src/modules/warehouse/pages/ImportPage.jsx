@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { App, Button, Segmented, Switch, Table, Upload } from 'antd';
+import { App, Button, Switch, Table, Upload } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { InboxOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { HelpButton } from '../../../help/Hint';

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Alert, Button, Checkbox, Drawer, Empty, Grid, Popover, Segmented, Select, Switch, Table, Tooltip } from 'antd';
+import { Alert, Button, Checkbox, Drawer, Empty, Grid, Popover, Select, Switch, Table, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { CheckCircleOutlined, ClusterOutlined, ExportOutlined, PartitionOutlined, ReloadOutlined, SettingOutlined, StopOutlined, SwapOutlined, UserAddOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import ModuleHeader, { SelectionBar } from '../../shared/ModuleHeader';

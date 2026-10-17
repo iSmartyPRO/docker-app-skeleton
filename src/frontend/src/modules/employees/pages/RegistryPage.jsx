@@ -237,7 +237,7 @@ export default function RegistryPage() {
           style={{ width: 200 }}
           aria-label={t('emp.filters.position')}
         />
-        <Select value={filters.status} onChange={(value) => setFilter({ status: value })} options={statusOptions} style={{ width: 170 }} aria-label={t('emp.filters.status')} />
+        <Select value={filters.status} onChange={(value) => setFilter({ status: value })} options={statusOptions} style={{ minWidth: 170, maxWidth: '100%' }} popupMatchSelectWidth={false} aria-label={t('emp.filters.status')} />
         {chips.map((chip) => (
           <button key={chip.key} type="button" className={`emp-chip${filters.chip === chip.key ? ' is-on' : ''}${chip.alert && chip.count ? ' is-alert' : ''}`} onClick={() => setFilter({ chip: filters.chip === chip.key ? '' : chip.key })} aria-pressed={filters.chip === chip.key}>
             {chip.label}

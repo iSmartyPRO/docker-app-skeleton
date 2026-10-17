@@ -244,7 +244,7 @@ export default function UserLinks({ user, canManage, isSelf }) {
           ) : canManage ? (
             <div className="ulink-inline">
               <Input value={tg.id} onChange={(event) => setTg({ ...tg, id: event.target.value.replace(/\D/g, '') })} placeholder={t('userLinks.telegramId')} inputMode="numeric" style={{ width: 150 }} />
-              <Input value={tg.username} onChange={(event) => setTg({ ...tg, username: event.target.value })} prefix="@" placeholder="username" style={{ width: 150 }} />
+              <Input value={tg.username} onChange={(event) => setTg({ ...tg, username: event.target.value })} prefix="@" placeholder={t('common.a11y.username')} style={{ width: 150 }} />
               <Button disabled={tg.id.length < 4} loading={busy === 'tglink'} onClick={() => act('tglink', () => api.put(`/admin/users/${user.id}/telegram`, { telegramId: tg.id, username: tg.username }), t('common.saved'))}>
                 {t('userLinks.link')}
               </Button>

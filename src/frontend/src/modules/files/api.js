@@ -1,4 +1,5 @@
 import api from '../../services/api';
+import { formatBytes } from '../../lib/format';
 
 const base = '/app/files';
 
@@ -124,15 +125,5 @@ export function asViewerItem(node) {
   return { ...node, title: node.name, kind: node.kind === 'file' ? 'file' : node.kind };
 }
 
-export function formatBytes(bytes) {
-  const value = Number(bytes) || 0;
-  if (value < 1024) return `${value} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let size = value / 1024;
-  let index = 0;
-  while (size >= 1024 && index < units.length - 1) {
-    size /= 1024;
-    index += 1;
-  }
-  return `${size < 10 ? size.toFixed(1) : Math.round(size)} ${units[index]}`;
-}
+/** File size in the interface language (lib/format.js). */
+export { formatBytes };

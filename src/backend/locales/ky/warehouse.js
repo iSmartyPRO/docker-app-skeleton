@@ -64,6 +64,13 @@ export default {
       body: 'Калдык жеткиликтүү болгондо кайра каттаңыз.',
     },
   },
+  // Tool states in the CSV (logic.js INSTANCE_STATES).
+  toolState: {
+    ok: 'Иштейт',
+    repair: 'Оңдоодо',
+    written_off: 'Эсептен чыгарылган',
+    lost: 'Табылган жок (инвентаризация)',
+  },
   csv: {
     item: 'Позиция',
     sku: 'Артикул',

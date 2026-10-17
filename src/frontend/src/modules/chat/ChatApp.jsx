@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import { App, Button, Input, Modal, Segmented, Select, Skeleton, Spin } from 'antd';
+import { App, Button, Input, Modal, Select, Skeleton, Spin } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import { EditOutlined } from '@ant-design/icons';
 import Chrome from '../../components/Chrome';
 import { useAuth } from '../../context/AuthContext';

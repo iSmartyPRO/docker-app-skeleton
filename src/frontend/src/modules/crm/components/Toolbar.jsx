@@ -1,4 +1,5 @@
-import { Dropdown, Segmented, Select } from 'antd';
+import { Dropdown, Select } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useLocale } from '../../../context/LocaleContext';

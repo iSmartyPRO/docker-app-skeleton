@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import {
   BrowserRouter as Router,
   Navigate,
@@ -194,8 +194,10 @@ function LegacyAdminRedirect() {
 function ThemedRoutes() {
   const location = useLocation();
   const { antdConfig, mode } = useThemeMode();
-  const { antdLocale } = useLocale();
+  const { antdLocale, locale } = useLocale();
   const { settings } = useSettings();
+  // antd spaces out two-character CJK button labels ("登 录"); Chinese reads them unspaced.
+  const buttonConfig = useMemo(() => ({ autoInsertSpace: locale !== 'zh' }), [locale]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
@@ -225,7 +227,7 @@ function ThemedRoutes() {
   }, [settings?.appName]);
 
   return (
-    <ConfigProvider theme={antdConfig} locale={antdLocale}>
+    <ConfigProvider theme={antdConfig} locale={antdLocale} button={buttonConfig}>
       <AntApp className="ant-app-root">
         <AppErrorBoundary resetKey={location.pathname}>
         <HelpProvider>

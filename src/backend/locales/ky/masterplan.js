@@ -55,6 +55,14 @@ export default {
       booking: 'Мастерплан: {unit} объектинин брондоосу автоматтык түрдө бошотулду — мөөнөт бүттү',
     },
   },
+  // Finishing codes (constants.js FINISHINGS) in the units CSV.
+  finishing: {
+    pso: 'Өзү бүтүрүү үчүн (ПСО)',
+    rough: 'Кара жасалга',
+    whitebox: 'White box',
+    turnkey: 'Ачкычы менен',
+    furnished: 'Эмеректери менен',
+  },
   csv: {
     code: 'Коду',
     name: 'Аталышы',

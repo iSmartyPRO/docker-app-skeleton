@@ -3,10 +3,11 @@ import { App, Button, Empty, Popconfirm, Tooltip } from 'antd';
 import { DeleteOutlined, DownloadOutlined, FileOutlined, UploadOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { fmtDate } from '../../../lib/datetime';
+import { formatBytes } from '../../../lib/format';
 import { empApi } from '../api';
 import { empError } from '../lib';
 
-const size = (bytes) => (bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+const size = (bytes) => formatBytes(bytes);
 
 /** «Документы» of the card (HR only): passport scans, contracts, certificates… */
 export default function DocumentsPanel({ employee, onChanged }) {

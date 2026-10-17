@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Button, Result, Segmented, Select, Spin } from 'antd';
+import { Button, Result, Select, Spin } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';

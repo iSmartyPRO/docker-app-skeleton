@@ -1,4 +1,5 @@
-import { App, Button, Segmented, Skeleton, Switch } from 'antd';
+import { App, Button, Skeleton, Switch } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useLocale } from '../../context/LocaleContext';

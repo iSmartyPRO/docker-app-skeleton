@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, App, Button, ColorPicker, Form, Segmented, Select, Slider, Spin, Switch } from 'antd';
+import { Alert, App, Button, ColorPicker, Form, Select, Slider, Spin, Switch } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import PageHeader from '../../components/ui/PageHeader';
 import SaveBar from '../../components/ui/SaveBar';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';

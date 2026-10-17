@@ -89,7 +89,7 @@ export function MyToolsWidget() {
     <WidgetState state={state} empty={block && !block.count && !block.incoming?.length ? t('wh.widgets.toolsEmpty') : null} emptyIcon="wrench">
       <div className="wh-widget">
         <Link to="/app/warehouse/my-tools" className="wh-widget__kpi"><strong>{block?.count ?? 0}</strong><span>{t('wh.nav.myTools')}</span></Link>
-        {block?.incoming?.length > 0 && <Link to="/app/warehouse/my-tools" className="wh-widget__alert">{t('wh.widgets.toConfirm', { n: block.incoming.length })}</Link>}
+        {block?.incoming?.length > 0 && <Link to="/app/warehouse/my-tools" className="wh-widget__alert">{t('wh.widgets.toConfirm', { count: block.incoming.length })}</Link>}
         <ul className="wh-widget__list">
           {(block?.tools || []).map((tool) => (
             <li key={tool.id}>

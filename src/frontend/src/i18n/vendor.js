@@ -16,7 +16,7 @@ const DAYJS = {
 const ANTD = {
   en_GB: () => import('antd/es/locale/en_GB'),
   ru_RU: () => import('antd/es/locale/ru_RU'),
-  // antd has no Kyrgyz locale: English component texts with Kyrgyz dates (./antd-ky_KG.js).
+  // antd has no Kyrgyz locale: our own (./antd-ky_KG.js).
   ky_KG: () => import('./antd-ky_KG'),
   tr_TR: () => import('antd/es/locale/tr_TR'),
   zh_CN: () => import('antd/es/locale/zh_CN'),

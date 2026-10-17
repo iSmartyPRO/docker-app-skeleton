@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { App, Button, DatePicker, Empty, Form, Input, Modal, Popconfirm, Segmented, Tag, Tooltip } from 'antd';
+import { App, Button, DatePicker, Empty, Form, Input, Modal, Popconfirm, Tag, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { DeleteOutlined, EditOutlined, PlusOutlined, SafetyCertificateOutlined, StarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useLocale } from '../../../context/LocaleContext';

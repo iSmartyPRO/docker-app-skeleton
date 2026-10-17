@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App, Button, ColorPicker, Input, Segmented, Spin, Tabs, Tooltip, Upload } from 'antd';
+import { App, Button, ColorPicker, Input, Spin, Tabs, Tooltip, Upload } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { iconUrl, resourcesApi } from '../api';

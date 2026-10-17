@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Button, Collapse, Segmented } from 'antd';
+import { App, Button, Collapse } from 'antd';
+import Segmented from '../components/ui/Segmented';
 import PublicLayout from '../layouts/PublicLayout';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';

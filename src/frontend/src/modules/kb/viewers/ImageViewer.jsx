@@ -94,9 +94,9 @@ export default function ImageViewer({ images, index, onIndex, onClose, src, canD
         <span className="lightbox__count">
           {index + 1} / {images.length}
         </span>
-        <button type="button" onClick={() => setZoom((value) => Math.max(1, value / 1.4))} aria-label="Zoom out">−</button>
+        <button type="button" onClick={() => setZoom((value) => Math.max(1, value / 1.4))} aria-label={t('common.a11y.zoomOut')}>−</button>
         <button type="button" onClick={reset} className="lightbox__pct">{Math.round(zoom * 100)}%</button>
-        <button type="button" onClick={() => setZoom((value) => Math.min(MAX, value * 1.4))} aria-label="Zoom in">+</button>
+        <button type="button" onClick={() => setZoom((value) => Math.min(MAX, value * 1.4))} aria-label={t('common.a11y.zoomIn')}>+</button>
         {canDownload && (
           <a href={src.file(image, { download: true })} aria-label={t('kb.download')}>⤓</a>
         )}
@@ -127,8 +127,8 @@ export default function ImageViewer({ images, index, onIndex, onClose, src, canD
       </div>
       {images.length > 1 && (
         <>
-          <button type="button" className="lightbox__nav is-prev" onClick={() => go(-1)} aria-label="Previous">‹</button>
-          <button type="button" className="lightbox__nav is-next" onClick={() => go(1)} aria-label="Next">›</button>
+          <button type="button" className="lightbox__nav is-prev" onClick={() => go(-1)} aria-label={t('common.a11y.previous')}>‹</button>
+          <button type="button" className="lightbox__nav is-next" onClick={() => go(1)} aria-label={t('common.a11y.next')}>›</button>
           <div className="lightbox__strip">
             {images.map((item, position) => (
               <button

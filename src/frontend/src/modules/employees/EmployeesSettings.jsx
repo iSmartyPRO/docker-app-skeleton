@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Form, Segmented, Select, Switch } from 'antd';
+import { App, Form, Select, Switch } from 'antd';
+import Segmented from '../../components/ui/Segmented';
 import { useLocale } from '../../context/LocaleContext';
 import LoadState from '../../components/ui/LoadState';
 import SaveBar from '../../components/ui/SaveBar';

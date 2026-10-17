@@ -398,7 +398,7 @@ export function PhotoButton({ docId, kind = 'waybill', files = [], onUploaded, l
       <button type="button" className="whm-photo__btn" onClick={() => input.current?.click()} disabled={busy}>
         <CameraOutlined />
         <span>{busy ? t('wh.files.uploading') : label || t('whm.flow.photoWaybill')}</span>
-        {shown.length > 0 && <em>{t('whm.flow.photos', { n: shown.length })}</em>}
+        {shown.length > 0 && <em>{t('whm.flow.photos', { count: shown.length })}</em>}
       </button>
       {shown.length > 0 && (
         <div className="whm-photo__thumbs">

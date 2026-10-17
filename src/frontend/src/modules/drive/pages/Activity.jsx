@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Avatar, Button, DatePicker, Empty, Input, Segmented, Select, Table, Tag, Tooltip } from 'antd';
+import { Avatar, Button, DatePicker, Empty, Input, Select, Table, Tag, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useLocale } from '../../../context/LocaleContext';

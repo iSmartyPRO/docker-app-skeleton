@@ -406,6 +406,8 @@ export async function requestSignInCode(channel, identifier, mode = 'code', { ip
       username: String(identifier).slice(0, 64),
       ip,
       detail: user ? `${channel}: account disabled or blocked` : `${channel}: no single active account matches`,
+      code: user ? 'code_inactive' : 'code_no_match',
+      params: { channel },
       debounceMinutes: 5,
     });
     return;
@@ -457,6 +459,8 @@ export async function requestSignInCode(channel, identifier, mode = 'code', { ip
       username: user.username,
       ip,
       detail: `${channel}: ${String(err.message || err).slice(0, 160)}`,
+      code: 'code_delivery',
+      params: { channel, error: String(err.message || err).slice(0, 160) },
       debounceMinutes: 1,
     }).catch(() => {});
   });

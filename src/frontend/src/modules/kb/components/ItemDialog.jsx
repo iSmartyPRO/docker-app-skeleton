@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { App, Button, Form, Input, Modal, Segmented, Tooltip } from 'antd';
+import { App, Button, Form, Input, Modal, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { PlusOutlined } from '@ant-design/icons';
 import VisualEditor from './VisualEditor';
 import { htmlToMarkdown, markdownToHtml } from './articleHtml';

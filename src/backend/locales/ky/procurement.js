@@ -1,4 +1,9 @@
 export default {
+  urgency: {
+    critical: 'Критикалык',
+    urgent: 'Шашылыш',
+    normal: 'Кадимки',
+  },
   status: {
     draft: 'Кара жазма',
     pending: 'Макулдашууда',

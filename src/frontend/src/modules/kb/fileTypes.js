@@ -1,3 +1,5 @@
+import { formatBytes } from '../../lib/format';
+
 /** Visual and viewer classification of a knowledge-base item. */
 const EXT_TYPE = {
   pdf: 'pdf',
@@ -57,18 +59,8 @@ export function viewerFor(item, { conversion }) {
   return 'none';
 }
 
-export function formatSize(bytes) {
-  const n = Number(bytes) || 0;
-  if (n < 1024) return `${n} B`;
-  const units = ['KB', 'MB', 'GB'];
-  let value = n / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
-}
+/** File size in the interface language (lib/format.js). */
+export const formatSize = (bytes) => formatBytes(bytes);
 
 export const FOLDER_COLORS = [
   '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#EF4444', '#F97316',

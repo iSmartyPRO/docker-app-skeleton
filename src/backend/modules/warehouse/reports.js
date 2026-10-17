@@ -19,6 +19,10 @@ import { listTools } from './tools.js';
 
 /** A CSV header in the export's language (locales/<lang>/warehouse.js → csv). */
 const L = (lang, key) => tr(lang, `warehouse.csv.${key}`);
+const toolState = (lang, state) => {
+  const text = tr(lang, `warehouse.toolState.${state}`);
+  return text === `warehouse.toolState.${state}` ? state || '' : text;
+};
 
 /** [from, to] days → instants in the person's zone (to is inclusive). */
 async function period(req, input) {
@@ -268,7 +272,7 @@ export async function reportCsv(req, kind, input = {}) {
     case 'tools': {
       const data = await toolsByHolder(req, input);
       const header = [L(lang, 'holder'), L(lang, 'inventoryNo'), L(lang, 'serialNo'), L(lang, 'item'), L(lang, 'state'), L(lang, 'serviceBy'), L(lang, 'since')];
-      const rows = data.groups.flatMap((group) => group.tools.map((tool) => [group.holder?.label || '—', tool.inventoryNo, tool.serialNo, tool.item.name, tool.state, tool.nextServiceOn || '', tool.since ? new Date(tool.since).toISOString().slice(0, 10) : '']));
+      const rows = data.groups.flatMap((group) => group.tools.map((tool) => [group.holder?.label || '—', tool.inventoryNo, tool.serialNo, tool.item.name, toolState(lang, tool.state), tool.nextServiceOn || '', tool.since ? new Date(tool.since).toISOString().slice(0, 10) : '']));
       return { csv: toCsv(header, rows), filename: `tools-${stamp}.csv` };
     }
     default:

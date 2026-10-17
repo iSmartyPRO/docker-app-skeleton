@@ -630,7 +630,10 @@ export default {
     lowEmpty: 'Всё выше минимума',
     incomingEmpty: 'Нет перемещений к приёмке',
     toolsEmpty: 'За вами нет инструмента',
-    toConfirm: 'Подтвердить передач: {n}',
+    toConfirm_one: 'Подтвердите {count} передачу',
+    toConfirm_few: 'Подтвердите {count} передачи',
+    toConfirm_many: 'Подтвердите {count} передач',
+    toConfirm_other: 'Подтвердите {count} передачи',
     service: 'ТО',
   },
   errors: {

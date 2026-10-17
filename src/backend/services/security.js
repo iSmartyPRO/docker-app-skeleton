@@ -35,6 +35,11 @@ export async function ensureSecurityTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Events written since the five-language release also carry a text code and
+  // its parameters, so the activity log reads in the viewer's language
+  // (frontend locales/<lang>/activity.js → detail.<code>); `detail` stays the
+  // English text, shown for older rows and codes without a translation.
+  await query(`ALTER TABLE security_events ADD COLUMN IF NOT EXISTS detail_code VARCHAR(48), ADD COLUMN IF NOT EXISTS detail_params JSONB`);
   await query(`CREATE INDEX IF NOT EXISTS security_events_created_idx ON security_events (created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS security_events_kind_idx ON security_events (kind, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS login_attempts_ip_idx ON login_attempts (ip, created_at DESC)`);
@@ -376,10 +381,16 @@ export function isSecurityEventKind(kind) {
   return EVENT_KINDS.has(kind);
 }
 
-export async function recordSecurityEvent({ kind, severity, username, ip, detail, debounceMinutes = 0 }) {
+/**
+ * Records a security / activity event. `detail` is the English text; `code`
+ * (+ `params`) lets the activity log show it in the reader's language.
+ */
+export async function recordSecurityEvent({ kind, severity, username, ip, detail, code, params, debounceMinutes = 0 }) {
   if (!EVENT_KINDS.has(kind)) return null;
   const safeUser = String(username || '').slice(0, 64) || null;
   const safeDetail = String(detail || '').slice(0, 200) || null;
+  const safeCode = typeof code === 'string' && /^[a-z][a-z0-9_.]{0,47}$/.test(code) ? code : null;
+  const safeParams = safeCode && params && typeof params === 'object' ? JSON.stringify(Object.fromEntries(Object.entries(params).map(([key, value]) => [key, value === null || value === undefined ? '' : String(value).slice(0, 160)]))) : null;
   try {
     if (debounceMinutes > 0) {
       const recent = await query(
@@ -398,11 +409,11 @@ export async function recordSecurityEvent({ kind, severity, username, ip, detail
 
     const result = await query(
       `
-      INSERT INTO security_events (kind, severity, username, ip, detail)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO security_events (kind, severity, username, ip, detail, detail_code, detail_params)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
       `,
-      [kind, severity || 'warning', safeUser, ip || null, safeDetail]
+      [kind, severity || 'warning', safeUser, ip || null, safeDetail, safeCode, safeParams]
     );
 
     if ((severity || 'warning') === 'danger') {
@@ -431,7 +442,7 @@ export async function listSecurityEvents({ kind, limit = 100 } = {}) {
   const result = kind
     ? await query(
         `
-        SELECT id, kind, severity, username, ip, detail, created_at
+        SELECT id, kind, severity, username, ip, detail, detail_code, detail_params, created_at
         FROM security_events
         WHERE kind = $1
         ORDER BY id DESC
@@ -441,7 +452,7 @@ export async function listSecurityEvents({ kind, limit = 100 } = {}) {
       )
     : await query(
         `
-        SELECT id, kind, severity, username, ip, detail, created_at
+        SELECT id, kind, severity, username, ip, detail, detail_code, detail_params, created_at
         FROM security_events
         ORDER BY id DESC
         LIMIT $1

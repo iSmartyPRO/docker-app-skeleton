@@ -171,7 +171,7 @@ function SessionAreas({ id }) {
             {s.scope.partial && <span className="whm-muted">{[...s.scope.bins.map((b) => b.path), ...s.scope.categories.map((c) => c.name)].join(', ')}</span>}
           </div>
         </div>
-        {card.recounts.length > 0 && <div className="wh-banner is-amber whm-banner">{t('whm.inv.recountsAsked', { n: card.recounts.length })}</div>}
+        {card.recounts.length > 0 && <div className="wh-banner is-amber whm-banner">{t('whm.inv.recountsAsked', { count: card.recounts.length })}</div>}
         {card.my.manage && <Button block onClick={() => navigate(`/app/warehouse/inventory/${id}`)}>{t('whm.inv.openReview')}</Button>}
       </section>
       <ScanBar onCode={onCode} title={s.number} hint={t('whm.inv.scanBinHint')} placeholder={t('whm.inv.binPlaceholder')} />

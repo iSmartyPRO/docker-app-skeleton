@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { App, AutoComplete, Button, Input, InputNumber, Result, Segmented, Select, Skeleton, Tooltip } from 'antd';
+import { App, AutoComplete, Button, Input, InputNumber, Result, Select, Skeleton, Tooltip } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { DateField } from '../../../components/ui/DateTimeField';

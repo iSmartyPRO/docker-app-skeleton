@@ -167,7 +167,10 @@ export default {
     reload: 'Обновить',
     none: 'В этом аккаунте Wazzup пока нет каналов.',
     notSelected: 'Не используется',
-    count: 'Каналов в Wazzup: {count}',
+    count_one: '{count} канал в Wazzup',
+    count_few: '{count} канала в Wazzup',
+    count_many: '{count} каналов в Wazzup',
+    count_other: '{count} канала в Wazzup',
     states: {
       active: 'Активен',
       init: 'Запускается',

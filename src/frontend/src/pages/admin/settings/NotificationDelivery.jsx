@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Button, Input, Segmented, Select, Skeleton, Switch } from 'antd';
+import { App, Button, Input, Select, Skeleton, Switch } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { SettingRow, SettingsSection } from '../../../components/ui/SettingsSection';
 import { IconBell, IconMail, IconMattermost, IconTelegram, IconWhatsapp } from '../../../components/icons/AdminIcons';
 import { useAuth } from '../../../context/AuthContext';
@@ -186,7 +187,8 @@ export default function NotificationDelivery() {
             <Select
               value={test.provider}
               onChange={(provider) => setTest({ ...test, provider })}
-              style={{ width: 170 }}
+              style={{ minWidth: 170 }}
+              popupMatchSelectWidth={false}
               options={[
                 { value: '', label: t('notifyAdmin.asConfigured') },
                 { value: 'gateway', label: t('notifyAdmin.providers.gateway'), disabled: !providers.gateway },

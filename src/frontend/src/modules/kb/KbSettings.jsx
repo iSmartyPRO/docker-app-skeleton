@@ -84,7 +84,7 @@ function KbForm({ settings, save }) {
       <SettingsSection title={t('kbSettings.files')} description={t('kbSettings.filesDesc')}>
         <SettingRow label={t('kbSettings.maxUpload')}>
           <Form.Item name="maxUploadMb" noStyle>
-            <InputNumber min={1} max={1024} suffix="MB" />
+            <InputNumber min={1} max={1024} suffix={t('format.bytes.mb')} />
           </Form.Item>
         </SettingRow>
         <SettingRow label={<HintLabel id="kb.fileTypes">{t('kbSettings.types')}</HintLabel>} stacked>

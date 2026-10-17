@@ -56,6 +56,14 @@ export default {
       booking: 'Мастерплан: бронь объекта {unit} снята автоматически — срок истёк',
     },
   },
+  // Finishing codes (constants.js FINISHINGS) in the units CSV.
+  finishing: {
+    pso: 'ПСО (под самоотделку)',
+    rough: 'Черновая',
+    whitebox: 'White box',
+    turnkey: 'Под ключ',
+    furnished: 'С мебелью',
+  },
   csv: {
     code: 'Код',
     name: 'Название',

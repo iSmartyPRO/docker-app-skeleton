@@ -1,4 +1,5 @@
 import api from '../../services/api';
+import { formatBytes } from '../../lib/format';
 
 const base = '/app/chat';
 
@@ -37,15 +38,5 @@ export const chatApi = {
   },
 };
 
-export const formatSize = (bytes) => {
-  const n = Number(bytes) || 0;
-  if (n < 1024) return `${n} B`;
-  const units = ['KB', 'MB', 'GB'];
-  let value = n / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
-};
+/** File size in the interface language (lib/format.js). */
+export const formatSize = (bytes) => formatBytes(bytes);

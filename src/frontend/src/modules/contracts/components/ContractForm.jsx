@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { App, Button, Checkbox, Drawer, Form, Input, InputNumber, Segmented, Select, Switch, Upload } from 'antd';
+import { App, Button, Checkbox, Drawer, Form, Input, InputNumber, Select, Switch, Upload } from 'antd';
+import Segmented from '../../../components/ui/Segmented';
 import { InboxOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';

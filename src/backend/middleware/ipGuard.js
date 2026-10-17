@@ -29,6 +29,8 @@ export async function ipGuard(req, res, next) {
           verdict.reason === 'whitelist'
             ? 'Address is not on the allow-list'
             : `Blocked by rule ${verdict.rule?.ip || ''}`.trim(),
+        code: verdict.reason === 'whitelist' ? 'ip_not_allowed' : 'ip_rule',
+        params: { rule: verdict.rule?.ip || '' },
         debounceMinutes: 5,
       });
       return res.status(403).json({
