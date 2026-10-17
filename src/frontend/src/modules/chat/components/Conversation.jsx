@@ -5,16 +5,19 @@ import { PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
-import { initials } from '../../../lib/format';
 import ImageViewer from '../../kb/viewers/ImageViewer';
 import { UserAvatar } from '../../shared/People';
 import { Hint, HintLabel } from '../../../help/Hint';
 import { chatApi, formatSize } from '../api';
 import { useChat, useChatEvents } from '../ChatContext';
 import Composer from './Composer';
+import { RoomAvatar } from './RoomAvatar';
 import MessageItem from './MessageItem';
 import { fmtDate, inZone, intlOptions, nowInZone, useRegional } from '../../../lib/datetime';
 import '../chat.css';
+import { localeTag } from '../../../i18n/languages';
+
+export { RoomAvatar };
 
 const GROUP_GAP = 5 * 60 * 1000;
 
@@ -25,7 +28,7 @@ function dayLabel(value, t, locale) {
   const diff = date.startOf('day').diff(today, 'day');
   if (diff === 0) return t('chat.today');
   if (diff === -1) return t('chat.yesterday');
-  return new Date(value).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', intlOptions({ day: 'numeric', month: 'long', ...(date.year() !== today.year() ? { year: 'numeric' } : {}) }));
+  return new Date(value).toLocaleDateString(localeTag(locale), intlOptions({ day: 'numeric', month: 'long', ...(date.year() !== today.year() ? { year: 'numeric' } : {}) }));
 }
 
 /** The person's calendar day of a moment ('YYYY-MM-DD'), for grouping messages. */
@@ -48,23 +51,6 @@ const G = {
   files: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5ZM14 3v5h5',
   down: 'M12 5v14M5 12l7 7 7-7',
 };
-
-export function RoomAvatar({ room, size = 40, shape }) {
-  if (room.kind === 'direct' && room.other) {
-    return (
-      <span className="cr-avatar" style={{ width: size, height: size }}>
-        <UserAvatar user={room.other} size={size} tip={false} />
-        {room.other.online && <i className="cr-online" />}
-      </span>
-    );
-  }
-  const color = room.entityInfo?.color || room.color || (room.kind === 'entity' ? '#10B981' : '#6366F1');
-  return (
-    <Avatar size={size} shape={shape} style={{ background: `linear-gradient(140deg, ${color}, color-mix(in srgb, ${color} 65%, #000))`, flexShrink: 0, fontWeight: 650, fontSize: size * 0.38 }}>
-      {room.kind === 'entity' ? '✓' : initials(room.title)}
-    </Avatar>
-  );
-}
 
 function SidePanel({ room, tab, setTab, members, reloadMembers, onJump, onClose }) {
   const { t, locale } = useLocale();
@@ -209,7 +195,7 @@ function SidePanel({ room, tab, setTab, members, reloadMembers, onJump, onClose 
                   <button type="button" onClick={() => onJump(item.id)}>
                     <b>{item.author?.name}</b>
                     <span>{item.body}</span>
-                    <em>{new Date(item.createdAt).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', intlOptions({ day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</em>
+                    <em>{new Date(item.createdAt).toLocaleString(localeTag(locale), intlOptions({ day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</em>
                   </button>
                 </li>
               ))}

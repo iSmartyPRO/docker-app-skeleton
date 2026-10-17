@@ -8,7 +8,7 @@ Goal: a new repository that still has login, admin, wizard and Docker — with *
 |------|--------|
 | `.env.example` / `.env` | `DOCKER_NAME`, `DOCKER_PORT`, `FRONTEND_URL`, `POSTGRES_DB`, `POSTGRES_USER` |
 | `VERSION` | Start at `0.1.0` or keep `0.0.1` |
-| `src/frontend/src/i18n/translations.js` | `brand`, landing copy, `footer` label |
+| `src/frontend/src/locales/<lang>/_root.js`, `landing.js` | `brand`, `footer` label, landing copy |
 | `src/frontend/src/components/AppFooter.jsx` | Vendor link / copyright |
 | `src/frontend/public/favicon.svg` / `index.html` | Favicon, default `<title>` and description |
 | Admin → Settings → General (runtime) | Product name, description, primary and dark-theme logos |

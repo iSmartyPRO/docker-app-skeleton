@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import { canAny } from '../lib/access';
+import { lazyPage } from '../lib/lazyPage';
 
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
@@ -15,7 +16,7 @@ export const MODULE_REGISTRY = [
     icon: 'dashboard',
     labelKey: 'apps.dashboard.name',
     descKey: 'apps.dashboard.desc',
-    App: lazy(() => import('./dashboard/DashboardApp')),
+    App: lazyPage(() => import('./dashboard/DashboardApp')),
     Settings: lazy(() => import('./dashboard/DashboardSettings')),
   },
   {
@@ -26,7 +27,7 @@ export const MODULE_REGISTRY = [
     core: true,
     labelKey: 'apps.approvals.name',
     descKey: 'apps.approvals.desc',
-    App: lazy(() => import('./approvals/ApprovalsApp')),
+    App: lazyPage(() => import('./approvals/ApprovalsApp')),
     Settings: lazy(() => import('./approvals/ApprovalsSettings')),
   },
   {
@@ -35,7 +36,7 @@ export const MODULE_REGISTRY = [
     icon: 'chat',
     labelKey: 'apps.chat.name',
     descKey: 'apps.chat.desc',
-    App: lazy(() => import('./chat/ChatApp')),
+    App: lazyPage(() => import('./chat/ChatApp')),
     Settings: lazy(() => import('./chat/ChatSettings')),
   },
   {
@@ -44,7 +45,7 @@ export const MODULE_REGISTRY = [
     icon: 'compass',
     labelKey: 'apps.resources.name',
     descKey: 'apps.resources.desc',
-    App: lazy(() => import('./resources/ResourcesApp')),
+    App: lazyPage(() => import('./resources/ResourcesApp')),
     Settings: lazy(() => import('./resources/ResourcesSettings')),
   },
   {
@@ -53,7 +54,7 @@ export const MODULE_REGISTRY = [
     icon: 'building',
     labelKey: 'apps.companies.name',
     descKey: 'apps.companies.desc',
-    App: lazy(() => import('./companies/CompaniesApp')),
+    App: lazyPage(() => import('./companies/CompaniesApp')),
     Settings: lazy(() => import('./companies/CompaniesSettings')),
   },
   {
@@ -62,7 +63,7 @@ export const MODULE_REGISTRY = [
     icon: 'folder',
     labelKey: 'apps.files.name',
     descKey: 'apps.files.desc',
-    App: lazy(() => import('./files/FilesApp')),
+    App: lazyPage(() => import('./files/FilesApp')),
     Settings: lazy(() => import('./files/FilesSettings')),
   },
   {
@@ -71,7 +72,7 @@ export const MODULE_REGISTRY = [
     icon: 'graduation',
     labelKey: 'apps.kb.name',
     descKey: 'apps.kb.desc',
-    App: lazy(() => import('./kb/KbApp')),
+    App: lazyPage(() => import('./kb/KbApp')),
     Settings: lazy(() => import('./kb/KbSettings')),
   },
   {
@@ -80,7 +81,7 @@ export const MODULE_REGISTRY = [
     icon: 'tasks',
     labelKey: 'apps.tasks.name',
     descKey: 'apps.tasks.desc',
-    App: lazy(() => import('./tasks/TasksApp')),
+    App: lazyPage(() => import('./tasks/TasksApp')),
     Settings: lazy(() => import('./tasks/TasksSettings')),
   },
   {
@@ -89,7 +90,7 @@ export const MODULE_REGISTRY = [
     icon: 'target',
     labelKey: 'apps.crm.name',
     descKey: 'apps.crm.desc',
-    App: lazy(() => import('./crm/CrmApp')),
+    App: lazyPage(() => import('./crm/CrmApp')),
     Settings: lazy(() => import('./crm/CrmSettings')),
   },
   {
@@ -98,7 +99,7 @@ export const MODULE_REGISTRY = [
     icon: 'siteplan',
     labelKey: 'apps.masterplan.name',
     descKey: 'apps.masterplan.desc',
-    App: lazy(() => import('./masterplan/MasterplanApp')),
+    App: lazyPage(() => import('./masterplan/MasterplanApp')),
     Settings: lazy(() => import('./masterplan/MasterplanSettings')),
   },
   {
@@ -107,7 +108,7 @@ export const MODULE_REGISTRY = [
     icon: 'cart',
     labelKey: 'apps.procurement.name',
     descKey: 'apps.procurement.desc',
-    App: lazy(() => import('./procurement/ProcurementApp')),
+    App: lazyPage(() => import('./procurement/ProcurementApp')),
     Settings: lazy(() => import('./procurement/ProcurementSettings')),
   },
   {
@@ -116,7 +117,7 @@ export const MODULE_REGISTRY = [
     icon: 'box',
     labelKey: 'apps.warehouse.name',
     descKey: 'apps.warehouse.desc',
-    App: lazy(() => import('./warehouse/WarehouseApp')),
+    App: lazyPage(() => import('./warehouse/WarehouseApp')),
     Settings: lazy(() => import('./warehouse/WarehouseSettings')),
   },
   {
@@ -125,7 +126,7 @@ export const MODULE_REGISTRY = [
     icon: 'clipboard',
     labelKey: 'apps.contracts.name',
     descKey: 'apps.contracts.desc',
-    App: lazy(() => import('./contracts/ContractsApp')),
+    App: lazyPage(() => import('./contracts/ContractsApp')),
     Settings: lazy(() => import('./contracts/ContractsSettings')),
   },
   {
@@ -134,7 +135,7 @@ export const MODULE_REGISTRY = [
     icon: 'calendar',
     labelKey: 'apps.calendar.name',
     descKey: 'apps.calendar.desc',
-    App: lazy(() => import('./calendar/CalendarApp')),
+    App: lazyPage(() => import('./calendar/CalendarApp')),
     Settings: lazy(() => import('./calendar/CalendarSettings')),
   },
   {
@@ -144,7 +145,7 @@ export const MODULE_REGISTRY = [
     icon: 'people',
     labelKey: 'apps.employees.name',
     descKey: 'apps.employees.desc',
-    App: lazy(() => import('./employees/EmployeesApp')),
+    App: lazyPage(() => import('./employees/EmployeesApp')),
     Settings: lazy(() => import('./employees/EmployeesSettings')),
   },
   {
@@ -155,7 +156,7 @@ export const MODULE_REGISTRY = [
     permission: ['ad.view', 'ad.manage', 'ad.passwords', 'ad.admin'],
     labelKey: 'apps.directory.name',
     descKey: 'apps.directory.desc',
-    App: lazy(() => import('./directory/DirectoryApp')),
+    App: lazyPage(() => import('./directory/DirectoryApp')),
     Settings: lazy(() => import('./directory/DirectorySettings')),
   },
   {
@@ -164,7 +165,7 @@ export const MODULE_REGISTRY = [
     icon: 'server',
     labelKey: 'apps.drive.name',
     descKey: 'apps.drive.desc',
-    App: lazy(() => import('./drive/DriveApp')),
+    App: lazyPage(() => import('./drive/DriveApp')),
     Settings: lazy(() => import('./drive/DriveSettings')),
   },
 ];

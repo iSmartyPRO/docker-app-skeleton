@@ -5,6 +5,8 @@ import { useLocale } from '../../../context/LocaleContext';
 import { fmtDate, fmtDateTime } from '../../../lib/datetime';
 import { PALETTE, UserAvatar } from '../../shared/People';
 import { formatPercent } from '../lib';
+import { localeTag } from '../../../i18n/languages';
+import { translate } from '../../../i18n/translations';
 
 const MAX = 6;
 const isVideo = (item) => item?.kind === 'video' || /^video\//.test(item?.mime || '');
@@ -12,14 +14,14 @@ const isVideo = (item) => item?.kind === 'video' || /^video\//.test(item?.mime |
 function fileSize(bytes, locale) {
   const n = Number(bytes) || 0;
   if (!n) return null;
-  const units = locale === 'en' ? ['B', 'KB', 'MB', 'GB'] : ['Б', 'КБ', 'МБ', 'ГБ'];
+  const units = ['b', 'kb', 'mb', 'gb'].map((key) => translate(locale, `format.bytes.${key}`) ?? key.toUpperCase());
   let value = n;
   let unit = 0;
   while (value >= 1024 && unit < units.length - 1) {
     value /= 1024;
     unit += 1;
   }
-  return `${value.toLocaleString(locale === 'en' ? 'en' : 'ru', { maximumFractionDigits: unit ? 1 : 0 })} ${units[unit]}`;
+  return `${value.toLocaleString(localeTag(locale), { maximumFractionDigits: unit ? 1 : 0 })} ${units[unit]}`;
 }
 
 /**

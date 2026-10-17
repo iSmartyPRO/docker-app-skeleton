@@ -185,7 +185,8 @@ make test                                      # unit tests + production build
         ├── components/         # Chrome (header), CommandPalette, icons, ui/ kit
         ├── context/            # Auth, Settings, Locale, Theme providers
         ├── hooks/              # useAdminSettings, useSettingsForm
-        ├── i18n/               # EN / RU dictionaries
+        ├── i18n/               # language registry, lazy dictionary loading, plurals (docs/i18n.md)
+        ├── locales/            # texts: <lang>/<namespace>.js (en, ru, ky, tr, zh)
         ├── layouts/            # Public, Account, Admin, Settings
         ├── lib/                # errors, formatting, search helpers
         ├── pages/              # Home, Login, SetupWizard, account/*, admin/*, admin/settings/*
@@ -225,7 +226,7 @@ Adding a settings screen takes three steps:
 // 2. admin/settingsPages.js — register the component (lazy-loaded chunk)
 billing: lazy(() => import('../pages/admin/settings/Billing')),
 
-// 3. i18n/translations.js — settings.billing.title / .desc in en and ru
+// 3. locales/en/settings.js, locales/ru/settings.js — billing.title / .desc
 ```
 
 The screen itself is built from the UI kit: `SettingsPageHeader`, `SettingsSection` + `SettingRow`, `useSettingsForm` and `SaveBar`.

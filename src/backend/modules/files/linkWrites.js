@@ -18,6 +18,7 @@ import {
   storeUploads,
   trashNode,
 } from './service.js';
+import { tr } from '../../services/i18n/index.js';
 
 /*
  * What visitors of a public link may change (see links.js for the model).
@@ -303,14 +304,12 @@ export async function flushLinkNotices({ quietSeconds = QUIET_SECONDS } = {}) {
       module: 'files',
       link: nodeId ? `/app/files/n/${nodeId}` : '/app/files',
       render: (locale) => {
-        const ru = locale === 'ru';
-        const who = burst.visitor_name || (ru ? 'Посетитель' : 'A visitor');
-        const parts = ru
-          ? [upload && `загружено: ${upload}`, change && `изменено: ${change}`, removed && `удалено: ${removed}`]
-          : [upload && `${upload} uploaded`, change && `${change} changed`, removed && `${removed} deleted`];
-        const names = burst.names.length ? `\n${burst.names.join(', ')}${more ? (ru ? ` и ещё ${more}` : ` and ${more} more`) : ''}` : '';
+        const t = (key, params) => tr(locale, `files.notify.linkActivity.${key}`, params);
+        const who = burst.visitor_name || t('visitor');
+        const parts = [upload && t('uploaded', { count: upload }), change && t('changed', { count: change }), removed && t('deleted', { count: removed })];
+        const names = burst.names.length ? `\n${burst.names.join(', ')}${more ? t('more', { count: more }) : ''}` : '';
         return {
-          title: ru ? `${who} — ссылка «${burst.link_title}»` : `${who} — link “${burst.link_title}”`,
+          title: t('title', { who, link: burst.link_title }),
           body: `${parts.filter(Boolean).join(', ')}${names}`,
         };
       },

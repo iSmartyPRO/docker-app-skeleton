@@ -21,9 +21,9 @@ export function Hint({ id, title, text, more, placement = 'top' }) {
 
   const load = () => {
     if (!id || field) return;
-    loadHelp(module).then((content) => setField(content?.fields?.[key] || { missing: true }));
+    loadHelp(module, locale).then((content) => setField(content?.fields?.[key] || { missing: true }));
   };
-  useEffect(() => setField(null), [id]);
+  useEffect(() => setField(null), [id, locale]);
 
   const heading = title ?? tr(field?.title, locale);
   const body = text ?? tr(field?.text, locale);

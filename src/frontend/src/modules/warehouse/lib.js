@@ -1,5 +1,6 @@
 import { formatMoney } from '../approvals/lib';
 import { errorMessage } from '../../lib/errors';
+import { localeTag } from '../../i18n/languages';
 
 export { formatMoney };
 
@@ -64,7 +65,7 @@ export const SIDES = {
 /** A quantity with separators and up to 4 decimals. */
 export function formatQty(value, locale) {
   if (value === null || value === undefined || value === '') return '—';
-  return new Intl.NumberFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 4 }).format(Number(value));
+  return new Intl.NumberFormat(localeTag(locale), { maximumFractionDigits: 4 }).format(Number(value));
 }
 
 /** «2 уп = 48 шт» for a line in a non-base unit. */

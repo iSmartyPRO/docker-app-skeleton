@@ -12,6 +12,7 @@ import ReportPhotos, { isVideo } from './ReportPhotos';
 import MpLightbox from './MpLightbox';
 import ReportDialog from './ReportDialog';
 import '../mp-reports.css';
+import { localeTag } from '../../../i18n/languages';
 
 const dayShift = (iso, days) => {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -25,7 +26,7 @@ function useDayLabel() {
   return (day) => {
     const today = todayISO();
     const label = day === today ? t('mp.rep.today') : day === dayShift(today, -1) ? t('mp.rep.yesterday') : null;
-    const date = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'ru-RU', {
+    const date = new Intl.DateTimeFormat(localeTag(locale), {
       ...intlOptions({}),
       timeZone: 'UTC',
       day: 'numeric',

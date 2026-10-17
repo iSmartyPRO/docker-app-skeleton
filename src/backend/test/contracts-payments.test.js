@@ -7,6 +7,10 @@ import { depositAsPayment, paymentsRelevant } from '../modules/contracts/payment
 import { contractsContext } from '../modules/contracts/access.js';
 import { csvCell } from '../modules/contracts/service.js';
 import { CONTRACT_MESSAGES, contractMessage } from '../modules/contracts/messages.js';
+import { translator } from '../services/i18n/index.js';
+
+/** A message builder's texts in both reference languages. */
+const both = (build, params) => ({ ru: build(translator('ru'), params), en: build(translator('en'), params) });
 import { isoDay } from '../services/datetime.js';
 import { MODULE_CATALOG } from '../modules/catalog.js';
 import { EVENT_CATALOG } from '../api/events.js';
@@ -237,7 +241,7 @@ test('payments: notification texts in both languages, amounts and dates per reci
   assert.match(en.title, /in 3 days/);
   assert.match(en.body, /10\/20\/2026/);
   for (const kind of ['depositReceived', 'depositStatus', 'paymentReceived', 'paymentDue', 'paymentOverdue']) {
-    const texts = CONTRACT_MESSAGES[kind]({ contract, deposit: { kind: 'deposit', amount: 5000, currency: 'USD', receivedOn: '2026-10-15', status: 'credited' }, payment: { amount: 1, paidOn: '2026-10-15' }, totals: { paid: 1, total: 2, percent: 50, full: false }, row: { dueOn: '2026-10-20', left: 1 }, left: 0 });
+    const texts = both(CONTRACT_MESSAGES[kind], { contract, deposit: { kind: 'deposit', amount: 5000, currency: 'USD', receivedOn: '2026-10-15', status: 'credited' }, payment: { amount: 1, paidOn: '2026-10-15' }, totals: { paid: 1, total: 2, percent: 50, full: false }, row: { dueOn: '2026-10-20', left: 1 }, left: 0 });
     assert.ok(texts.ru.title && texts.en.title, kind);
   }
 });

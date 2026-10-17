@@ -9,6 +9,7 @@ import { importTemplate, readImportFile } from '../../warehouse/xlsx';
 import { empApi } from '../api';
 import { useEmp } from '../EmpContext';
 import { empError } from '../lib';
+import { pick } from '../../../i18n/languages';
 
 /** Import columns: key → accepted header spellings (Russian or English). */
 export const EMPLOYEE_COLUMNS = [
@@ -86,7 +87,7 @@ export default function ImportPage() {
   };
   const columnName = (field) => {
     const col = EMPLOYEE_COLUMNS.find((item) => item.key === field);
-    return col ? (locale === 'ru' ? col.ru : col.en) : field;
+    return col ? pick(col, locale) : field;
   };
   const problems = [...(report?.errors || []).map((item) => ({ ...item, level: 'error' })), ...(report?.warnings || []).map((item) => ({ ...item, level: 'warning' }))];
   return (

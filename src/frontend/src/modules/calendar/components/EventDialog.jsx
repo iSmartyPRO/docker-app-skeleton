@@ -9,6 +9,7 @@ import { fromPicker, getRegional, inZone, nowInZone, pickerFormat, toPicker, use
 import { calendarApi, calendarLabel } from '../api';
 import { WEEKDAYS, customFromRule, presetOf, ruleFromCustom, ruleFromPreset } from '../recurrence';
 import { askScope } from './scope';
+import { localeTag } from '../../../i18n/languages';
 
 export const REMINDER_PRESETS = [0, 5, 10, 15, 30, 60, 120, 1440, 2880, 10080];
 
@@ -21,7 +22,7 @@ export function reminderLabel(minutes, t) {
 
 function weekdayName(code, locale) {
   const date = dayjs('2024-01-01').add(WEEKDAYS.indexOf(code), 'day');
-  return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-GB', { weekday: 'short' }).format(date.toDate());
+  return new Intl.DateTimeFormat(localeTag(locale), { weekday: 'short' }).format(date.toDate());
 }
 
 function CustomRepeat({ value, onChange, start }) {

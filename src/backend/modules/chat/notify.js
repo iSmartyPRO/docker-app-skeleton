@@ -3,6 +3,8 @@ import { eventAllows, notify, prefsWithZone, quietState } from '../../services/n
 import { portalRegional } from '../../services/regional.js';
 import { pushToUser } from '../../services/push.js';
 import { isWatching } from './realtime.js';
+import { getSettings, parseSettings, recipientLocale } from '../../services/settings.js';
+import { tr } from '../../services/i18n/index.js';
 
 /*
  * Who hears about a new message and how:
@@ -13,15 +15,11 @@ import { isWatching } from './realtime.js';
  *   - nobody is pushed about a chat they muted or are looking at right now.
  */
 
-const LABELS = {
-  en: { files: (n) => `📎 ${n} file(s)`, mention: (who, where) => `${who} mentioned you in “${where}”` },
-  ru: { files: (n) => `📎 Файлов: ${n}`, mention: (who, where) => `${who} упомянул(а) вас в «${where}»` },
-};
 
 function preview(message, lang) {
   const text = String(message.body || '').replace(/\s+/g, ' ').trim();
   if (text) return text.length > 180 ? `${text.slice(0, 177)}…` : text;
-  return message.files?.length ? LABELS[lang].files(message.files.length) : '';
+  return message.files?.length ? tr(lang, 'chat.files', { count: message.files.length }) : '';
 }
 
 export async function deliverMessage(room, message, recipients, { authorId, mentions = [], link, system = false }) {
@@ -46,22 +44,19 @@ export async function deliverMessage(room, message, recipients, { authorId, ment
       module: 'chat',
       link,
       actorId: authorId,
-      render: (locale) => {
-        const lang = locale === 'ru' ? 'ru' : 'en';
-        return { title: LABELS[lang].mention(author, where), body: preview(message, lang) };
-      },
+      render: (locale) => ({ title: tr(locale, 'chat.mention', { who: author, where }), body: preview(message, locale) }),
     });
   }
 
   const portal = await portalRegional();
+  const { localization } = parseSettings(await getSettings());
   for (const person of people) {
     if (tagged.includes(person) && !system) continue;
     if (person.muted || isWatching(person.id, room.id)) continue;
     // Quiet hours in the person's own zone.
     const prefs = prefsWithZone(person, portal);
     if (!eventAllows(prefs, 'chat.message', 'push') || quietState(prefs)) continue;
-    const lang = person.locale === 'ru' ? 'ru' : 'en';
-    const text = preview(message, lang);
+    const text = preview(message, recipientLocale(person, localization));
     pushToUser(person.id, {
       title: where,
       body: room.kind === 'direct' || system || !author ? text : `${author}: ${text}`,

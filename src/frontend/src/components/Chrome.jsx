@@ -9,11 +9,12 @@ import { useThemeMode } from '../context/ThemeContext';
 import { initials } from '../lib/format';
 import { can, primaryRole, roleLabel } from '../lib/access';
 import BrandMark from './BrandMark';
-import LanguageSwitch, { FLAGS } from './LanguageSwitch';
+import LanguageSwitch, { languageItems } from './LanguageSwitch';
 import ThemeSwitch from './ThemeSwitch';
 import { IconAdmin, IconLogin } from './icons/AdminIcons';
 import { MenuIcon } from './icons/menuIcons';
 import { enabledModules, moduleLabel } from '../modules/registry';
+import { preloadProps } from '../lib/lazyPage';
 import NotificationBell from './NotificationBell';
 import ChatButton from '../modules/chat/components/ChatButton';
 import InboxButton from '../modules/approvals/InboxButton';
@@ -56,7 +57,7 @@ function AppsLauncher() {
           <div className="launcher__title">{t('apps.title')}</div>
           <div className="launcher__grid">
             {modules.map((module) => (
-              <button key={module.id} type="button" className="launcher__app" onClick={() => navigate(module.path)}>
+              <button key={module.id} type="button" className="launcher__app" onClick={() => navigate(module.path)} {...preloadProps(module)}>
                 <MenuIcon name={module.icon} />
                 <span>{moduleLabel(module, settings, t)}</span>
               </button>
@@ -77,7 +78,7 @@ function AppsLauncher() {
 
 function UserMenu({ user, onHelp }) {
   const { logout } = useAuth();
-  const { t, locale, setLocale } = useLocale();
+  const { t, locale, languages, setLocale } = useLocale();
   const { mode, setMode } = useThemeMode();
   const narrow = useNarrow();
   const { message } = App.useApp();
@@ -117,11 +118,7 @@ function UserMenu({ user, onHelp }) {
           { type: 'divider' },
           { key: 'help', label: t('help.title') },
           { key: 'theme', label: t(mode === 'dark' ? 'header.lightTheme' : 'header.darkTheme') },
-          {
-            key: 'lang',
-            label: t('header.language'),
-            children: FLAGS.map((flag) => ({ key: `lang:${flag.id}`, label: flag.title, disabled: flag.id === locale })),
-          },
+          ...(languages.length > 1 ? [{ key: 'lang', label: t('header.language'), children: languageItems(languages, locale, 'lang:') }] : []),
         ]
       : []),
     { type: 'divider' },

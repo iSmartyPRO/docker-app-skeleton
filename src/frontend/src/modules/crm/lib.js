@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import { localeTag } from '../../lib/format';
 import { getRegional, inZone, intlOptions, nowInZone } from '../../lib/datetime';
+import { translate } from '../../i18n/translations';
 
 // ── Local storage (per browser, per user) ─────────────────────────────────
 
@@ -56,7 +57,7 @@ export function formatMoney(amount, currency, locale) {
   const value = Number(amount) || 0;
   const digits = Math.round(value * 100) % 100 === 0 ? 0 : 2;
   // The som sign (U+20C0) is missing from most fonts: KGS reads as «сом».
-  if (currency === 'KGS') return `${new Intl.NumberFormat(localeTag(locale), { minimumFractionDigits: 0, maximumFractionDigits: digits }).format(value)} ${locale === 'ru' ? 'сом' : 'KGS'}`;
+  if (currency === 'KGS') return `${new Intl.NumberFormat(localeTag(locale), { minimumFractionDigits: 0, maximumFractionDigits: digits }).format(value)} ${translate(locale, 'format.currency.KGS') ?? 'KGS'}`;
   return moneyFormatter(currency, locale, digits).format(value);
 }
 

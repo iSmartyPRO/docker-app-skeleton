@@ -29,6 +29,10 @@ import {
 import { NOTIFICATION_EVENTS } from '../services/notificationCatalog.js';
 import { EVENT_CATALOG } from '../api/events.js';
 import { WAREHOUSE_MESSAGES } from '../modules/warehouse/messages.js';
+import { translator } from '../services/i18n/index.js';
+
+/** A message builder's texts in both reference languages. */
+const both = (build, params) => ({ ru: build(translator('ru'), params), en: build(translator('en'), params) });
 
 const settings = { ...WAREHOUSE_DEFAULTS };
 
@@ -176,7 +180,7 @@ test('warehouse: notifications, webhooks and texts are catalogued', () => {
   const events = EVENT_CATALOG.filter((event) => event.area === 'warehouse').map((event) => event.type);
   for (const type of ['warehouse.document.posted', 'warehouse.stock.low', 'warehouse.transfer.received', 'warehouse.transfer.shipped', 'warehouse.document.reversed', 'warehouse.tool.handover']) assert.ok(events.includes(type), type);
   for (const [kind, fn] of Object.entries(WAREHOUSE_MESSAGES)) {
-    const texts = fn({ doc: { number: 'ПМ-00001', lines: 2 }, from: 'A', to: 'B', warehouse: 'A', rows: [{ name: 'Цемент', qty: 1, min: 5, unit: 'кг', diff: -1, batch: 'P1', expiresOn: '2026-10-20' }], act: 'АР-00001', actor: 'Иван', tool: 'Дрель', due: '2026-10-20', items: '• Дрель', accepted: true, reason: 'нет остатка' });
+    const texts = both(fn, { doc: { number: 'ПМ-00001', lines: 2 }, from: 'A', to: 'B', warehouse: 'A', rows: [{ name: 'Цемент', qty: 1, min: 5, unit: 'кг', diff: -1, batch: 'P1', expiresOn: '2026-10-20' }], act: 'АР-00001', actor: 'Иван', tool: 'Дрель', due: '2026-10-20', items: '• Дрель', accepted: true, reason: 'нет остатка' });
     assert.ok(texts.ru.title && texts.en.title, kind);
     // Notifications never carry sums.
     assert.ok(!/\$|USD|сом/.test(`${texts.ru.title} ${texts.ru.body}`), kind);

@@ -4,6 +4,7 @@ import { LEVEL, httpError } from '../shared/acl.js';
 import { extOf, mimeOf } from '../shared/storage.js';
 import { nodeAccess } from './access.js';
 import { fileUploader, runUpload, storeUploads } from './service.js';
+import { tr } from '../../services/i18n/index.js';
 
 /*
  * The Knowledge Base keeps its files in Files:
@@ -14,7 +15,6 @@ import { fileUploader, runUpload, storeUploads } from './service.js';
  * through Files access.
  */
 
-const KB_FOLDER_NAME = { en: 'Knowledge base', ru: 'База знаний' };
 
 export async function ensureKbFolder(userId, locale = 'en') {
   const existing = await query(
@@ -24,7 +24,7 @@ export async function ensureKbFolder(userId, locale = 'en') {
   if (existing.rows[0]) return existing.rows[0];
   const { rows } = await query(
     `INSERT INTO fs_nodes (kind, name, owner_id, system_tag, created_by, updated_by) VALUES ('folder', $1, $2, 'kb', $2, $2) RETURNING *`,
-    [KB_FOLDER_NAME[locale === 'ru' ? 'ru' : 'en'], userId]
+    [tr(locale, 'files.kbFolder'), userId]
   );
   return rows[0];
 }

@@ -308,7 +308,7 @@ src/frontend/src/modules/warehouse/
   components/  bits (pills, pickers, hints, files, signature pad), ItemForm, CategoriesDialog, createMenu
   settings/SettingsForm.jsx, WarehouseSettings.jsx (console), WarehouseWidgets.jsx (dashboard)
   components/FreezeBanner.jsx  «идёт инвентаризация» on documents and in the mobile mode
-src/frontend/src/i18n/warehouse.js, i18n/warehouseMobile.js (whm.*), help/content/warehouse.js
+src/frontend/src/locales/<lang>/wh.js, whm.js, help/content/<lang>/warehouse.js
 ```
 
 Shared UI used: `components/ui/BarcodeScanner.jsx` (camera scanner, `useScannerInput` for wedge scanners, `ScanButton`) and `components/ui/Labels.jsx` (`PrintLabelsDialog`) with `lib/labels.js`.

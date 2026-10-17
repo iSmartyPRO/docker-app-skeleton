@@ -1,3 +1,4 @@
+import { createSecretKey } from 'crypto';
 import jwt from 'jsonwebtoken';
 import config from '../config/app.js';
 import { markLogin } from './users.js';
@@ -31,8 +32,24 @@ export function signToken(user, options = {}) {
   );
 }
 
+/*
+ * Given a plain string, jsonwebtoken first tries it as a PEM public key (and
+ * throws), then makes a secret key — on every request. The key object is
+ * made once per secret; only HMAC algorithms are accepted, as before.
+ */
+let verifyKey = null;
+let verifyKeyFor = null;
+function secretKey() {
+  const secret = requireJwtSecret();
+  if (verifyKeyFor !== secret) {
+    verifyKey = createSecretKey(Buffer.from(secret));
+    verifyKeyFor = secret;
+  }
+  return verifyKey;
+}
+
 export function verifyToken(token) {
-  return jwt.verify(token, requireJwtSecret());
+  return jwt.verify(token, secretKey(), { algorithms: ['HS256', 'HS384', 'HS512'] });
 }
 
 export function cookieOptions(req, options = {}) {

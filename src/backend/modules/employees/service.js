@@ -25,6 +25,7 @@ import {
   toCsv,
   upcomingDates,
 } from './logic.js';
+import { translator } from '../../services/i18n/index.js';
 
 /*
  * Employees service (docs/employees.md): the registry, the card, positions,
@@ -562,19 +563,17 @@ export async function deletePosition(req, id) {
 
 // ── Export ──────────────────────────────────────────────────────────────────
 
-export async function exportCsv(req, filters = {}, locale = 'ru') {
+export async function exportCsv(req, filters = {}, locale = req?.locale) {
   const rights = await rightsOf(req);
   assertView(rights);
   if (!rights.view) throw httpError(403, 'No access to the employee directory', 'FORBIDDEN');
   const { where, params, ctx } = await buildFilter(rights, filters);
   const { rows } = await query(`SELECT e.* FROM employees e LEFT JOIN emp_positions p ON p.id = e.position_id WHERE ${where} ORDER BY LOWER(e.last_name), LOWER(e.first_name) LIMIT 20000`, params);
-  const ru = locale === 'ru';
-  const statusName = ru ? { active: 'Работает', vacation: 'В отпуске', terminated: 'Уволен', candidate: 'Кандидат' } : { active: 'Working', vacation: 'On vacation', terminated: 'Terminated', candidate: 'Candidate' };
-  const employmentName = ru ? { staff: 'Штат', part_time: 'Совместитель', contractor: 'Подрядчик', seasonal: 'Сезонный' } : { staff: 'Staff', part_time: 'Part-time', contractor: 'Contractor', seasonal: 'Seasonal' };
-  const header = ru
-    ? ['Фамилия', 'Имя', 'Отчество', 'Должность', 'Подразделение', 'Объект', 'Статус', 'Рабочий e-mail', 'Рабочий телефон', 'Мобильный']
-    : ['Last name', 'First name', 'Middle name', 'Position', 'Unit', 'Site', 'Status', 'Work e-mail', 'Work phone', 'Mobile'];
-  if (rights.hr) header.push(...(ru ? ['Табельный номер', 'Тип занятости', 'Дата приёма', 'Дата увольнения', 'Учётная запись'] : ['Personnel number', 'Employment', 'Hire date', 'Termination date', 'Portal account']));
+  const t = translator(locale);
+  const statusName = t('employees.csv.status');
+  const employmentName = t('employees.csv.employment');
+  const header = [...t('employees.csv.head')];
+  if (rights.hr) header.push(...t('employees.csv.hrHead'));
   const users = rights.hr ? await usersOf(rows) : new Map();
   const unitPath = (id) => (id && ctx.unitMap.get(id) ? pathNames(ctx.unitMap, id).join(' / ') : '');
   const lines = rows

@@ -125,7 +125,7 @@ Routing is automatic. `App.jsx` mounts `${path}/*` behind `SetupGate`, `AuthGate
 - [ ] `modules/<id>/` with descriptor, schema, routes
 - [ ] Catalog entry with defaults and `sanitize`
 - [ ] Manifest entry (`modules/manifest.js`): version 1.0.0, category, requires / enhances, minCore, changelog
-- [ ] Admin docs `help/admin/<id>.js` and user help `help/content/<id>.js`
+- [ ] Admin docs `help/admin/<lang>/<id>.js` and user help `help/content/<lang>/<id>.js`
 - [ ] Demo data `modules/<id>/demo.js` (optional, recommended)
 - [ ] Added to `MODULES` in `modules/index.js`
 - [ ] Frontend registry entry, settings page, navigation item

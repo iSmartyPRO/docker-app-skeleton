@@ -116,7 +116,7 @@ test('sanitizeTourMark accepts ids, statuses and versions within limits', () => 
 
 test('built-in tours: valid definitions, texts in both languages', async () => {
   const { BUILTIN_TOURS } = await import('../../frontend/src/tour/content/index.js');
-  const { dictionaries } = await import('../../frontend/src/i18n/translations.js');
+  const { dictionaries } = await import('../../frontend/scripts/i18n-node.mjs');
   const lookup = (dict, path) => path.split('.').reduce((acc, key) => (acc && acc[key] != null ? acc[key] : null), dict);
   const ids = BUILTIN_TOURS.map((t) => t.id);
   assert.deepEqual(ids.sort(), ['calendar', 'chat', 'companies', 'dashboard', 'drive', 'files', 'kb', 'notifications', 'portal', 'resources', 'tasks']);

@@ -133,7 +133,9 @@ export const SETTINGS_PATCH_PERMISSIONS = {
   appName: 'settings.general',
   appDescription: 'settings.general',
   appearance: 'settings.general',
-  defaultLocale: 'settings.general',
+  // Interface languages (and the old single default-language key): superadministrators only.
+  localization: '*',
+  defaultLocale: '*',
   regional: 'settings.general',
   accessMode: 'settings.security',
   // Edited on the Access page next to the access mode (Security group).

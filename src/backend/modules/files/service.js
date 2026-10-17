@@ -8,6 +8,7 @@ import { folderTree } from '../shared/relpath.js';
 import { HEX, LEVEL, LEVEL_NAMES, avatarOf, clean, httpError, levelMap, readAcl, requireLevel, writeAcl } from '../shared/acl.js';
 import { extOf, hasSignature, mimeOf, newStorageKey, originalName, readHead, removeBlob, signatureMatches, storagePath, verifyContent } from '../shared/storage.js';
 import { childLevels, nodeAccess, nodeAccessMany, requireNode, spaceLevel } from './access.js';
+import { tr } from '../../services/i18n/index.js';
 
 export const NAME_MAX = 255;
 
@@ -787,10 +788,7 @@ export async function setShares(ctx, id, entries) {
       module: 'files',
       link: `/app/files/n/${access.node.id}`,
       actorId: ctx.userId,
-      render: (locale) =>
-        locale === 'ru'
-          ? { title: `${actor} открыл(а) вам доступ к ${folder ? 'папке' : 'файлу'} «${name}»`, body: 'Найдите его в разделе «Доступные мне».' }
-          : { title: `${actor} shared ${folder ? 'the folder' : 'the file'} “${name}” with you`, body: 'Find it under “Shared with me”.' },
+      render: (locale) => ({ title: tr(locale, `files.notify.shared.${folder ? 'titleFolder' : 'titleFile'}`, { actor, name }), body: tr(locale, 'files.notify.shared.body') }),
     });
   }
   return getShares(ctx, access.node.id);

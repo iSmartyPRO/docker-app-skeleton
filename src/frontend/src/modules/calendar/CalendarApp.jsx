@@ -7,7 +7,6 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import luxonPlugin from '@fullcalendar/luxon3';
-import ruLocale from '@fullcalendar/core/locales/ru';
 import { App, Button, Calendar as MiniCalendar, Drawer, Dropdown, Modal, Result, Segmented, Select, Spin } from 'antd';
 import { CheckSquareOutlined, LeftOutlined, MenuOutlined, PlusOutlined, RightOutlined, SettingOutlined } from '@ant-design/icons';
 import Chrome from '../../components/Chrome';
@@ -30,6 +29,7 @@ import { askScope } from './components/scope';
 import '../shared/module.css';
 import './calendar.css';
 import SideRail from '../shared/SideRail';
+import { useFullCalendarLocale } from '../../i18n/fullcalendar';
 
 const VIEWS = { month: 'dayGridMonth', week: 'timeGridWeek', workweek: 'timeGridWorkWeek', day: 'timeGridDay', agenda: 'listWeek' };
 // A work week is the week view without Saturday and Sunday.
@@ -287,7 +287,7 @@ function Shell() {
   );
   const plugins = useMemo(() => [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, luxonPlugin], []);
   const timeFormat = useMemo(() => timeFormatOf(regional.timeFormat), [regional.timeFormat]);
-  const locales = useMemo(() => [ruLocale], []);
+  const calendarLocale = useFullCalendarLocale(locale);
 
   const eventSources = useMemo(() => [{ events: portalSource }, { events: googleSource }, { events: taskSource }], [portalSource, googleSource, taskSource]);
 
@@ -638,8 +638,8 @@ function Shell() {
             plugins={plugins}
             initialView={view}
             headerToolbar={false}
-            locales={locales}
-            locale={locale === 'ru' ? 'ru' : 'en-gb'}
+            locales={calendarLocale.locales}
+            locale={calendarLocale.locale}
             timeZone={regional.timeZone}
             firstDay={regional.weekStart}
             views={VIEW_OPTIONS}

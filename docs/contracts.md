@@ -261,7 +261,7 @@ src/frontend/src/modules/contracts/
   card/Payments.jsx, payDialogs.jsx (deposit, deposit status, payment, schedule builder)
   card/ContractCard.jsx, Overview.jsx, Risks.jsx, Versions.jsx, Discussion.jsx, Links.jsx, History.jsx, StatusActions.jsx
   components/ContractForm.jsx, bits.jsx
-src/frontend/src/i18n/contracts.js, i18n/contractsPayments.js, src/frontend/src/help/content/contracts.js
+src/frontend/src/locales/<lang>/contracts.js, src/frontend/src/help/content/<lang>/contracts.js
 ```
 
 - `test/contracts.test.js` (always): transitions and rights, approval → status, numbering, day arithmetic, expiring / completion / prolongation, reminders (thresholds, never late), input cleaning, settings sanitizing and «off by default», webhook and notification catalogs, notification texts with the recipient's date format.

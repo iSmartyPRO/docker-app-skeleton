@@ -461,7 +461,7 @@ export function labelCss(formatId, scope = '') {
   const lines = f.lines;
   return `
 ${s}.wl-label{box-sizing:border-box;width:${f.width}mm;height:${f.height}mm;padding:${f.pad}mm;overflow:hidden;background:#fff;color:#000;
-font-family:'Manrope','Segoe UI','DejaVu Sans',Arial,sans-serif;font-size:${f.small}pt;line-height:1.18;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+font-family:'Manrope','Segoe UI','DejaVu Sans',Arial,'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-size:${f.small}pt;line-height:1.18;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 ${s}.wl-label *{box-sizing:border-box}
 ${s}.wl-label svg{display:block}
 ${s}.wl-label--qr{display:flex;gap:${f.pad}mm;align-items:stretch}

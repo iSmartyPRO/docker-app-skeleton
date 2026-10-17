@@ -8,6 +8,8 @@ import { treeChanged } from './realtime.js';
 import { unitCharacteristics, unitCommercial } from './nodes.js';
 import { Params, csvCell, idList, intOr, likePattern, logEvent, parseNumber, text } from './util.js';
 import { looseDay, migrateLocked } from './migration.js';
+import { SUPPORTED, localeOrDefault, tr } from '../../services/i18n/index.js';
+import { statusName } from './messages.js';
 
 /*
  * The registry of units (spec §9.3): filters, sorting, pages, CSV export,
@@ -137,35 +139,35 @@ export async function listUnits(ctx, input = {}) {
   };
 }
 
-const STATUS_RU = { not_for_sale: 'Не в продаже', free: 'Свободно', reserve: 'Резерв', booking: 'Бронь', deposit: 'Задаток', contract: 'Договор', sold: 'Продано', handed: 'Передано' };
 
 /** CSV of the registry (UTF-8 BOM, `;`), only the columns the person may see. */
 export async function exportCsv(ctx, input, res) {
   const { items } = await listUnits(ctx, { ...input, page: 1, pageSize: 5000 });
+  const locale = localeOrDefault(input.locale);
   const cols = [
-    ['Код', (n) => n.code],
-    ['Название', (n) => n.name],
-    ['Тип', (n) => n.type?.name],
-    ['Статус', (n) => (n.unit?.status ? STATUS_RU[n.unit.status] : '')],
-    ['Цена', (n) => n.unit?.price],
-    ['Валюта', (n) => n.unit?.currency],
-    ['Цена за м²', (n) => n.unit?.pricePerM2],
-    ['Мин. цена', (n) => n.unit?.minPrice],
-    ['Площадь, м²', (n) => n.unit?.areaTotal],
-    ['Участок, м²', (n) => n.unit?.areaPlot],
-    ['Комнат', (n) => n.unit?.rooms],
-    ['Спален', (n) => n.unit?.bedrooms],
-    ['Этаж', (n) => n.unit?.floor],
-    ['Номер', (n) => n.unit?.number],
-    ['Отделка', (n) => n.unit?.finishing],
-    ['Готовность, %', (n) => n.readiness],
-    ['Менеджер', (n) => n.unit?.manager?.name],
-    ['Клиент', (n) => n.unit?.client?.name],
-    ['Сделка', (n) => (n.unit?.deal ? [`#${n.unit.deal.id}`, n.unit.deal.title].filter(Boolean).join(' ') : '')],
+    ['code', (n) => n.code],
+    ['name', (n) => n.name],
+    ['type', (n) => n.type?.name],
+    ['status', (n) => (n.unit?.status ? statusName(n.unit.status, locale) : '')],
+    ['price', (n) => n.unit?.price],
+    ['currency', (n) => n.unit?.currency],
+    ['pricePerM2', (n) => n.unit?.pricePerM2],
+    ['minPrice', (n) => n.unit?.minPrice],
+    ['areaTotal', (n) => n.unit?.areaTotal],
+    ['areaPlot', (n) => n.unit?.areaPlot],
+    ['rooms', (n) => n.unit?.rooms],
+    ['bedrooms', (n) => n.unit?.bedrooms],
+    ['floor', (n) => n.unit?.floor],
+    ['number', (n) => n.unit?.number],
+    ['finishing', (n) => n.unit?.finishing],
+    ['readiness', (n) => n.readiness],
+    ['manager', (n) => n.unit?.manager?.name],
+    ['client', (n) => n.unit?.client?.name],
+    ['deal', (n) => (n.unit?.deal ? [`#${n.unit.deal.id}`, n.unit.deal.title].filter(Boolean).join(' ') : '')],
   ].filter(([, get]) => items.some((item) => get(item) !== undefined && get(item) !== null && get(item) !== ''));
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="masterplan-units.csv"`);
-  const lines = [cols.map(([title]) => csvCell(title)).join(';'), ...items.map((item) => cols.map(([, get]) => csvCell(get(item))).join(';'))];
+  const lines = [cols.map(([key]) => csvCell(tr(locale, `masterplan.csv.${key}`))).join(';'), ...items.map((item) => cols.map(([, get]) => csvCell(get(item))).join(';'))];
   res.send(`﻿${lines.join('\r\n')}\r\n`);
 }
 
@@ -251,7 +253,8 @@ async function validateImport(ctx, project, rows, client = { query }, input = {}
     }
     let migration = null;
     if (row.status) {
-      const status = STATUSES.includes(row.status) ? row.status : Object.entries(STATUS_RU).find(([, name]) => name.toLowerCase() === row.status.toLowerCase())?.[0];
+      // A status key, or its name in any portal language («Свободно», «Available»…).
+      const status = STATUSES.includes(row.status) ? row.status : STATUSES.find((key) => SUPPORTED.some((lang) => statusName(key, lang).toLowerCase() === row.status.toLowerCase()));
       if (!status) err('status', 'STATUS', `Unknown status “${row.status}”`);
       else row.status = status;
       // A held status is a migration; so is the unit's own held status repeated with new client / contract data.

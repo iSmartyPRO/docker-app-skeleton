@@ -10,6 +10,7 @@ import { useProc } from '../ProcContext';
 import { STATUS_COLORS, categoryOf, formatMoney } from '../lib';
 import { shortDuration } from '../../approvals/lib';
 import { DayBadge, Empty, StatusPill } from '../components/bits';
+import { localeTag } from '../../../i18n/languages';
 
 /** Horizontal bars: one measure, one hue (or the entity's own colour), labels in text ink. */
 function Bars({ rows, currency, locale }) {
@@ -38,7 +39,7 @@ function Months({ rows, currency, locale }) {
     <div className="prc-months" role="img" aria-label="months">
       {rows.map((row) => {
         const [y, m] = row.month.split('-').map(Number);
-        const label = new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-GB', intlOptions({ month: 'short', timeZone: 'UTC' })).format(new Date(Date.UTC(y, m - 1, 15)));
+        const label = new Intl.DateTimeFormat(localeTag(locale), intlOptions({ month: 'short', timeZone: 'UTC' })).format(new Date(Date.UTC(y, m - 1, 15)));
         return (
           <Tooltip key={row.month} title={`${label} ${y}: ${formatMoney(row.amount, currency, locale)} · ${row.n}`}>
             <div className="prc-months__col">

@@ -11,7 +11,7 @@ const lookup = (dict, path) => path.split('.').reduce((acc, key) => (acc && acc[
 
 test('org and employees tours: valid, with texts in both languages', async () => {
   const engine = await import('../../frontend/src/tour/engine.js');
-  const { dictionaries } = await import('../../frontend/src/i18n/translations.js');
+  const { dictionaries } = await import('../../frontend/scripts/i18n-node.mjs');
   const { default: org } = await import('../../frontend/src/modules/org/tour.js');
   const { default: employees } = await import('../../frontend/src/modules/employees/tour.js');
   for (const def of [org, employees]) {
@@ -24,11 +24,13 @@ test('org and employees tours: valid, with texts in both languages', async () =>
 });
 
 test('org and employees: admin docs and translated permissions', async () => {
-  const { dictionaries } = await import('../../frontend/src/i18n/translations.js');
+  const { dictionaries } = await import('../../frontend/scripts/i18n-node.mjs');
   for (const id of ['org', 'employees']) {
-    const { default: docs } = await import(`../../frontend/src/help/admin/${id}.js`);
+    const { readArticle } = await import('../../frontend/scripts/i18n-node.mjs');
+    const docs = await readArticle('admin', 'en', id);
+    const ru = await readArticle('admin', 'ru', id);
     assert.equal(docs.id, id);
-    for (const part of ['purpose', 'audience']) assert.ok(docs[part].ru && docs[part].en, `${id} ${part}`);
+    for (const part of ['purpose', 'audience']) assert.ok(docs[part] && ru[part], `${id} ${part}`);
     assert.ok(docs.setup.length >= 3 && docs.setup.length <= 7, `${id} setup`);
     assert.ok(docs.scenarios.length >= 2 && docs.scenarios.length <= 4, `${id} scenarios`);
     assert.ok(docs.faq.length >= 3, `${id} faq`);

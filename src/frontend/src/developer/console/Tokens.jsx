@@ -7,6 +7,7 @@ import { formatDateTime, formatRelative } from '../../lib/format';
 import { consoleApi } from '../client';
 import { EmptyState, GlyphIcon, ScopeChips, StatePill, templateName } from '../components';
 import { areaKey } from '../policy';
+import { localeTag } from '../../i18n/languages';
 
 /** One token as a card row; shared with the personal page. */
 export function TokenRow({ token, onEdit, onRotate, onRevoke, onDelete, showOwner = true }) {
@@ -59,7 +60,7 @@ export function TokenRow({ token, onEdit, onRotate, onRevoke, onDelete, showOwne
         <span title={token.lastUsedAt ? formatDateTime(token.lastUsedAt, locale) : ''}>
           {t('api.lastUsed')}: <b>{token.lastUsedAt ? formatRelative(token.lastUsedAt, locale) : t('api.never')}</b>
         </span>
-        <span>{t('api.requests', { n: token.useCount.toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB') })}</span>
+        <span>{t('api.requests', { n: token.useCount.toLocaleString(localeTag(locale)) })}</span>
         <span className={token.expiresAt && new Date(token.expiresAt) - Date.now() < 7 * 86400000 && token.state === 'active' ? 'is-warn' : ''}>
           {token.expiresAt ? t('api.expires', { date: formatDateTime(token.expiresAt, locale, { dateStyle: 'medium' }) }) : t('api.noExpiry')}
         </span>

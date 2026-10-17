@@ -1,10 +1,9 @@
 import { fmtDate, fmtDateTime, fmtTime, getRegional, intlOptions } from './datetime';
+import { localeTag, normalizeLocale } from '../i18n/languages';
+import { translate } from '../i18n/translations';
 
-const LOCALE_TAGS = { ru: 'ru-RU', en: 'en-GB' };
-
-export function localeTag(locale) {
-  return LOCALE_TAGS[locale] || 'en-GB';
-}
+/** BCP 47 tag of a portal language for Intl: 'ru' → 'ru-RU' (i18n/languages.js). */
+export { localeTag };
 
 /**
  * A moment as text in the person's time zone and formats (lib/datetime.js).
@@ -14,7 +13,7 @@ export function localeTag(locale) {
 export function formatDateTime(value, locale, options = { dateStyle: 'medium', timeStyle: 'short' }) {
   if (!value) return '—';
   const keys = Object.keys(options || {});
-  const regional = { ...getRegional(), locale: locale === 'en' ? 'en' : 'ru' };
+  const regional = { ...getRegional(), locale: normalizeLocale(locale) || 'en' };
   if (keys.every((key) => key === 'dateStyle' || key === 'timeStyle')) {
     if (options.dateStyle && options.timeStyle) return fmtDateTime(value, regional);
     if (options.dateStyle) return fmtDate(value, regional);
@@ -47,11 +46,11 @@ export function formatDuration(totalSeconds, locale) {
   const days = Math.floor(s / 86400);
   const hours = Math.floor((s % 86400) / 3600);
   const minutes = Math.floor((s % 3600) / 60);
-  const ru = locale === 'ru';
+  const unit = (key, n) => translate(locale, `format.duration.${key}`, { n }) ?? `${n}${key[0]}`;
   const parts = [];
-  if (days) parts.push(`${days}${ru ? ' д' : 'd'}`);
-  if (hours || days) parts.push(`${hours}${ru ? ' ч' : 'h'}`);
-  parts.push(`${minutes}${ru ? ' мин' : 'm'}`);
+  if (days) parts.push(unit('days', days));
+  if (hours || days) parts.push(unit('hours', hours));
+  parts.push(unit('minutes', minutes));
   return parts.join(' ');
 }
 

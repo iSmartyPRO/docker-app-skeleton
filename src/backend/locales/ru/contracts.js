@@ -1,0 +1,82 @@
+export default {
+  status: {
+    draft: 'Проект',
+    approval: 'На согласовании',
+    question: 'Нужен ответ',
+    approved: 'Согласован',
+    signed: 'Подписан',
+    active: 'Действует',
+    expiring: 'Истекает',
+    completed: 'Завершён',
+    rejected: 'Отклонён',
+    terminated: 'Расторгнут',
+  },
+  notify: {
+    name: '{number} «{title}»',
+    days_one: '{count} день',
+    days_few: '{count} дня',
+    days_many: '{count} дней',
+    days_other: '{count} дня',
+    ends: 'Окончание {date}',
+    importance: { high: 'высокая', medium: 'средняя', low: 'низкая' },
+    depositKind: { deposit: 'Задаток', advance: 'Аванс' },
+    assigned: {
+      lawyer: 'Вы назначены юристом по договору {name}',
+      owner: 'Вы назначены ответственным по договору {name}',
+    },
+    status: { title: 'Договор {name}: {status}' },
+    prolonged: {
+      title: 'Договор {name} пролонгирован',
+      body: 'Новый срок — до {date}',
+    },
+    version: {
+      title: 'Новая версия {no} договора {name}',
+      changed: 'Что изменено: {comment}',
+    },
+    risk: {
+      title: 'Риск #{no} ({importance}) в договоре {name}',
+      clause: 'Пункт {clause}',
+    },
+    reminderEnd: { title: 'Договор {name} заканчивается через {days}' },
+    reminderNotice: {
+      title: 'Договор {name}: отказ от пролонгации — до {date}',
+      lastDay: 'Сегодня последний день, чтобы уведомить об отказе',
+      left: 'Осталось {days}, чтобы уведомить об отказе',
+      renews: 'Иначе договор продлится после {date}',
+    },
+    depositReceived: { title: '{kind} получен: договор {name}' },
+    depositStatus: {
+      title: '{kind} по договору {name}: {status}',
+      expected: 'ожидается',
+      received: 'получен',
+      credited: 'зачтён в оплату',
+      returned: 'возвращён',
+      forfeited: 'удержан',
+    },
+    paymentReceived: {
+      full: 'Оплачен полностью: договор {name}',
+      part: 'Поступила оплата: договор {name}',
+      totals: 'Оплачено {paid} из {total} ({percent} %)',
+    },
+    paymentDue: {
+      today: 'Сегодня платёж по договору {name}',
+      in: 'Платёж по договору {name} через {days}',
+      body: '{amount} — до {date}',
+    },
+    paymentOverdue: {
+      title: 'Платёж просрочен: договор {name}',
+      body: '{amount} — срок был {date}',
+    },
+  },
+  csv: {
+    head: ['№', 'Номер контрагента', 'Название', 'Контрагент', 'Тип', 'Направление', 'Сумма', 'Валюта', 'Заключён', 'Начало', 'Окончание', 'Автопролонгация', 'Статус', 'Ответственный', 'Юрист'],
+    direction: { supplier: 'С поставщиком', client: 'С клиентом' },
+    framework: 'рамочный',
+    yes: 'да',
+  },
+  paymentsCsv: {
+    head: ['Группа', '№ договора', 'Договор', 'Контрагент', 'Назначение', 'Срок', 'Сумма', 'Оплачено', 'Остаток', 'Валюта', 'Ответственный'],
+    group: { overdue: 'Просрочено', today: 'Сегодня', week: 'На неделе', later: 'Позже' },
+    purpose: { deposit: 'Задаток', advance: 'Аванс', first: 'Первый взнос', monthly: 'Ежемесячный платёж', rest: 'Остаток', full: 'Полная оплата' },
+  },
+};

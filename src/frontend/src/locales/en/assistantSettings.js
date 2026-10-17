@@ -1,0 +1,27 @@
+export default {
+  enabledDesc: 'Shown to everyone by default; each person can turn it off or pick another robot under Account → Appearance.',
+  proactive: 'Offer help in sections',
+  proactiveDesc: 'When someone opens a section for the first time, the robot waves and offers to show what can be done there. Once per section.',
+  avatar: 'Default robot',
+  avatarDesc: 'Who greets people until they choose their own. A change applies at once to you and to everyone who has not picked a robot of their own.',
+  ownRobot: 'You see your own robot, {name}: a personal choice wins over the default.',
+  showDefault: 'Show me the default robot',
+  allowColors: 'People may change colours',
+  allowColorsDesc: 'Each person can recolour their character. Turn off to keep the designed colours (for example, a corporate look).',
+  choiceTitle: 'Who chooses the character',
+  choiceDesc: 'Leave the choice to people, offer only some characters, or give everyone one assistant — say, a company mascot.',
+  choice: {
+    all: 'Any character',
+    some: 'Selected only',
+    one: 'One for everyone',
+  },
+  choiceHint: {
+    all: 'People pick any of the characters; the default one greets those who have not chosen.',
+    some: 'People pick among the ticked characters ({n}). Click a card to tick or untick it.',
+    one: 'Nobody chooses: everyone sees the character below. Personal picks are ignored while this is on.',
+  },
+  selectAll: 'Tick all',
+  selectNone: 'Only the default',
+  oneTitle: 'The assistant for everyone',
+  oneDesc: 'This character is shown to every person in the organisation.',
+};

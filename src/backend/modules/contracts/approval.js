@@ -6,6 +6,7 @@ import { registerApprovalType } from '../approvals/api.js';
 import { TYPE_KEY, httpError, statusFromApproval } from './logic.js';
 import { canView, contractsContext, contractsSettings } from './access.js';
 import { COLUMNS, afterStatus, contractPeople, contractUrl, loadRow, notifyPeople, writeStatus } from './service.js';
+import { pick } from '../../services/i18n/index.js';
 
 /*
  * Contracts go through the approvals service (docs/approvals.md) as the
@@ -42,7 +43,7 @@ const STOCK_TYPE_NAMES = {
 export function typeName(settings, key, locale = 'ru') {
   const type = (settings.types || []).find((item) => item.key === key);
   if (type?.label) return type.label;
-  return STOCK_TYPE_NAMES[key]?.[locale] || key || '';
+  return (STOCK_TYPE_NAMES[key] && pick(STOCK_TYPE_NAMES[key], locale)) || key || '';
 }
 
 const deferred = new Set();

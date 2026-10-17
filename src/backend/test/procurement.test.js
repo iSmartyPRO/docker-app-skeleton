@@ -20,6 +20,7 @@ import {
 } from '../modules/procurement/logic.js';
 import { MODULE_CATALOG, PROCUREMENT_DEFAULTS, resolveModules, sanitizeProcurement } from '../modules/catalog.js';
 import { PROCUREMENT_MESSAGES, moneyText } from '../modules/procurement/messages.js';
+import { translator } from '../services/i18n/index.js';
 import { cleanLegalEntity } from '../services/legalEntities.js';
 import { NOTIFICATION_EVENTS } from '../services/notificationCatalog.js';
 import { EVENT_TYPES } from '../api/events.js';
@@ -150,10 +151,10 @@ test('procurement: notifications and webhooks are catalogued', () => {
   }
   for (const type of ['procurement.created', 'procurement.approved', 'procurement.paid', 'procurement.overdue', 'procurement.cancelled']) assert.ok(EVENT_TYPES.includes(type), type);
   const doc = { number: 'ЗК-0001', title: 'Бетон', amount: 120000, currency: 'KGS', paid: 20000, remaining: 100000, payBy: '2026-10-20', regional: { timeZone: 'Asia/Bishkek', dateFormat: 'DD.MM.YYYY', timeFormat: '24' } };
-  const ru = PROCUREMENT_MESSAGES.paySoon({ doc }).ru;
+  const ru = PROCUREMENT_MESSAGES.paySoon(translator('ru'), { doc });
   assert.match(ru.title, /20\.10\.2026/);
   assert.match(ru.body, /100\s000 сом/);
-  const en = PROCUREMENT_MESSAGES.paid({ doc, payment: { amount: 20000, paidOn: '2026-10-13' }, full: false }).en;
+  const en = PROCUREMENT_MESSAGES.paid(translator('en'), { doc, payment: { amount: 20000, paidOn: '2026-10-13' }, full: false });
   assert.match(en.title, /Partly paid/);
   assert.equal(moneyText(5000.5, 'USD', 'en'), '5,000.50 USD');
 });

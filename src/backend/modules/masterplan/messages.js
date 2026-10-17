@@ -1,67 +1,55 @@
 import { formatDateTime } from '../../services/datetime.js';
+import { translator } from '../../services/i18n/index.js';
 
 /*
- * Notification texts of the Masterplan module, per recipient language
- * (pattern: crm/messages.js). Moments are written in the recipient's region
- * settings (`regional` comes from notify()).
+ * Notification texts of the Masterplan module in the recipient's language
+ * (locales/<lang>/masterplan.js → notify.*; pattern: tasks/messages.js).
+ * Moments are written in the recipient's region settings (`regional` comes
+ * from notify()).
  */
 
 const lines = (...parts) => parts.filter(Boolean).join('\n');
-const when = (value, locale, regional) => (value ? formatDateTime(value, regional || undefined, locale) : '');
+const when = (t, value, regional) => (value ? formatDateTime(value, regional || undefined, t.locale) : '');
+const reason = (t, text) => (text ? t('masterplan.notify.reason', { reason: text }) : '');
 
-const STATUS = {
-  ru: { not_for_sale: 'Не в продаже', free: 'Свободно', reserve: 'Резерв', booking: 'Бронь', deposit: 'Задаток', contract: 'Договор', sold: 'Продано', handed: 'Передано' },
-  en: { not_for_sale: 'Not for sale', free: 'Available', reserve: 'Reserved', booking: 'Booked', deposit: 'Deposit', contract: 'Contract', sold: 'Sold', handed: 'Handed over' },
+export const statusName = (status, locale = 'ru') => {
+  const key = `masterplan.status.${status}`;
+  const text = translator(locale)(key);
+  return text === key ? status : text;
 };
-export const statusName = (status, locale = 'ru') => (STATUS[locale] || STATUS.en)[status] || status;
 
 export const MP_MESSAGES = {
-  expiring: ({ code, project, endsAt, kind, regional }) => ({
-    ru: { title: `${kind === 'reserve' ? 'Резерв' : 'Бронь'} ${code} скоро истекает`, body: lines(project, `До: ${when(endsAt, 'ru', regional)}`) },
-    en: { title: `${kind === 'reserve' ? 'Reserve' : 'Booking'} of ${code} expires soon`, body: lines(project, `Until: ${when(endsAt, 'en', regional)}`) },
+  expiring: (t, { code, project, endsAt, kind, regional }) => ({
+    title: t(`masterplan.notify.expiring.${kind === 'reserve' ? 'reserve' : 'booking'}`, { code }),
+    body: lines(project, t('masterplan.notify.until', { date: when(t, endsAt, regional) })),
   }),
-  expired: ({ code, project, manager, kind }) => ({
-    ru: { title: `${kind === 'reserve' ? 'Резерв' : 'Бронь'} ${code} снят${kind === 'reserve' ? '' : 'а'} автоматически`, body: lines(project, 'Срок истёк, объект снова свободен.', manager ? `Менеджер: ${manager}` : '') },
-    en: { title: `${kind === 'reserve' ? 'Reserve' : 'Booking'} of ${code} released automatically`, body: lines(project, 'The time ran out; the unit is available again.', manager ? `Manager: ${manager}` : '') },
+  expired: (t, { code, project, manager, kind }) => ({
+    title: t(`masterplan.notify.expired.${kind === 'reserve' ? 'reserve' : 'booking'}`, { code }),
+    body: lines(project, t('masterplan.notify.expired.body'), manager ? t('masterplan.notify.manager', { name: manager }) : ''),
   }),
-  bulkStatus: ({ count, sample, project, to, actor, reason }) => ({
-    ru: { title: `${statusName(to, 'ru')}: ${count} объект(ов)`, body: lines(project, sample, reason ? `Причина: ${reason}` : '', actor) },
-    en: { title: `${statusName(to, 'en')}: ${count} unit(s)`, body: lines(project, sample, reason ? `Reason: ${reason}` : '', actor) },
+  bulkStatus: (t, { count, sample, project, to, actor, reason: why }) => ({
+    title: t('masterplan.notify.bulkStatus.title', { status: statusName(to, t.locale), count }),
+    body: lines(project, sample, reason(t, why), actor),
   }),
-  status: ({ code, project, to, actor, reason }) => ({
-    ru: { title: `${code}: ${statusName(to, 'ru')}`, body: lines(project, reason ? `Причина: ${reason}` : '', actor) },
-    en: { title: `${code}: ${statusName(to, 'en')}`, body: lines(project, reason ? `Reason: ${reason}` : '', actor) },
+  status: (t, { code, project, to, actor, reason: why }) => ({ title: `${code}: ${statusName(to, t.locale)}`, body: lines(project, reason(t, why), actor) }),
+  report: (t, { objects, stage, percent, project, actor }) => ({
+    title: t('masterplan.notify.report.title', { objects }),
+    body: lines(project, stage ? `${stage}${percent != null ? ` — ${percent}%` : ''}` : '', actor),
   }),
-  report: ({ objects, stage, percent, project, actor }) => ({
-    ru: { title: `Новый фотоотчёт: ${objects}`, body: lines(project, stage ? `${stage}${percent != null ? ` — ${percent}%` : ''}` : '', actor) },
-    en: { title: `New construction report: ${objects}`, body: lines(project, stage ? `${stage}${percent != null ? ` — ${percent}%` : ''}` : '', actor) },
+  reportReview: (t, { objects, project, actor }) => ({ title: t('masterplan.notify.reportReview.title', { objects }), body: lines(project, actor) }),
+  reportReviewed: (t, { objects, published, note }) => ({
+    title: t(`masterplan.notify.reportReviewed.${published ? 'published' : 'returned'}`, { objects }),
+    body: note ? t('masterplan.notify.reportReviewed.comment', { note }) : '',
   }),
-  reportReview: ({ objects, project, actor }) => ({
-    ru: { title: `Отчёт на проверке: ${objects}`, body: lines(project, actor) },
-    en: { title: `Report to review: ${objects}`, body: lines(project, actor) },
+  stale: (t, { count, days, project, sample }) => ({ title: t('masterplan.notify.stale.title', { days, count }), body: lines(project, sample) }),
+  delay: (t, { code, days, stage, project }) => ({
+    title: t('masterplan.notify.delay.title', { days, code }),
+    body: lines(project, stage ? t('masterplan.notify.delay.stage', { stage }) : ''),
   }),
-  reportReviewed: ({ objects, published, note }) => ({
-    ru: { title: published ? `Отчёт опубликован: ${objects}` : `Отчёт возвращён: ${objects}`, body: note ? `Комментарий: ${note}` : '' },
-    en: { title: published ? `Report published: ${objects}` : `Report returned: ${objects}`, body: note ? `Comment: ${note}` : '' },
-  }),
-  stale: ({ count, days, project, sample }) => ({
-    ru: { title: `Нет отчётов больше ${days} дней: ${count}`, body: lines(project, sample) },
-    en: { title: `No reports for over ${days} days: ${count}`, body: lines(project, sample) },
-  }),
-  delay: ({ code, days, stage, project }) => ({
-    ru: { title: `Отставание ${days} дн.: ${code}`, body: lines(project, stage ? `Этап: ${stage}` : '') },
-    en: { title: `${days} days behind: ${code}`, body: lines(project, stage ? `Stage: ${stage}` : '') },
-  }),
-  accessRequest: ({ actor, note }) => ({
-    ru: { title: `Запрос доступа к «Мастерплану»: ${actor}`, body: note || '' },
-    en: { title: `Masterplan access request: ${actor}`, body: note || '' },
-  }),
+  accessRequest: (t, { actor, note }) => ({ title: t('masterplan.notify.accessRequest.title', { actor }), body: note || '' }),
 };
 
 /** `render` for notify(): the recipient's language and region settings. */
 export function mpMessage(kind, params) {
-  return (locale, regional) => {
-    const texts = MP_MESSAGES[kind]({ ...params, regional: regional || null });
-    return texts[locale] || texts.en;
-  };
+  return (locale, regional) => MP_MESSAGES[kind](translator(locale), { ...params, regional: regional || null });
 }

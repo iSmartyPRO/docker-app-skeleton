@@ -1,0 +1,28 @@
+export default {
+  presets: {
+    m15: 'In 15 min',
+    h1: 'In an hour',
+    h3: 'In 3 hours',
+    evening: 'This evening',
+    tomorrow: 'Tomorrow morning',
+    monday: 'On Monday',
+  },
+  fires: 'Fires {date} — {rel}',
+  past: 'This moment has passed — choose a later time',
+  now: 'now',
+  in: 'in {time}',
+  d: '{n} d',
+  h: '{n} h',
+  m: '{n} min',
+  warn: {
+    push: 'Push is not enabled on any of your devices: the reminder will wait in the bell.',
+    messenger: 'No messenger is connected: link Telegram (Profile → Security), or add a mobile phone for WhatsApp or a Mattermost name (Profile).',
+    messengerOff: 'Messengers are switched off in your notification settings.',
+    email: 'Your profile has no e-mail.',
+    emailOff: 'E-mail sending is not set up in the portal.',
+    noMessengers: 'No messenger is set up in the portal yet, so messages cannot be sent there.',
+    setUp: 'Set up',
+    connectOne: 'Messengers available in the portal: {list}. Connect one of them:',
+    fix: 'Fix',
+  },
+};

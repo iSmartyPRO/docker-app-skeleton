@@ -1,0 +1,80 @@
+export default {
+  status: {
+    draft: 'Draft',
+    approval: 'In approval',
+    question: 'Answer needed',
+    approved: 'Approved',
+    signed: 'Signed',
+    active: 'In force',
+    expiring: 'Expiring',
+    completed: 'Completed',
+    rejected: 'Rejected',
+    terminated: 'Terminated',
+  },
+  notify: {
+    name: '{number} “{title}”',
+    days_one: '{count} day',
+    days_other: '{count} days',
+    ends: 'Ends {date}',
+    importance: { high: 'high', medium: 'medium', low: 'low' },
+    depositKind: { deposit: 'Deposit', advance: 'Advance' },
+    assigned: {
+      lawyer: 'You are the lawyer of contract {name}',
+      owner: 'You are the business owner of contract {name}',
+    },
+    status: { title: 'Contract {name}: {status}' },
+    prolonged: {
+      title: 'Contract {name} was prolonged',
+      body: 'New term until {date}',
+    },
+    version: {
+      title: 'New version {no} of contract {name}',
+      changed: 'What changed: {comment}',
+    },
+    risk: {
+      title: 'Risk #{no} ({importance}) in contract {name}',
+      clause: 'Clause {clause}',
+    },
+    reminderEnd: { title: 'Contract {name} ends in {days}' },
+    reminderNotice: {
+      title: 'Contract {name}: refuse prolongation by {date}',
+      lastDay: 'Today is the last day to send the refusal',
+      left: '{days} left to send the refusal',
+      renews: 'Otherwise it renews after {date}',
+    },
+    depositReceived: { title: '{kind} received: contract {name}' },
+    depositStatus: {
+      title: '{kind} of contract {name}: {status}',
+      expected: 'expected',
+      received: 'received',
+      credited: 'credited to the price',
+      returned: 'returned',
+      forfeited: 'retained',
+    },
+    paymentReceived: {
+      full: 'Paid in full: contract {name}',
+      part: 'Payment received: contract {name}',
+      totals: 'Paid {paid} of {total} ({percent}%)',
+    },
+    paymentDue: {
+      today: 'Payment due today: contract {name}',
+      in: 'Payment due in {days}: contract {name}',
+      body: '{amount} — by {date}',
+    },
+    paymentOverdue: {
+      title: 'Payment overdue: contract {name}',
+      body: '{amount} — was due {date}',
+    },
+  },
+  csv: {
+    head: ['No.', 'Counterparty number', 'Title', 'Counterparty', 'Type', 'Direction', 'Amount', 'Currency', 'Concluded', 'Start', 'End', 'Auto-prolongation', 'Status', 'Business owner', 'Lawyer'],
+    direction: { supplier: 'Supplier', client: 'Client' },
+    framework: 'framework',
+    yes: 'yes',
+  },
+  paymentsCsv: {
+    head: ['Group', 'Contract No.', 'Contract', 'Counterparty', 'Purpose', 'Due', 'Amount', 'Paid', 'Left', 'Currency', 'Owner'],
+    group: { overdue: 'Overdue', today: 'Today', week: 'This week', later: 'Later' },
+    purpose: { deposit: 'Deposit', advance: 'Advance', first: 'First payment', monthly: 'Monthly payment', rest: 'Balance', full: 'Full payment' },
+  },
+};

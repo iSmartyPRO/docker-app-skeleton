@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Localization infrastructure** ([docs/i18n.md](docs/i18n.md)): five interface languages — Russian, English, Kyrgyz, Turkish, Simplified Chinese — from one language registry shared by frontend and backend (Intl tag, dayjs and antd locale, direction). English is the reference and fallback. Kyrgyz, Turkish and Chinese are prepared (empty files fall back to English) for translation.
+- **Settings → Languages** (superadministrators only, enforced by the API): enabled languages and their order (drag and drop), default language or «browser language» with a fallback, translation coverage per language. Existing portals keep Russian + English and their old default. Language switchers (header, sign-in, profile, public pages) show only enabled languages by native name; a disabled personal language falls back to the portal default, for notifications and e-mails too.
+- Per-language **lazy bundles**: each language is one chunk already merged over English at build time (Vite plugin), only the active one is downloaded, switching needs no reload; dayjs, antd and FullCalendar locales load with it. Help articles and admin docs are per language and per article. The main bundle no longer carries any dictionary.
+- CLDR **plurals** (`key_one` / `key_few` / `key_many` / `key_other` with `Intl.PluralRules`) on both sides; Russian plural helpers replaced.
+- Server dictionaries `src/backend/locales/<lang>/` with `tr()`, `pick()`, `plural()`, `moneyText()`: notifications of every module, e-mails, sign-in codes, push test, PWA manifest, link previews, CSV exports (contracts, payments, procurement, warehouse, employees, CRM, masterplan), task statuses and starter content.
+- `npm run i18n:check` (frontend) and `test/i18n.test.js` (backend): coverage, missing / extra keys, placeholder and plural checks; Russian and English must be complete. Glossary for translators: [docs/i18n-glossary.md](docs/i18n-glossary.md).
+- Font stacks get Kyrgyz (Cyrillic Extended) and CJK fallbacks in every typography preset.
+
 ## [1.5.1] - 2026-10-16
 
 - fix(chat): redesign the header chats popover

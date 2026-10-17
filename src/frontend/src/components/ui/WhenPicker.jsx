@@ -8,6 +8,7 @@ import { formatDateTime } from '../../lib/format';
 import { getNotificationPrefs } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import QuickConnect from './QuickConnect';
+import { dayjsLocale } from '../../i18n/vendor';
 
 /*
  * Choosing the moment of a reminder: quick presets, a date and a time apart
@@ -80,12 +81,12 @@ export default function WhenPicker({ value, onChange }) {
           <button key={key} type="button" className={current && current.isSame(date, 'minute') ? 'is-on' : ''} onClick={() => emit(date)}>
             {t(`when.presets.${key}`)}
             {/* `date` is the person's wall-clock time already: format it as is. */}
-            <em>{key.startsWith('m') || key.startsWith('h') ? date.format(timeFormat) : (locale === 'ru' ? date.locale('ru').format('dd, D') : date.locale('en-gb').format('ddd D'))}</em>
+            <em>{key.startsWith('m') || key.startsWith('h') ? date.format(timeFormat) : date.locale(dayjsLocale(locale)).format(t('format.picker.weekdayDay'))}</em>
           </button>
         ))}
       </div>
       <div className="when__exact">
-        <DatePicker value={current} onChange={setDate} allowClear={false} format={locale === 'ru' ? 'D MMMM YYYY, dd' : 'ddd, D MMM YYYY'} disabledDate={(date) => date.isBefore(now, 'day')} />
+        <DatePicker value={current} onChange={setDate} allowClear={false} format={t('format.picker.longDate')} disabledDate={(date) => date.isBefore(now, 'day')} />
         <TimePicker value={current} onChange={setTime} allowClear={false} format={timeFormat} use12Hours={regional.timeFormat === '12'} minuteStep={5} needConfirm={false} />
       </div>
       {current && (

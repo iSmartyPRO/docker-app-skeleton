@@ -1,0 +1,17 @@
+export default {
+  title: 'Roles',
+  lead: 'What people are allowed to do. Users get roles directly or through their groups.',
+  create: 'New role',
+  name: 'Name',
+  description: 'Description',
+  permissions: 'Permissions',
+  system: 'Built-in',
+  fullAccess: 'Full access',
+  permCount: '{count} of {total} permissions',
+  userCount: '{direct} direct · {groups} via groups',
+  viaGroups: 'Granted by',
+  lockedHint: 'The super administrator role always has full access and cannot be changed. Protect it: keep at least two super administrators.',
+  notYours: 'You can only grant permissions you hold yourself',
+  confirmDelete: 'Delete this role? Users lose the access it granted.',
+  deleted: 'Role deleted',
+};

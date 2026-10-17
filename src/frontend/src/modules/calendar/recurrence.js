@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { fmtDate, inZone } from '../../lib/datetime';
+import { localeTag } from '../../i18n/languages';
 
 /*
  * Weekdays and month days of a series are those of its start in the person's
@@ -93,7 +94,7 @@ export function describeRule(rule, t, locale) {
     const names = p.BYDAY.split(',').map((day) => {
       const index = WEEKDAYS.indexOf(day.slice(-2));
       const date = dayjs('2024-01-01').add(index, 'day');
-      return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-GB', { weekday: 'short' }).format(date.toDate());
+      return new Intl.DateTimeFormat(localeTag(locale), { weekday: 'short' }).format(date.toDate());
     });
     text += p.BYDAY === 'MO,TU,WE,TH,FR' ? ` (${t('calendar.repeat.weekdaysShort')})` : `: ${names.join(', ')}`;
   }

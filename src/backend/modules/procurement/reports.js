@@ -1,6 +1,7 @@
 import { query } from '../../config/database.js';
 import { formatDate, formatDateTime } from '../../services/datetime.js';
 import { requestRegional } from '../../services/regional.js';
+import { exportLocale, tr } from '../../services/i18n/index.js';
 import { Params, visibleSql } from './access.js';
 import { PAYABLE, STATUSES, cents, httpError, payGroup, toCsv, totalsByCurrency } from './logic.js';
 import { SELECT, contextOf, hydrate, listRequests, todayFor } from './service.js';
@@ -39,36 +40,22 @@ export async function registry(req, input = {}) {
   };
 }
 
-const METHOD_TEXT = { bank: { ru: 'Безнал', en: 'Bank' }, cash: { ru: 'Наличные', en: 'Cash' }, card: { ru: 'Карта', en: 'Card' }, other: { ru: 'Другое', en: 'Other' } };
-const STATUS_TEXT = {
-  draft: ['Черновик', 'Draft'],
-  pending: ['На согласовании', 'In approval'],
-  question: ['Нужен ответ', 'Needs an answer'],
-  returned: ['На доработке', 'Returned for rework'],
-  to_pay: ['К оплате', 'To pay'],
-  partially_paid: ['Оплачено частично', 'Partly paid'],
-  paid: ['Оплачено', 'Paid'],
-  delivered: ['Поставлено', 'Delivered'],
-  closed: ['Закрыто', 'Closed'],
-  rejected: ['Отклонено', 'Rejected'],
-  cancelled: ['Отменено', 'Cancelled'],
+const statusText = (status, locale) => {
+  const key = `procurement.status.${status}`;
+  const text = tr(locale, key);
+  return text === key ? status : text;
 };
-const statusText = (status, locale) => STATUS_TEXT[status]?.[locale === 'en' ? 1 : 0] || status;
 const num = (value) => (value === null || value === undefined ? '' : String(cents(value)));
 
 /** CSV of the registry, in the person's language and date format. */
 export async function registryCsv(req, input = {}) {
   const data = await registry(req, input);
   const regional = await requestRegional(req);
-  const locale = req.user?.locale === 'en' || input.lang === 'en' ? 'en' : 'ru';
-  const ru = locale === 'ru';
-  const header = ru
-    ? ['Группа', '№', 'Название', 'Поставщик', 'Юрлицо', 'Оплатить до', 'Сумма', 'Оплачено', 'Остаток', 'Валюта', 'Статус', 'Автор']
-    : ['Group', 'No.', 'Title', 'Supplier', 'Legal entity', 'Pay by', 'Amount', 'Paid', 'Left', 'Currency', 'Status', 'Author'];
-  const groupText = { overdue: ['Просрочено', 'Overdue'], today: ['Сегодня', 'Today'], week: ['На неделе', 'This week'], later: ['Позже', 'Later'] };
+  const locale = exportLocale(input.lang, req.locale);
+  const header = tr(locale, 'procurement.registryCsv.head');
   const rows = data.groups.flatMap((group) =>
     group.items.map((item) => [
-      groupText[group.key][ru ? 0 : 1],
+      tr(locale, `procurement.registryCsv.group.${group.key}`),
       item.number,
       item.title,
       item.supplier?.name || '',
@@ -88,28 +75,28 @@ export async function registryCsv(req, input = {}) {
 // ── List export ─────────────────────────────────────────────────────────────
 
 export const EXPORT_COLUMNS = {
-  number: { ru: '№', en: 'No.', value: (item) => item.number },
-  title: { ru: 'Название', en: 'Title', value: (item) => item.title },
-  amount: { ru: 'Сумма', en: 'Amount', value: (item) => num(item.amount) },
-  currency: { ru: 'Валюта', en: 'Currency', value: (item) => item.currency },
-  paid: { ru: 'Оплачено', en: 'Paid', value: (item) => num(item.paid) },
-  supplier: { ru: 'Поставщик', en: 'Supplier', value: (item) => item.supplier?.name || '' },
-  category: { ru: 'Категория', en: 'Category', value: (item, ctx) => ctx.categories.get(item.category) || item.category || '' },
-  urgency: { ru: 'Срочность', en: 'Urgency', value: (item) => item.urgency || '' },
-  status: { ru: 'Статус', en: 'Status', value: (item, ctx) => statusText(item.status, ctx.locale) },
-  payBy: { ru: 'Оплатить до', en: 'Pay by', value: (item, ctx) => (item.payBy ? formatDate(item.payBy, ctx.regional, ctx.locale) : '') },
-  deliverBy: { ru: 'Поставить до', en: 'Deliver by', value: (item, ctx) => (item.deliverBy ? formatDate(item.deliverBy, ctx.regional, ctx.locale) : '') },
-  responsible: { ru: 'Ответственный', en: 'Responsible', value: (item) => item.responsible?.name || '' },
-  author: { ru: 'Автор', en: 'Author', value: (item) => item.author?.name || '' },
-  legalEntity: { ru: 'Юрлицо', en: 'Legal entity', value: (item) => item.legalEntity?.label || '' },
-  createdAt: { ru: 'Создана', en: 'Created', value: (item, ctx) => formatDateTime(item.createdAt, ctx.regional, ctx.locale) },
+  number: { value: (item) => item.number },
+  title: { value: (item) => item.title },
+  amount: { value: (item) => num(item.amount) },
+  currency: { value: (item) => item.currency },
+  paid: { value: (item) => num(item.paid) },
+  supplier: { value: (item) => item.supplier?.name || '' },
+  category: { value: (item, ctx) => ctx.categories.get(item.category) || item.category || '' },
+  urgency: { value: (item) => item.urgency || '' },
+  status: { value: (item, ctx) => statusText(item.status, ctx.locale) },
+  payBy: { value: (item, ctx) => (item.payBy ? formatDate(item.payBy, ctx.regional, ctx.locale) : '') },
+  deliverBy: { value: (item, ctx) => (item.deliverBy ? formatDate(item.deliverBy, ctx.regional, ctx.locale) : '') },
+  responsible: { value: (item) => item.responsible?.name || '' },
+  author: { value: (item) => item.author?.name || '' },
+  legalEntity: { value: (item) => item.legalEntity?.label || '' },
+  createdAt: { value: (item, ctx) => formatDateTime(item.createdAt, ctx.regional, ctx.locale) },
 };
 
 /** CSV of the list under the current filter; `columns` = the visible columns in their order. */
 export async function listCsv(req, input = {}) {
   const ctx = await contextOf(req);
   const regional = await requestRegional(req);
-  const locale = input.lang === 'en' ? 'en' : 'ru';
+  const locale = exportLocale(input.lang, req.locale);
   const asked = String(input.columns || '').split(',').filter((key) => EXPORT_COLUMNS[key]);
   const columns = asked.length ? asked : ['number', 'title', 'amount', 'currency', 'supplier', 'urgency', 'status', 'payBy', 'deliverBy', 'responsible'];
   const items = [];
@@ -119,7 +106,7 @@ export async function listCsv(req, input = {}) {
     if (items.length >= result.total || !result.items.length) break;
   }
   const helpers = { regional, locale, categories: new Map((ctx.settings.categories || []).map((item) => [item.key, item.name])) };
-  const csv = toCsv(columns.map((key) => EXPORT_COLUMNS[key][locale]), items.map((item) => columns.map((key) => EXPORT_COLUMNS[key].value(item, helpers))));
+  const csv = toCsv(columns.map((key) => tr(locale, `procurement.columns.${key}`)), items.map((item) => columns.map((key) => EXPORT_COLUMNS[key].value(item, helpers))));
   return { csv, filename: `procurement-${await todayFor(req)}.csv` };
 }
 

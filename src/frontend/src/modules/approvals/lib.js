@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { approvalsApi } from './api';
 import { localeTag } from '../../lib/format';
 import { inZone, nowInZone } from '../../lib/datetime';
+import { pick } from '../../i18n/languages';
+import { translate } from '../../i18n/translations';
 
 /** Stock urgency levels, used until the settings load (and for their translated names). */
 export const STOCK_URGENCIES = [
@@ -86,7 +88,7 @@ export function tOr(t, key, fallback, params) {
 }
 
 /** A { ru, en } title or a string. */
-export const tr = (value, locale) => (value && typeof value === 'object' ? value[locale] || value.ru || value.en || '' : value || '');
+export const tr = (value, locale) => pick(value, locale);
 
 export function typeTitle(meta, key, locale, fallback) {
   const type = meta?.types?.find((item) => item.key === key);
@@ -125,7 +127,7 @@ export function formatMoney(amount, currency, locale) {
   const value = Number(amount);
   if (!Number.isFinite(value)) return '';
   const digits = Number.isInteger(value) ? 0 : 2;
-  if (currency === 'KGS') return `${new Intl.NumberFormat(localeTag(locale), { maximumFractionDigits: digits }).format(value)} ${locale === 'ru' ? 'сом' : 'KGS'}`;
+  if (currency === 'KGS') return `${new Intl.NumberFormat(localeTag(locale), { maximumFractionDigits: digits }).format(value)} ${translate(locale, 'format.currency.KGS') ?? 'KGS'}`;
   if (!currency) return new Intl.NumberFormat(localeTag(locale), { maximumFractionDigits: digits }).format(value);
   try {
     return new Intl.NumberFormat(localeTag(locale), { style: 'currency', currency, currencyDisplay: 'narrowSymbol', maximumFractionDigits: digits, minimumFractionDigits: 0 }).format(value);

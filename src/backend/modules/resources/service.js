@@ -3,6 +3,7 @@ import { getSettings, parseSettings } from '../../services/settings.js';
 import { MODULE_CATALOG } from '../catalog.js';
 import { HEX, LEVEL, clean, contextFromRequest, httpError, intId, matches, readAcl, writeAcl } from '../shared/acl.js';
 import { cleanIcon, iconFiles, removeIconFiles } from './icons.js';
+import { SUPPORTED } from '../../services/i18n/index.js';
 
 /*
  * Who sees a resource:
@@ -36,7 +37,8 @@ export function cleanUrl(value) {
   throw httpError(400, 'Enter a web address (https://…), mailto:, tel: or a portal path', 'INVALID_URL');
 }
 
-const LANGS = ['ru', 'en'];
+// Translations of a resource's title and description: any portal language.
+const LANGS = SUPPORTED;
 // Modules a resource can point to (not the resources board itself).
 export const LINKABLE_MODULES = MODULE_CATALOG.filter((module) => !module.overlay && module.id !== 'resources').map((module) => module.id);
 

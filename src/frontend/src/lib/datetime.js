@@ -4,6 +4,9 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import updateLocale from 'dayjs/plugin/updateLocale';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
+import { normalizeLocale } from '../i18n/languages';
+import { translate } from '../i18n/translations';
+import { dayjsLocale } from '../i18n/vendor';
 
 /*
  * Time zones and date/time formats in the browser — the counterpart of
@@ -53,13 +56,13 @@ export function isValidZone(zone) {
   }
 }
 
-const DEFAULTS = { timeZone: deviceZone(), dateFormat: 'DD.MM.YYYY', timeFormat: '24', weekStart: 1, locale: 'ru' };
+const DEFAULTS = { timeZone: deviceZone(), dateFormat: 'DD.MM.YYYY', timeFormat: '24', weekStart: 1, locale: 'en' };
 
 let state = { ...DEFAULTS };
 const listeners = new Set();
 
 /** What applies: the person's overrides over the portal's settings. */
-export function resolveRegional(portal = {}, own = {}, locale = 'ru') {
+export function resolveRegional(portal = {}, own = {}, locale = 'en') {
   const base = {
     timeZone: isValidZone(portal.timeZone) ? portal.timeZone : DEFAULTS.timeZone,
     dateFormat: DATE_FORMATS.includes(portal.dateFormat) ? portal.dateFormat : DEFAULTS.dateFormat,
@@ -72,16 +75,13 @@ export function resolveRegional(portal = {}, own = {}, locale = 'ru') {
     dateFormat: DATE_FORMATS.includes(own?.dateFormat) ? own.dateFormat : base.dateFormat,
     timeFormat: TIME_FORMATS.includes(String(own?.timeFormat)) ? String(own.timeFormat) : base.timeFormat,
     weekStart: WEEK_STARTS.includes(Number(own?.weekStart)) && own?.weekStart !== null && own?.weekStart !== undefined ? Number(own.weekStart) : base.weekStart,
-    locale: locale === 'en' ? 'en' : 'ru',
+    locale: normalizeLocale(locale) || 'en',
   };
 }
 
-export function setRegional(next) {
-  const merged = { ...state, ...next };
-  if (JSON.stringify(merged) === JSON.stringify(state)) return;
-  state = merged;
-  // antd pickers and dayjs weeks follow the week start.
-  for (const name of ['ru', 'en-gb']) {
+/** Week start and AM/PM for every downloaded dayjs locale (call again after loading one). */
+export function tuneDayjsLocales() {
+  for (const name of Object.keys(dayjs.Ls)) {
     try {
       // 12-hour time reads "2:30 PM" in every language, as Intl renders it (ru would say "дня").
       dayjs.updateLocale(name, { weekStart: state.weekStart, meridiem: (hour) => (hour < 12 ? 'AM' : 'PM') });
@@ -89,6 +89,14 @@ export function setRegional(next) {
       /* locale not loaded yet */
     }
   }
+}
+
+export function setRegional(next) {
+  const merged = { ...state, ...next };
+  if (JSON.stringify(merged) === JSON.stringify(state)) return;
+  state = merged;
+  // antd pickers and dayjs weeks follow the week start.
+  tuneDayjsLocales();
   dayjs.tz.setDefault(state.timeZone);
   listeners.forEach((listener) => listener());
 }
@@ -125,7 +133,7 @@ export function inZone(value, r = state) {
 
 export function fmtDate(value, r = state) {
   const d = inZone(value, r);
-  return d ? d.locale(r.locale === 'en' ? 'en-gb' : 'ru').format(r.dateFormat) : '';
+  return d ? d.locale(dayjsLocale(r.locale)).format(r.dateFormat) : '';
 }
 
 export function fmtTime(value, r = state) {
@@ -135,7 +143,7 @@ export function fmtTime(value, r = state) {
 
 export function fmtDateTime(value, r = state) {
   const d = inZone(value, r);
-  return d ? `${d.locale(r.locale === 'en' ? 'en-gb' : 'ru').format(r.dateFormat)}, ${d.format(pickerFormat(r).time)}` : '';
+  return d ? `${d.locale(dayjsLocale(r.locale)).format(r.dateFormat)}, ${d.format(pickerFormat(r).time)}` : '';
 }
 
 /** "Today 14:30", "Tomorrow 09:00", "Yesterday 18:00", else the full date and time. */
@@ -144,8 +152,8 @@ export function fmtSmart(value, r = state) {
   if (!d) return '';
   const today = dayjs().tz(r.timeZone).startOf('day');
   const diff = d.startOf('day').diff(today, 'day');
-  const words = r.locale === 'en' ? { 0: 'Today', 1: 'Tomorrow', '-1': 'Yesterday' } : { 0: 'Сегодня', 1: 'Завтра', '-1': 'Вчера' };
-  if (words[diff] !== undefined) return `${words[diff]}, ${fmtTime(value, r)}`;
+  const word = { 0: 'today', 1: 'tomorrow', '-1': 'yesterday' }[diff];
+  if (word) return `${translate(r.locale, `format.${word}`) ?? word}, ${fmtTime(value, r)}`;
   return fmtDateTime(value, r);
 }
 

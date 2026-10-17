@@ -288,7 +288,7 @@ Used by the console and the tokens page. Tokens cannot call it.
   - core routers are imported directly.
 
   To describe an endpoint, add it to `DOCS` in `src/backend/api/reference.js`: the key is `"METHOD /path"` exactly as declared, the texts are `{ ru, en }`. Describe the module in `SECTIONS`. Undocumented routes are still listed, with their scope.
-- **A new module** gets its own area automatically, from `MODULE_CATALOG`. Add its title and description to `api.areas.<id>` in `i18n/api.js`.
+- **A new module** gets its own area automatically, from `MODULE_CATALOG`. Add its title and description to `areas.<id>` in `locales/<lang>/api.js`.
 - **Events:**
 
   ```js

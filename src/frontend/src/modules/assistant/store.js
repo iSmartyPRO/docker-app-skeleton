@@ -115,14 +115,14 @@ const words = (text) =>
   plain(text)
     .toLowerCase()
     .replace(/ё/g, 'е')
-    .split(/[^a-zа-я0-9]+/i)
+    .split(/[^\p{L}\p{N}]+/u)
     .filter((word) => word.length > 1);
 
 let index = null;
 /** Every help article, section, question and tip as searchable entries. */
 async function helpIndex(locale) {
   if (index?.locale === locale) return index.entries;
-  const all = await loadAllHelp();
+  const all = await loadAllHelp(locale);
   const entries = [];
   all.forEach((doc) => {
     const article = tr(doc.title, locale);

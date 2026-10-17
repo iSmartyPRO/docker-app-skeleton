@@ -7,10 +7,11 @@ import { calendarApi } from '../api';
 import { describeRule } from '../recurrence';
 import { reminderLabel } from './EventDialog';
 import { askScope } from './scope';
+import { dayjsLocale } from '../../../i18n/vendor';
 
 /** "Monday, 13 October, 09:00 – 10:00" in the person's zone and time format. */
 export function formatRange(event, locale) {
-  const lang = locale === 'ru' ? 'ru' : 'en-gb';
+  const lang = dayjsLocale(locale);
   // All-day values are 'YYYY-MM-DD' days (end exclusive); inZone keeps them as is.
   const start = inZone(event.start).locale(lang);
   if (event.allDay) {

@@ -4,6 +4,7 @@ import { useLocale } from '../context/LocaleContext';
 import { isChunkError, isReloading, reloadOnce } from '../lib/chunkReload';
 import { fmtTime } from '../lib/datetime';
 import { BUILD, clientSessionId, reportClientError, supportTime } from '../lib/outage';
+import { normalizeLocale, pick } from '../i18n/languages';
 
 class Boundary extends Component {
   constructor(props) {
@@ -119,10 +120,15 @@ export class RootErrorBoundary extends Component {
 
   render() {
     if (!this.state.error) return this.props.children;
-    const ru = /^ru\b/i.test(document.documentElement.lang || navigator.language || '');
-    const text = ru
-      ? { title: 'Не удалось открыть портал', body: 'Обновите страницу. Если ошибка повторяется, сообщите в поддержку код сессии:', reload: 'Обновить' }
-      : { title: 'The portal could not start', body: 'Reload the page. If it happens again, tell support this session code:', reload: 'Reload' };
+    // Texts inline: the dictionaries may be exactly what failed to load. Add a language here too.
+    const lang = normalizeLocale(document.documentElement.lang) || normalizeLocale(navigator.language) || 'en';
+    const text = pick(
+      {
+        ru: { title: 'Не удалось открыть портал', body: 'Обновите страницу. Если ошибка повторяется, сообщите в поддержку код сессии:', reload: 'Обновить' },
+        en: { title: 'The portal could not start', body: 'Reload the page. If it happens again, tell support this session code:', reload: 'Reload' },
+      },
+      lang
+    );
     return (
       <div role="alert" style={{ maxWidth: 480, margin: '15vh auto', padding: 16, fontFamily: 'system-ui, sans-serif', textAlign: 'center' }}>
         <h1 style={{ fontSize: 20 }}>{text.title}</h1>

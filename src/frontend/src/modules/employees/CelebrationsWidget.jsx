@@ -5,8 +5,9 @@ import { useLocale } from '../../context/LocaleContext';
 import { WidgetState } from '../dashboard/widgets/common';
 import { empApi } from './api';
 import { initials } from './lib';
+import { localeTag } from '../../i18n/languages';
 
-const dayMonth = (date, locale) => new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`));
+const dayMonth = (date, locale) => new Intl.DateTimeFormat(localeTag(locale), { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`));
 
 /** Dashboard widget «Дни рождения и годовщины» (spec §4.2); the module's privacy setting decides what shows. */
 export default function CelebrationsWidget() {

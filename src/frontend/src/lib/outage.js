@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import axios from 'axios';
 import { fmtDateTime, getRegional } from './datetime';
+import { t } from '../i18n/translations';
 
 /*
  * Outages: the server restarting (deploys), the database gone, the network
@@ -165,12 +166,12 @@ export function supportTime(at = new Date()) {
 
 export function outageDetails({ code, requestId } = state) {
   return [
-    `Код: ${code || '—'}`,
-    `Запрос: ${requestId || '—'}`,
-    `Сессия: ${clientSessionId()}`,
-    `Время: ${supportTime()}`,
-    `Страница: ${window.location.pathname}`,
-    `Сборка: ${BUILD}`,
+    `${t('outage.details.code')}: ${code || '—'}`,
+    `${t('outage.details.request')}: ${requestId || '—'}`,
+    `${t('outage.details.session')}: ${clientSessionId()}`,
+    `${t('outage.details.time')}: ${supportTime()}`,
+    `${t('outage.details.page')}: ${window.location.pathname}`,
+    `${t('outage.details.build')}: ${BUILD}`,
   ].join('\n');
 }
 

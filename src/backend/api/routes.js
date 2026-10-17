@@ -14,6 +14,7 @@ import { EVENT_CATALOG } from './events.js';
 import { endpoints } from './introspect.js';
 import { openApi } from './openapi.js';
 import { ERRORS, SECTIONS } from './reference.js';
+import { localeOrDefault } from '../services/i18n/index.js';
 
 /*
  *   /api/admin/api/*     the API console (permission api.admin)
@@ -199,7 +200,7 @@ export function developerRoutes() {
 
   router.get('/openapi.json', wrap(async (req, res) => {
     const parsed = parseSettings(await getSettings());
-    const spec = openApi({ origin: originOf(req), lang: req.query.lang === 'ru' ? 'ru' : 'en', appName: parsed.appName, version: parsed.appVersion || '1.0.0' });
+    const spec = openApi({ origin: originOf(req), lang: localeOrDefault(req.query.lang), appName: parsed.appName, version: parsed.appVersion || '1.0.0' });
     if (req.query.download === '1') res.setHeader('Content-Disposition', 'attachment; filename="openapi.json"');
     res.json(spec);
   }));

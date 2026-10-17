@@ -73,7 +73,7 @@ The item automatically gets the path `/admin/settings/maintenance`, a card in th
 maintenance: lazy(() => import('../pages/admin/settings/Maintenance')),
 ```
 
-**3. Add copy** — `src/frontend/src/i18n/translations.js`, in **both** `en` and `ru` under `settings`:
+**3. Add copy** — `src/frontend/src/locales/en/settings.js` and `locales/ru/settings.js` (see [i18n.md](i18n.md)):
 
 ```js
 maintenance: {
@@ -401,16 +401,16 @@ Render content inside `<PublicLayout>` to get the header and footer.
 
 ## Add translations
 
-`src/frontend/src/i18n/translations.js` holds one dictionary per locale.
+Texts live in `src/frontend/src/locales/<lang>/<namespace>.js` (one file per top-level key) and, for the server, in `src/backend/locales/<lang>/<area>.js`. The full guide — adding a key, a namespace or a language, plurals, help articles, the check — is [i18n.md](i18n.md).
 
 ```js
 const { t } = useLocale();
 t('dashboard.greeting', { name: user.displayName }); // "Welcome back, {name}"
+t('files.selected', { count: 3 });                    // files.selected_one / _few / _many / _other
 ```
 
-- Missing keys fall back to English, then to the key itself — a raw key on screen means a missing translation.
-- Add every key to **both** `en` and `ru`.
-- To add a language: add a dictionary, register it in `dictionaries`, add a flag button in `components/LanguageSwitch.jsx`, add the antd locale in `App.jsx`, and allow the code in `updateUser()` (`services/users.js`).
+- Missing keys fall back to English (already merged into every language bundle), then to the key itself — a raw key on screen means a missing English text.
+- Add every key to **both** `en` and `ru`; `npm run i18n:check` fails otherwise.
 
 ---
 
@@ -474,7 +474,7 @@ Tours are anchored to the page with `data-tour="…"` attributes. The engine dim
    ```
 
    `placement`: `top | bottom | left | right | auto`; `route` per step opens another page; `when(ctx)` (`{ can, canAny, user, settings, phone }`) hides a step whose anchor exists for everyone. Texts may use `{app}` (the portal name).
-3. Texts in `src/frontend/src/i18n/tours.js` under `tour.<id>.*`, Russian and English (`test/tours.test.js` checks both).
+3. Texts in `src/frontend/src/locales/<lang>/tour.js` under `tour.<id>.*`, Russian and English (`test/tours.test.js` checks both).
 4. Nothing else: modules in a `SideRail` get a «Тур» button next to their name automatically; elsewhere put `<TourButton module="crm" />` (renders only when the module has a tour). The help drawer offers the tour of its section, and the Modules page («Тур») finds it through the manifest bridge.
 
 **API** (`src/frontend/src/tour`): `registerTour(def)`, `hasTour(moduleId)`, `tourForModule(moduleId)`, `startTour(idOrModuleId)` (works outside React), `useTour()` → `{ startTour, hasTour, running, state, setDisabled }`, `<TourButton module iconOnly />`, `registerManifestTours(manifests)`. The provider installs itself as the runner of `modules/manifest.js` (`setTourRunner`), accepting a tour id, a tour object or a loader in a manifest's `tour`.
@@ -506,7 +506,7 @@ Shared building blocks for barcodes (used by the Warehouse module; usable anywhe
 | Label preview and print dialog | `components/ui/Labels.jsx` |
 | Encoders (Code 128, EAN-13, QR → SVG), print document | `lib/labels.js` (pure, unit-tested) |
 | Wedge burst detection, repeat guard | `lib/scanBurst.js` (pure, unit-tested) |
-| Strings | `i18n/scan.js` (`scanner.*`, `labelPrint.*`) |
+| Strings | `locales/<lang>/scanner.js`, `labelPrint.js` (`scanner.*`, `labelPrint.*`) |
 
 **Camera scanner.** Full screen on phones, a dialog on larger screens. Uses the native `BarcodeDetector` where it exists and otherwise loads WebAssembly ZXing (`zxing-wasm`) on first use, as a separate chunk + `.wasm` served from our origin. It reads EAN-13/8, UPC-A/E, Code 128, Code 39, QR and DataMatrix.
 
@@ -564,7 +564,7 @@ const qr = renderBarcodeSVG('https://…', 'qr', { moduleSize: 4 });
 
 ## Public link permissions
 
-`components/ui/LinkPermissions.jsx` is the shared picker for what a public share link allows (used by Files, reusable by Drive). It is presentational: the server must enforce every key on every route. Strings live in `i18n/linkPerms.js` (`linkPerms.*`). The normalisation rule (`normalizePermissions`: everything except `upload` needs `view` and is dropped without it) lives in `src/frontend/src/lib/linkPermissions.js` and mirrors the server's `modules/shared/linkPermissions.js`, which Files and Drive both use; `test/link-review.test.js` checks that all three agree.
+`components/ui/LinkPermissions.jsx` is the shared picker for what a public share link allows (used by Files, reusable by Drive). It is presentational: the server must enforce every key on every route. Strings live in `locales/<lang>/linkPerms.js` (`linkPerms.*`). The normalisation rule (`normalizePermissions`: everything except `upload` needs `view` and is dropped without it) lives in `src/frontend/src/lib/linkPermissions.js` and mirrors the server's `modules/shared/linkPermissions.js`, which Files and Drive both use; `test/link-review.test.js` checks that all three agree.
 
 Keys: `view` (list + preview), `download`, `upload` (new files), `mkdir`, `rename` (rename and move), `replace` (new version of a file), `delete` (to the trash). Everything except `upload` needs `view`; `upload` without `view` is an upload-only drop box. File links support `view`, `download` and `replace` only.
 
@@ -639,7 +639,7 @@ export const MODULE_UI = {
 - `tour` is whatever the tour runner understands (an id, a tour object or `() => import('../tours/x')`).
   The tours framework installs its runner once with `setTourRunner((tour, { moduleId }) => …)`;
   `useModuleTour(id)` → `{ available, start }` drives the *Tour* buttons (Modules page, «О модуле»).
-- Derived automatically: `hasAdminDocs(id)` (`help/admin/<id>.js`), `hasUserHelp(id)` (`help/content/<id>.js`),
+- Derived automatically: `hasAdminDocs(id)` (`help/admin/<lang>/<id>.js`), `hasUserHelp(id)` (`help/content/<lang>/<id>.js`),
   `moduleUi(id)` (icon, labelKey, descKey, Settings, path from `registry.js`), `useModulesCatalog()` (the API above).
 
 Switching modules goes through `PUT /api/admin/settings { modules: { id: { enabled, alsoEnable } } }`;
@@ -722,7 +722,7 @@ A module that cannot have demo data registers only the explanation: `registerDem
 
 Each module has an administrator page «О модуле» at `/admin/modules/<id>/docs`, linked from its card in
 Settings → Modules, the «О модуле» button in its settings header (`SettingsPageHeader` adds it for every
-item of the `modules` group) and the ⌘K palette. Write `src/frontend/src/help/admin/<id>.js`
+item of the `modules` group) and the ⌘K palette. Write `src/frontend/src/help/admin/<lang>/<id>.js`
 (schema: [`help/ADMIN_SCHEMA.md`](../src/frontend/src/help/ADMIN_SCHEMA.md)):
 
 ```js
@@ -739,7 +739,7 @@ export default {
 
 The page adds by itself: version, status, category and changelog (manifest), **every permission** of the
 module with its i18n title and description, requirements and links (with their on/off state, and the
-modules this one enhances), the highlights and section links of the user guide `help/content/<id>.js`.
+modules this one enhances), the highlights and section links of the user guide `help/content/<lang>/<id>.js`.
 
 ## Optional links inside a module (ModuleHint)
 

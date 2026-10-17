@@ -7,6 +7,7 @@ import { runRecurring } from './templates.js';
 import { registerTaskChat } from './chat.js';
 import { purgeDraftFiles } from './extras.js';
 import { registerTasksInbox, runAcceptanceJob } from './acceptance.js';
+import { tr } from '../../services/i18n/index.js';
 
 /*
  * Tasks: projects (with access lists and their own workflow of statuses),
@@ -387,30 +388,28 @@ export async function ensurePersonalProject() {
     const key = (await client.query(`SELECT 1 FROM task_projects WHERE key = 'TSK'`)).rows.length ? 'TASK' : 'TSK';
     const created = await client.query(
       `INSERT INTO task_projects (key, name, description, color, icon, is_personal) VALUES ($1, $2, '', '#64748B', 'tasks', TRUE) RETURNING id`,
-      [key, locale === 'ru' ? 'Без проекта' : 'No project']
+      [key, tr(locale, 'tasks.noProject')]
     );
     await insertStatuses(client, created.rows[0].id, locale);
     return created.rows[0].id;
   });
 }
 
-export const DEFAULT_STATUSES = {
-  en: [
-    { name: 'To do', color: '#94A3B8', category: 'todo' },
-    { name: 'In progress', color: '#3B82F6', category: 'active' },
-    { name: 'Review', color: '#F59E0B', category: 'active' },
-    { name: 'Done', color: '#10B981', category: 'done' },
-  ],
-  ru: [
-    { name: 'К выполнению', color: '#94A3B8', category: 'todo' },
-    { name: 'В работе', color: '#3B82F6', category: 'active' },
-    { name: 'На проверке', color: '#F59E0B', category: 'active' },
-    { name: 'Готово', color: '#10B981', category: 'done' },
-  ],
+/** Statuses of a new project; names: locales/<lang>/tasks.js → statuses (same order). */
+const DEFAULT_STATUS_SHAPE = [
+  { color: '#94A3B8', category: 'todo' },
+  { color: '#3B82F6', category: 'active' },
+  { color: '#F59E0B', category: 'active' },
+  { color: '#10B981', category: 'done' },
+];
+
+export const defaultStatuses = (locale) => {
+  const names = tr(locale, 'tasks.statuses');
+  return DEFAULT_STATUS_SHAPE.map((status, index) => ({ name: names[index], ...status }));
 };
 
 export async function insertStatuses(client, projectId, locale) {
-  const list = DEFAULT_STATUSES[locale === 'ru' ? 'ru' : 'en'];
+  const list = defaultStatuses(locale);
   for (const [index, status] of list.entries()) {
     await client.query(
       `INSERT INTO task_statuses (project_id, name, color, category, sort) VALUES ($1, $2, $3, $4, $5)`,
@@ -425,14 +424,13 @@ async function seedTasks() {
   const { rows } = await query(`SELECT id, locale FROM users ORDER BY id LIMIT 1`);
   if (!rows[0]) return;
   const locale = process.env.SEED_LOCALE || rows[0].locale || 'en';
-  const ru = locale === 'ru';
   await withTransaction(async (client) => {
     const project = await client.query(
       `INSERT INTO task_projects (key, name, description, color, icon, created_by)
        VALUES ('GEN', $1, $2, '#6366F1', 'rocket', $3) ON CONFLICT (key) DO NOTHING RETURNING id`,
       [
-        ru ? 'Общие задачи' : 'General',
-        ru ? 'Задачи команды, которые не относятся к отдельному проекту.' : 'Team tasks that do not belong to a specific project.',
+        tr(locale, 'tasks.starter.name'),
+        tr(locale, 'tasks.starter.description'),
         rows[0].id,
       ]
     );

@@ -39,7 +39,7 @@ function translateFor(code, key, params, fallback) {
 
 /** Create or edit a resource with a live tile preview. */
 export default function ResourceDialog({ open, item, categories, onClose }) {
-  const { t, locale, portalDefault } = useLocale();
+  const { t, locale, portalDefault, languages } = useLocale();
   const { settings } = useSettings();
   const { message } = App.useApp();
   const [form] = Form.useForm();
@@ -187,11 +187,11 @@ export default function ResourceDialog({ open, item, categories, onClose }) {
             <Segmented
               value={lang}
               onChange={setLang}
-              options={['ru', 'en'].map((code) => ({
+              options={languages.map(({ code, name, tag }) => ({
                 value: code,
                 label: (
-                  <span>
-                    {code === 'ru' ? 'Русский' : 'English'}
+                  <span lang={tag}>
+                    {name}
                     {values.i18n?.[code]?.title ? <em>✓</em> : null}
                   </span>
                 ),
@@ -199,7 +199,7 @@ export default function ResourceDialog({ open, item, categories, onClose }) {
             />
             <span className="rs-lang-tabs__hint">{t('resources.translationsHint')}</span>
           </div>
-          {['ru', 'en'].map((code) => (
+          {languages.map(({ code }) => (
             <div key={code} hidden={code !== lang}>
               <Form.Item name={['i18n', code, 'title']} label={`${t('resources.fieldTitle')} · ${code.toUpperCase()}`}>
                 <Input

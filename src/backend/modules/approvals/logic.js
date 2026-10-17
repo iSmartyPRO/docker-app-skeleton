@@ -1,3 +1,4 @@
+import { pick } from '../../services/i18n/index.js';
 /*
  * Pure pieces of the approvals engine (no database): route cleaning,
  * stage conditions, stage closing, SLA arithmetic. Unit-tested in
@@ -31,7 +32,7 @@ const stageId = () => `s${Date.now().toString(36)}${Math.random().toString(36).s
 
 /** A { ru, en } title or a string, picked for a locale. */
 export function localized(value, locale = 'ru') {
-  if (value && typeof value === 'object') return value[locale] || value.ru || value.en || '';
+  if (value && typeof value === 'object') return pick(value, locale);
   return value == null ? '' : String(value);
 }
 

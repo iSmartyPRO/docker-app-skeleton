@@ -1,0 +1,15 @@
+export default {
+  details: 'Details for support',
+  copy: 'Copy details',
+  copied: 'Copied',
+  code: 'Code',
+  session: 'Session',
+  incident: 'Incident',
+  title: 'This page did not load',
+  text: 'Something went wrong while opening it. Reload the page — your data is safe.',
+  updateTitle: 'A new version is available',
+  updateText: 'The portal was updated while this tab was open. Reload to continue.',
+  updating: 'Loading the new version…',
+  reload: 'Reload',
+  home: 'Home',
+};

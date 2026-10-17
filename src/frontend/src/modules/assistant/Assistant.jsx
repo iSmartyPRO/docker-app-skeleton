@@ -254,7 +254,7 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
     let alive = true;
     const first = greetedRef.current.length === 0;
     const timer = setTimeout(async () => {
-      const doc = await loadHelp(section);
+      const doc = await loadHelp(section, locale);
       if (!alive || !doc) return;
       setBubble({ first, title: tr(doc.title, locale) });
       setMood('wave', 2600);
@@ -436,7 +436,7 @@ function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, on
 
   useEffect(() => {
     let alive = true;
-    loadHelp(section).then((content) => {
+    loadHelp(section, locale).then((content) => {
       if (!alive) return;
       setDoc(content);
       setTip(Math.floor(Math.random() * Math.max(1, content?.tips?.length || 1)));
@@ -444,7 +444,7 @@ function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, on
     return () => {
       alive = false;
     };
-  }, [section]);
+  }, [section, locale]);
 
   // Search as the person types; the robot "thinks" meanwhile.
   useEffect(() => {

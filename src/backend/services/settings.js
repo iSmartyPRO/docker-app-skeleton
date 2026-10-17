@@ -9,6 +9,7 @@ import { MODULE_CATALOG, MODULE_IDS, resolveModules, sanitizeModules } from '../
 import { EDITING_DEFAULTS, sanitizeEditing } from './office/editing.js';
 import { sanitizeDefaultTheme, sanitizeThemePolicy } from './themeCatalog.js';
 import { planModuleChanges } from '../modules/dependencies.js';
+import { SUPPORTED, acceptLanguages, resolveLocale, sanitizeLocalization } from './i18n/index.js';
 
 export const DEFAULTS = {
   app_name: 'docker-app-skeleton',
@@ -209,6 +210,40 @@ export async function getSettings({ fresh = false } = {}) {
   return { ...settings };
 }
 
+/*
+ * Parsed settings for read-only hot paths (every request: rate limit, module
+ * switch, language, regional settings). parseSettings re-parses every JSON
+ * value each call — it was ~16% of the server's CPU under load. The parse is
+ * kept as long as the raw cache above is (same object = same contents) and is
+ * deep-frozen, so a caller that tries to change it fails loudly instead of
+ * changing it for everyone. Code that edits settings keeps using
+ * parseSettings(await getSettings()), which returns its own copy.
+ */
+let parsedCache = null;
+let parsedFrom = null;
+
+function deepFreeze(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const key of Object.keys(value)) deepFreeze(value[key]);
+  }
+  return value;
+}
+
+export async function getSettingsView() {
+  const raw = await getSettings();
+  if (!parsedCache || parsedFrom !== cached || !cached) {
+    const parsed = deepFreeze(parseSettings(raw));
+    // Raw cache replaced while parsing (invalidated): do not keep this one.
+    if (cached) {
+      parsedCache = parsed;
+      parsedFrom = cached;
+    }
+    return parsed;
+  }
+  return parsedCache;
+}
+
 export async function getSetting(key, fallback = null) {
   const result = await query('SELECT value FROM app_settings WHERE key = $1', [
     key,
@@ -291,6 +326,8 @@ export function parseSettings(raw) {
     ])
   );
 
+  const localization = sanitizeLocalization(parseJson(raw.localization, null), raw.default_locale);
+
   return {
     appName: raw.app_name || DEFAULTS.app_name,
     appVersion: APP_VERSION,
@@ -302,8 +339,12 @@ export function parseSettings(raw) {
     homePage: MODULE_IDS.includes(raw.home_page) ? raw.home_page : 'landing',
     // Demo data present (services/demo.js keeps it): { active, modules, updatedAt }.
     demo: parseJson(raw.demo_state, {}),
-    // Interface language for people who have not chosen one: 'auto' = the browser's language.
-    defaultLocale: ['ru', 'en'].includes(raw.default_locale) ? raw.default_locale : 'auto',
+    // Interface languages (Settings → Languages, superadministrators): which are
+    // enabled and in what order, the default ('browser' or a language) and the
+    // fallback for 'browser'. Portals from before keep their old single setting.
+    localization,
+    // The old single setting, still answered: 'auto' (browser) | a language code.
+    defaultLocale: localization.default === 'browser' ? 'auto' : localization.default,
     // Time zone and date/time formats of the whole portal (services/datetime.js).
     regional: sanitizeRegional(parseJson(raw.regional, {})),
     rateLimit: {
@@ -382,6 +423,32 @@ const AUTH_INTEGRATION = {
   mattermostCode: 'Mattermost',
 };
 
+/**
+ * A localization patch, checked strictly (a wrong value is refused, never
+ * silently fixed): `enabled` — at least one supported language, no repeats,
+ * in display order; `default` — 'browser' or an enabled language; `fallback`
+ * — an enabled language (defaults to English when enabled, else the first).
+ */
+export function validateLocalization(input) {
+  const fail = (message, code = 'LOCALIZATION_INVALID') => {
+    const error = new Error(message);
+    error.statusCode = 400;
+    error.code = code;
+    throw error;
+  };
+  if (!input || typeof input !== 'object' || Array.isArray(input)) fail('Localization settings must be an object');
+  const enabled = input.enabled;
+  if (!Array.isArray(enabled) || !enabled.length) fail('At least one language must stay enabled', 'LOCALIZATION_EMPTY');
+  if (enabled.some((code) => !SUPPORTED.includes(code))) fail(`Unknown language; supported: ${SUPPORTED.join(', ')}`);
+  if (new Set(enabled).size !== enabled.length) fail('A language is listed twice');
+  const def = input.default ?? 'browser';
+  if (def !== 'browser' && !enabled.includes(def)) fail('The default language must be enabled (or "browser")');
+  let fallback = input.fallback;
+  if (fallback === undefined || fallback === null || fallback === '') fallback = enabled.includes('en') ? 'en' : enabled[0];
+  if (!enabled.includes(fallback)) fail('The fallback language must be enabled');
+  return { enabled: [...enabled], default: def, fallback };
+}
+
 export function sanitizeAuth(current, incoming, readiness) {
   const src = incoming && typeof incoming === 'object' ? incoming : {};
   const next = structuredClone(current);
@@ -440,10 +507,18 @@ export function sanitizeAuth(current, incoming, readiness) {
  * Language for server-made texts (emails, notifications, codes) to a person:
  * their own choice, else the portal default, else English.
  */
-export async function localeFor(user) {
-  if (user?.locale === 'ru' || user?.locale === 'en') return user.locale;
-  const fallback = parseSettings(await getSettings()).defaultLocale;
-  return fallback === 'ru' ? 'ru' : 'en';
+export async function localeFor(user, { acceptLanguage } = {}) {
+  return recipientLocale(user, (await getSettingsView()).localization, acceptLanguages(acceptLanguage));
+}
+
+/**
+ * The same, with the settings at hand (for loops over many recipients):
+ * the person's language when it is enabled, else the portal default — a
+ * language, or for "browser" the first enabled one of `browser` (Accept-Language
+ * of a request), else the fallback language.
+ */
+export function recipientLocale(user, localization, browser = []) {
+  return resolveLocale({ profile: user?.locale, localization, browser }).locale;
 }
 
 export function toPublicSettings(parsed) {
@@ -456,6 +531,7 @@ export function toPublicSettings(parsed) {
     // The «Demo mode» banner (administrators see it while demo data exists).
     demo: { active: Boolean(parsed.demo?.active) },
     defaultLocale: parsed.defaultLocale,
+    localization: parsed.localization,
     regional: parsed.regional,
     appearance: parsed.appearance,
     // Only on/off — module system settings stay admin-only.
@@ -728,8 +804,13 @@ export async function updateAdminSettings(patch, { locked = false } = {}) {
   if (patch.regional && typeof patch.regional === 'object') {
     await setSetting('regional', JSON.stringify(sanitizeRegional(patch.regional, parsed.regional)));
   }
-  if (['auto', 'ru', 'en'].includes(patch.defaultLocale)) {
-    await setSetting('default_locale', patch.defaultLocale);
+  if (patch.localization !== undefined || patch.defaultLocale !== undefined) {
+    const next = patch.localization !== undefined
+      ? validateLocalization(patch.localization)
+      : validateLocalization({ ...parsed.localization, default: patch.defaultLocale === 'auto' ? 'browser' : patch.defaultLocale });
+    await setSetting('localization', JSON.stringify(next));
+    // Kept in step for anything that still reads the old key.
+    await setSetting('default_locale', next.default === 'browser' ? 'auto' : next.default);
   }
   if (patch.homePage === 'landing' || MODULE_IDS.includes(patch.homePage)) {
     await setSetting('home_page', patch.homePage);
@@ -848,5 +929,5 @@ export async function setGoogleSender({ email = '', sealedToken = '' } = {}) {
 
 /** The region settings that apply to a person (users row or null), over the portal's. */
 export async function regionalFor(user) {
-  return resolveRegional(parseSettings(await getSettings()).regional || REGIONAL_DEFAULTS, user);
+  return resolveRegional((await getSettingsView()).regional || REGIONAL_DEFAULTS, user);
 }

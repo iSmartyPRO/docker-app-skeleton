@@ -8,6 +8,7 @@ const Integration = lazy(() => import('../pages/admin/settings/Integration'));
 
 export const SETTINGS_PAGES = {
   general: lazy(() => import('../pages/admin/settings/General')),
+  languages: lazy(() => import('../pages/admin/settings/Languages')),
   theme: lazy(() => import('../pages/admin/settings/Theme')),
   typography: lazy(() => import('../pages/admin/settings/Typography')),
   icons: lazy(() => import('../pages/admin/settings/MenuIcons')),

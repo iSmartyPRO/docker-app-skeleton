@@ -315,7 +315,7 @@ export async function addResult(ctx, taskRefOrId, input = {}) {
       module: 'tasks',
       link: `/app/tasks/${ref}`,
       actorId: ctx.userId,
-      render: (locale) => (locale === 'ru' ? { title: `Результат по задаче ${ref}`, body: `${row.title}\n${body.slice(0, 200)}` } : { title: `Result added to ${ref}`, body: `${row.title}\n${body.slice(0, 200)}` }),
+      render: taskMessage('result', { ref, title: row.title, text: body.slice(0, 200) }),
     });
   }
   return { id: rows[0].id };

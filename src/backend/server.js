@@ -11,12 +11,14 @@ import { closePool, tryConnectDB } from './config/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { ipGuard } from './middleware/ipGuard.js';
 import { trustProxy } from './services/security.js';
-import { getSettings, parseSettings } from './services/settings.js';
+import { getSettings, getSettingsView, parseSettings } from './services/settings.js';
 import { verifyToken } from './services/auth.js';
 import { bootstrapSchema, schemaBootstrapped } from './services/schema.js';
 import { APP_VERSION } from './config/version.js';
 import apiRoutes from './routes/index.js';
 import { requestIds } from './services/incidents.js';
+import { installProcessGuards } from './services/processGuards.js';
+import { stopScheduler } from './services/scheduler.js';
 import { tokenGate, versionPrefix } from './api/gate.js';
 import { closeAllStreams } from './modules/chat/realtime.js';
 import { shellMiddleware } from './services/linkPreview/index.js';
@@ -73,6 +75,8 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/ready', async (req, res) => {
+  // Draining after SIGTERM: a load balancer stops sending new work here.
+  if (shuttingDown) return res.status(503).json({ status: 'shutting_down' });
   const db = await tryConnectDB();
   if (!db.ok) {
     return res.status(503).json({
@@ -214,7 +218,7 @@ async function start() {
       limit: async (req) => {
         let limits = boot;
         try {
-          limits = parseSettings(await getSettings()).rateLimit;
+          limits = (await getSettingsView()).rateLimit;
         } catch {
           /* keep boot values */
         }
@@ -287,6 +291,8 @@ async function start() {
     // forever: end the chat streams, drop idle connections, and give requests
     // in flight a moment before every remaining connection (other streams
     // included) is closed.
+    // No new background jobs start; the ones running finish within the grace period.
+    stopScheduler();
     closeAllStreams();
     server.closeIdleConnections?.();
     setTimeout(() => server.closeAllConnections?.(), 3000).unref();
@@ -299,6 +305,8 @@ async function start() {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
+
+installProcessGuards();
 
 start().catch((error) => {
   console.error('Failed to start server:', error);

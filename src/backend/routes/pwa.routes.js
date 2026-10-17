@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { refuseImpersonation, requireAuth } from '../middleware/auth.js';
 import { countSubscriptions, pushToUser, removeSubscription, saveSubscription, vapidKeys } from '../services/push.js';
-import { getSettings, parseSettings } from '../services/settings.js';
+import { getSettings, parseSettings, recipientLocale } from '../services/settings.js';
+import { acceptLanguages, localeTag, tr } from '../services/i18n/index.js';
 
 /*
  * Progressive Web App: the manifest is built from settings, so the installed
@@ -18,10 +19,11 @@ const wrap = (handler) => async (req, res, next) => {
   }
 };
 
+// Names: locales/<lang>/core.js → pwa.shortcuts.
 const SHORTCUTS = {
-  tasks: { en: 'Tasks', ru: 'Задачи', url: '/app/tasks' },
-  calendar: { en: 'Calendar', ru: 'Календарь', url: '/app/calendar' },
-  kb: { en: 'Knowledge base', ru: 'База знаний', url: '/app/kb' },
+  tasks: { url: '/app/tasks' },
+  calendar: { url: '/app/calendar' },
+  kb: { url: '/app/kb' },
 };
 
 function shortName(name) {
@@ -65,7 +67,7 @@ export function buildManifest(parsed, lang = 'en') {
     name: parsed.appName,
     short_name: shortName(appearance.shortName || parsed.appName),
     description: parsed.appDescription,
-    lang,
+    lang: localeTag(lang),
     start_url: '/?source=pwa',
     scope: '/',
     display: 'standalone',
@@ -77,13 +79,14 @@ export function buildManifest(parsed, lang = 'en') {
     icons,
     shortcuts: Object.entries(SHORTCUTS)
       .filter(([id]) => parsed.modules?.[id]?.enabled)
-      .map(([, item]) => ({ name: item[lang] || item.en, url: item.url })),
+      .map(([id, item]) => ({ name: tr(lang, `core.pwa.shortcuts.${id}`), url: item.url })),
   };
 }
 
 router.get('/manifest.webmanifest', wrap(async (req, res) => {
   const parsed = parseSettings(await getSettings());
-  const lang = /^ru\b/i.test(String(req.get('accept-language') || '')) ? 'ru' : 'en';
+  // The language a guest's interface would open in: portal default, or the browser's among the enabled ones.
+  const lang = recipientLocale(null, parsed.localization, acceptLanguages(req.get('accept-language')));
   res.set('Content-Type', 'application/manifest+json; charset=utf-8');
   res.set('Cache-Control', 'no-cache');
   res.send(JSON.stringify(buildManifest(parsed, lang)));
@@ -133,10 +136,9 @@ router.delete('/push', requireAuth, refuseImpersonation, wrap(async (req, res) =
 }));
 
 router.post('/push/test', requireAuth, refuseImpersonation, wrap(async (req, res) => {
-  const ru = req.locale === 'ru';
   const delivered = await pushToUser(req.user.id, {
-    title: ru ? 'Уведомления работают' : 'Notifications work',
-    body: ru ? 'Так будут выглядеть уведомления на этом устройстве.' : 'This is how notifications will look on this device.',
+    title: tr(req.locale, 'core.pwa.pushTest.title'),
+    body: tr(req.locale, 'core.pwa.pushTest.body'),
     url: '/account/notifications',
     tag: 'test',
   });

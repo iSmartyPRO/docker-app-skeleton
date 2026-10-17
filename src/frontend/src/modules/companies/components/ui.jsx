@@ -3,6 +3,7 @@ import { App, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { colorFor, initials, relationLabel } from '../api';
 import { intlOptions } from '../../../lib/datetime';
+import { localeTag } from '../../../i18n/languages';
 
 export function Flag({ meta, country, withName }) {
   const { locale } = useLocale();
@@ -163,5 +164,5 @@ export function formatDate(value, locale) {
   const date = new Date(day ? `${value}T00:00:00` : value);
   if (Number.isNaN(date.getTime())) return value;
   const options = { day: 'numeric', month: 'long', year: 'numeric' };
-  return date.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', day ? options : intlOptions(options));
+  return date.toLocaleDateString(localeTag(locale), day ? options : intlOptions(options));
 }

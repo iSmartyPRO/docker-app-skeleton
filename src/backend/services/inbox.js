@@ -34,11 +34,10 @@
  * out (the response lists the failed keys).
  */
 
-import { getSettings, parseSettings } from './settings.js';
+import { getSettingsView } from './settings.js';
 
 async function isModuleEnabled(id) {
-  const parsed = parseSettings(await getSettings());
-  return Boolean(parsed.modules?.[id]?.enabled);
+  return Boolean((await getSettingsView()).modules?.[id]?.enabled);
 }
 
 const providers = new Map();

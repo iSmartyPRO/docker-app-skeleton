@@ -4,6 +4,7 @@ import { clean, httpError, intId } from '../shared/acl.js';
 import { COLUMNS, FROM, hydrate } from './deals.js';
 import { buildFilter, cleanFilter, orderBy } from './filters.js';
 import { CsvNumber, MAX_EXPORT, Params, boundsFor, csvCell, csvNumber, money, parseDateOnly, toDateString } from './util.js';
+import { decimalSeparator, localeOrDefault, tr } from '../../services/i18n/index.js';
 
 /* Calendar, CSV export and personal saved filters (presets). */
 
@@ -53,27 +54,27 @@ export async function calendar(ctx, input = {}) {
 // ── Export ──────────────────────────────────────────────────────────────────
 
 const EXPORT_COLUMNS = {
-  id: { title: 'ID', value: (deal) => deal.id },
-  title: { title: 'Название', value: (deal) => deal.title },
-  pipeline: { title: 'Воронка', value: (deal, row) => row.pipeline_name },
-  stage: { title: 'Стадия', value: (deal, row) => row.stage_name },
-  amount: { title: 'Сумма', value: (deal) => new CsvNumber(deal.amount.toFixed(2).replace('.', ',')) },
-  currency: { title: 'Валюта', value: (deal) => deal.currency },
-  company: { title: 'Компания', value: (deal) => deal.company?.name },
-  person: { title: 'Контакт', value: (deal) => deal.person?.name },
-  phone: { title: 'Телефон', value: (deal) => deal.person?.phone },
-  email: { title: 'E-mail', value: (deal) => deal.person?.email },
-  owner: { title: 'Ответственный', value: (deal) => deal.owner?.name },
-  source: { title: 'Источник', value: (deal) => deal.source },
-  closeDate: { title: 'Дата закрытия', value: (deal) => deal.closeDate },
-  createdAt: { title: 'Создана', value: (deal, row, zone) => stamp(deal.createdAt, zone) },
-  updatedAt: { title: 'Изменена', value: (deal, row, zone) => stamp(deal.updatedAt, zone) },
-  closedAt: { title: 'Закрыта', value: (deal, row, zone) => stamp(deal.closedAt, zone) },
-  createdBy: { title: 'Создал', value: (deal) => deal.createdBy?.name },
-  comment: { title: 'Комментарий', value: (deal) => deal.comment },
-  lostReason: { title: 'Причина провала', value: (deal) => deal.lostReason },
-  watchers: { title: 'Наблюдатели', value: (deal) => deal.watchers.map((user) => user.name).join(', ') },
-  nextActivity: { title: 'Ближайшее дело', value: (deal, row, zone) => (deal.activity.next ? `${stamp(deal.activity.next.dueAt, zone) || ''} ${deal.activity.next.title}`.trim() : '') },
+  id: { value: (deal) => deal.id },
+  title: { value: (deal) => deal.title },
+  pipeline: { value: (deal, row) => row.pipeline_name },
+  stage: { value: (deal, row) => row.stage_name },
+  amount: { value: (deal, row, zone, locale) => new CsvNumber(deal.amount.toFixed(2).replace('.', decimalSeparator(locale))) },
+  currency: { value: (deal) => deal.currency },
+  company: { value: (deal) => deal.company?.name },
+  person: { value: (deal) => deal.person?.name },
+  phone: { value: (deal) => deal.person?.phone },
+  email: { value: (deal) => deal.person?.email },
+  owner: { value: (deal) => deal.owner?.name },
+  source: { value: (deal) => deal.source },
+  closeDate: { value: (deal) => deal.closeDate },
+  createdAt: { value: (deal, row, zone) => stamp(deal.createdAt, zone) },
+  updatedAt: { value: (deal, row, zone) => stamp(deal.updatedAt, zone) },
+  closedAt: { value: (deal, row, zone) => stamp(deal.closedAt, zone) },
+  createdBy: { value: (deal) => deal.createdBy?.name },
+  comment: { value: (deal) => deal.comment },
+  lostReason: { value: (deal) => deal.lostReason },
+  watchers: { value: (deal) => deal.watchers.map((user) => user.name).join(', ') },
+  nextActivity: { value: (deal, row, zone) => (deal.activity.next ? `${stamp(deal.activity.next.dueAt, zone) || ''} ${deal.activity.next.title}`.trim() : '') },
 };
 const DEFAULT_EXPORT = ['id', 'title', 'pipeline', 'stage', 'amount', 'currency', 'company', 'person', 'phone', 'owner', 'source', 'closeDate', 'createdAt', 'nextActivity'];
 
@@ -85,10 +86,10 @@ const stamp = (value, zone = 'UTC') => {
   return `${p.year}-${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}:${pad(p.minute)}`;
 };
 
-function customCell(field, value) {
+function customCell(field, value, locale) {
   if (value === undefined || value === null) return '';
   if (Array.isArray(value)) return value.join(', ');
-  if (field.type === 'bool') return value ? 'Да' : 'Нет';
+  if (field.type === 'bool') return tr(locale, value ? 'crm.csv.yes' : 'crm.csv.no');
   // Numbers stay numbers in the spreadsheet ("-5" is not a formula); anything else is text.
   if (field.type === 'money' || field.type === 'number') return csvNumber(value) ?? String(value);
   return value;
@@ -100,13 +101,14 @@ function customCell(field, value) {
  * EXPORT_COLUMNS and cf_<key>.
  */
 export async function exportCsv(ctx, input, res) {
+  const locale = localeOrDefault(input.locale);
   const fields = ctx.settings.fields || [];
   const requested = String(input.columns || '').split(',').map((item) => item.trim()).filter(Boolean);
   const columns = (requested.length ? requested : DEFAULT_EXPORT)
     .map((key) => {
-      if (EXPORT_COLUMNS[key]) return { key, ...EXPORT_COLUMNS[key] };
+      if (EXPORT_COLUMNS[key]) return { key, title: tr(locale, `crm.csv.columns.${key}`), ...EXPORT_COLUMNS[key] };
       const field = fields.find((item) => `cf_${item.key}` === key);
-      return field ? { key, title: field.label, value: (deal) => customCell(field, deal.custom[field.key]) } : null;
+      return field ? { key, title: field.label, value: (deal) => customCell(field, deal.custom[field.key], locale) } : null;
     })
     .filter(Boolean)
     .slice(0, 60);
@@ -129,7 +131,7 @@ export async function exportCsv(ctx, input, res) {
       );
       if (!rows.length) break;
       const deals = await hydrate(ctx, rows);
-      const lines = deals.map((deal, index) => columns.map((column) => csvCell(column.value(deal, rows[index], bounds.zone))).join(';'));
+      const lines = deals.map((deal, index) => columns.map((column) => csvCell(column.value(deal, rows[index], bounds.zone, locale))).join(';'));
       res.write(`${lines.join('\r\n')}\r\n`);
       if (rows.length < batch) break;
     }

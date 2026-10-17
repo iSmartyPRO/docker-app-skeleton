@@ -38,6 +38,11 @@ export function installChunkRecovery() {
   window.addEventListener('vite:preloadError', () => {
     reloadOnce();
   });
+  // An on-demand import() outside React.lazy (help texts, icon sets, viewers)
+  // that nobody catches: same recovery instead of a silently dead button.
+  window.addEventListener('unhandledrejection', (event) => {
+    if (isChunkError(event.reason)) reloadOnce();
+  });
 }
 
 export const isReloading = () => Boolean(window.__portalReloading);

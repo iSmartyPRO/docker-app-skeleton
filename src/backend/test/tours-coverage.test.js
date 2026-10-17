@@ -85,7 +85,7 @@ test('tours: every module tour is registered with the engine', async () => {
 
 test('tours: valid, texts in both languages, every anchor marked in the frontend', async () => {
   const engine = await import('../../frontend/src/tour/engine.js');
-  const { dictionaries } = await import('../../frontend/src/i18n/translations.js');
+  const { dictionaries } = await import('../../frontend/scripts/i18n-node.mjs');
   const files = sources(SRC);
   const broken = [];
   for (const def of await allTours()) {

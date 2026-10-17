@@ -1,6 +1,7 @@
 import { query, withTransaction } from '../../config/database.js';
 import { ensureKbFileLinks } from '../files/schema.js';
 import { migrateKbFiles } from '../files/kb.js';
+import { localeOrDefault, tr } from '../../services/i18n/index.js';
 
 /*
  * Knowledge base storage.
@@ -99,73 +100,6 @@ export async function ensureKbSchema() {
   await seedKb();
 }
 
-const STARTER = {
-  en: {
-    folder: 'Getting started',
-    description: 'How this knowledge base works.',
-    title: 'Welcome to the knowledge base',
-    content: `# Welcome to the knowledge base
-
-Keep documents, instructions and answers in one structured place.
-
-## Folders
-
-- Create folders inside folders — any depth.
-- Give a folder an **icon** and a **colour** so it is easy to spot.
-- Drag files onto a folder to upload them.
-
-## What you can store
-
-| Type | Preview |
-|------|---------|
-| PDF | Page thumbnails, zoom, full screen |
-| Images | Gallery with zoom and swipe |
-| Word, PowerPoint | Converted to PDF with exact layout |
-| Excel, CSV | Live spreadsheet with sheets |
-| Articles | Written right here in Markdown |
-
-## Access
-
-Every folder and material can be **view**, **edit** or **manage** for everyone, a group, a role or a person. Sub-folders inherit access unless you switch inheritance off.
-
-## Public links
-
-Share a folder outside the company with a link like \`/s/onboarding\` — optionally protected by a password and an expiry date.`,
-  },
-  ru: {
-    folder: 'Начало работы',
-    description: 'Как устроена база знаний.',
-    title: 'Добро пожаловать в базу знаний',
-    content: `# Добро пожаловать в базу знаний
-
-Храните документы, инструкции и ответы в одном структурированном месте.
-
-## Папки
-
-- Создавайте папки внутри папок — любой вложенности.
-- Задайте папке **иконку** и **цвет**, чтобы её было легко найти.
-- Перетащите файлы на папку, чтобы загрузить их.
-
-## Что можно хранить
-
-| Тип | Просмотр |
-|-----|----------|
-| PDF | Миниатюры страниц, масштаб, полный экран |
-| Изображения | Галерея с увеличением и свайпами |
-| Word, PowerPoint | Конвертация в PDF с точной вёрсткой |
-| Excel, CSV | Живая таблица с листами |
-| Статьи | Пишутся прямо здесь в Markdown |
-
-## Доступ
-
-Каждой папке и материалу можно дать **просмотр**, **редактирование** или **управление** — всем, группе, роли или человеку. Вложенные папки наследуют доступ, если наследование не выключено.
-
-## Публичные ссылки
-
-Поделитесь папкой вне компании ссылкой вида \`/s/onboarding\` — при желании с паролем и сроком действия.`,
-  },
-};
-
 /**
  * Once per database: everyone can read, the Administrators group can edit,
  * and a "Getting started" folder explains the module.
@@ -176,8 +110,8 @@ async function seedKb() {
   const anyUser = await query(`SELECT locale FROM users ORDER BY id LIMIT 1`);
   if (!anyUser.rows.length) return; // fresh install: wait for the wizard
 
-  const locale = (process.env.SEED_LOCALE || anyUser.rows[0].locale) === 'ru' ? 'ru' : 'en';
-  const text = STARTER[locale];
+  const locale = localeOrDefault(process.env.SEED_LOCALE || anyUser.rows[0].locale);
+  const text = tr(locale, 'kb.starter');
   await withTransaction(async (client) => {
     await client.query(
       `INSERT INTO kb_acl (resource_type, resource_id, subject_type, subject_id, level)

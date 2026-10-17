@@ -5,7 +5,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { chatApi } from '../api';
 import { useChat } from '../ChatContext';
 import { lastText, when } from '../preview';
-import { RoomAvatar } from './Conversation';
+import { RoomAvatar } from './RoomAvatar';
 
 function ChatIcon({ size = 18 }) {
   return (

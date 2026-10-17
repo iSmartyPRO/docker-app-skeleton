@@ -3,6 +3,7 @@ import { runDemoSeed } from './demoScope.js';
 import { getSetting, setSetting } from './settings.js';
 import { NO_PASSWORD } from './rbac.js';
 import { MODULE_MANIFEST, dependencyOrder } from '../modules/manifest.js';
+import { localeOrDefault, pick } from './i18n/index.js';
 
 /*
  * Demo data (spec §8, docs/extending.md «Demo data»).
@@ -136,15 +137,18 @@ async function demoUser(key, { displayName } = {}) {
  * context from it. `as()` returns it (kept as a hook for narrower identities).
  */
 function contextFor(module, req) {
-  const locale = req?.locale === 'en' ? 'en' : 'ru';
+  const locale = localeOrDefault(req?.locale);
   return {
     module,
     locale,
     userId: req?.user?.id || null,
     request: req,
     query,
-    /** Picks the text in the portal language: ctx.t({ ru, en }). */
-    t: (value) => (value && typeof value === 'object' ? value[locale] ?? value.ru ?? value.en : value),
+    /**
+     * Picks the text in the portal language: ctx.t({ ru, en, ky, … }), English
+     * when the language has none. A string passes as is.
+     */
+    t: (value) => (value && typeof value === 'object' && !Array.isArray(value) ? pick(value, locale) : value),
     track: (table, key, keyColumn) => track(module, table, key, keyColumn),
     /** Stops tracking a row (it stays): e.g. an administrator has made it their own since. */
     untrack: (table, key) => query(`DELETE FROM demo_records WHERE module = $1 AND table_name = $2 AND record_key = $3`, [module, table, String(key)]),

@@ -1,80 +1,53 @@
 import { formatDateTime } from '../../services/datetime.js';
+import { translator } from '../../services/i18n/index.js';
 
-/** Notification texts for the tasks module, per recipient language. */
+/*
+ * Notification texts for the tasks module in the recipient's language.
+ * Texts: locales/<lang>/tasks.js → notify.*; the code only joins the lines.
+ */
 
-const PRIORITY = {
-  en: ['Low', 'Normal', 'High', 'Urgent'],
-  ru: ['Низкий', 'Обычный', 'Высокий', 'Срочный'],
-};
+const line = (text) => (text ? `\n${text}` : '');
 
 export const TASK_MESSAGES = {
-  assigned: ({ ref, title, actor, project, acceptByText }) => ({
-    en: { title: `${ref} is assigned to you`, body: `${title}\n${actor ? `${actor} · ` : ''}${project}${acceptByText ? `\nPlease accept it by ${acceptByText}` : ''}` },
-    ru: { title: `Вам назначена задача ${ref}`, body: `${title}\n${actor ? `${actor} · ` : ''}${project}${acceptByText ? `\nПримите её в работу до ${acceptByText}` : ''}` },
+  assigned: (t, { ref, title, actor, project, acceptByText }) => ({
+    title: t('tasks.notify.assigned.title', { ref }),
+    body: `${title}\n${actor ? `${actor} · ` : ''}${project}${line(acceptByText && t('tasks.notify.assigned.acceptBy', { time: acceptByText }))}`,
   }),
-  accepted: ({ ref, title, actor, comment }) => ({
-    en: { title: `${ref} is accepted`, body: `${title}\n${actor}${comment ? `: “${comment}”` : ''}` },
-    ru: { title: `Задача ${ref} принята в работу`, body: `${title}\n${actor}${comment ? `: «${comment}»` : ''}` },
+  accepted: (t, { ref, title, actor, comment }) => ({
+    title: t('tasks.notify.accepted.title', { ref }),
+    body: `${title}\n${actor}${comment ? t('tasks.notify.accepted.comment', { comment }) : ''}`,
   }),
-  acceptOverdue: ({ ref, title, hours }) => ({
-    en: { title: `Accept ${ref}: waiting ${hours} h`, body: `${title}\nThe originator is waiting for you to accept the task or discuss it.` },
-    ru: { title: `Примите задачу ${ref}: ждёт ${hours} ч`, body: `${title}\nПостановщик ждёт, что вы примете задачу или обсудите её.` },
+  acceptOverdue: (t, { ref, title, hours }) => ({ title: t('tasks.notify.acceptOverdue.title', { ref, hours }), body: `${title}\n${t('tasks.notify.acceptOverdue.body')}` }),
+  notAccepted: (t, { ref, title, hours, assignee }) => ({
+    title: t('tasks.notify.notAccepted.title', { ref, hours }),
+    body: `${title}${line(assignee && t('tasks.notify.notAccepted.assignee', { name: assignee }))}`,
   }),
-  notAccepted: ({ ref, title, hours, assignee }) => ({
-    en: { title: `${ref} is not accepted in ${hours} h`, body: `${title}${assignee ? `\nAssignee: ${assignee}` : ''}` },
-    ru: { title: `Задача ${ref} не принята за ${hours} ч`, body: `${title}${assignee ? `\nИсполнитель: ${assignee}` : ''}` },
-  }),
-  status: ({ ref, title, actor, status }) => ({
-    en: { title: `${ref}: status changed to “${status}”`, body: `${title}${actor ? `\n${actor}` : ''}` },
-    ru: { title: `${ref}: статус «${status}»`, body: `${title}${actor ? `\n${actor}` : ''}` },
-  }),
-  comment: ({ ref, title, actor, snippet }) => ({
-    en: { title: `New comment on ${ref}`, body: `${actor}: ${snippet}\n${title}` },
-    ru: { title: `Новый комментарий в ${ref}`, body: `${actor}: ${snippet}\n${title}` },
-  }),
-  mention: ({ ref, title, actor, snippet }) => ({
-    en: { title: `${actor} mentioned you in ${ref}`, body: `${snippet}\n${title}` },
-    ru: { title: `Вас упомянули в ${ref}`, body: `${actor}: ${snippet}\n${title}` },
-  }),
-  priority: ({ ref, title, priority }) => ({
-    en: { title: `${ref}: priority is now ${PRIORITY.en[priority]}`, body: title },
-    ru: { title: `${ref}: приоритет «${PRIORITY.ru[priority]}»`, body: title },
-  }),
-  dueSoon: ({ ref, title, due }) => ({
-    en: { title: `${ref} is due within 24 hours`, body: due ? `${title}\nDeadline: ${due}` : title },
-    ru: { title: `Срок задачи ${ref} истекает в течение суток`, body: due ? `${title}\nКрайний срок: ${due}` : title },
-  }),
-  projectNew: ({ ref, title, actor, project }) => ({
-    en: { title: `New task in ${project}: ${ref}`, body: `${title}${actor ? `\n${actor}` : ''}` },
-    ru: { title: `Новая задача в «${project}»: ${ref}`, body: `${title}${actor ? `\n${actor}` : ''}` },
-  }),
-  projectDone: ({ ref, title, actor, project }) => ({
-    en: { title: `${ref} is done (${project})`, body: `${title}${actor ? `\n${actor}` : ''}` },
-    ru: { title: `Задача ${ref} завершена («${project}»)`, body: `${title}${actor ? `\n${actor}` : ''}` },
-  }),
-  overdue: ({ ref, title }) => ({
-    en: { title: `${ref} is overdue`, body: title },
-    ru: { title: `Задача ${ref} просрочена`, body: title },
-  }),
+  status: (t, { ref, title, actor, status }) => ({ title: t('tasks.notify.status.title', { ref, status }), body: `${title}${line(actor)}` }),
+  comment: (t, { ref, title, actor, snippet }) => ({ title: t('tasks.notify.comment.title', { ref }), body: `${actor}: ${snippet}\n${title}` }),
+  mention: (t, { ref, title, actor, snippet }) => ({ title: t('tasks.notify.mention.title', { ref, actor }), body: t('tasks.notify.mention.body', { actor, snippet, title }) }),
+  priority: (t, { ref, title, priority }) => ({ title: t('tasks.notify.priority.title', { ref, priority: t(`tasks.priority.${priority}`) }), body: title }),
+  dueSoon: (t, { ref, title, due }) => ({ title: t('tasks.notify.dueSoon.title', { ref }), body: due ? `${title}\n${t('tasks.notify.deadline', { due })}` : title }),
+  projectNew: (t, { ref, title, actor, project }) => ({ title: t('tasks.notify.projectNew.title', { ref, project }), body: `${title}${line(actor)}` }),
+  projectDone: (t, { ref, title, actor, project }) => ({ title: t('tasks.notify.projectDone.title', { ref, project }), body: `${title}${line(actor)}` }),
+  overdue: (t, { ref, title }) => ({ title: t('tasks.notify.overdue.title', { ref }), body: title }),
+  result: (t, { ref, title, text }) => ({ title: t('tasks.notify.result.title', { ref }), body: `${title}\n${text}` }),
 };
 
 /**
- * `render` for notify(): picks the recipient's language. A `dueAt` param is
+ * `render` for notify(): texts in the recipient's language. A `dueAt` param is
  * shown as `due` in the recipient's region settings (zone and formats).
  */
 export function taskMessage(kind, params) {
   return (locale, regional) => {
     const due = params.dueAt ? formatDateTime(params.dueAt, regional || undefined, locale) : '';
     const acceptByText = params.acceptBy ? formatDateTime(params.acceptBy, regional || undefined, locale) : '';
-    const texts = TASK_MESSAGES[kind]({ ...params, due, acceptByText });
-    return texts[locale] || texts.en;
+    return TASK_MESSAGES[kind](translator(locale), { ...params, due, acceptByText });
   };
 }
 
 /** Text of a custom reminder ("remind me" on a task) for one recipient. */
 export function reminderText(locale, regional, { ref, title, dueAt }) {
+  const t = translator(locale);
   const due = dueAt ? formatDateTime(dueAt, regional || undefined, locale) : '';
-  return locale === 'ru'
-    ? { title: `Напоминание: ${ref}`, body: `${title}${due ? `\nКрайний срок: ${due}` : ''}` }
-    : { title: `Reminder: ${ref}`, body: `${title}${due ? `\nDeadline: ${due}` : ''}` };
+  return { title: t('tasks.notify.reminder.title', { ref }), body: `${title}${line(due && t('tasks.notify.deadline', { due }))}` };
 }

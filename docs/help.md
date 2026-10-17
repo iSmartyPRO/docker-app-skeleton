@@ -12,7 +12,7 @@ The help is written for end users (mostly in Russian; English mirrors it), loade
 
 ## Content
 
-One file per module in `src/frontend/src/help/content/<id>.js`, following [`help/SCHEMA.md`](../src/frontend/src/help/SCHEMA.md):
+One file per module in `src/frontend/src/help/content/<lang>/<id>.js`, following [`help/SCHEMA.md`](../src/frontend/src/help/SCHEMA.md):
 
 - `title`, `tagline`, `summary` — what the module is for;
 - `highlights` — the short version (4–6 capabilities);
@@ -22,7 +22,7 @@ One file per module in `src/frontend/src/help/content/<id>.js`, following [`help
 - `fields` — hints used by `<Hint id="<module>.<key>" />`, each pointing to a section via `more`;
 - `related` — other guides.
 
-Texts are `{ ru, en }` and use a small, safe Markdown subset (`**bold**`, `` `code` ``, lists, `[label](/internal/path)`); no HTML is rendered.
+Each language is its own file with plain strings (English is the reference; `ky`, `tr`, `zh` files start empty and fall back to English part by part — see [i18n.md](i18n.md#help-articles-and-admin-docs)). Texts use a small, safe Markdown subset (`**bold**`, `` `code` ``, lists, `[label](/internal/path)`); no HTML is rendered.
 
 The table of contents order is `HELP_ORDER` in `help/registry.jsx`; `helpForPath()` maps a page to its guide (`/app/<id>` → `<id>`, `/admin/api` → `api`, `/admin/*` → `admin`, `/account/notifications` → `notifications`, …).
 

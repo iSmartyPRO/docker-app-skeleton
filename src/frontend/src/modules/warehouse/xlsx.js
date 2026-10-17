@@ -1,3 +1,4 @@
+import { pick } from '../../i18n/languages';
 /*
  * Excel in the browser (exceljs, loaded on demand like the Masterplan import):
  * report exports and reading import files (.xlsx or .csv) into rows. Report
@@ -152,7 +153,7 @@ export async function importTemplate(columns, example, locale, filename) {
   const ExcelJS = await excel();
   const book = new ExcelJS.Workbook();
   const sheet = book.addWorksheet('Import');
-  sheet.columns = columns.map((col) => ({ header: locale === 'ru' ? col.ru : col.en, key: col.key, width: Math.max(14, col.ru.length + 4) }));
+  sheet.columns = columns.map((col) => ({ header: pick(col, locale), key: col.key, width: Math.max(14, col.ru.length + 4) }));
   sheet.addRow(example);
   sheet.getRow(1).font = { bold: true };
   download(await book.xlsx.writeBuffer(), filename);

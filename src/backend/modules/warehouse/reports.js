@@ -1,6 +1,7 @@
 import { query } from '../../config/database.js';
 import { wallToInstant } from '../../services/datetime.js';
 import { requestRegional } from '../../services/regional.js';
+import { decimalSeparator, exportLocale, tr } from '../../services/i18n/index.js';
 import { Params, intOrNull, todayFor, whContext } from './access.js';
 import { addDays, cents, day, httpError, q4, toCsv } from './logic.js';
 import { holderLabels, listStock } from './stock.js';
@@ -16,7 +17,8 @@ import { listTools } from './tools.js';
  * CSV for Excel: BOM, `;`, formulas neutralised; sums only for warehouse.cost.
  */
 
-const L = (lang, ru, en) => (lang === 'en' ? en : ru);
+/** A CSV header in the export's language (locales/<lang>/warehouse.js → csv). */
+const L = (lang, key) => tr(lang, `warehouse.csv.${key}`);
 
 /** [from, to] days → instants in the person's zone (to is inclusive). */
 async function period(req, input) {
@@ -224,10 +226,13 @@ export async function toolsByHolder(req, input = {}) {
 
 // ── CSV ─────────────────────────────────────────────────────────────────────
 
-const n = (value) => (value === null || value === undefined ? '' : String(value).replace('.', ','));
+
 
 export async function reportCsv(req, kind, input = {}) {
-  const lang = input.lang === 'en' ? 'en' : 'ru';
+  const lang = exportLocale(input.lang, req.locale);
+  // Numbers with the language's decimal separator, as spreadsheets in that language expect.
+  const separator = decimalSeparator(lang);
+  const n = (value) => (value === null || value === undefined ? '' : String(value).replace('.', separator));
   const stamp = new Date().toISOString().slice(0, 10);
   switch (kind) {
     case 'stock': {
@@ -235,34 +240,34 @@ export async function reportCsv(req, kind, input = {}) {
       const all = [...data.items];
       for (let page = 2; all.length < data.total && page <= 40; page += 1) all.push(...(await listStock(req, { ...input, pageSize: 500, page })).items);
       const cost = all.some((row) => row.amount !== null);
-      const header = [L(lang, 'Позиция', 'Item'), L(lang, 'Артикул', 'SKU'), L(lang, 'Склад', 'Warehouse'), L(lang, 'Остаток', 'On hand'), L(lang, 'Резерв', 'Reserved'), L(lang, 'Доступно', 'Available'), L(lang, 'Ед.', 'Unit'), L(lang, 'Мин.', 'Min'), ...(cost ? [L(lang, 'Сумма', 'Value')] : []), L(lang, 'Последнее движение', 'Last movement')];
+      const header = [L(lang, 'item'), L(lang, 'sku'), L(lang, 'warehouse'), L(lang, 'onHand'), L(lang, 'reserved'), L(lang, 'available'), L(lang, 'unit'), L(lang, 'min'), ...(cost ? [L(lang, 'value')] : []), L(lang, 'lastMovement')];
       const rows = all.map((row) => [row.item.name, row.item.sku, row.warehouse?.name || row.holder?.label || '', n(row.qty), n(row.reserved), n(row.available), row.item.baseUnit, n(row.minQty), ...(cost ? [n(row.amount)] : []), row.lastMoveAt ? new Date(row.lastMoveAt).toISOString().slice(0, 10) : '']);
       return { csv: toCsv(header, rows), filename: `stock-${stamp}.csv` };
     }
     case 'turnover': {
       const data = await turnover(req, input);
       const cost = Boolean(data.totals);
-      const header = [L(lang, 'Склад', 'Warehouse'), L(lang, 'Позиция', 'Item'), L(lang, 'Артикул', 'SKU'), L(lang, 'Ед.', 'Unit'), L(lang, 'Нач. остаток', 'Opening'), ...(cost ? [L(lang, 'Нач. сумма', 'Opening value')] : []), L(lang, 'Приход', 'In'), ...(cost ? [L(lang, 'Сумма прихода', 'In value')] : []), L(lang, 'Расход', 'Out'), ...(cost ? [L(lang, 'Сумма расхода', 'Out value')] : []), L(lang, 'Кон. остаток', 'Closing'), ...(cost ? [L(lang, 'Кон. сумма', 'Closing value')] : [])];
+      const header = [L(lang, 'warehouse'), L(lang, 'item'), L(lang, 'sku'), L(lang, 'unit'), L(lang, 'opening'), ...(cost ? [L(lang, 'openingValue')] : []), L(lang, 'in'), ...(cost ? [L(lang, 'inValue')] : []), L(lang, 'out'), ...(cost ? [L(lang, 'outValue')] : []), L(lang, 'closing'), ...(cost ? [L(lang, 'closingValue')] : [])];
       const rows = data.rows.map((row) => [row.warehouse.name, row.item.name, row.item.sku, row.item.baseUnit, n(row.openingQty), ...(cost ? [n(row.openingSum)] : []), n(row.inQty), ...(cost ? [n(row.sumIn)] : []), n(row.outQty), ...(cost ? [n(row.sumOut)] : []), n(row.closingQty), ...(cost ? [n(row.closingSum)] : [])]);
       return { csv: toCsv(header, rows), filename: `turnover-${data.from}-${data.to}.csv` };
     }
     case 'movement': {
       const data = await itemMovement(req, input);
       const cost = data.openingSum !== null;
-      const header = [L(lang, 'Дата', 'Date'), L(lang, 'Документ', 'Document'), L(lang, 'Склад', 'Warehouse'), L(lang, 'Контрагент / получатель', 'Counterpart'), L(lang, 'Количество', 'Quantity'), ...(cost ? [L(lang, 'Сумма', 'Value')] : []), L(lang, 'Остаток', 'Balance')];
-      const rows = [[data.from, L(lang, 'Начальный остаток', 'Opening balance'), '', '', '', ...(cost ? [n(data.openingSum)] : []), n(data.openingQty)], ...data.rows.map((row) => [new Date(row.date).toISOString().slice(0, 10), row.document.number, row.warehouse.name, row.counterpart, n(row.qty), ...(cost ? [n(row.amount)] : []), n(row.balance)])];
+      const header = [L(lang, 'date'), L(lang, 'document'), L(lang, 'warehouse'), L(lang, 'counterpart'), L(lang, 'quantity'), ...(cost ? [L(lang, 'value')] : []), L(lang, 'balance')];
+      const rows = [[data.from, L(lang, 'openingBalance'), '', '', '', ...(cost ? [n(data.openingSum)] : []), n(data.openingQty)], ...data.rows.map((row) => [new Date(row.date).toISOString().slice(0, 10), row.document.number, row.warehouse.name, row.counterpart, n(row.qty), ...(cost ? [n(row.amount)] : []), n(row.balance)])];
       return { csv: toCsv(header, rows), filename: `movement-${data.item?.sku || data.item?.id}-${data.from}-${data.to}.csv` };
     }
     case 'by-object': {
       const data = await byObject(req, input);
       const cost = Boolean(data.totals);
-      const header = [L(lang, 'Позиция', 'Item'), L(lang, 'Артикул', 'SKU'), L(lang, 'Ед.', 'Unit'), L(lang, 'Выдано', 'Issued'), ...(cost ? [L(lang, 'Сумма выдачи', 'Issued value')] : []), L(lang, 'Возвращено', 'Returned'), L(lang, 'Списано', 'Written off'), ...(cost ? [L(lang, 'Сумма списания', 'Written-off value')] : []), L(lang, 'Числится', 'On hand'), ...(cost ? [L(lang, 'Сумма', 'Value')] : [])];
+      const header = [L(lang, 'item'), L(lang, 'sku'), L(lang, 'unit'), L(lang, 'issued'), ...(cost ? [L(lang, 'issuedValue')] : []), L(lang, 'returned'), L(lang, 'writtenOff'), ...(cost ? [L(lang, 'writtenOffValue')] : []), L(lang, 'onHandTools'), ...(cost ? [L(lang, 'value')] : [])];
       const rows = data.rows.map((row) => [row.item.name, row.item.sku, row.item.baseUnit, n(row.issuedQty), ...(cost ? [n(row.issuedSum)] : []), n(row.returnedQty), n(row.writtenOffQty), ...(cost ? [n(row.writtenOffSum)] : []), n(row.onHandQty), ...(cost ? [n(row.amount)] : [])]);
       return { csv: toCsv(header, rows), filename: `materials-${data.holder.type}-${data.holder.id}.csv` };
     }
     case 'tools': {
       const data = await toolsByHolder(req, input);
-      const header = [L(lang, 'Держатель', 'Holder'), L(lang, 'Инв. номер', 'Inventory no.'), L(lang, 'Серийный номер', 'Serial no.'), L(lang, 'Позиция', 'Item'), L(lang, 'Состояние', 'State'), L(lang, 'ТО до', 'Service by'), L(lang, 'С', 'Since')];
+      const header = [L(lang, 'holder'), L(lang, 'inventoryNo'), L(lang, 'serialNo'), L(lang, 'item'), L(lang, 'state'), L(lang, 'serviceBy'), L(lang, 'since')];
       const rows = data.groups.flatMap((group) => group.tools.map((tool) => [group.holder?.label || '—', tool.inventoryNo, tool.serialNo, tool.item.name, tool.state, tool.nextServiceOn || '', tool.since ? new Date(tool.since).toISOString().slice(0, 10) : '']));
       return { csv: toCsv(header, rows), filename: `tools-${stamp}.csv` };
     }

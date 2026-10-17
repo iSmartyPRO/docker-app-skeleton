@@ -4,10 +4,11 @@ import { duplicateContacts, isValidPhone, normalizePhone } from './users.js';
 import { publicBase } from './google.js';
 import { pushToUser } from './push.js';
 import { registerJob } from './scheduler.js';
-import { authAvailability, getSettings, invalidateSettings, localeFor, parseSettings, regionalFor } from './settings.js';
+import { authAvailability, getSettings, invalidateSettings, parseSettings, recipientLocale, regionalFor } from './settings.js';
 import { isValidTimeZone, resolveRegional, zonedParts } from './datetime.js';
 import { eventInfo, NOTIFICATION_EVENTS, NOTIFICATION_GROUPS } from './notificationCatalog.js';
 import { demoSeedScope } from './demoScope.js';
+import { localeOrDefault, localeTag, tr } from './i18n/index.js';
 
 const KNOWN_KINDS = new Set(NOTIFICATION_EVENTS.map((event) => event.kind));
 
@@ -298,27 +299,21 @@ function escapeHtml(text) {
   return String(text ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 }
 
-const OPEN_LABEL = { en: 'Open', ru: 'Открыть' };
-const FOOTER = {
-  en: 'You receive this because notifications are on in your profile.',
-  ru: 'Вы получили это письмо, потому что уведомления включены в вашем профиле.',
-};
-
 export function emailHtml({ appName, title, body, url, locale }) {
-  const lang = locale === 'ru' ? 'ru' : 'en';
+  const lang = localeOrDefault(locale);
   const paragraphs = String(body || '')
     .split(/\n+/)
     .filter(Boolean)
     .map((line) => `<p style="margin:0 0 10px;color:#334155;font-size:15px;line-height:1.55">${escapeHtml(line)}</p>`)
     .join('');
-  return `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  return `<!doctype html><html lang="${localeTag(lang)}"><body style="margin:0;background:#f1f5f9;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;border:1px solid #e2e8f0">
 <tr><td style="padding:22px 28px;border-bottom:1px solid #eef2f7;font-weight:700;font-size:15px;color:#0f172a">${escapeHtml(appName)}</td></tr>
 <tr><td style="padding:26px 28px 8px"><h1 style="margin:0 0 14px;font-size:20px;line-height:1.35;color:#0f172a">${escapeHtml(title)}</h1>${paragraphs}</td></tr>
-${url ? `<tr><td style="padding:8px 28px 28px"><a href="${escapeHtml(url)}" style="display:inline-block;background:#1e3a8a;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:10px">${OPEN_LABEL[lang]}</a></td></tr>` : ''}
+${url ? `<tr><td style="padding:8px 28px 28px"><a href="${escapeHtml(url)}" style="display:inline-block;background:#1e3a8a;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:10px">${escapeHtml(tr(lang, 'core.email.open'))}</a></td></tr>` : ''}
 </table>
-<p style="max-width:560px;color:#94a3b8;font-size:12px;margin:14px auto 0">${FOOTER[lang]}</p>
+<p style="max-width:560px;color:#94a3b8;font-size:12px;margin:14px auto 0">${escapeHtml(tr(lang, 'core.email.footer'))}</p>
 </td></tr></table></body></html>`;
 }
 
@@ -418,8 +413,9 @@ export async function notify({ userIds, kind, module = null, link = null, actorI
     [ids]
   );
   // People who never chose a language get the portal's default one.
-  const fallback = await localeFor(null);
-  for (const user of users) user.locale = user.locale === 'ru' || user.locale === 'en' ? user.locale : fallback;
+  // Each recipient's own language when it is enabled, else the portal default.
+  const { localization } = parseSettings(await getSettings());
+  for (const user of users) user.locale = recipientLocale(user, localization);
   // Dates in texts follow each recipient's region settings (one settings read for all).
   const portal = await regionalFor(null);
   // A person may switch an event off entirely (not even the bell).
@@ -534,8 +530,7 @@ export async function releaseDeferred(limit = DEFERRED_BATCH) {
   );
   const { parsed, ready } = await readiness();
   const portal = await regionalFor(null);
-  const fallback = await localeFor(null);
-  for (const user of users) user.locale = user.locale === 'ru' || user.locale === 'en' ? user.locale : fallback;
+  for (const user of users) user.locale = recipientLocale(user, parsed.localization);
 
   const settle = async (row) => {
     const note = notes.find((item) => Number(item.id) === Number(row.notification_id));
@@ -696,11 +691,8 @@ export async function sendTest(userId, { channel = null } = {}) {
   const user = await userForDelivery(userId);
   if (!user) return null;
   const { parsed, ready } = await readiness();
-  const locale = user.locale === 'ru' || user.locale === 'en' ? user.locale : await localeFor(null);
-  const text =
-    locale === 'ru'
-      ? { title: 'Проверка уведомлений', body: 'Если вы видите это сообщение, канал работает.' }
-      : { title: 'Notification test', body: 'If you can read this, the channel works.' };
+  const locale = recipientLocale(user, parsed.localization);
+  const text = { title: tr(locale, 'core.notify.test.title'), body: tr(locale, 'core.notify.test.body') };
   const { rows } = await query(
     `INSERT INTO notifications (user_id, kind, module, title, body, link) VALUES ($1, 'system.test', NULL, $2, $3, '/account/notifications') RETURNING id`,
     [userId, text.title, text.body]
@@ -814,14 +806,16 @@ export async function saveNotifyConfig(patch = {}, view = {}) {
 /** A test message to any address: e-mail, phone (WhatsApp), Telegram chat id or Mattermost name. */
 export async function adminTest({ channel, to, provider }) {
   const { parsed, ready } = await readiness();
-  const text = { title: `${parsed.appName}: проверка уведомлений / notification test`, body: 'Если вы видите это сообщение, канал работает. If you can read this, the channel works.' };
+  // No recipient account here: the portal default language.
+  const locale = recipientLocale(null, parsed.localization);
+  const text = { title: tr(locale, 'core.notify.adminTest.title', { app: parsed.appName }), body: tr(locale, 'core.notify.test.body') };
   const plain = `${text.title}\n\n${text.body}`;
   const target = String(to || '').trim();
   if (!target) throw Object.assign(new Error('Enter a recipient'), { statusCode: 400, code: 'RECIPIENT_REQUIRED' });
   const started = Date.now();
   try {
     let used = channel;
-    if (channel === 'email') await sendEmail({ to: target, subject: text.title, text: plain, html: emailHtml({ appName: parsed.appName, title: text.title, body: text.body, url: '', locale: 'ru' }) });
+    if (channel === 'email') await sendEmail({ to: target, subject: text.title, text: plain, html: emailHtml({ appName: parsed.appName, title: text.title, body: text.body, url: '', locale }) });
     else if (channel === 'telegram') await sendTelegram({ chatId: target, text: plain });
     else if (channel === 'mattermost') await sendMattermostDirect({ username: target.replace(/^@/, ''), text: `**${text.title}**\n${text.body}` });
     else if (channel === 'whatsapp') {

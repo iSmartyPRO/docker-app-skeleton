@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
 import { enabledModules, moduleLabel } from '../modules/registry';
+import { preloadProps } from '../lib/lazyPage';
 import InstallBanner from '../pwa/InstallBanner';
 
 /** /apps — launcher with every enabled module. */
@@ -31,7 +32,7 @@ export default function Apps() {
         ) : (
           <div className="apps-grid">
             {modules.map((module) => (
-              <Link key={module.id} to={module.path} className="app-tile">
+              <Link key={module.id} to={module.path} className="app-tile" {...preloadProps(module)}>
                 <span className="app-tile__icon">
                   <MenuIcon name={module.icon} />
                 </span>

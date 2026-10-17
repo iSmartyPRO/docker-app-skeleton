@@ -75,6 +75,8 @@ const MAX_PARALLEL = 3;
 let active = 0;
 
 function tick() {
+  // Stopped (shutdown): a job that just finished must not start the next one.
+  if (!timer) return;
   const now = Date.now();
   for (const job of jobs.values()) {
     if (active >= MAX_PARALLEL) break;

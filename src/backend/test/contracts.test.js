@@ -15,6 +15,10 @@ import {
   statusFromApproval,
 } from '../modules/contracts/logic.js';
 import { CONTRACT_MESSAGES, contractMessage } from '../modules/contracts/messages.js';
+import { translator } from '../services/i18n/index.js';
+
+/** A message builder's texts in both reference languages. */
+const both = (build, params) => ({ ru: build(translator('ru'), params), en: build(translator('en'), params) });
 import { MODULE_CATALOG, resolveModules } from '../modules/catalog.js';
 import { EVENT_CATALOG } from '../api/events.js';
 import { NOTIFICATION_EVENTS } from '../services/notificationCatalog.js';
@@ -156,7 +160,7 @@ test('contracts: notification texts in both languages with the recipient’s dat
   assert.match(en.title, /12\/01\/2026/);
   assert.match(en.body, /1 day left/);
   for (const [kind, build] of Object.entries(CONTRACT_MESSAGES)) {
-    const texts = build({ contract, role: 'lawyer', status: 'signed', risk: { no: 1, importance: 'high', text: 't', clause: '1' }, no: 2, left: 3, target: '2026-12-01', endsOn: '2027-12-31', deposit: { kind: 'deposit', amount: 1, status: 'received' }, payment: { amount: 1 }, totals: { paid: 1, total: 1, percent: 100, full: true }, row: { dueOn: '2026-12-01', left: 1 } });
+    const texts = both(build, { contract, role: 'lawyer', status: 'signed', risk: { no: 1, importance: 'high', text: 't', clause: '1' }, no: 2, left: 3, target: '2026-12-01', endsOn: '2027-12-31', deposit: { kind: 'deposit', amount: 1, status: 'received' }, payment: { amount: 1 }, totals: { paid: 1, total: 1, percent: 100, full: true }, row: { dueOn: '2026-12-01', left: 1 } });
     assert.ok(texts.ru.title && texts.en.title, kind);
   }
 });

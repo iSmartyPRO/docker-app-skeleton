@@ -451,12 +451,31 @@ export function resolveTypography(appearance = {}) {
   };
 }
 
+/*
+ * Every stack ends with fonts for the scripts the portal's languages need
+ * beyond Latin and Russian Cyrillic: Kyrgyz ң ө ү (Cyrillic Extended — Google
+ * Fonts serves its cyrillic-ext subset when the family has one, else these
+ * system fonts draw the letters) and Simplified Chinese (CJK system fonts of
+ * macOS/iOS, Windows, Android/Linux). Glyphs fall through one by one, so
+ * Latin text keeps the preset's typeface.
+ */
+const SANS_SCRIPTS = ["'Noto Sans'", "'PingFang SC'", "'Hiragino Sans GB'", "'Microsoft YaHei'", "'Noto Sans SC'", "'Noto Sans CJK SC'", "'Source Han Sans SC'"];
+const SERIF_SCRIPTS = ["'Noto Serif'", "'Songti SC'", "'Noto Serif SC'", "'Noto Serif CJK SC'", "'Source Han Serif SC'", 'SimSun'];
+const GENERIC = ['sans-serif', 'serif', 'monospace', 'system-ui', 'cursive'];
+
+export function withScriptFallbacks(fallback) {
+  const parts = String(fallback || '').split(',').map((part) => part.trim()).filter(Boolean);
+  const generic = GENERIC.includes(parts[parts.length - 1]) ? parts.pop() : 'sans-serif';
+  const extra = (generic === 'serif' ? SERIF_SCRIPTS : SANS_SCRIPTS).filter((font) => !parts.includes(font));
+  return [...parts, ...extra, generic].join(', ');
+}
+
 export function fontStack(typo) {
-  return `'${typo.body}', ${typo.fallback}`;
+  return `'${typo.body}', ${withScriptFallbacks(typo.fallback)}`;
 }
 
 export function headingStack(typo) {
-  return `'${typo.heading}', ${typo.fallback}`;
+  return `'${typo.heading}', ${withScriptFallbacks(typo.fallback)}`;
 }
 
 export function googleFontsHref(presets) {

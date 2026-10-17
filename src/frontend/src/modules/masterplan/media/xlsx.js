@@ -1,4 +1,5 @@
 import { can } from '../lib';
+import { pick } from '../../../i18n/languages';
 
 /*
  * Excel in the browser (exceljs, loaded on demand like the KB sheet viewer):
@@ -99,23 +100,24 @@ export async function importTemplate(locale, types) {
   const ExcelJS = await excel();
   const book = new ExcelJS.Workbook();
   const sheet = book.addWorksheet('Units');
-  sheet.columns = IMPORT_COLUMNS.map((col) => ({ header: locale === 'ru' ? col.ru : col.en, key: col.key, width: Math.max(12, col.ru.length + 2) }));
+  sheet.columns = IMPORT_COLUMNS.map((col) => ({ header: pick(col, locale), key: col.key, width: Math.max(12, col.ru.length + 2) }));
   const cottage = types.find((type) => type.key === 'cottage')?.name || 'Коттедж';
   const apartment = types.find((type) => type.key === 'apartment')?.name || 'Квартира';
   sheet.addRow({ code: 'A-1-01', name: 'Коттедж «Модерн 220»', type: cottage, parent: 'A-1', status: 'Свободно', price: 250000, currency: 'USD', areaTotal: 220, areaPlot: 1200, rooms: 6, bedrooms: 4, bathrooms: 3, levels: 2, finishing: 'pso' });
   sheet.addRow({ code: 'H1-101', name: 'Кв. 101', type: apartment, parent: 'H1-S1', status: 'Свободно', price: 90000, currency: 'USD', areaTotal: 64, rooms: 2, floor: 1, number: '101', riser: 1, finishing: 'whitebox' });
   sheet.getRow(1).font = { bold: true };
-  const help = book.addWorksheet(locale === 'ru' ? 'Справка' : 'Help');
+  const help = book.addWorksheet(pick({ ru: 'Справка', en: 'Help' }, locale));
   help.columns = [{ width: 24 }, { width: 80 }];
-  help.addRow([locale === 'ru' ? 'Типы' : 'Types', types.map((type) => type.name).join('; ')]);
+  help.addRow([pick({ ru: 'Типы', en: 'Types' }, locale), types.map((type) => type.name).join('; ')]);
   help.addRow([
-    locale === 'ru' ? 'Статус' : 'Status',
-    locale === 'ru'
-      ? 'Свободно или Не в продаже. Перенос продаж (администратор): Резерв, Бронь, Задаток, Договор, Продано, Передано — с колонками Клиент, Менеджер (логин или имя), Дата статуса, Номер / Дата / Сумма договора, Бронь до (пусто — бронь не истекает). Нужна причина в окне импорта.'
-      : 'free or not_for_sale. Migration of sales (administrators): reserve, booking, deposit, contract, sold, handed — with the columns Client, Manager (login or name), Status date, Contract number / date / amount, Booked until (empty — never expires). A reason is required in the import window.',
+    pick({ ru: 'Статус', en: 'Status' }, locale),
+    pick({
+      ru: 'Свободно или Не в продаже. Перенос продаж (администратор): Резерв, Бронь, Задаток, Договор, Продано, Передано — с колонками Клиент, Менеджер (логин или имя), Дата статуса, Номер / Дата / Сумма договора, Бронь до (пусто — бронь не истекает). Нужна причина в окне импорта.',
+      en: 'free or not_for_sale. Migration of sales (administrators): reserve, booking, deposit, contract, sold, handed — with the columns Client, Manager (login or name), Status date, Contract number / date / amount, Booked until (empty — never expires). A reason is required in the import window.',
+    }, locale),
   ]);
-  help.addRow([locale === 'ru' ? 'Отделка' : 'Finishing', 'pso, rough, whitebox, turnkey, furnished']);
-  help.addRow([locale === 'ru' ? 'Родитель' : 'Parent', locale === 'ru' ? 'Код существующего узла (линии, секции) или строки выше' : 'Code of an existing node or of a row above']);
+  help.addRow([pick({ ru: 'Отделка', en: 'Finishing' }, locale), 'pso, rough, whitebox, turnkey, furnished']);
+  help.addRow([pick({ ru: 'Родитель', en: 'Parent' }, locale), pick({ ru: 'Код существующего узла (линии, секции) или строки выше', en: 'Code of an existing node or of a row above' }, locale)]);
   download(await book.xlsx.writeBuffer(), `masterplan-import-template.xlsx`);
 }
 

@@ -8,8 +8,6 @@ import {
   useParams,
 } from 'react-router-dom';
 import { App as AntApp, ConfigProvider, Spin } from 'antd';
-import enUS from 'antd/locale/en_US';
-import ruRU from 'antd/locale/ru_RU';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LocaleProvider, useLocale } from './context/LocaleContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
@@ -39,15 +37,26 @@ import { SETTINGS_VIEW } from './lib/access';
 import { MODULE_REGISTRY } from './modules/registry';
 import UpdateBanner from './pwa/UpdateBanner';
 import Maintenance from './components/Maintenance';
+import AssistantSlot from './components/AssistantSlot';
 import RegionalSync from './components/RegionalSync';
 import { applyAppIcon } from './pwa/appIcon';
 
-// Public entry points stay in the main bundle; consoles load on demand.
-import Home from './pages/Home';
-import Login from './pages/Login';
+// Every page loads on demand. The landing and sign-in pages are fetched at
+// once when the address is theirs (in parallel with the setup check), so they
+// do not wait an extra round trip; elsewhere their code is never loaded.
+const loadHome = () => import('./pages/Home');
+const loadLogin = () => import('./pages/Login');
+const Home = lazy(loadHome);
+const Login = lazy(loadLogin);
+if (typeof window !== 'undefined') {
+  const path = window.location.pathname;
+  if (path === '/') loadHome().catch(() => {});
+  else if (path.startsWith('/login')) loadLogin().catch(() => {});
+  // A deep link to a module (/app/dashboard…): its code starts loading now,
+  // alongside the setup/session checks, instead of after them.
+  else MODULE_REGISTRY.find((module) => path === module.path || path.startsWith(`${module.path}/`))?.App.preload?.();
+}
 
-// The robot assistant loads after the page, never delaying it.
-const Assistant = lazy(() => import('./modules/assistant/Assistant'));
 const SetupWizard = lazy(() => import('./pages/SetupWizard'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const SettingsLayout = lazy(() => import('./layouts/SettingsLayout'));
@@ -185,13 +194,12 @@ function LegacyAdminRedirect() {
 function ThemedRoutes() {
   const location = useLocation();
   const { antdConfig, mode } = useThemeMode();
-  const { locale } = useLocale();
+  const { antdLocale } = useLocale();
   const { settings } = useSettings();
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
-    document.documentElement.lang = locale;
-  }, [mode, locale]);
+  }, [mode]);
 
   // Installed app (PWA): status-bar colour follows the theme; custom icon and name on iOS.
   useEffect(() => {
@@ -217,7 +225,7 @@ function ThemedRoutes() {
   }, [settings?.appName]);
 
   return (
-    <ConfigProvider theme={antdConfig} locale={locale === 'ru' ? ruRU : enUS}>
+    <ConfigProvider theme={antdConfig} locale={antdLocale}>
       <AntApp className="ant-app-root">
         <AppErrorBoundary resetKey={location.pathname}>
         <HelpProvider>
@@ -354,9 +362,7 @@ function ThemedRoutes() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
-        <Suspense fallback={null}>
-          <Assistant />
-        </Suspense>
+        <AssistantSlot />
         <UpdateBanner />
         <Maintenance />
         </TourProvider>

@@ -1,85 +1,51 @@
 import { formatDateTime } from '../../services/datetime.js';
+import { formatNumber, translator } from '../../services/i18n/index.js';
 import { localized } from './logic.js';
 
-/** Notification texts of approvals, per recipient language (pattern: crm/messages.js). */
+/*
+ * Notification texts of approvals in the recipient's language
+ * (locales/<lang>/approvals.js → notify.*; pattern: tasks/messages.js).
+ */
 
-const money = (amount, currency, locale) =>
-  amount === null || amount === undefined || amount === '' ? '' : `${Number(amount).toLocaleString(locale === 'en' ? 'en-US' : 'ru-RU', { maximumFractionDigits: 2 })} ${currency || ''}`.trim();
+const money = (t, amount, currency) =>
+  amount === null || amount === undefined || amount === '' ? '' : `${formatNumber(t.locale, Number(amount), { maximumFractionDigits: 2 })} ${currency || ''}`.trim();
 const lines = (...parts) => parts.filter(Boolean).join('\n');
+const n = (key) => `approvals.notify.${key}`;
 
 /** "Заявка на закупку ЗК-0001 «Ноутбуки»" */
-function docLabel(doc, locale) {
-  const type = localized(doc.typeTitle, locale);
-  const quoted = locale === 'en' ? `“${doc.title}”` : `«${doc.title}»`;
+function docLabel(t, doc) {
+  const type = localized(doc.typeTitle, t.locale);
+  const quoted = doc.title ? t(n('quoted'), { title: doc.title }) : '';
   return [type, doc.number, quoted].filter(Boolean).join(' ');
 }
 
 const quote = (value) => (value ? `“${String(value).slice(0, 300)}”` : '');
-const by = (actor, locale) => (actor ? (locale === 'en' ? `By ${actor}` : `Автор действия: ${actor}`) : '');
-const due = (value, locale, regional) => (value ? (locale === 'en' ? `Due: ${formatDateTime(value, regional, 'en')}` : `Срок: ${formatDateTime(value, regional, 'ru')}`) : '');
+const by = (t, actor) => (actor ? t(n('by'), { actor }) : '');
+const due = (t, value, regional) => (value ? t(n('due'), { date: formatDateTime(value, regional, t.locale) }) : '');
+const stageLine = (t, stage) => (stage ? t(n('stage'), { stage }) : '');
 
 const MESSAGES = {
-  request: ({ doc, actor, stage, delegated, comment }, locale, regional) => ({
-    title: delegated
-      ? locale === 'en'
-        ? `${actor} passed an approval to you: ${docLabel(doc, 'en')}`
-        : `${actor} передал(а) вам согласование: ${docLabel(doc, 'ru')}`
-      : locale === 'en'
-        ? `Waiting for your approval: ${docLabel(doc, 'en')}`
-        : `Ждёт вашего согласования: ${docLabel(doc, 'ru')}`,
-    body: lines(money(doc.amount, doc.currency, locale), stage ? (locale === 'en' ? `Stage: ${stage}` : `Этап: ${stage}`) : '', due(doc.dueAt, locale, regional), quote(comment)),
+  request: (t, { doc, actor, stage, delegated, comment }, regional) => ({
+    title: delegated ? t(n('request.delegated'), { actor, doc: docLabel(t, doc) }) : t(n('request.title'), { doc: docLabel(t, doc) }),
+    body: lines(money(t, doc.amount, doc.currency), stageLine(t, stage), due(t, doc.dueAt, regional), quote(comment)),
   }),
-  question: ({ doc, actor, comment }, locale) => ({
-    title: locale === 'en' ? `${actor} asks about ${docLabel(doc, 'en')}` : `${actor} задаёт вопрос: ${docLabel(doc, 'ru')}`,
-    body: lines(quote(comment), locale === 'en' ? 'Answer to return it to approval.' : 'Ответьте, чтобы вернуть документ на согласование.'),
+  question: (t, { doc, actor, comment }) => ({ title: t(n('question.title'), { actor, doc: docLabel(t, doc) }), body: lines(quote(comment), t(n('question.body'))) }),
+  answer: (t, { doc, actor, comment }) => ({ title: t(n('answer.title'), { actor, doc: docLabel(t, doc) }), body: lines(quote(comment), t(n('answer.body'))) }),
+  approved: (t, { doc }) => ({ title: t(n('approved.title'), { doc: docLabel(t, doc) }), body: money(t, doc.amount, doc.currency) }),
+  progress: (t, { doc, actor, stage }) => ({ title: t(n('progress.title'), { stage, doc: docLabel(t, doc) }), body: by(t, actor) }),
+  rejected: (t, { doc, actor, comment }) => ({ title: t(n('rejected.title'), { doc: docLabel(t, doc) }), body: lines(quote(comment), by(t, actor)) }),
+  returned: (t, { doc, actor, comment }) => ({ title: t(n('returned.title'), { doc: docLabel(t, doc) }), body: lines(quote(comment), by(t, actor), t(n('returned.body'))) }),
+  withdrawn: (t, { doc, actor }) => ({ title: t(n('withdrawn.title'), { doc: docLabel(t, doc) }), body: by(t, actor) }),
+  reminder: (t, { doc }, regional) => ({ title: t(n('reminder.title'), { doc: docLabel(t, doc) }), body: lines(money(t, doc.amount, doc.currency), due(t, doc.dueAt, regional)) }),
+  overdue: (t, { doc }, regional) => ({ title: t(n('overdue.title'), { doc: docLabel(t, doc) }), body: lines(money(t, doc.amount, doc.currency), due(t, doc.dueAt, regional)) }),
+  escalation: (t, { doc, stage, approvers }, regional) => ({
+    title: t(n('escalation.title'), { doc: docLabel(t, doc) }),
+    body: lines(stageLine(t, stage), approvers ? t(n('escalation.waiting'), { approvers }) : '', due(t, doc.dueAt, regional)),
   }),
-  answer: ({ doc, actor, comment }, locale) => ({
-    title: locale === 'en' ? `${actor} answered: ${docLabel(doc, 'en')}` : `${actor} ответил(а): ${docLabel(doc, 'ru')}`,
-    body: lines(quote(comment), locale === 'en' ? 'The document is back on your approval.' : 'Документ снова ждёт вашего решения.'),
-  }),
-  approved: ({ doc }, locale) => ({
-    title: locale === 'en' ? `Approved: ${docLabel(doc, 'en')}` : `Согласовано: ${docLabel(doc, 'ru')}`,
-    body: money(doc.amount, doc.currency, locale),
-  }),
-  progress: ({ doc, actor, stage }, locale) => ({
-    title: locale === 'en' ? `Stage “${stage}” approved: ${docLabel(doc, 'en')}` : `Этап «${stage}» согласован: ${docLabel(doc, 'ru')}`,
-    body: by(actor, locale),
-  }),
-  rejected: ({ doc, actor, comment }, locale) => ({
-    title: locale === 'en' ? `Rejected: ${docLabel(doc, 'en')}` : `Отклонено: ${docLabel(doc, 'ru')}`,
-    body: lines(quote(comment), by(actor, locale)),
-  }),
-  returned: ({ doc, actor, comment }, locale) => ({
-    title: locale === 'en' ? `Returned for rework: ${docLabel(doc, 'en')}` : `Возвращено на доработку: ${docLabel(doc, 'ru')}`,
-    body: lines(quote(comment), by(actor, locale), locale === 'en' ? 'Make the changes and send it again.' : 'Внесите правки и отправьте заново.'),
-  }),
-  withdrawn: ({ doc, actor }, locale) => ({
-    title: locale === 'en' ? `Withdrawn by the author: ${docLabel(doc, 'en')}` : `Автор отозвал документ: ${docLabel(doc, 'ru')}`,
-    body: by(actor, locale),
-  }),
-  reminder: ({ doc }, locale, regional) => ({
-    title: locale === 'en' ? `Reminder: ${docLabel(doc, 'en')} waits for your decision` : `Напоминание: ${docLabel(doc, 'ru')} ждёт вашего решения`,
-    body: lines(money(doc.amount, doc.currency, locale), due(doc.dueAt, locale, regional)),
-  }),
-  overdue: ({ doc }, locale, regional) => ({
-    title: locale === 'en' ? `Overdue: ${docLabel(doc, 'en')}` : `Просрочено согласование: ${docLabel(doc, 'ru')}`,
-    body: lines(money(doc.amount, doc.currency, locale), due(doc.dueAt, locale, regional)),
-  }),
-  escalation: ({ doc, stage, approvers }, locale, regional) => ({
-    title: locale === 'en' ? `Escalation: ${docLabel(doc, 'en')} is overdue` : `Эскалация: просрочено согласование ${docLabel(doc, 'ru')}`,
-    body: lines(
-      stage ? (locale === 'en' ? `Stage: ${stage}` : `Этап: ${stage}`) : '',
-      approvers ? (locale === 'en' ? `Waiting for: ${approvers}` : `Ждёт: ${approvers}`) : '',
-      due(doc.dueAt, locale, regional)
-    ),
-  }),
-  noApprovers: ({ doc, stage }, locale) => ({
-    title: locale === 'en' ? `Nobody can approve ${docLabel(doc, 'en')}` : `Некому согласовать ${docLabel(doc, 'ru')}`,
-    body: locale === 'en' ? `Stage “${stage}” has no active approvers. Check the route.` : `На этапе «${stage}» нет активных согласующих. Проверьте маршрут.`,
-  }),
+  noApprovers: (t, { doc, stage }) => ({ title: t(n('noApprovers.title'), { doc: docLabel(t, doc) }), body: t(n('noApprovers.body'), { stage }) }),
 };
 
 /** `render` for notify(): the recipient's language and region settings. */
 export function approvalMessage(kind, params) {
-  return (locale, regional) => MESSAGES[kind](params, locale === 'en' ? 'en' : 'ru', regional || undefined);
+  return (locale, regional) => MESSAGES[kind](translator(locale), params, regional || undefined);
 }

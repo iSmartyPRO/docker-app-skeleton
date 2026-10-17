@@ -1,6 +1,6 @@
 import { query } from '../../config/database.js';
 import { decide } from '../../api/scopes.js';
-import { getSettings, parseSettings } from '../../services/settings.js';
+import { getSettings, getSettingsView, parseSettings } from '../../services/settings.js';
 import { hasPermission } from '../../services/permissions.js';
 import { listNotifications, unreadCount } from '../../services/notifications.js';
 import { getUserStats, recentLogins } from '../../services/users.js';
@@ -482,7 +482,7 @@ export async function widgetData(req, type, input = {}) {
   const def = WIDGETS[type];
   const provider = PROVIDERS[type];
   if (!def || !provider) throw httpError(404, 'Unknown widget', 'NOT_FOUND');
-  const modules = parseSettings(await getSettings()).modules;
+  const modules = (await getSettingsView()).modules;
   if (def.module && !modules[def.module]?.enabled) throw httpError(404, 'Module is disabled', 'MODULE_DISABLED');
   if (def.permission && !hasPermission(req.access?.permissions || [], def.permission)) throw httpError(403, 'You do not have permission for this widget', 'FORBIDDEN');
   const area = def.area || def.module;

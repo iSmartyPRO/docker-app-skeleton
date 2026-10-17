@@ -1,4 +1,5 @@
 import { notify } from '../../services/notifications.js';
+import { tr } from '../../services/i18n/index.js';
 
 /*
  * "Someone used your link": one notification per visitor burst, not one per
@@ -52,43 +53,18 @@ export function digest(changes) {
   return { counts, names };
 }
 
-const RU = {
-  upload: (n) => `загрузил(а) ${n} ${plural(n, 'файл', 'файла', 'файлов')}`,
-  replace: (n) => `заменил(а) ${n} ${plural(n, 'файл', 'файла', 'файлов')}`,
-  mkdir: (n) => `создал(а) ${n} ${plural(n, 'папку', 'папки', 'папок')}`,
-  rename: (n) => `переименовал(а) ${n} ${plural(n, 'объект', 'объекта', 'объектов')}`,
-  delete: (n) => `удалил(а) ${n} ${plural(n, 'объект', 'объекта', 'объектов')}`,
-};
-const EN = {
-  upload: (n) => `uploaded ${n} ${n === 1 ? 'file' : 'files'}`,
-  replace: (n) => `replaced ${n} ${n === 1 ? 'file' : 'files'}`,
-  mkdir: (n) => `created ${n} ${n === 1 ? 'folder' : 'folders'}`,
-  rename: (n) => `renamed ${n} ${n === 1 ? 'item' : 'items'}`,
-  delete: (n) => `deleted ${n} ${n === 1 ? 'item' : 'items'}`,
-};
-
-function plural(n, one, few, many) {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
-  return many;
-}
-
 /** Title and body of a digest in `locale`. */
 export function renderDigest(locale, { link, visitor, changes }) {
-  const ru = locale === 'ru';
+  const t = (key, params) => tr(locale, `drive.digest.${key}`, params);
   const { counts, names } = digest(changes);
-  const words = ru ? RU : EN;
-  const who = visitor?.name || (ru ? 'Посетитель' : 'A visitor');
+  const who = visitor?.name || t('visitor');
   const what = ['upload', 'replace', 'mkdir', 'rename', 'delete']
     .filter((action) => counts[action])
-    .map((action) => words[action](counts[action]))
+    .map((action) => t(action, { count: counts[action] }))
     .join(', ');
-  const label = link.title || link.name;
-  const title = ru ? `${who} ${what} по ссылке «${label}»` : `${who} ${what} via your link “${label}”`;
+  const title = t('title', { who, what, link: link.title || link.name });
   const shown = names.slice(0, 5).join(', ');
-  const more = names.length > 5 ? (ru ? ` и ещё ${names.length - 5}` : ` and ${names.length - 5} more`) : '';
+  const more = names.length > 5 ? t('more', { count: names.length - 5 }) : '';
   const contact = visitor?.email ? `\n${visitor.email}` : '';
   return { title, body: `${shown}${more}${contact}` };
 }

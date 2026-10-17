@@ -1,5 +1,5 @@
 import { query } from '../../config/database.js';
-import { getSettings, parseSettings, regionalFor } from '../../services/settings.js';
+import { getSettings, localeFor, parseSettings, regionalFor } from '../../services/settings.js';
 import { formatDateTime } from '../../services/datetime.js';
 import { onModuleEvent } from '../../services/hooks.js';
 import { requestAs } from '../../api/events.js';
@@ -10,6 +10,7 @@ import { modulesEnabled, mpContext, requireCrmScope, usersWithRole } from './acc
 import { readCaps, has } from './rules.js';
 import { statusName } from './messages.js';
 import { iso, logEvent, money } from './util.js';
+import { translator } from '../../services/i18n/index.js';
 
 /*
  * The CRM side of Masterplan (adapted from the spec's Bitrix24 integration, §11):
@@ -39,7 +40,7 @@ export async function dealForLink(ctx, dealId, { allowClosed = false, scope = 'w
   return row;
 }
 
-/** A system line in a deal's history (Russian, the portal's primary language, in the portal's time zone). */
+/** A system line in a deal's history (the portal's default language and time zone). */
 async function dealLine(dealId, body, data, authorId = null) {
   await query(`INSERT INTO crm_events (deal_id, kind, body, data, author_id) VALUES ($1, 'masterplan', $2, $3, $4)`, [dealId, body, JSON.stringify(data), authorId]);
   await query(`UPDATE crm_deals SET updated_at = NOW() WHERE id = $1`, [dealId]);
@@ -51,9 +52,11 @@ export async function afterUnitStatus(ctx, node, { before, after, booking, reaso
   const dealId = after.deal_id || before.deal_id;
   if (!dealId || !(await modulesEnabled()).crm) return;
   const regional = await regionalFor(null);
-  const until = booking ? ` до ${formatDateTime(booking.ends_at, regional, 'ru')}` : '';
-  const why = reason ? ` (${reason})` : '';
-  const body = `Мастерплан: объект ${unitLabel(node)} — ${statusName(after.status, 'ru')}${until}${why}`;
+  const locale = await localeFor(null);
+  const t = translator(locale);
+  const until = booking ? t('masterplan.dealLine.until', { date: formatDateTime(booking.ends_at, regional, locale) }) : '';
+  const why = reason ? t('masterplan.dealLine.reason', { reason }) : '';
+  const body = t('masterplan.dealLine.text', { unit: unitLabel(node), status: statusName(after.status, locale), until, reason: why });
   await dealLine(dealId, body, { unitId: node.id, projectId: node.project_id, code: node.code, from: before.status, to: after.status, endsAt: booking ? iso(booking.ends_at) : null, link: `/app/masterplan/p/${node.project_id}/plan?node=${node.id}` }, ctx.userId);
   // "Сумма сделки = цена юнита": the units booked or contracted for the deal, summed (a deal may buy several).
   if (ctx.settings.syncDealAmount && ['booking', 'contract'].includes(after.status) && after.deal_id) {
@@ -81,7 +84,8 @@ export async function afterUnitStatus(ctx, node, { before, after, booking, reaso
 
 export async function dealLineAfterExpiry(dealId, node, booking) {
   if (!(await modulesEnabled()).crm) return;
-  await dealLine(dealId, `Мастерплан: ${booking.kind === 'reserve' ? 'резерв' : 'бронь'} объекта ${unitLabel(node)} снят(а) автоматически — срок истёк`, { unitId: node.id, projectId: node.project_id, code: node.code, to: 'free', expired: true });
+  const t = translator(await localeFor(null));
+  await dealLine(dealId, t(`masterplan.dealLine.expired.${booking.kind === 'reserve' ? 'reserve' : 'booking'}`, { unit: unitLabel(node) }), { unitId: node.id, projectId: node.project_id, code: node.code, to: 'free', expired: true });
 }
 
 /** Units linked to a deal, for the CRM deal panel; units of projects the person does not see are only counted. */

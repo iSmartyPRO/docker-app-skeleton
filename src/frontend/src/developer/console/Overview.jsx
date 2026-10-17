@@ -3,6 +3,7 @@ import { useLocale } from '../../context/LocaleContext';
 import { formatDateTime } from '../../lib/format';
 import { Bars, Donut, Legend, TimeChart } from '../../modules/dashboard/charts';
 import { CodeTabs, MethodBadge, PathText, requestSamples } from '../components';
+import { localeTag } from '../../i18n/languages';
 
 const STATUS_COLORS = { '2xx': '#10B981', '3xx': '#0EA5E9', '4xx': '#F59E0B', '5xx': '#EF4444' };
 
@@ -30,7 +31,7 @@ export default function Overview({ overview, go, openEditor }) {
         </button>
         <button type="button" className="ax-kpi" onClick={() => go('log')}>
           <span>{t('api.kpi.requests')}</span>
-          <strong>{totals.total.toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB')}</strong>
+          <strong>{totals.total.toLocaleString(localeTag(locale))}</strong>
           <em>{t('api.kpi.avg', { ms: totals.avgMs })}</em>
         </button>
         <button type="button" className={`ax-kpi${errorRate > 5 ? ' is-bad' : ''}`} onClick={() => go('log', { status: 'error' })}>

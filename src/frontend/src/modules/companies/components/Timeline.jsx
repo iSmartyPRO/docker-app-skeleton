@@ -9,6 +9,7 @@ import { DateTimeField } from '../../../components/ui/DateTimeField';
 import { cmpApi, fieldLabel } from '../api';
 import { useCompanies } from '../CompaniesContext';
 import { Avatar, Stars } from './ui';
+import { localeTag } from '../../../i18n/languages';
 
 const ICONS = {
   note: '📝', call: '📞', meeting: '🤝', email: '✉️', deal: '💼', issue: '⚠️',
@@ -190,7 +191,7 @@ export default function Timeline({ type, id, country, onChange }) {
                     {event.kind === 'deal' && d.dealId && (
                       <span className="cmp-event__link">
                         <Link to={`/app/crm/deals/${d.dealId}`}>{d.title || event.body}</Link>
-                        {Number(d.amount) > 0 && <em> · {Number(d.amount).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-GB', { maximumFractionDigits: 2 })} {d.currency || ''}</em>}
+                        {Number(d.amount) > 0 && <em> · {Number(d.amount).toLocaleString(localeTag(locale), { maximumFractionDigits: 2 })} {d.currency || ''}</em>}
                         {d.stage && <em> · {typeof d.stage === 'object' ? d.stage.name : d.stage}</em>}
                       </span>
                     )}

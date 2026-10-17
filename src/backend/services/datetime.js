@@ -1,3 +1,4 @@
+import { localeTag, normalizeLocale } from './i18n/languages.js';
 /*
  * Time zones and date/time formats, one place for the whole server.
  *
@@ -20,6 +21,13 @@ export const DATE_FORMATS = ['DD.MM.YYYY', 'DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-
 export const TIME_FORMATS = ['24', '12'];
 export const WEEK_STARTS = [1, 0, 6];
 
+// Building an Intl.DateTimeFormat costs tens of microseconds and these helpers
+// run several times per request (dashboards, inbox counts): the answers and
+// the per-zone formatters are kept. Zone names are few; the maps are capped.
+const ZONE_CHECKS = new Map();
+const ZONE_FORMATTERS = new Map();
+const ZONE_CACHE_MAX = 500;
+
 export const REGIONAL_DEFAULTS = {
   timeZone: process.env.TZ && isValidTimeZone(process.env.TZ) ? process.env.TZ : 'Asia/Bishkek',
   dateFormat: 'DD.MM.YYYY',
@@ -27,14 +35,43 @@ export const REGIONAL_DEFAULTS = {
   weekStart: 1,
 };
 
+function remember(map, key, value) {
+  if (map.size >= ZONE_CACHE_MAX) map.clear();
+  map.set(key, value);
+  return value;
+}
+
 export function isValidTimeZone(zone) {
   if (typeof zone !== 'string' || !zone || zone.length > 64) return false;
+  const known = ZONE_CHECKS.get(zone);
+  if (known !== undefined) return known;
   try {
     new Intl.DateTimeFormat('en', { timeZone: zone });
-    return true;
+    return remember(ZONE_CHECKS, zone, true);
   } catch {
-    return false;
+    return remember(ZONE_CHECKS, zone, false);
   }
+}
+
+function partsFormatter(timeZone) {
+  return (
+    ZONE_FORMATTERS.get(timeZone) ||
+    remember(
+      ZONE_FORMATTERS,
+      timeZone,
+      new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        weekday: 'short',
+        hourCycle: 'h23',
+      })
+    )
+  );
 }
 
 /** Portal settings: every key valid, unknown values fall back to the defaults. */
@@ -77,7 +114,7 @@ export function resolveRegional(portal = REGIONAL_DEFAULTS, user = null) {
     dateFormat: DATE_FORMATS.includes(own.dateFormat) ? own.dateFormat : base.dateFormat,
     timeFormat: TIME_FORMATS.includes(String(own.timeFormat)) ? String(own.timeFormat) : base.timeFormat,
     weekStart: WEEK_STARTS.includes(Number(own.weekStart)) && own.weekStart !== null ? Number(own.weekStart) : base.weekStart,
-    locale: user?.locale === 'en' ? 'en' : user?.locale === 'ru' ? 'ru' : null,
+    locale: normalizeLocale(user?.locale),
   };
 }
 
@@ -91,17 +128,7 @@ const MONTHS = {
 /** Calendar fields of an instant in a zone: { year, month (1-12), day, hour, minute, second, weekday (0 = Sunday) }. */
 export function zonedParts(value, timeZone) {
   const date = value instanceof Date ? value : new Date(value);
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: isValidTimeZone(timeZone) ? timeZone : REGIONAL_DEFAULTS.timeZone,
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-    weekday: 'short',
-    hourCycle: 'h23',
-  }).formatToParts(date);
+  const parts = partsFormatter(isValidTimeZone(timeZone) ? timeZone : REGIONAL_DEFAULTS.timeZone).formatToParts(date);
   const get = (type) => parts.find((part) => part.type === type)?.value;
   return {
     year: Number(get('year')),
@@ -147,6 +174,13 @@ export function startOfDay(value, timeZone, addDays = 0) {
 }
 
 /** Start of the week (by weekStart) containing `value`, in the zone. */
+/** Short month name (1–12) in a language: the tables above, Intl for the others. */
+function monthShort(locale, month) {
+  const code = normalizeLocale(locale) || 'ru';
+  if (MONTHS[code]) return MONTHS[code][month - 1];
+  return new Intl.DateTimeFormat(localeTag(code), { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2000, month - 1, 15)));
+}
+
 export function startOfWeek(value, timeZone, weekStart = 1, addWeeks = 0) {
   const p = zonedParts(value, timeZone);
   const back = (p.weekday - weekStart + 7) % 7;
@@ -170,7 +204,7 @@ function dateText(p, dateFormat, locale) {
     case 'YYYY-MM-DD':
       return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
     case 'D MMM YYYY':
-      return `${p.day} ${MONTHS[locale === 'en' ? 'en' : 'ru'][p.month - 1]} ${p.year}`;
+      return `${p.day} ${monthShort(locale, p.month)} ${p.year}`;
     default:
       return `${pad(p.day)}.${pad(p.month)}.${p.year}`;
   }
@@ -186,7 +220,7 @@ function timeText(p, timeFormat) {
 
 /**
  * Text of a moment for a person: `r` is resolveRegional(...) (or anything with
- * timeZone/dateFormat/timeFormat), `locale` 'ru' | 'en'.
+ * timeZone/dateFormat/timeFormat), `locale` a portal language code.
  *   formatDate(v, r) → "13.10.2026"   formatTime(v, r) → "14:30"
  *   formatDateTime(v, r) → "13.10.2026, 14:30"
  * A date-only value ('YYYY-MM-DD') is shown as that day, never shifted by a zone.

@@ -120,7 +120,8 @@ registerDemo({
     let number = 0;
     for (const [key, lastRu, firstRu, middleRu, lastEn, firstEn, position, unit, site, extra] of PEOPLE) {
       number += 1;
-      const en = ctx.locale === 'en';
+      // Russian names for a Russian portal, English ones for every other language.
+      const en = ctx.locale !== 'ru';
       const status = extra.status || 'active';
       const hireDate = extra.hireYears ? yearsAgo(today, extra.hireYears, extra.hireIn ?? 40 + number) : status === 'candidate' ? null : addDays(today, -120 - number * 3);
       const birthDate = yearsAgo(today, 24 + ((number * 7) % 30), extra.birthIn ?? 20 + number * 9);

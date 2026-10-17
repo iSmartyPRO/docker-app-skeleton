@@ -45,7 +45,7 @@ function anchored(files, target) {
 
 test('business tours: valid, 5–8 steps, texts in both languages', async () => {
   const engine = await import('../../frontend/src/tour/engine.js');
-  const { dictionaries } = await import('../../frontend/src/i18n/translations.js');
+  const { dictionaries } = await import('../../frontend/scripts/i18n-node.mjs');
   for (const id of MODULES) {
     const { default: def } = await import(`../../frontend/src/modules/${id}/tour.js`);
     const tour = engine.normalizeTour(def);

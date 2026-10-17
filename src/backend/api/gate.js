@@ -128,7 +128,7 @@ export async function tokenGate(req, res, next) {
     req.userRow = session.row;
     req.access = session.access;
     req.user = toPublicUser(session.row, session.access);
-    req.locale = await localeFor(session.row);
+    req.locale = await localeFor(session.row, { acceptLanguage: req.headers['accept-language'] });
     req.actor = { id: session.row.id, permissions: new Set(session.access.permissions) };
     return next();
   } catch (err) {

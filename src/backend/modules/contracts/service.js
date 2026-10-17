@@ -25,6 +25,7 @@ import {
 import { Params, canEdit, canManageRisks, canPlanPayments, canView, canWorkFiles, contractsContext, contractsSettings, isOwn, modulesEnabled, rolesFor, visibleSql } from './access.js';
 import { contractMessage } from './messages.js';
 import { resolveLinks, validateLinks } from './links.js';
+import { exportLocale, translator } from '../../services/i18n/index.js';
 
 /*
  * The contract card and the registry (docs/contracts.md). Every change is
@@ -704,11 +705,6 @@ export async function deleteContract(ctx, id) {
 
 // ── Export ──────────────────────────────────────────────────────────────────
 
-const CSV_HEAD = {
-  ru: ['№', 'Номер контрагента', 'Название', 'Контрагент', 'Тип', 'Направление', 'Сумма', 'Валюта', 'Заключён', 'Начало', 'Окончание', 'Автопролонгация', 'Статус', 'Ответственный', 'Юрист'],
-  en: ['No.', 'Counterparty number', 'Title', 'Counterparty', 'Type', 'Direction', 'Amount', 'Currency', 'Concluded', 'Start', 'End', 'Auto-prolongation', 'Status', 'Business owner', 'Lawyer'],
-};
-const DIRECTION = { ru: { supplier: 'С поставщиком', client: 'С клиентом' }, en: { supplier: 'Supplier', client: 'Client' } };
 
 export const csvCell = (value) => {
   const text = value === null || value === undefined ? '' : String(value);
@@ -719,7 +715,8 @@ export const csvCell = (value) => {
 
 /** The registry as CSV (Excel, `;`-separated, UTF-8 with BOM) under the same filters and rights, up to 5 000 rows. */
 export async function exportCsv(ctx, input, res) {
-  const locale = input.lang === 'en' ? 'en' : 'ru';
+  const locale = exportLocale(input.lang, ctx.req?.locale);
+  const t = translator(locale);
   const { typeName } = await import('./approval.js');
   const { statusName } = await import('./messages.js');
   const rows = [];
@@ -728,13 +725,13 @@ export async function exportCsv(ctx, input, res) {
     rows.push(...chunk.items);
     if (rows.length >= chunk.total) break;
   }
-  const lines = [CSV_HEAD[locale].join(';')];
+  const lines = [t('contracts.csv.head').join(';')];
   // Dates as the person reads them elsewhere (their regional settings), like the procurement export.
   const regional = ctx.regional || (await requestRegional(ctx.req));
   const date = (value) => (value ? formatDate(value, regional, locale) : '');
   for (const c of rows) {
     lines.push(
-      [c.number, c.extNumber, c.title, c.counterparty, typeName(ctx.settings, c.typeKey, locale), c.direction ? DIRECTION[locale][c.direction] : '', c.framework ? (locale === 'ru' ? 'рамочный' : 'framework') : c.amount ?? '', c.currency, date(c.concludedOn), date(c.startsOn), date(c.endsOn), c.autoRenew ? (locale === 'ru' ? 'да' : 'yes') : '', statusName(c.status, locale), c.owner?.name, c.lawyer?.name]
+      [c.number, c.extNumber, c.title, c.counterparty, typeName(ctx.settings, c.typeKey, locale), c.direction ? t(`contracts.csv.direction.${c.direction}`) : '', c.framework ? t('contracts.csv.framework') : c.amount ?? '', c.currency, date(c.concludedOn), date(c.startsOn), date(c.endsOn), c.autoRenew ? t('contracts.csv.yes') : '', statusName(c.status, locale), c.owner?.name, c.lawyer?.name]
         .map(csvCell)
         .join(';')
     );

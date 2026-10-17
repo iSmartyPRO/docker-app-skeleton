@@ -1,0 +1,2 @@
+// Simplified Chinese: fill keys from ../en/signin.js — missing ones fall back to English.
+export default {};

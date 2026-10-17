@@ -67,7 +67,7 @@ await notify({
 | GET | `/api/account/notifications/history` | Last notifications with their delivery report |
 | GET / PUT | `/api/account/notifications/subscriptions` | Followed projects and calendars / `{ type: 'tasks.project' \| 'calendar.calendar', id, on }` (only things the person can see) |
 
-A module adding a notification kind lists it in `services/notificationCatalog.js` (group, default channels, `urgent`, `channels` it can use) and adds `notifyPrefs.events.<kind>` texts to `i18n/notify.js`.
+A module adding a notification kind lists it in `services/notificationCatalog.js` (group, default channels, `urgent`, `channels` it can use) and adds `events.<kind>` texts to `locales/<lang>/notifyPrefs.js`; the server-side message goes to `src/backend/locales/<lang>/<module>.js` (see [i18n.md](i18n.md#server-texts)).
 
 ## Web Push
 
@@ -122,4 +122,4 @@ If the VAPID private key can be opened with no known key, new VAPID keys are gen
 
 ## Tour
 
-- Tour `notifications` (`tour/content/notifications.js`, texts `tour.notifications.*` in `i18n/coreTours.js`) of Account → Notifications: the bell, channels, «Проверить», quiet hours, the event × channel matrix, subscriptions, history. Started from the page's «Тур» button (it is not a module, so it never starts on its own). Anchors: `header.notifications`, `np.channels`, `np.test`, `np.quiet`, `np.events`, `np.subs`, `np.history`.
+- Tour `notifications` (`tour/content/notifications.js`, texts `tour.notifications.*` in `locales/<lang>/tour.js`) of Account → Notifications: the bell, channels, «Проверить», quiet hours, the event × channel matrix, subscriptions, history. Started from the page's «Тур» button (it is not a module, so it never starts on its own). Anchors: `header.notifications`, `np.channels`, `np.test`, `np.quiet`, `np.events`, `np.subs`, `np.history`.

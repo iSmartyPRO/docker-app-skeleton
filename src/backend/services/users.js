@@ -20,6 +20,7 @@ import {
   hasSuperadmin,
   setUserAccess,
 } from './rbac.js';
+import { SUPPORTED, normalizeLocale } from './i18n/index.js';
 
 export async function ensureUsersTable() {
   await query(`
@@ -675,7 +676,8 @@ export async function updateUser(id, patch, { actor = null } = {}) {
     if (patch.phone !== undefined) add('phone', normalizePhone(patch.phone));
     if (patch.instagram !== undefined) add('instagram', normalizeInstagram(patch.instagram));
     if (patch.mattermost !== undefined) add('mattermost', normalizeMattermost(patch.mattermost));
-    if (patch.locale === 'en' || patch.locale === 'ru') add('locale', patch.locale);
+    // Any supported language (services/i18n); whether it is enabled is checked when it is used.
+    if (normalizeLocale(patch.locale) && SUPPORTED.includes(patch.locale)) add('locale', patch.locale);
     else if (patch.locale === null || patch.locale === '' || patch.locale === 'auto') add('locale', null);
     // A theme the administrator does not offer is not saved (the person keeps the previous one).
     if (isThemeId(patch.theme) && (await themeOffered(patch.theme))) add('theme', patch.theme);

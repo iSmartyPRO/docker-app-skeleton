@@ -16,11 +16,15 @@ import './help.css';
 
 const plain = (value) => String(value || '').replace(/\*\*|`|\[|\]\([^)]*\)/g, '');
 
-function useAllHelp() {
+function useAllHelp(locale) {
   const [all, setAll] = useState(null);
   useEffect(() => {
-    loadAllHelp().then(setAll);
-  }, []);
+    let alive = true;
+    loadAllHelp(locale).then((list) => alive && setAll(list));
+    return () => {
+      alive = false;
+    };
+  }, [locale]);
   return all;
 }
 
@@ -171,7 +175,7 @@ export default function HelpCenter() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const all = useAllHelp();
+  const all = useAllHelp(locale);
   const [q, setQ] = useState('');
   const [nav, setNav] = useState(false);
   const main = useRef(null);

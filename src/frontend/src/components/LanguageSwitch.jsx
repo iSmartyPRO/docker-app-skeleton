@@ -1,57 +1,61 @@
-import { Tooltip } from 'antd';
+import { Dropdown, Tooltip } from 'antd';
+import { GlobalOutlined } from '@ant-design/icons';
 import { useLocale } from '../context/LocaleContext';
 
-function FlagEN() {
-  return (
-    <svg className="lang-switch__flag" viewBox="0 0 60 36" aria-hidden="true">
-      <clipPath id="da-flag-en">
-        <rect width="60" height="36" rx="3" />
-      </clipPath>
-      <g clipPath="url(#da-flag-en)">
-        <rect width="60" height="36" fill="#012169" />
-        <path d="M0 0 60 36M60 0 0 36" stroke="#fff" strokeWidth="8" />
-        <path d="M0 0 60 36M60 0 0 36" stroke="#C8102E" strokeWidth="5" />
-        <path d="M30 0v36M0 18h60" stroke="#fff" strokeWidth="14" />
-        <path d="M30 0v36M0 18h60" stroke="#C8102E" strokeWidth="8" />
-      </g>
-    </svg>
-  );
-}
+/*
+ * Interface language switcher: only the languages the superadministrator
+ * enabled (Settings → Languages), in their order, by native name. Languages
+ * are not countries, so no flags. Up to three languages are pills (EN · RU),
+ * more open a menu.
+ */
 
-function FlagRU() {
-  return (
-    <svg className="lang-switch__flag" viewBox="0 0 60 36" aria-hidden="true">
-      <clipPath id="da-flag-ru">
-        <rect width="60" height="36" rx="3" />
-      </clipPath>
-      <g clipPath="url(#da-flag-ru)">
-        <rect width="60" height="12" fill="#fff" />
-        <rect y="12" width="60" height="12" fill="#0039A6" />
-        <rect y="24" width="60" height="12" fill="#D52B1E" />
-      </g>
-    </svg>
-  );
-}
+const mark = (code) => code.toUpperCase();
 
-export const FLAGS = [
-  { id: 'en', title: 'English', mark: 'EN', icon: <FlagEN /> },
-  { id: 'ru', title: 'Русский', mark: 'RU', icon: <FlagRU /> },
-];
+/** Menu items for the enabled languages (also used by the header's mobile menu). */
+export function languageItems(languages, locale, prefix = '') {
+  return languages.map((language) => ({
+    key: `${prefix}${language.code}`,
+    label: (
+      <span lang={language.tag} className="lang-switch__item">
+        {language.name}
+      </span>
+    ),
+    disabled: language.code === locale,
+  }));
+}
 
 export default function LanguageSwitch() {
-  const { locale, setLocale } = useLocale();
+  const { locale, languages, setLocale, t } = useLocale();
+  if (languages.length < 2) return null;
+  const current = languages.find((language) => language.code === locale);
+
+  if (languages.length > 3) {
+    return (
+      <Dropdown
+        trigger={['click']}
+        menu={{ items: languageItems(languages, locale), selectable: true, selectedKeys: [locale], onClick: ({ key }) => setLocale(key) }}
+      >
+        <button type="button" className="lang-switch lang-switch--menu" aria-label={`${t('header.language')}: ${current?.name || locale}`}>
+          <GlobalOutlined aria-hidden="true" />
+          <span className="lang-switch__mark">{mark(locale)}</span>
+        </button>
+      </Dropdown>
+    );
+  }
 
   return (
-    <div className="lang-switch" role="group" aria-label="Language">
-      {FLAGS.map((flag) => (
-        <Tooltip key={flag.id} title={flag.title} mouseEnterDelay={0.15}>
+    <div className="lang-switch" role="group" aria-label={t('header.language')}>
+      {languages.map((language) => (
+        <Tooltip key={language.code} title={<span lang={language.tag}>{language.name}</span>} mouseEnterDelay={0.15}>
           <button
             type="button"
-            className={`lang-switch__btn ${locale === flag.id ? 'is-active' : ''}`}
-            onClick={() => setLocale(flag.id)}
-            aria-label={flag.title}
+            lang={language.tag}
+            className={`lang-switch__btn ${locale === language.code ? 'is-active' : ''}`}
+            aria-pressed={locale === language.code}
+            onClick={() => setLocale(language.code)}
+            aria-label={language.name}
           >
-            {flag.icon}
+            <span className="lang-switch__mark">{mark(language.code)}</span>
           </button>
         </Tooltip>
       ))}

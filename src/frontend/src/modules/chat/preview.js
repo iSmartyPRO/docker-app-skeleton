@@ -1,5 +1,6 @@
 import { systemView } from './system';
 import { fmtTime, inZone, intlOptions, nowInZone } from '../../lib/datetime';
+import { localeTag } from '../../i18n/languages';
 
 /** One-line preview of a room's last message (author prefix in group chats). */
 export function lastText(room, t, locale) {
@@ -18,7 +19,7 @@ export function when(value, locale) {
   const date = new Date(value);
   const zoned = inZone(value);
   if (!zoned) return '';
-  const tag = locale === 'ru' ? 'ru-RU' : 'en-GB';
+  const tag = localeTag(locale);
   if (zoned.isSame(nowInZone(), 'day')) return fmtTime(value);
   if (Date.now() - date < 6 * 86400000) return date.toLocaleDateString(tag, intlOptions({ weekday: 'short' }));
   return date.toLocaleDateString(tag, intlOptions({ day: 'numeric', month: 'short' }));

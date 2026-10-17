@@ -1,7 +1,8 @@
 # Admin docs schema («О модуле»)
 
-One file per module: `help/admin/<id>.js`, `export default { … }`. It is the administrator's page
-`/admin/modules/<id>/docs` (spec platform-2.0 §2). Every text is `{ ru, en }`; rich text follows
+One file per module per language: `help/admin/<lang>/<id>.js`, `export default { … }`, plain strings
+(`{ ru, en }` below marks a text; per-language rules as in [SCHEMA.md](SCHEMA.md)). It is the administrator's page
+`/admin/modules/<id>/docs` (spec platform-2.0 §2). Rich text follows
 [SCHEMA.md](SCHEMA.md) (`**bold**`, `` `code` ``, `- ` bullets, `[label](/admin/settings/tasks)` links).
 
 The page also shows, without anything written here:

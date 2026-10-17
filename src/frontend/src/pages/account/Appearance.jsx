@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, App, Button, ColorPicker, Form, Segmented, Slider, Spin, Switch } from 'antd';
+import { Alert, App, Button, ColorPicker, Form, Segmented, Select, Slider, Spin, Switch } from 'antd';
 import PageHeader from '../../components/ui/PageHeader';
 import SaveBar from '../../components/ui/SaveBar';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
@@ -18,6 +18,7 @@ import { ensureContrast } from '../../theme/contrast';
 import { useTour } from '../../tour/TourContext';
 import { TourIcon } from '../../tour/TourButton';
 import { errorMessage } from '../../lib/errors';
+import { languageInfo } from '../../i18n/languages';
 
 /** Form.Item adapter for the person's region overrides. */
 const MyRegional = ({ value, onChange, portal }) => <RegionalFields personal portal={portal || {}} value={value || {}} onChange={onChange} />;
@@ -117,7 +118,7 @@ function CustomTheme({ value, onChange }) {
 
 export default function AccountAppearance() {
   const { user, setUser } = useAuth();
-  const { t, setLocale, portalDefault } = useLocale();
+  const { t, setLocale, portalDefault, languages, localization } = useLocale();
   const { setMode, policy, appearance, setPersonalPreview, clearPersonalPreview, isPersonalPreview } = useThemeMode();
   const { message } = App.useApp();
   const tour = useTour();
@@ -127,13 +128,14 @@ export default function AccountAppearance() {
   const offered = useMemo(() => selectableThemes(policy, { portalDefault: appearance.defaultTheme }).map((theme) => theme.id), [policy, appearance.defaultTheme]);
   const initial = useMemo(
     () => ({
-      locale: user?.locale || 'auto',
+      // A language that has since been disabled reads as «As the portal».
+      locale: languages.some((language) => language.code === user?.locale) ? user.locale : 'auto',
       theme: user?.theme || 'system',
       motion: user?.ui?.motion === 'off' ? 'off' : 'auto',
       custom: cleanCustom(user?.ui?.custom),
       regional: { timeZone: null, dateFormat: null, timeFormat: null, weekStart: null, ...(user?.regional || {}) },
     }),
-    [user?.locale, user?.theme, user?.regional, user?.ui]
+    [user?.locale, user?.theme, user?.regional, user?.ui, languages]
   );
   const { form, dirty, saving, submit, reset, formProps, recompute } = useSettingsForm(initial, async (values) => {
     const res = await updateAccountProfile({ locale: values.locale, theme: values.theme, regional: values.regional });
@@ -168,13 +170,13 @@ export default function AccountAppearance() {
         <SettingsSection>
           <SettingRow label={<HintLabel id="account.language">{t('account.language')}</HintLabel>} description={t('account.languageDesc')}>
             <Form.Item name="locale" noStyle>
-              <Segmented
-                options={[
-                  { value: 'auto', label: t('account.languageAuto', { name: portalDefault === 'ru' ? 'Русский' : portalDefault === 'en' ? 'English' : t('account.languageBrowser') }) },
-                  { value: 'ru', label: 'Русский' },
-                  { value: 'en', label: 'English' },
-                ]}
-              />
+              {(() => {
+                const options = [
+                  { value: 'auto', label: t('account.languageAuto', { name: localization.default === 'browser' ? t('account.languageBrowser') : languageInfo(portalDefault).name }) },
+                  ...languages.map((language) => ({ value: language.code, label: <span lang={language.tag}>{language.name}</span> })),
+                ];
+                return languages.length > 3 ? <Select options={options} style={{ minWidth: 220 }} /> : <Segmented options={options} />;
+              })()}
             </Form.Item>
           </SettingRow>
         </SettingsSection>

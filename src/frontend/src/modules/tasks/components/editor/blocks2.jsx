@@ -15,6 +15,7 @@ import { Block } from './blocks1';
 import { PeopleSelect, ProjectSelect, TaskSelect } from './pickers';
 import WhenPicker, { ChannelWarnings, defaultWhen } from '../../../../components/ui/WhenPicker';
 import { HintLabel } from '../../../../help/Hint';
+import { localeTag } from '../../../../i18n/languages';
 
 const durationText = (from, to, t) => {
   if (!from || !to) return null;
@@ -495,7 +496,7 @@ export function RecurrenceForm({ value, onChange, disabled }) {
   const { t, locale } = useLocale();
   const rec = value || defaultRecurrence();
   const set = (patch) => onChange({ ...rec, ...patch });
-  const names = Array.from({ length: 7 }, (_, i) => dayjs().day(i + 1).toDate().toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { weekday: 'short' }));
+  const names = Array.from({ length: 7 }, (_, i) => dayjs().day(i + 1).toDate().toLocaleDateString(localeTag(locale), { weekday: 'short' }));
   return (
     <div className="te-recur">
       <div className="te-inline">

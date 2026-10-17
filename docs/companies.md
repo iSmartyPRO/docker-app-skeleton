@@ -119,4 +119,4 @@ Errors: `DUPLICATE` (409, `info.duplicates`), `INVALID_IDS` (`info.fields`), `RE
 ## Demo data and tour
 
 - `modules/companies/demo.js`: four neutral companies («ООО «Пример»», «АО «Образец»» and others) with contacts; purge goes through the module's own delete so the timeline goes too.
-- Tour `companies` (`tour/content/companies.js`, texts `tour.companies.*` in `i18n/coreTours.js`): companies, search and filters, «Добавить компанию», people, my companies, the archive, settings (administrators only). Anchors: `cmp.nav.companies`, `cmp.filters`, `cmp.create`, `cmp.nav.people`, `cmp.nav.mine`, `cmp.nav.archive`, `cmp.nav.settings`.
+- Tour `companies` (`tour/content/companies.js`, texts `tour.companies.*` in `locales/<lang>/tour.js`): companies, search and filters, «Добавить компанию», people, my companies, the archive, settings (administrators only). Anchors: `cmp.nav.companies`, `cmp.filters`, `cmp.create`, `cmp.nav.people`, `cmp.nav.mine`, `cmp.nav.archive`, `cmp.nav.settings`.

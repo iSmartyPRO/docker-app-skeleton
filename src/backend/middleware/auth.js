@@ -66,7 +66,7 @@ async function loadSessionUser(req) {
   req.access = access;
   req.user = toPublicUser(row, access);
   // Language for server-made texts: the person's choice, else the portal default.
-  req.locale = await localeFor(row);
+  req.locale = await localeFor(row, { acceptLanguage: req.headers['accept-language'] });
   req.actor = { id: row.id, permissions: new Set(access.permissions) };
   // A superadministrator acting as this person ("sign in as"): who, for the banner and audit.
   if (impersonator) {

@@ -9,6 +9,7 @@ import {
   normalizePermissions,
 } from './permissions.js';
 import { invalidateSettings } from './settings.js';
+import { localeOrDefault, pick } from './i18n/index.js';
 
 /*
  * Roles and groups.
@@ -150,14 +151,15 @@ async function roleIdsByKey(client = { query }) {
 
 async function seedGroups(client, locale) {
   const roles = await roleIdsByKey(client);
-  const lang = locale === 'ru' ? 'ru' : 'en';
+  // Seed data in the installer's language (inline per-language objects, English fallback).
+  const lang = localeOrDefault(locale);
   for (const group of SEED_GROUPS) {
     const inserted = await client.query(
       `INSERT INTO app_groups (key, name, description, is_default)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (key) DO NOTHING
        RETURNING id`,
-      [group.key, group.name[lang], group.description[lang], Boolean(group.isDefault)]
+      [group.key, pick(group.name, lang), pick(group.description, lang), Boolean(group.isDefault)]
     );
     const id = inserted.rows[0]?.id;
     if (!id) continue;
@@ -282,20 +284,42 @@ async function runAll(client, tasks) {
   return results;
 }
 
+function graphFrom(roleRows, groupRows, groupRoleRows) {
+  const roleById = new Map(roleRows.map((row) => [row.id, roleRow(row)]));
+  const rolesOfGroup = new Map();
+  for (const { group_id: groupId, role_id: roleId } of groupRoleRows) {
+    if (!rolesOfGroup.has(groupId)) rolesOfGroup.set(groupId, []);
+    rolesOfGroup.get(groupId).push(roleId);
+  }
+  return { roles: roleRows.map(roleRow), roleById, groups: groupRows, rolesOfGroup };
+}
+
 async function loadGraph(client = { query }) {
   const [roles, groups, groupRoles] = await runAll(client, [
     () => client.query(`SELECT * FROM app_roles ORDER BY sort, name`),
     () => client.query(`SELECT * FROM app_groups ORDER BY is_default DESC, name`),
     () => client.query(`SELECT group_id, role_id FROM group_roles`),
   ]);
-  const roleById = new Map(roles.rows.map((row) => [row.id, roleRow(row)]));
-  const rolesOfGroup = new Map();
-  for (const { group_id: groupId, role_id: roleId } of groupRoles.rows) {
-    if (!rolesOfGroup.has(groupId)) rolesOfGroup.set(groupId, []);
-    rolesOfGroup.get(groupId).push(roleId);
-  }
-  return { roles: roles.rows.map(roleRow), roleById, groups: groups.rows, rolesOfGroup };
+  return graphFrom(roles.rows, groups.rows, groupRoles.rows);
 }
+
+/*
+ * Everything getUserAccess needs in ONE round trip. It runs on every signed-in
+ * request (middleware/auth → getSessionUser); as five queries it held a pooled
+ * connection five times per request and was the main reason a small pool
+ * queued under load. Only the columns accessFrom/roleRow read are fetched.
+ */
+const ACCESS_SQL = `
+  SELECT
+    (SELECT COALESCE(json_agg(json_build_object('id', r.id, 'key', r.key, 'name', r.name, 'description', r.description,
+                                                'permissions', r.permissions, 'is_system', r.is_system) ORDER BY r.sort, r.name), '[]')
+       FROM app_roles r) AS roles,
+    (SELECT COALESCE(json_agg(json_build_object('id', g.id, 'name', g.name) ORDER BY g.is_default DESC, g.name), '[]')
+       FROM app_groups g) AS groups,
+    (SELECT COALESCE(json_agg(json_build_object('group_id', gr.group_id, 'role_id', gr.role_id)), '[]')
+       FROM group_roles gr) AS group_roles,
+    ARRAY(SELECT role_id FROM user_roles WHERE user_id = $1) AS direct,
+    ARRAY(SELECT group_id FROM user_group_members WHERE user_id = $1) AS member`;
 
 function accessFrom(graph, directRoleIds, groupIds) {
   const effective = new Set(directRoleIds);
@@ -325,16 +349,9 @@ function accessFrom(graph, directRoleIds, groupIds) {
 
 /** Effective access for one user. */
 export async function getUserAccess(userId, client = { query }) {
-  const [graph, direct, member] = await runAll(client, [
-    () => loadGraph(client),
-    () => client.query(`SELECT role_id FROM user_roles WHERE user_id = $1`, [userId]),
-    () => client.query(`SELECT group_id FROM user_group_members WHERE user_id = $1`, [userId]),
-  ]);
-  return accessFrom(
-    graph,
-    direct.rows.map((row) => row.role_id),
-    member.rows.map((row) => row.group_id)
-  );
+  const { rows } = await client.query(ACCESS_SQL, [userId]);
+  const row = rows[0];
+  return accessFrom(graphFrom(row.roles, row.groups, row.group_roles), row.direct, row.member);
 }
 
 /** Effective access for many users at once (lists). */

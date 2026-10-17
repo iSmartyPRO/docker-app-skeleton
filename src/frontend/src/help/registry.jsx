@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useLocale } from '../context/LocaleContext';
+import { pick } from '../i18n/languages';
+import { activeLocale } from '../i18n/translations';
 
 /*
  * Help content registry.
  *
- * Each module documents itself in help/content/<id>.js (see SCHEMA.md). Files
- * are loaded on demand, so the help adds nothing to the first page load.
+ * Each module documents itself in help/content/<lang>/<id>.js (see SCHEMA.md),
+ * one file per language. Files are loaded on demand — only the article and
+ * only the language being read — so the help adds nothing to the first page
+ * load. A language's article is laid over the English one at build time
+ * (`?l10n`, scripts/vite-plugin-i18n.mjs): untranslated parts read in English.
  */
 
-const loaders = import.meta.glob('./content/*.js');
+const loaders = import.meta.glob('./content/*/*.js', { query: '?l10n', import: 'default' });
+const REFERENCE = 'en';
 
 /** Order of the help center's table of contents. */
 export const HELP_ORDER = [
@@ -37,20 +43,23 @@ export const HELP_ORDER = [
 const cache = new Map();
 
 export function helpIds() {
-  const available = new Set(Object.keys(loaders).map((path) => path.replace('./content/', '').replace('.js', '')));
+  const available = new Set(Object.keys(loaders).filter((path) => path.startsWith(`./content/${REFERENCE}/`)).map((path) => path.split('/').pop().replace('.js', '')));
   return [...HELP_ORDER.filter((id) => available.has(id)), ...[...available].filter((id) => !HELP_ORDER.includes(id)).sort()];
 }
 
-export function loadHelp(id) {
-  if (!cache.has(id)) {
-    const loader = loaders[`./content/${id}.js`];
-    cache.set(id, loader ? loader().then((mod) => mod.default) : Promise.resolve(null));
+/** One article in a language (default: the interface language), English when it has no translation file. */
+export function loadHelp(id, locale = activeLocale()) {
+  const lang = loaders[`./content/${locale}/${id}.js`] ? locale : REFERENCE;
+  const key = `${lang}/${id}`;
+  if (!cache.has(key)) {
+    const loader = loaders[`./content/${key}.js`];
+    cache.set(key, loader ? loader() : Promise.resolve(null));
   }
-  return cache.get(id);
+  return cache.get(key);
 }
 
-export function loadAllHelp() {
-  return Promise.all(helpIds().map((id) => loadHelp(id))).then((list) => list.filter(Boolean));
+export function loadAllHelp(locale = activeLocale()) {
+  return Promise.all(helpIds().map((id) => loadHelp(id, locale))).then((list) => list.filter(Boolean));
 }
 
 /** Which help article fits the page the person is on. */
@@ -66,8 +75,11 @@ export function helpForPath(pathname) {
   return 'start';
 }
 
-/** Picks the text in the UI language from { ru, en } (or returns a string as is). */
-export const tr = (value, locale) => (value && typeof value === 'object' && !Array.isArray(value) ? value[locale] ?? value.ru ?? value.en ?? '' : value ?? '');
+/**
+ * A help text. Articles are already in one language, so this passes strings
+ * through; a per-language object ({ en, ru, … }) is picked with English fallback.
+ */
+export const tr = (value, locale) => pick(value, locale);
 
 /** The title of another article, loaded on demand. */
 export function HelpTitle({ id }) {
@@ -75,7 +87,7 @@ export function HelpTitle({ id }) {
   const [title, setTitle] = useState(id);
   useEffect(() => {
     let alive = true;
-    loadHelp(id).then((content) => alive && content && setTitle(tr(content.title, locale)));
+    loadHelp(id, locale).then((content) => alive && content && setTitle(tr(content.title, locale)));
     return () => {
       alive = false;
     };

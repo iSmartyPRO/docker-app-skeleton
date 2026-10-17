@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
 import config from '../config/app.js';
 import { optionalAuth, requireAuth } from '../middleware/auth.js';
 import { hasPermission } from '../services/permissions.js';
@@ -16,6 +15,7 @@ import {
   verifyIdToken,
 } from '../services/google.js';
 import { clientIp } from '../middleware/ipGuard.js';
+import { addressAndAccount, failedSignInLimiters, signInLimiter } from '../middleware/signinLimits.js';
 import { IMPERSONATOR_COOKIE, cookieOptions, startSession, verifyToken } from '../services/auth.js';
 import { getSettings, parseSettings } from '../services/settings.js';
 import { isLockedOut, isSessionRevoked, lockoutKey, recordLoginAttempt, recordSecurityEvent, revokeSession } from '../services/security.js';
@@ -33,28 +33,30 @@ import { getUserAccess } from '../services/rbac.js';
 
 const router = Router();
 
-function limiter(max, message) {
-  return rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max,
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: async (req, res) => {
-      await recordSecurityEvent({
-        kind: 'rate_limited',
-        severity: 'warning',
-        username: String(req.body?.username || req.body?.identifier || '').trim().slice(0, 64),
-        ip: clientIp(req),
-        detail: message,
-        debounceMinutes: 5,
-      }).catch(() => {});
-      res.status(429).json({ success: false, error: 'Too many attempts. Try again later.', code: 'RATE_LIMITED' });
-    },
-  });
+/** Answers a refused sign-in request and records it once per 5 minutes. */
+function limited(message) {
+  return async (req, res) => {
+    await recordSecurityEvent({
+      kind: 'rate_limited',
+      severity: 'warning',
+      username: String(req.body?.username || req.body?.identifier || '').trim().slice(0, 64),
+      ip: clientIp(req),
+      detail: message,
+      debounceMinutes: 5,
+    }).catch(() => {});
+    res.status(429).json({ success: false, error: 'Too many attempts. Try again later.', code: 'RATE_LIMITED' });
+  };
 }
 
-const loginLimiter = limiter(20, 'Sign-in rate limit exceeded');
-const codeLimiter = limiter(10, 'Sign-in code rate limit exceeded');
+// Password / code / Telegram / magic link: failed attempts only, 20 per
+// address+account and 100 per address (middleware/signinLimits.js).
+const loginLimiter = failedSignInLimiters({ perAccount: 20, perAddress: 100, onLimited: limited('Sign-in rate limit exceeded') });
+// Asking for a code always answers 200, so every request counts: 10 per
+// address+account, 60 per address.
+const codeLimiter = [
+  signInLimiter({ max: 60, onLimited: limited('Sign-in code rate limit exceeded (address)') }),
+  signInLimiter({ max: 10, key: addressAndAccount, onLimited: limited('Sign-in code rate limit exceeded') }),
+];
 
 async function sessionDays() {
   try {
@@ -189,7 +191,7 @@ router.post(
 
 // ── Google OAuth (sign-in, account connection, Gmail sender) ────────────────
 
-const googleLimiter = limiter(40, 'Google sign-in rate limit exceeded');
+const googleLimiter = signInLimiter({ max: 40, onLimited: limited('Google sign-in rate limit exceeded') });
 const GOOGLE_PURPOSES = ['signin', 'connect', 'gmail'];
 
 function googleFailure(purpose, code) {

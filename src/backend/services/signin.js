@@ -23,6 +23,7 @@ import {
   refreshTelegramUsername,
   syncExternalProfile,
 } from './users.js';
+import { translator } from './i18n/index.js';
 
 /*
  * Sign-in methods. Every function returns `{ user, method }` on success and
@@ -364,20 +365,16 @@ function tokenHash(token) {
 }
 
 function signInMessage(user, appName, { code, link }, locale = user.locale) {
-  const ru = locale === 'ru';
+  const t = translator(locale);
   if (link) {
     return {
-      subject: ru ? `Вход в ${appName}` : `Sign in to ${appName}`,
-      text: ru
-        ? `${appName}: ссылка для входа (действует ${LINK_TTL_MINUTES} минут, одноразовая):\n${link}\n\nЕсли вы не запрашивали вход — просто проигнорируйте это сообщение.`
-        : `${appName}: your sign-in link (valid for ${LINK_TTL_MINUTES} minutes, single use):\n${link}\n\nIf you did not request it, ignore this message.`,
+      subject: t('core.signin.linkSubject', { app: appName }),
+      text: t('core.signin.linkText', { app: appName, minutes: LINK_TTL_MINUTES, link }),
     };
   }
   return {
-    subject: ru ? `Код для входа: ${code}` : `Your sign-in code: ${code}`,
-    text: ru
-      ? `${appName}: код для входа ${code}. Действует ${CODE_TTL_MINUTES} минут. Никому не сообщайте его.`
-      : `${appName}: your sign-in code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes. Do not share it.`,
+    subject: t('core.signin.codeSubject', { code }),
+    text: t('core.signin.codeText', { app: appName, code, minutes: CODE_TTL_MINUTES }),
   };
 }
 

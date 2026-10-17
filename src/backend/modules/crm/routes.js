@@ -24,6 +24,7 @@ import {
 import { activityBoard, counters, createActivity, deleteActivity, listActivities, myActivities, updateActivity } from './activities.js';
 import { createPipeline, deletePipeline, listPipelines, orderPipelines, requireAdmin, updatePipeline } from './pipelines.js';
 import { calendar, createPreset, deletePreset, exportCsv, listPresets, updatePreset } from './views.js';
+import { exportLocale } from '../../services/i18n/index.js';
 
 /** Like shared wrap(), plus 409 VERSION_CONFLICT answered with the fresh deal. */
 const wrap = (handler) => async (req, res, next) => {
@@ -94,7 +95,7 @@ export function privateRoutes() {
   router.get('/board/stage/:stageId', wrap(async (req, res) => ok(res, await stagePage(req.crm, req.params.stageId, req.query))));
   router.get('/activity-board', wrap(async (req, res) => ok(res, await activityBoard(req.crm, req.query))));
   router.get('/calendar', wrap(async (req, res) => ok(res, await calendar(req.crm, req.query))));
-  router.get('/export.csv', wrap(async (req, res) => exportCsv(req.crm, req.query, res)));
+  router.get('/export.csv', wrap(async (req, res) => exportCsv(req.crm, { ...req.query, locale: exportLocale(req.query.lang, req.locale) }, res)));
   router.get('/trash', wrap(async (req, res) => ok(res, await listDeals(req.crm, req.query, { trash: true }))));
 
   // ── Deals ──

@@ -29,13 +29,13 @@ import { normalizeRule, occurrences, seriesNotOverBefore } from './recurrence.js
 import { eventMessage } from './messages.js';
 import { regionalOfUser } from '../../services/regional.js';
 import { isValidTimeZone } from '../../services/datetime.js';
+import { tr } from '../../services/i18n/index.js';
 
 const ACL = 'cal_acl';
 const RSVP = ['accepted', 'declined', 'tentative', 'needs'];
 const DAY = 24 * 60 * 60 * 1000;
 const MAX_RANGE = 120 * DAY;
 
-const PERSONAL_NAME = { en: 'My calendar', ru: 'Мой календарь' };
 
 function calendarShape(row, level, ctx) {
   return {
@@ -60,7 +60,7 @@ export async function ensurePersonalCalendar(ctx, locale) {
       `INSERT INTO cal_calendars (name, color, owner_id, is_personal, created_by)
        VALUES ($1, '#3B82F6', $2, TRUE, $2)
        ON CONFLICT (owner_id) WHERE is_personal DO NOTHING RETURNING id`,
-      [PERSONAL_NAME[locale === 'ru' ? 'ru' : 'en'], ctx.userId]
+      [tr(locale, 'calendar.personal'), ctx.userId]
     );
     const id = rows[0]?.id;
     if (!id) {

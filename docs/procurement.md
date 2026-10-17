@@ -204,7 +204,7 @@ src/frontend/src/modules/procurement/
   components/  bits, DropZone, pickers;  settings/  SettingsForm, LegalEntitiesEditor
   ProcurementSettings.jsx (console), ProcurementWidget.jsx (dashboard)
 src/frontend/src/pages/admin/settings/LegalEntities.jsx
-src/frontend/src/i18n/procurement.js, help/content/procurement.js
+src/frontend/src/locales/<lang>/procurement.js, help/content/<lang>/procurement.js
 ```
 
 ## Demo data and tour

@@ -6,6 +6,7 @@ import { errorMessage } from '../../../lib/errors';
 import { formatRelative } from '../../../lib/format';
 import { fmtTime, inZone, todayISO } from '../../../lib/datetime';
 import { ICON_CATALOG, MenuIcon } from '../../../components/icons/menuIcons';
+import { localeTag } from '../../../i18n/languages';
 
 /** Empty-state glyph: an icon id from the app's icon set, else the text as given. */
 function EmptyGlyph({ icon }) {
@@ -87,10 +88,10 @@ export function dayTitle(value, locale, t) {
   if (diff === 1) return t('dashboard.tomorrow');
   if (diff === -1) return t('dashboard.yesterday');
   // A calendar day (local Date at midnight, formatted in the same device zone): no shift.
-  return cap(dayDate(key).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' }));
+  return cap(dayDate(key).toLocaleDateString(localeTag(locale), { weekday: 'short', day: 'numeric', month: 'short' }));
 }
 
-export const localeTag = (locale) => (locale === 'ru' ? 'ru-RU' : 'en-GB');
+export { localeTag };
 
 /** "12 окт." from "2026-10-12". */
 export function shortDay(key, locale) {

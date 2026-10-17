@@ -1,7 +1,11 @@
 # Help content schema
 
-One file per module: `help/content/<id>.js`, `export default { … }`. Every text is `{ ru, en }`.
-Russian is the primary language of the portal's users; both must say the same thing.
+One file per module **per language**: `help/content/<lang>/<id>.js`, `export default { … }` with plain
+strings (below, `{ ru, en }` marks where a text goes). English (`en/`) is the reference: other languages
+are laid over it at build time, so a translation may leave out anything — ids, icons, `related`, `more`,
+or texts not translated yet — and English shows there. Arrays (`highlights`, `sections`, `steps`, `faq`)
+merge **by position**: keep the same order as English. Russian is the primary language of the portal's
+users; `ru` must be complete (`npm run i18n:check`). See [docs/i18n.md](../../../../docs/i18n.md).
 
 ```js
 export default {

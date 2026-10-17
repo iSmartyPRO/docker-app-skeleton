@@ -46,20 +46,20 @@ function Row({ item, categories, onEdit, onToggle }) {
 }
 
 function CategoryDialog({ open, category, onClose }) {
-  const { t, locale, portalDefault } = useLocale();
+  const { t, locale, portalDefault, languages } = useLocale();
   const { message } = App.useApp();
-  const [names, setNames] = useState({ ru: '', en: '' });
+  const [names, setNames] = useState({});
   const [color, setColor] = useState(PALETTE[0]);
   const primary = portalDefault || locale;
-  const name = names[primary] || names.ru || names.en;
+  const name = names[primary] || Object.values(names).find(Boolean) || '';
   useEffect(() => {
     if (open) {
-      const i18n = { ru: '', en: '', ...(category?.i18n || {}) };
+      const i18n = { ...Object.fromEntries(languages.map(({ code }) => [code, ''])), ...(category?.i18n || {}) };
       if (category && !i18n[primary]) i18n[primary] = category.name;
       setNames(i18n);
       setColor(category?.color || PALETTE[16]);
     }
-  }, [open, category, primary]);
+  }, [open, category, primary, languages]);
   const save = async () => {
     try {
       const payload = { name: '', i18n: names, color };
@@ -73,7 +73,7 @@ function CategoryDialog({ open, category, onClose }) {
   return (
     <Modal open={open} title={category ? t('resources.editCategory') : t('resources.addCategory')} onCancel={() => onClose(false)} onOk={save} okText={t('common.save')} cancelText={t('common.cancel')} okButtonProps={{ disabled: !name.trim() }} width={460} destroyOnHidden>
       <div className="rs-cat-names">
-        {['ru', 'en'].map((code) => (
+        {languages.map(({ code }) => (
           <Input
             key={code}
             autoFocus={code === primary}
@@ -82,7 +82,7 @@ function CategoryDialog({ open, category, onClose }) {
             maxLength={80}
             onChange={(event) => setNames({ ...names, [code]: event.target.value })}
             onPressEnter={save}
-            placeholder={code === 'ru' ? 'Например: Работа, Кадры' : 'e.g. Work, HR'}
+            placeholder={t('resources.categoryPlaceholder')}
           />
         ))}
       </div>

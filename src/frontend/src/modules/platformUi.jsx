@@ -2,9 +2,10 @@ import { useCallback } from 'react';
 import { App } from 'antd';
 import { useLocale } from '../context/LocaleContext';
 import { errorMessage } from '../lib/errors';
+import { pick } from '../i18n/languages';
 
 /** { ru, en } → the text in the UI language (strings pass through). */
-export const pickText = (value, locale) => (value && typeof value === 'object' ? value[locale] ?? value.ru ?? value.en ?? '' : value ?? '');
+export const pickText = (value, locale) => pick(value, locale);
 
 /** A module's display name (i18n apps.<id>.name, else the id). */
 export function moduleName(id, t) {

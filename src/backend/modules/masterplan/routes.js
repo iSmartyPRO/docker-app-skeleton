@@ -22,6 +22,7 @@ import { dealUnits } from './crmLink.js';
 import { openStream } from './realtime.js';
 import { mpMessage } from './messages.js';
 import { userName } from './util.js';
+import { exportLocale } from '../../services/i18n/index.js';
 
 /** Like shared wrap(); a unique-code race becomes 409 CODE_TAKEN, another duplicate 409 DUPLICATE. */
 const wrap = (handler) => async (req, res, next) => {
@@ -204,7 +205,7 @@ export function privateRoutes() {
 
   // ── Units: registry, sales ──
   router.get('/units', wrap(async (req, res) => ok(res, await listUnits(req.mp, req.query))));
-  router.get('/units/export.csv', wrap(async (req, res) => exportCsv(req.mp, req.query, res)));
+  router.get('/units/export.csv', wrap(async (req, res) => exportCsv(req.mp, { ...req.query, locale: exportLocale(req.query.lang, req.locale) }, res)));
   router.post('/units/import', wrap(async (req, res) => ok(res, await importUnits(req.mp, req.body || {}))));
   router.post('/units/bulk-price', wrap(async (req, res) => ok(res, await bulkPrice(req.mp, req.body || {}))));
   router.post('/units/bulk-status', wrap(async (req, res) => ok(res, await bulkStatus(req.mp, req.body || {}))));

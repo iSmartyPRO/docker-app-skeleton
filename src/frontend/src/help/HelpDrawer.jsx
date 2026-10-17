@@ -22,8 +22,8 @@ export default function HelpDrawer({ id, section, onClose, onOpen }) {
 
   useEffect(() => {
     setContent(undefined);
-    loadHelp(id).then((data) => setContent(data || null));
-  }, [id]);
+    loadHelp(id, locale).then((data) => setContent(data || null));
+  }, [id, locale]);
   useEffect(() => setOpen(section || null), [section, id]);
   useEffect(() => {
     if (!content || !section) return;

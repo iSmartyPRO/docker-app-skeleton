@@ -3,7 +3,6 @@ import dayjs from 'dayjs';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import ruLocale from '@fullcalendar/core/locales/ru';
 import { App, Button, Segmented, Select } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
@@ -14,6 +13,7 @@ import { crmApi } from '../api';
 import { useCrm } from '../CrmContext';
 import { formatMoney, readStore, userKey, writeStore } from '../lib';
 import '../../calendar/calendar.css';
+import { useFullCalendarLocale } from '../../../i18n/fullcalendar';
 
 function DealEvent({ arg }) {
   const { amount, currency, stage, locale } = arg.event.extendedProps;
@@ -76,7 +76,7 @@ export default function CalendarView({ params, version, onOpen, onChanged }) {
 
   const sources = useMemo(() => [{ events: source }], [source]);
   const plugins = useMemo(() => [dayGridPlugin, interactionPlugin], []);
-  const locales = useMemo(() => [ruLocale], []);
+  const calendarLocale = useFullCalendarLocale(locale);
   // Deals sit on calendar days (date-only values), so the grid stays in the
   // device's local mode — a day never shifts. Only "today" follows the person's
   // zone: `now` is their wall-clock time read as local.
@@ -142,8 +142,8 @@ export default function CalendarView({ params, version, onOpen, onChanged }) {
           plugins={plugins}
           initialView={prefs.view}
           headerToolbar={false}
-          locales={locales}
-          locale={locale === 'ru' ? 'ru' : 'en-gb'}
+          locales={calendarLocale.locales}
+          locale={calendarLocale.locale}
           firstDay={regional.weekStart}
           now={now}
           eventTimeFormat={timeFormat}

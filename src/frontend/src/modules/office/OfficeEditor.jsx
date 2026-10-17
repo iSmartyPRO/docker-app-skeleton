@@ -7,6 +7,7 @@ import { useThemeMode } from '../../context/ThemeContext';
 import { errorMessage } from '../../lib/errors';
 import { FileIcon } from '../kb/components/Icons';
 import './office.css';
+import { localeTag } from '../../i18n/languages';
 
 /*
  * Full-screen online editor (Collabora Online over WOPI) for Files and Drive.
@@ -21,7 +22,7 @@ import './office.css';
 
 const LOAD_TIMEOUT_MS = 30000;
 
-const time = (date, locale) => date.toLocaleTimeString(locale === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+const time = (date, locale) => date.toLocaleTimeString(localeTag(locale), { hour: '2-digit', minute: '2-digit' });
 
 function initials(name) {
   return String(name || '?')
@@ -56,7 +57,7 @@ export default function OfficeEditor({ open, name, ext, where, backTo, downloadU
     setPhase('loading');
     setViews([]);
     setStatus({ modified: false, savedAt: null, saving: false, failed: false });
-    open({ mode: request.mode, force: request.force, lang: locale === 'ru' ? 'ru' : 'en', dark })
+    open({ mode: request.mode, force: request.force, lang: locale, dark })
       .then((res) => alive && setSession(res.data))
       .catch((err) => alive && setError(err));
     return () => {

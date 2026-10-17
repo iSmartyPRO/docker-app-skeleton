@@ -1,5 +1,6 @@
 import { fmtDate, fmtDateTime, inZone, intlOptions, nowInZone } from '../../../lib/datetime';
 import { formatDue, formatMoney } from '../lib';
+import { localeTag } from '../../../i18n/languages';
 
 /** A stage of an event (string or { name, color }) as a coloured chip. */
 function StageChip({ stage }) {
@@ -111,5 +112,5 @@ export function dayLabel(value, { t, locale }) {
   const now = nowInZone();
   if (date.isSame(now, 'day')) return t('crm.due.today');
   if (date.isSame(now.subtract(1, 'day'), 'day')) return t('crm.due.yesterday');
-  return new Date(value).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-GB', intlOptions({ day: 'numeric', month: 'long', ...(date.isSame(now, 'year') ? {} : { year: 'numeric' }) }));
+  return new Date(value).toLocaleDateString(localeTag(locale), intlOptions({ day: 'numeric', month: 'long', ...(date.isSame(now, 'year') ? {} : { year: 'numeric' }) }));
 }

@@ -62,6 +62,11 @@ IDLE_SECONDS = int(os.environ.get("SMBGATE_IDLE", "300"))
 # Sessions are renewed after this age so AD group changes apply (like a new logon).
 MAX_AGE_SECONDS = int(os.environ.get("SMBGATE_MAX_AGE", "900"))
 CHUNK = 1024 * 1024
+# Parallel file reads per SMB session. Phones open a PDF with a burst of
+# range requests; past the server's SMB credit grant smbprotocol fails them
+# with "Request requires N credits but only 0 credits are available".
+READS_PER_POOL = max(1, int(os.environ.get("SMBGATE_READS", "4")))
+READ_WAIT_SECONDS = 30
 # Seconds an upload body may stay silent before the gateway gives up on it.
 BODY_IDLE_TIMEOUT = 120
 FORBIDDEN = set('<>:"|?*\\/')
@@ -115,6 +120,12 @@ class GateError(Exception):
         self.ntstatus = ntstatus
 
 
+def is_credit_exhaustion(text):
+    """smbprotocol's "Request requires N credits but only M credits are available"."""
+    text = str(text or "").lower()
+    return "credits" in text and "available" in text
+
+
 def translate(exc):
     """Maps any SMB / network failure to (http status, code, message)."""
     if isinstance(exc, GateError):
@@ -139,6 +150,9 @@ def translate(exc):
             return GateError(401, code, text)
     if isinstance(exc, SMBAuthenticationError):
         return GateError(401, "AUTH_FAILED", text)
+    if isinstance(exc, SMBException) and is_credit_exhaustion(text):
+        # The session is momentarily out of SMB credits: busy, not broken.
+        return GateError(503, "SMB_BUSY", text)
     if isinstance(exc, (OSError, ValueError, SMBException, socket.timeout, TimeoutError)) and (
         "connect" in text.lower() or "timed out" in text.lower() or isinstance(exc, (socket.timeout, TimeoutError, ConnectionError))
     ):
@@ -163,6 +177,8 @@ class Pool:
         # Long operations (acl_propagate) that hold the sessions: the reaper
         # leaves the pool alone while > 0 (see hold_pool).
         self.active = 0
+        # Bounds parallel streaming reads on these sessions (see READS_PER_POOL).
+        self.reads = threading.BoundedSemaphore(READS_PER_POOL)
 
     def touch(self):
         self.used = time.monotonic()
@@ -1288,7 +1304,15 @@ class Handler(BaseHTTPRequestHandler):
 
     # Streaming file read with an optional byte range.
     def op_read(self, req):
-        kwargs = session_kwargs(req)
+        kwargs, pool = session(req)
+        if not pool.reads.acquire(timeout=READ_WAIT_SECONDS):
+            raise GateError(503, "SMB_BUSY", "Too many parallel reads on this file server session")
+        try:
+            self.read_file(req, kwargs)
+        finally:
+            pool.reads.release()
+
+    def read_file(self, req, kwargs):
         target = unc(req)
         parts = clean_parts(req.get("path"))
         st = smbclient.stat(target, **kwargs)

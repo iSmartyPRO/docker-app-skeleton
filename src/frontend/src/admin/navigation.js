@@ -80,7 +80,14 @@ export const SETTINGS_GROUPS = [
       {
         id: 'general',
         defaultIcon: 'project',
-        keywords: 'name brand logo description language region time zone date format week название логотип бренд описание язык регион часовой пояс время дата формат неделя',
+        keywords: 'name brand logo description region time zone date format week название логотип бренд описание регион часовой пояс время дата формат неделя',
+      },
+      {
+        // Interface languages: superadministrators only (enforced by the API too).
+        id: 'languages',
+        defaultIcon: 'globe',
+        permission: '*',
+        keywords: 'languages language locale translation default browser english russian kyrgyz turkish chinese языки язык локализация перевод по умолчанию браузер русский английский кыргызский турецкий китайский',
       },
       {
         id: 'legalEntities',

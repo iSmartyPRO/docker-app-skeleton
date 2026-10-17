@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
-import { Robot } from '../modules/assistant/robots';
 import { fmtTime } from '../lib/datetime';
 import { BUILD, checkNow, clientSessionId, outageDetails, useOutage } from '../lib/outage';
 
@@ -12,6 +11,47 @@ import { BUILD, checkNow, clientSessionId, outageDetails, useOutage } from '../l
  * every few seconds and disappears by itself; what is on the page underneath
  * stays as it was. The ids below are what support needs to find the incident.
  */
+
+/*
+ * The robot drawing (~80 kB) stays out of the main bundle. It is fetched once
+ * the page is idle, so it is already in memory when the server goes away;
+ * if it could not be fetched the screen simply shows no robot.
+ */
+let robotModule = null;
+let robotPromise = null;
+function loadRobot() {
+  if (!robotPromise) {
+    robotPromise = import('../modules/assistant/robots')
+      .then((module) => {
+        robotModule = module;
+        return module;
+      })
+      .catch(() => {
+        robotPromise = null;
+        return null;
+      });
+  }
+  return robotPromise;
+}
+if (typeof window !== 'undefined') {
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 4000));
+  window.addEventListener('load', () => idle(() => loadRobot(), { timeout: 10000 }), { once: true });
+}
+
+function MaintenanceRobot(props) {
+  const [module, setModule] = useState(robotModule);
+  useEffect(() => {
+    if (module) return undefined;
+    let alive = true;
+    loadRobot().then((loaded) => alive && loaded && setModule(loaded));
+    return () => {
+      alive = false;
+    };
+  }, [module]);
+  if (!module) return <span style={{ display: 'inline-block', width: props.size, height: props.size }} />;
+  const { Robot } = module;
+  return <Robot {...props} />;
+}
 
 const KIND = { MAINTENANCE: 'update', HTTP_502: 'update', HTTP_504: 'update', DB_UNAVAILABLE: 'works', HTTP_503: 'works', NETWORK: 'network', TIMEOUT: 'network', OFFLINE: 'offline' };
 
@@ -46,7 +86,7 @@ export default function Maintenance() {
     <div className={`mnt${settings ? '' : ' is-solid'}`} role="alertdialog" aria-live="assertive" aria-label={t(`outage.${kind}.title`)}>
       <div className="mnt__card">
         <div className="mnt__robot" aria-hidden="true">
-          <Robot kind="builder" mood={outage.checking ? 'think' : 'idle'} size={112} />
+          <MaintenanceRobot kind="builder" mood={outage.checking ? 'think' : 'idle'} size={112} />
         </div>
         <h1>{t(`outage.${kind}.title`)}</h1>
         <p>{t(`outage.${kind}.text`)}</p>

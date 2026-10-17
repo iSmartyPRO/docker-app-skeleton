@@ -5,6 +5,7 @@ import { editingConfig, editingFrom, portalBase, sanitizeEditing } from './confi
 import { locksOf } from './locks.js';
 import { signWopiToken } from './tokens.js';
 import { INSTANCE } from './wopi.js';
+import { localeOrDefault, localeTag } from '../i18n/index.js';
 
 /*
  * Opening the editor for a signed-in person: the module checks access and
@@ -81,7 +82,9 @@ export async function editorSession(req, { fileId, ext, canWrite, want = 'edit',
   if (!src) throw httpError(400, 'EDITOR_TYPE', 'The editor server does not open this file type');
   const url = new URL(src);
   url.searchParams.set('WOPISrc', `${editing.wopiBaseUrl}/api/wopi/files/${fileId}`);
-  url.searchParams.set('lang', lang === 'ru' ? 'ru' : 'en');
+  // The editor's interface language: the portal code (Collabora wants zh-CN for Chinese).
+  const code = localeOrDefault(lang);
+  url.searchParams.set('lang', code === 'zh' ? localeTag(code) : code);
   // Compact (classic toolbar) UI; the theme follows the portal.
   url.searchParams.set('ui_defaults', `UIMode=compact;TextSidebar=false;UITheme=${dark ? 'dark' : 'light'}`);
   if (mode === 'view') url.searchParams.set('permission', 'readonly');

@@ -48,7 +48,7 @@ function LinkList({ links, t, locale, field, empty }) {
  * «About the module» (spec §2): what it does and for whom, setup steps,
  * roles and permissions (from the catalog), dependencies and links (from the
  * manifest), scenarios, FAQ, changelog and the user guide.
- * Content: help/admin/<id>.js (help/ADMIN_SCHEMA.md) + help/content/<id>.js.
+ * Content: help/admin/<lang>/<id>.js (help/ADMIN_SCHEMA.md) + help/content/<lang>/<id>.js.
  */
 export default function ModuleDocs() {
   const { id } = useParams();
@@ -66,13 +66,13 @@ export default function ModuleDocs() {
   useEffect(() => {
     let alive = true;
     setDocs(undefined);
-    loadAdminDocs(id).then((content) => alive && setDocs(content));
-    if (hasUserHelp(id)) loadHelp(id).then((content) => alive && setHelp(content));
+    loadAdminDocs(id, locale).then((content) => alive && setDocs(content));
+    if (hasUserHelp(id)) loadHelp(id, locale).then((content) => alive && setHelp(content));
     else setHelp(null);
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, locale]);
 
   if (catalog.data && !module) {
     return (

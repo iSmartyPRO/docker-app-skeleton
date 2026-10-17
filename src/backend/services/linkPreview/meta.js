@@ -14,6 +14,7 @@
  */
 
 import { formatDate, REGIONAL_DEFAULTS } from '../datetime.js';
+import { decimalSeparator, localeOrDefault, localeTag, sanitizeLocalization, tr, translator } from '../i18n/index.js';
 
 // ── Text helpers ────────────────────────────────────────────────────────────
 
@@ -117,18 +118,18 @@ export function countsAsView(req) {
 
 /** File categories: card colour, badge text, words. */
 const TYPES = [
-  { id: 'pdf', exts: ['pdf'], color: '#E5484D', ru: 'PDF', en: 'PDF' },
-  { id: 'doc', exts: ['doc', 'docx', 'odt', 'rtf', 'pages'], color: '#2B6CE0', ru: 'Документ', en: 'Document' },
-  { id: 'xls', exts: ['xls', 'xlsx', 'xlsm', 'ods', 'csv', 'numbers'], color: '#1F9D55', ru: 'Таблица', en: 'Spreadsheet' },
-  { id: 'ppt', exts: ['ppt', 'pptx', 'odp', 'key'], color: '#E8590C', ru: 'Презентация', en: 'Presentation' },
-  { id: 'img', exts: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tif', 'tiff', 'svg', 'avif'], color: '#8E4EC6', ru: 'Изображение', en: 'Image' },
-  { id: 'zip', exts: ['zip', 'rar', '7z', 'tar', 'gz', 'tgz', 'bz2', 'xz'], color: '#B7791F', ru: 'Архив', en: 'Archive' },
-  { id: 'cad', exts: ['dwg', 'dxf', 'dwf', 'rvt', 'ifc', 'skp'], color: '#0E9F9A', ru: 'Чертёж', en: 'Drawing' },
-  { id: 'video', exts: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v', 'wmv'], color: '#D6336C', ru: 'Видео', en: 'Video' },
-  { id: 'audio', exts: ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'opus'], color: '#7048E8', ru: 'Аудио', en: 'Audio' },
-  { id: 'txt', exts: ['txt', 'md', 'log', 'json', 'xml', 'yml', 'yaml'], color: '#64748B', ru: 'Текст', en: 'Text' },
+  { id: 'pdf', exts: ['pdf'], color: '#E5484D' },
+  { id: 'doc', exts: ['doc', 'docx', 'odt', 'rtf', 'pages'], color: '#2B6CE0' },
+  { id: 'xls', exts: ['xls', 'xlsx', 'xlsm', 'ods', 'csv', 'numbers'], color: '#1F9D55' },
+  { id: 'ppt', exts: ['ppt', 'pptx', 'odp', 'key'], color: '#E8590C' },
+  { id: 'img', exts: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tif', 'tiff', 'svg', 'avif'], color: '#8E4EC6' },
+  { id: 'zip', exts: ['zip', 'rar', '7z', 'tar', 'gz', 'tgz', 'bz2', 'xz'], color: '#B7791F' },
+  { id: 'cad', exts: ['dwg', 'dxf', 'dwf', 'rvt', 'ifc', 'skp'], color: '#0E9F9A' },
+  { id: 'video', exts: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v', 'wmv'], color: '#D6336C' },
+  { id: 'audio', exts: ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'opus'], color: '#7048E8' },
+  { id: 'txt', exts: ['txt', 'md', 'log', 'json', 'xml', 'yml', 'yaml'], color: '#64748B' },
 ];
-const OTHER = { id: 'file', color: '#475569', ru: 'Файл', en: 'File' };
+const OTHER = { id: 'file', color: '#475569' };
 
 export function extOf(name) {
   const match = /\.([A-Za-z0-9]{1,10})$/.exec(String(name || ''));
@@ -144,7 +145,7 @@ export function fileType(ext) {
 export function formatSize(bytes, locale = 'ru') {
   const n = Number(bytes);
   if (!Number.isFinite(n) || n < 0) return '';
-  const units = locale === 'en' ? ['B', 'KB', 'MB', 'GB', 'TB'] : ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+  const units = tr(locale, 'linkPreview.units');
   let value = n;
   let unit = 0;
   while (value >= 1024 && unit < units.length - 1) {
@@ -153,96 +154,44 @@ export function formatSize(bytes, locale = 'ru') {
   }
   const digits = unit === 0 || value >= 100 ? 0 : value >= 10 ? 0 : 1;
   const text = value.toFixed(digits).replace(/\.0$/, '');
-  return `${locale === 'en' ? text : text.replace('.', ',')} ${units[unit]}`;
-}
-
-/** Russian plural: plural(5, ['файл', 'файла', 'файлов']) → 'файлов'. */
-export function pluralRu(n, forms) {
-  const abs = Math.abs(n) % 100;
-  const last = abs % 10;
-  if (abs > 10 && abs < 20) return forms[2];
-  if (last > 1 && last < 5) return forms[1];
-  if (last === 1) return forms[0];
-  return forms[2];
+  return `${text.replace('.', decimalSeparator(locale))} ${units[unit]}`;
 }
 
 /** "PDF", "DOCX", "Изображение JPG", "Видео MP4"; the category word when there is no extension. */
 export function typeLabel(type, ext, locale = 'ru') {
-  const word = type[locale === 'en' ? 'en' : 'ru'];
+  const word = tr(locale, `linkPreview.types.${type.id}`);
   const upper = String(ext || '').toUpperCase();
   if (!upper) return word;
   if (['img', 'video', 'audio'].includes(type.id)) return `${word} ${upper}`;
   return upper;
 }
 
-const count = (n, locale, ru, en) => `${n} ${locale === 'en' ? (n === 1 ? en[0] : en[1]) : pluralRu(n, ru)}`;
+const count = (n, locale, key) => tr(locale, `linkPreview.${key}`, { count: n });
 
-const T = {
-  ru: {
-    portal: 'Портал',
-    portalDescription: 'Корпоративный портал',
-    invalidTitle: 'Ссылка недействительна или истекла',
-    invalidText: 'Попросите отправителя прислать новую ссылку.',
-    lockedTitle: '🔒 Доступ по паролю',
-    lockedCard: 'Доступ по паролю',
-    lockedText: 'Файлы по этой ссылке защищены паролем. Откройте ссылку и введите пароль.',
-    employeesTitle: 'Ссылка для сотрудников',
-    employeesText: 'Войдите в портал, чтобы открыть эту ссылку.',
-    folder: 'Папка',
-    empty: 'пусто',
-    canDownload: 'Можно скачать',
-    viewOnly: 'Только просмотр',
-    canUpload: 'Можно загрузить файлы',
-    canEdit: 'Можно вносить изменения',
-    canReplace: 'Можно заменить новой версией',
-    uploadOnly: 'Приём файлов',
-    uploadTo: (owner) => (owner ? `Отправьте файлы — их получит ${owner}` : 'Отправьте файлы по этой ссылке'),
-    hidden: 'Содержимое папки скрыто',
-    until: (date) => `Доступно до ${date}`,
-    from: (owner) => `Отправитель: ${owner}`,
-    kb: 'База знаний',
-    article: 'Статья',
-    link: 'Ссылка',
-    materials: ['материал', 'материала', 'материалов'],
-    files: ['файл', 'файла', 'файлов'],
-    folders: ['папка', 'папки', 'папок'],
-  },
-  en: {
-    portal: 'Portal',
-    portalDescription: 'Company portal',
-    invalidTitle: 'This link is invalid or has expired',
-    invalidText: 'Ask the sender for a new link.',
-    lockedTitle: '🔒 Password protected',
-    lockedCard: 'Password protected',
-    lockedText: 'The files behind this link are protected by a password. Open the link and enter it.',
-    employeesTitle: 'Link for employees',
-    employeesText: 'Sign in to the portal to open this link.',
-    folder: 'Folder',
-    empty: 'empty',
-    canDownload: 'Download allowed',
-    viewOnly: 'View only',
-    canUpload: 'You can upload files',
-    canEdit: 'You can make changes',
-    canReplace: 'You can upload a new version',
-    uploadOnly: 'File request',
-    uploadTo: (owner) => (owner ? `Send files to ${owner}` : 'Send files through this link'),
-    hidden: 'Folder contents stay private',
-    until: (date) => `Available until ${date}`,
-    from: (owner) => `Shared by ${owner}`,
-    kb: 'Knowledge base',
-    article: 'Article',
-    link: 'Link',
-    materials: ['item', 'items'],
-    files: ['file', 'files'],
-    folders: ['folder', 'folders'],
-  },
-};
+/**
+ * Preview texts of a language (locales/<lang>/linkPreview.js) as an object:
+ * t.folder, t.until(date), t.from(owner), t.uploadTo(owner)…
+ */
+export function texts(locale) {
+  const t = translator(locale);
+  const plain = (key) => t(`linkPreview.${key}`);
+  return new Proxy(
+    {
+      uploadTo: (owner) => (owner ? t('linkPreview.uploadTo', { owner }) : plain('uploadAny')),
+      until: (date) => t('linkPreview.until', { date }),
+      from: (owner) => t('linkPreview.from', { owner }),
+    },
+    { get: (target, key) => (key in target ? target[key] : typeof key === 'string' ? plain(key) : undefined) }
+  );
+}
 
-export const texts = (locale) => T[locale === 'en' ? 'en' : 'ru'];
-
-/** The portal language for previews: the default language setting; Russian when it is "auto". */
+/**
+ * The portal language for previews (crawlers have no account): the default
+ * language, or the first enabled one when the default is "browser language".
+ */
 export function previewLocale(parsed) {
-  return parsed?.defaultLocale === 'en' ? 'en' : 'ru';
+  const settings = sanitizeLocalization(parsed?.localization, parsed?.defaultLocale);
+  return settings.default === 'browser' ? settings.enabled[0] : settings.default;
 }
 
 const SKELETON_NAMES = new Set(['docker-app-skeleton', '']);
@@ -279,8 +228,8 @@ function folderCount(model, locale) {
   const folders = Number(model.folders);
   if (!Number.isFinite(files) && !Number.isFinite(folders)) return t.folder;
   const parts = [];
-  if (files > 0) parts.push(count(files, locale, t.files, t.files));
-  if (folders > 0) parts.push(count(folders, locale, t.folders, t.folders));
+  if (files > 0) parts.push(count(files, locale, 'files'));
+  if (folders > 0) parts.push(count(folders, locale, 'folders'));
   return `${t.folder} · ${parts.length ? parts.join(', ') : t.empty}`;
 }
 
@@ -336,7 +285,7 @@ export function describe(model, { site, locale = 'ru', regional = REGIONAL_DEFAU
     } else {
       color = '#0F766E';
       const n = Number(model.items);
-      head = Number.isFinite(n) && n > 0 ? `${t.kb} · ${count(n, locale, t.materials, t.materials)}` : t.kb;
+      head = Number.isFinite(n) && n > 0 ? `${t.kb} · ${count(n, locale, 'materials')}` : t.kb;
     }
     const text = cleanText(model.excerpt, 170);
     lines = [head, text].filter(Boolean);
@@ -395,7 +344,8 @@ export function describe(model, { site, locale = 'ru', regional = REGIONAL_DEFAU
 
 // ── <head> tags ─────────────────────────────────────────────────────────────
 
-const OG_LOCALES = { ru: 'ru_RU', en: 'en_US' };
+/** Open Graph locale: 'ru' → 'ru_RU' (en keeps en_US, what crawlers expect). */
+const ogLocale = (locale) => (localeOrDefault(locale) === 'en' ? 'en_US' : localeTag(localeOrDefault(locale)).replace('-', '_'));
 
 /**
  * The tags between the link-preview markers of index.html. `text` is
@@ -417,7 +367,7 @@ export function headTags({ text, site, locale = 'ru', url, image, appleIcon, rob
     `<meta property="og:site_name" content="${e(siteName)}" />`,
     `<meta property="og:title" content="${e(text.title)}" />`,
     `<meta property="og:description" content="${e(text.description)}" />`,
-    `<meta property="og:locale" content="${OG_LOCALES[locale] || OG_LOCALES.ru}" />`,
+    `<meta property="og:locale" content="${ogLocale(locale)}" />`,
     url ? `<meta property="og:url" content="${e(url)}" />` : null,
     url ? `<link rel="canonical" href="${e(url)}" />` : null,
     image ? `<meta property="og:image" content="${e(image.url)}" />` : null,
@@ -456,5 +406,5 @@ export function injectHead(template, tags, locale = 'ru') {
       .replace(/<link\s+rel="apple-touch-icon"[^>]*>\s*/gi, '')
       .replace(/<head>/i, `<head>\n    ${tags}`);
   }
-  return html.replace(/<html\b[^>]*>/i, `<html lang="${locale === 'en' ? 'en' : 'ru'}">`);
+  return html.replace(/<html\b[^>]*>/i, `<html lang="${localeOrDefault(locale)}">`);
 }

@@ -1,6 +1,7 @@
 import { endpoints } from './introspect.js';
 import { ERRORS, SECTIONS } from './reference.js';
 import { EVENT_CATALOG } from './events.js';
+import { pick } from '../services/i18n/index.js';
 
 /*
  * OpenAPI 3.1 description of /api/v1, built from the same data as the
@@ -8,7 +9,7 @@ import { EVENT_CATALOG } from './events.js';
  * generators.
  */
 
-const text = (value, lang) => (value && typeof value === 'object' ? value[lang] || value.en : value || '');
+const text = (value, lang) => (value && typeof value === 'object' ? pick(value, lang) : value || '');
 
 function schemaFor(type) {
   const t = String(type || '');
@@ -69,7 +70,7 @@ export function openApi({ origin, lang = 'en', appName = 'Portal', version = '1.
     info: {
       title: `${appName} API`,
       version,
-      description: lang === 'ru' ? 'REST API портала. Авторизация — токеном в заголовке `Authorization: Bearer`.' : 'Portal REST API. Authenticate with a token in `Authorization: Bearer`.',
+      description: text({ ru: 'REST API портала. Авторизация — токеном в заголовке `Authorization: Bearer`.', en: 'Portal REST API. Authenticate with a token in `Authorization: Bearer`.' }, lang),
     },
     servers: [{ url: `${origin}/api/v1` }],
     security: [{ bearer: [] }],

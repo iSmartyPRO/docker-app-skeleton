@@ -14,7 +14,7 @@ const STATUS_COLOR = { ok: 'success', warn: 'warning', fail: 'error', unknown: '
 const INT_COLOR = { on: 'success', off: 'default', incomplete: 'warning' };
 
 function everyText(ms, t, locale) {
-  if (ms < 60_000) return locale === 'ru' ? `${Math.round(ms / 1000)} с` : `${Math.round(ms / 1000)}s`;
+  if (ms < 60_000) return t('format.duration.seconds', { n: Math.round(ms / 1000) });
   return formatDuration(Math.round(ms / 1000), locale);
 }
 

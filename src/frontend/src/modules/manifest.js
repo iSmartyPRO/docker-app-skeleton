@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import api from '../services/api';
 import { FEATURE_MODULES, MODULE_REGISTRY } from './registry';
+import { activeLocale } from '../i18n/translations';
 
 /**
  * Client side of the module manifest (docs/extending.md «Module manifest»).
@@ -14,8 +15,8 @@ import { FEATURE_MODULES, MODULE_REGISTRY } from './registry';
  *     tour: null,          // the module's guided tour — see below
  *   }
  *   plus, derived automatically:
- *     adminDocs            help/admin/<id>.js exists → the «About the module» page
- *     help                 help/content/<id>.js exists → the user guide /help/<id>
+ *     adminDocs            help/admin/<lang>/<id>.js exists → the «About the module» page
+ *     help                 help/content/<lang>/<id>.js exists → the user guide /help/<id>
  *     icon, labelKey, descKey, Settings, path  ← modules/registry.js
  *
  * Tours (workstream «tours»): set `tour` of a module to anything the tour
@@ -60,20 +61,23 @@ export const CATEGORY_ICONS = {
   infrastructure: 'server',
 };
 
-const adminDocLoaders = import.meta.glob('../help/admin/*.js');
-const helpLoaders = import.meta.glob('../help/content/*.js');
+// One file per language (help/admin/<lang>/<id>.js), laid over English at build time (?l10n).
+const adminDocLoaders = import.meta.glob('../help/admin/*/*.js', { query: '?l10n', import: 'default' });
+const helpLoaders = import.meta.glob('../help/content/en/*.js', { query: '?l10n', import: 'default' });
 
-export const hasAdminDocs = (id) => Boolean(adminDocLoaders[`../help/admin/${id}.js`]);
-export const hasUserHelp = (id) => Boolean(helpLoaders[`../help/content/${id}.js`]);
+export const hasAdminDocs = (id) => Boolean(adminDocLoaders[`../help/admin/en/${id}.js`]);
+export const hasUserHelp = (id) => Boolean(helpLoaders[`../help/content/en/${id}.js`]);
 
 const docsCache = new Map();
-/** The admin docs content of a module (help/admin/<id>.js, see help/ADMIN_SCHEMA.md), or null. */
-export function loadAdminDocs(id) {
-  if (!docsCache.has(id)) {
-    const loader = adminDocLoaders[`../help/admin/${id}.js`];
-    docsCache.set(id, loader ? loader().then((mod) => mod.default) : Promise.resolve(null));
+/** The admin docs content of a module (help/admin/<lang>/<id>.js, see help/ADMIN_SCHEMA.md), or null. */
+export function loadAdminDocs(id, locale = activeLocale()) {
+  const lang = adminDocLoaders[`../help/admin/${locale}/${id}.js`] ? locale : 'en';
+  const key = `${lang}/${id}`;
+  if (!docsCache.has(key)) {
+    const loader = adminDocLoaders[`../help/admin/${key}.js`];
+    docsCache.set(key, loader ? loader() : Promise.resolve(null));
   }
-  return docsCache.get(id);
+  return docsCache.get(key);
 }
 
 /** Registry entry (app or feature module) of an id: icon, labelKey, descKey, Settings, path. */

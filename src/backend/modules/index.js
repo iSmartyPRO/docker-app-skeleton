@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { getSettings, parseSettings } from '../services/settings.js';
+import { getSettings, getSettingsView, parseSettings } from '../services/settings.js';
 import { readdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -81,8 +81,7 @@ export async function loadModuleDemos() {
 }
 
 async function moduleState(id) {
-  const parsed = parseSettings(await getSettings());
-  return parsed.modules[id];
+  return (await getSettingsView()).modules[id];
 }
 
 function enabledOnly(id) {

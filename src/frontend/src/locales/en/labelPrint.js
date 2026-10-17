@@ -1,0 +1,27 @@
+export default {
+  title: 'Print labels',
+  format: 'Format',
+  formats: {
+    '58x40': '58 × 40 mm',
+    '80x50': '80 × 50 mm',
+    'a4-3x8': 'A4, 3 × 8',
+  },
+  formatHints: {
+    '58x40': 'Thermal printer',
+    '80x50': 'Thermal printer',
+    'a4-3x8': 'Sheet of 24 labels',
+  },
+  copies: 'Copies of each',
+  preview: 'Preview',
+  print: 'Print',
+  total: 'Labels: {count}',
+  sheets: 'A4 sheets: {count}',
+  position: '{index} of {total}',
+  prev: 'Previous label',
+  next: 'Next label',
+  empty: 'Nothing to print',
+  failed: 'Could not prepare the labels: {error}',
+  fallbackEan: 'Not a valid EAN-13 — will print as Code 128: {codes}',
+  fallbackQr: 'Code 128 cannot carry these characters — will print as QR: {codes}',
+  tip: 'In the print dialog choose the label printer, scale 100 % and no margins.',
+};

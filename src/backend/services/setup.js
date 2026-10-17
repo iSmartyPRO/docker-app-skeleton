@@ -9,6 +9,7 @@ import { getSettings, invalidateSettings, parseSettings, setSetting } from './se
 import { hasAdminUser, createAdminUser, assertUsername } from './users.js';
 import { bootstrapSchema } from './schema.js';
 import { seedDemoUsers, seedRbac } from './rbac.js';
+import { DEFAULT_LOCALIZATION, localeOrDefault } from './i18n/index.js';
 
 function normalizeDbCredentials(body) {
   const host = String(body.host || '').trim();
@@ -165,10 +166,12 @@ export async function completeSetup(body) {
   await bootstrapSchema();
   const user = await createAdminUser({ username, email, password });
   // Groups (and module starter content) use the language of the wizard.
-  const locale = body.locale === 'ru' ? 'ru' : 'en';
+  const locale = localeOrDefault(body.locale);
   await query(`UPDATE users SET locale = $2 WHERE id = $1`, [user.id, locale]);
   // The installer's language becomes the portal default.
   await query(`INSERT INTO app_settings (key, value) VALUES ('default_locale', $1) ON CONFLICT (key) DO NOTHING`, [locale]);
+  const enabled = [...new Set([locale, ...DEFAULT_LOCALIZATION.enabled])];
+  await query(`INSERT INTO app_settings (key, value) VALUES ('localization', $1) ON CONFLICT (key) DO NOTHING`, [JSON.stringify({ enabled, default: locale, fallback: 'en' })]);
   invalidateSettings();
   await seedRbac({ locale });
   // Sample accounts only when asked for (the wizard's checkbox starts off).

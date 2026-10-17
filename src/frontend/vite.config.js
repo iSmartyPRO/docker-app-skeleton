@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import i18n from './scripts/vite-plugin-i18n.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -59,7 +60,7 @@ function portalDefaults() {
 }
 
 export default defineConfig({
-  plugins: [react(), buildVersionFile(), portalDefaults()],
+  plugins: [i18n(), react(), buildVersionFile(), portalDefaults()],
   define: {
     __APP_VERSION__: JSON.stringify(readAppVersion()),
     __BUILD_ID__: JSON.stringify(BUILD_ID),
@@ -95,10 +96,14 @@ export default defineConfig({
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
-        // Long-lived vendor chunks: app deploys do not bust the antd/react cache.
+        // Long-lived vendor chunk: app deploys do not bust the react cache.
+        // antd is deliberately NOT forced into one chunk: a single `antd` chunk
+        // held every component any page uses (~1.3 MB, tables, pickers,
+        // colour picker, upload…) and was loaded before the login form. Left
+        // to Rollup, the shell gets only the components it renders and the
+        // rest travel with the pages that need them.
         manualChunks: {
           react: ['react', 'react-dom', 'react-router-dom'],
-          antd: ['antd'],
         },
       },
     },

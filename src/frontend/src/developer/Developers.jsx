@@ -9,6 +9,7 @@ import { useLocale } from '../context/LocaleContext';
 import { developerApi, rawCall } from './client';
 import { CodeBlock, CodeTabs, CopyField, MethodBadge, PathText, areaTitle, requestSamples, statusClass, useCopy } from './components';
 import { GUIDE, Guide, rich } from './guide';
+import { pick } from '../i18n/languages';
 
 /*
  * /developers — the developer portal: a guide and the full API reference with
@@ -16,7 +17,7 @@ import { GUIDE, Guide, rich } from './guide';
  */
 
 const slug = (endpoint) => `ep-${endpoint.method.toLowerCase()}-${endpoint.path.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
-const text = (value, locale) => (value && typeof value === 'object' ? value[locale] || value.en : value || '');
+const text = (value, locale) => pick(value, locale);
 const SAMPLE_VALUES = { ref: 'WEB-12', id: '1', userId: '7', type: 'task', key: 'WEB', token: 'TOKEN', slug: 'docs', nodeId: '1', serverId: '1', otherId: '2' };
 const samplePath = (path) => path.replace(/:(\w+)(\(([^)]*)\))?/g, (_, name, _x, choices) => (choices ? choices.split('|')[0] : SAMPLE_VALUES[name] || '1')).replace(/(.)\/$/, '$1');
 const pathParams = (path) => [...path.matchAll(/:(\w+)/g)].map(([, name]) => name);

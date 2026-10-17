@@ -9,6 +9,7 @@ import { useWh } from '../WhContext';
 import { whError } from '../lib';
 import { Hero, WarehouseSelect } from '../components/bits';
 import { ITEM_COLUMNS, OPENING_COLUMNS, importTemplate, readImportFile } from '../xlsx';
+import { pick } from '../../../i18n/languages';
 
 /** Import from Excel / CSV (spec §11): items and opening balances, checked first, with a report of errors. */
 export default function ImportPage() {
@@ -101,7 +102,7 @@ export default function ImportPage() {
         {report?.errors?.length > 0 && (
           <Table size="small" rowKey={(e, i) => `${e.row}:${e.field}:${i}`} dataSource={report.errors} pagination={report.errors.length > 50 ? { pageSize: 50 } : false} columns={[
             { key: 'row', title: t('wh.import.row'), dataIndex: 'row', width: 80 },
-            { key: 'field', title: t('wh.import.field'), dataIndex: 'field', width: 140, render: (field) => { const col = columns.find((c) => c.key === field); return col ? (locale === 'ru' ? col.ru : col.en) : field; } },
+            { key: 'field', title: t('wh.import.field'), dataIndex: 'field', width: 140, render: (field) => { const col = columns.find((c) => c.key === field); return col ? pick(col, locale) : field; } },
             { key: 'message', title: t('wh.import.problem'), render: (_, e) => { const known = t(`wh.errors.${e.code}`); return known.startsWith('wh.errors.') ? e.message : `${known} (${e.message})`; } },
           ]} />
         )}

@@ -104,7 +104,7 @@ SETTINGS_GROUPS    → Project · Appearance · Security · Integrations · Syst
    component in `admin/settingsPages.js`, add `settings.<id>.title/.desc` to i18n.
    Build it from `SettingsPageHeader` + `SettingsSection` + `useSettingsForm` + `SaveBar`.
    **A top-level page:** add it to `ADMIN_PAGES` and a `<Route>` in `App.jsx`.
-5. Copy in `i18n/translations.js` (en + ru). `t('key', { name })` interpolates `{name}`.
+5. Copy in `locales/en/<namespace>.js` and `locales/ru/<namespace>.js` ([i18n.md](i18n.md)). `t('key', { name })` interpolates `{name}`.
 6. Backend unit tests live in `src/backend/test/*.test.js` (`npm test`).
 
 Keep SQL parameterized (`$1`, `$2`). Do not concatenate user input into queries.

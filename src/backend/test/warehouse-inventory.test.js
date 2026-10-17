@@ -19,6 +19,10 @@ import {
 } from '../modules/warehouse/inventoryLogic.js';
 import { COST_KEYS, stripCost } from '../modules/warehouse/logic.js';
 import { WAREHOUSE_MESSAGES } from '../modules/warehouse/messages.js';
+import { translator } from '../services/i18n/index.js';
+
+/** A message builder's texts in both reference languages. */
+const both = (build, params) => ({ ru: build(translator('ru'), params), en: build(translator('en'), params) });
 
 /* Inventory sessions: pure rules (docs/warehouse.md#inventory-sessions). */
 
@@ -189,7 +193,7 @@ test('inventory sums are money keys; texts carry no sums', () => {
   const out = stripCost({ rows: [{ book: 3, counted: 2, sum: -4, cost: 2 }], summary: { matches: 1, grossSum: 4, surplusSum: 0 } });
   assert.deepEqual(out, { rows: [{ book: 3, counted: 2 }], summary: { matches: 1 } });
   for (const kind of ['inventoryAssigned', 'inventoryRecount', 'inventoryDue']) {
-    const texts = WAREHOUSE_MESSAGES[kind]({ session: { number: 'ИНВ-00001', title: 'T' }, warehouse: 'W', actor: 'A', bins: ['A-01'], bin: 'A-01', item: 'X', categories: ['C'], due: '2026-10-14', everyDays: 30 });
+    const texts = both(WAREHOUSE_MESSAGES[kind], { session: { number: 'ИНВ-00001', title: 'T' }, warehouse: 'W', actor: 'A', bins: ['A-01'], bin: 'A-01', item: 'X', categories: ['C'], due: '2026-10-14', everyDays: 30 });
     assert.ok(texts.ru.title && texts.en.title, kind);
     assert.doesNotMatch(JSON.stringify(texts), /\$|USD|сом/);
   }

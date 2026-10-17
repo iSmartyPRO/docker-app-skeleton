@@ -80,7 +80,7 @@ export function formatMoney(amount, currency, locale) {
   if (amount === null || amount === undefined || amount === '') return '—';
   const value = Number(amount) || 0;
   const digits = Math.round(value * 100) % 100 === 0 ? 0 : 2;
-  if (currency === 'KGS') return `${numberFormat(locale, { maximumFractionDigits: digits }).format(value)} ${locale === 'ru' ? 'сом' : 'KGS'}`;
+  if (currency === 'KGS') return `${numberFormat(locale, { maximumFractionDigits: digits }).format(value)} ${translate(locale, 'format.currency.KGS') ?? 'KGS'}`;
   if (!currency) return numberFormat(locale, { maximumFractionDigits: digits }).format(value);
   return numberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol', minimumFractionDigits: 0, maximumFractionDigits: digits }).format(value);
 }
@@ -91,7 +91,7 @@ export function formatShortMoney(amount, currency, locale) {
   const value = Number(amount) || 0;
   const options = { notation: 'compact', maximumFractionDigits: value >= 1e6 ? 1 : 0 };
   if (currency && currency !== 'KGS') return numberFormat(locale, { ...options, style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).format(value);
-  return `${numberFormat(locale, options).format(value)}${currency === 'KGS' ? (locale === 'ru' ? ' сом' : ' KGS') : ''}`;
+  return `${numberFormat(locale, options).format(value)}${currency === 'KGS' ? ` ${translate(locale, 'format.currency.KGS') ?? 'KGS'}` : ''}`;
 }
 
 export const formatNumber = (value, locale, digits = 0) => (value === null || value === undefined ? '—' : numberFormat(locale, { maximumFractionDigits: digits }).format(Number(value)));

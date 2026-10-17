@@ -126,7 +126,7 @@ export default function DashboardPage() {
       )}
       {data.prices && (
         <section className="mp-panel">
-          <h2>{t('mp.dash.priceChart')} <span>{data.prices.currency} / м²</span></h2>
+          <h2>{t('mp.dash.priceChart')} <span>{t('mp.measure.perSqm', { price: data.prices.currency })}</span></h2>
           <PriceChart data={data.prices} />
         </section>
       )}

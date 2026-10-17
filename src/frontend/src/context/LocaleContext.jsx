@@ -1,14 +1,16 @@
 import dayjs from 'dayjs';
-import 'dayjs/locale/ru';
-import 'dayjs/locale/en-gb';
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { dictionaries, translate } from '../i18n/translations';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { AVAILABLE_LOCALES, getDictionary, loadDictionary, setActiveLocale, translate } from '../i18n/translations';
+import { REFERENCE_LOCALE, languageInfo, normalizeLocale, resolveLocale, sanitizeLocalization } from '../i18n/languages';
+import { loadVendorLocales } from '../i18n/vendor';
+import { tuneDayjsLocales } from '../lib/datetime';
 import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
 import { updateAccountProfile } from '../services/api';
 
 const LocaleContext = createContext(null);
 const DEVICE_KEY = 'da_locale';
+const WAIT_MS = 1500;
 
 function safeGet(key) {
   try {
@@ -27,31 +29,85 @@ function safeSet(key, value) {
   }
 }
 
-const known = (value) => (value && dictionaries[value] ? value : null);
-const browserLocale = () => (navigator.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en');
+const browserLanguages = () => {
+  if (typeof navigator === 'undefined') return [];
+  return navigator.languages?.length ? navigator.languages : [navigator.language].filter(Boolean);
+};
+
+/** Applies a downloaded language to dayjs and the document. */
+function activate(code) {
+  const info = languageInfo(code);
+  setActiveLocale(code);
+  tuneDayjsLocales();
+  if (dayjs.Ls[info.dayjs]) dayjs.locale(info.dayjs);
+  document.documentElement.lang = info.tag;
+  document.documentElement.dir = info.dir;
+}
 
 /**
- * Interface language, in this order:
+ * Interface language (i18n/languages.js → resolveLocale), in this order:
  *  1. the language chosen in the person's profile (follows them to every device);
  *  2. the language chosen on this device (guests, or before the profile is set);
- *  3. the portal default from Settings → General;
- *  4. the browser's language.
+ *  3. the portal default from Settings → Languages: a language, or the first
+ *     of the browser's languages that is enabled, else the fallback language.
+ * Only languages the superadministrator enabled count: a saved choice of a
+ * disabled language falls through to the next step.
+ *
+ * Each language is a separate chunk. The interface waits for the first one;
+ * on a switch the previous language stays on screen until the new one is in.
  */
 export function LocaleProvider({ children }) {
-  const { user, setUser } = useAuth();
-  const { settings } = useSettings();
-  const [device, setDevice] = useState(() => known(safeGet(DEVICE_KEY)));
+  const { user, setUser, ready: authReady } = useAuth();
+  const { settings, ready: settingsReady } = useSettings();
+  const [device, setDevice] = useState(() => normalizeLocale(safeGet(DEVICE_KEY)));
+  // Wait for the portal settings and the session before choosing, so the first
+  // download is the right language — but never longer than WAIT_MS (an outage
+  // page still needs texts).
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setWaited(true), WAIT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  const known = (settingsReady && authReady) || waited;
 
-  const portalDefault = known(settings?.defaultLocale);
-  const locale = known(user?.locale) || device || portalDefault || browserLocale();
+  const localization = useMemo(
+    () => sanitizeLocalization(settings?.localization, settings?.defaultLocale),
+    [settings?.localization, settings?.defaultLocale]
+  );
+  const resolved = resolveLocale({ profile: user?.locale, device, localization, browser: browserLanguages() });
+  const wanted = AVAILABLE_LOCALES.includes(resolved.locale) ? resolved.locale : REFERENCE_LOCALE;
 
-  // Date pickers, calendars and relative dates follow the UI language (ru: week starts on Monday).
-  dayjs.locale(locale === 'ru' ? 'ru' : 'en-gb');
+  // What is on screen: a language whose dictionary (and dayjs/antd data) is downloaded.
+  const [shown, setShown] = useState(() => ({ locale: null, dict: null, antd: undefined }));
 
-  /** `next` = 'ru' | 'en', or null to follow the portal default again. */
+  useEffect(() => {
+    if (!known) return undefined;
+    let alive = true;
+    const load = (code) => Promise.all([loadDictionary(code), loadVendorLocales(code).catch(() => undefined)]);
+    load(wanted)
+      .catch(() => (wanted === REFERENCE_LOCALE ? Promise.reject(new Error('i18n')) : load(REFERENCE_LOCALE).then((pair) => ({ fallback: true, pair }))))
+      .then((result) => {
+        if (!alive) return;
+        const [dict, antd] = result.fallback ? result.pair : result;
+        const code = result.fallback ? REFERENCE_LOCALE : wanted;
+        activate(code);
+        setShown({ locale: code, dict, antd });
+      })
+      .catch(() => {
+        // Not even English could be downloaded (offline right after a deploy):
+        // RootErrorBoundary offers a reload.
+        if (alive) setShown((prev) => (prev.dict ? prev : { ...prev, failed: true }));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [wanted, known]);
+
+  /** `next` = a language code, or null to follow the portal default again. */
   const setLocale = useCallback(
     (next) => {
-      const value = known(next);
+      const code = normalizeLocale(next);
+      const value = code && localization.enabled.includes(code) ? code : null;
       safeSet(DEVICE_KEY, value);
       setDevice(value);
       if (user && user.locale !== value) {
@@ -61,21 +117,38 @@ export function LocaleProvider({ children }) {
           .catch(() => {});
       }
     },
-    [user, setUser]
+    [user, setUser, localization]
   );
 
+  const portalDefault = resolveLocale({ localization, browser: browserLanguages() }).locale;
+  const locale = shown.locale;
+
   const value = useMemo(() => {
-    const dict = dictionaries[locale] || dictionaries.en;
+    if (!locale) return null;
+    const info = languageInfo(locale);
     return {
       locale,
-      dict,
+      /** BCP 47 tag for Intl: 'ru-RU'. */
+      tag: info.tag,
+      dir: info.dir,
+      dict: shown.dict || getDictionary(locale),
+      /** antd ConfigProvider locale of the language. */
+      antdLocale: shown.antd,
+      /** Enabled languages in the configured order: [{ code, name, tag, … }]. */
+      languages: localization.enabled.map((code) => languageInfo(code)),
+      localization,
       portalDefault,
-      source: known(user?.locale) ? 'profile' : device ? 'device' : portalDefault ? 'portal' : 'browser',
+      /** True while a newly chosen language is still downloading. */
+      switching: wanted !== locale,
+      source: resolved.source,
       t: (path, params) => translate(locale, path, params) ?? path,
       setLocale,
     };
-  }, [locale, portalDefault, user?.locale, device, setLocale]);
+  }, [locale, shown, localization, portalDefault, wanted, resolved.source, setLocale]);
 
+  if (shown.failed) throw new Error('Interface texts could not be loaded');
+  // Nothing to show until the first language arrives (a few hundred ms at most).
+  if (!value) return null;
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 

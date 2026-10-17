@@ -1,0 +1,201 @@
+export default {
+  robots: {
+    pixel: {
+      name: 'Pixel',
+      desc: 'Classic friendly bot with an antenna light',
+    },
+    orbi: {
+      name: 'Orbi',
+      desc: 'A glossy flying orb with little hands',
+    },
+    kiko: {
+      name: 'Kiko',
+      desc: 'A mint companion in headphones',
+    },
+    ermek: {
+      name: 'Ermek',
+      desc: 'A young man in a white ak-kalpak and a red chapan',
+    },
+    aichurok: {
+      name: 'Aichurok',
+      desc: 'A girl in a velvet topu with an owl feather and braids',
+    },
+    classic: {
+      name: 'Classic',
+      desc: 'A retro tin robot with a spring antenna and dials',
+    },
+    pro: {
+      name: 'Pro',
+      desc: 'A calm, serious helper in a business suit',
+    },
+    boltik: {
+      name: 'Boltik',
+      desc: 'The chatty one: a headset and a speech bubble on the antenna',
+    },
+    volt: {
+      name: 'Superbot',
+      desc: 'The hero in blue with the “S” shield and a red cape',
+    },
+    nova: {
+      name: 'Supergirl',
+      desc: 'The heroine with the “S” shield, a red skirt and a cape',
+    },
+    barsik: {
+      name: 'Barsik',
+      desc: 'A snow-leopard cub — the spirit of the mountains',
+    },
+    ryzhik: {
+      name: 'Ryzhik',
+      desc: 'A lively fox cub with a wagging tail',
+    },
+    nexus: {
+      name: 'Nexus',
+      desc: 'A sleek chrome bot with a holographic halo',
+    },
+    bubbles: {
+      name: 'Bubbles',
+      desc: 'A round little bot with a spinning propeller',
+    },
+    doctor: {
+      name: 'Doctor',
+      desc: 'A white coat, a stethoscope and a head mirror',
+    },
+    toddler: {
+      name: 'Toddler',
+      desc: 'A curl on top, dungarees and a red balloon',
+    },
+    zayka: {
+      name: 'Bunny',
+      desc: 'A little girl in a hood with bunny ears',
+    },
+    berkut: {
+      name: 'Berkutchi',
+      desc: 'An eagle hunter in a fur tebetey with a golden eagle',
+    },
+    jibek: {
+      name: 'Jibek',
+      desc: 'A woman in a white elechek and a velvet kemsel',
+    },
+    shadow: {
+      name: 'Shadow',
+      desc: 'A night guardian: a cowl with ears and a dark cape',
+    },
+    aurora: {
+      name: 'Aurora',
+      desc: 'A warrior princess with a star tiara and a glowing lasso',
+    },
+    bao: {
+      name: 'Bao',
+      desc: 'A panda cub with a bamboo sprig',
+    },
+    pingo: {
+      name: 'Pingo',
+      desc: 'A waddling penguin chick in a knitted hat',
+    },
+    builder: {
+      name: 'Builder',
+      desc: 'A hard hat with a lamp, a hi-vis vest and a hammer',
+    },
+    builder2: {
+      name: 'Asel the builder',
+      desc: 'A white hard hat, a braid, a green vest and a tablet',
+    },
+    architect: {
+      name: 'Architect',
+      desc: 'Round glasses, a pencil and a rolled blueprint',
+    },
+    girl: {
+      name: 'Girl',
+      desc: 'Pigtails with bows and a pink dress',
+    },
+    boy: {
+      name: 'Boy',
+      desc: 'A cap turned sideways, a star T-shirt and sneakers',
+    },
+  },
+  sizes: {
+    S: 'Small',
+    M: 'Medium',
+    L: 'Large',
+  },
+  groups: {
+    robots: 'Robots',
+    work: 'Professions',
+    kids: 'Kids',
+    kyrgyz: 'Kyrgyz style',
+    heroes: 'Superheroes',
+    animals: 'Animals',
+  },
+  color: {
+    title: '{name}’s colour',
+    original: 'As designed',
+  },
+  open: '{name}, your assistant: open help',
+  tooltip: '{name} — click for help, drag to move',
+  helloFirst: 'Hi, {first}! I’m {name}, your assistant. I can show what each section does and answer questions. Drag me wherever I don’t get in the way.',
+  offer: 'You’re in “{section}”. Shall I show what you can do here?',
+  show: 'Show me',
+  later: 'Later',
+  greeting: {
+    morning: 'Good morning, {first}!',
+    day: 'Good afternoon, {first}!',
+    evening: 'Good evening, {first}!',
+    night: 'Working late, {first}?',
+  },
+  here: '{name} here. You’re in “{section}” — how can I help?',
+  intro: '{name} here. How can I help?',
+  ask: 'Ask about the portal…',
+  found: 'Found: {n}',
+  nothing: 'Nothing found. Try other words — or open the full guide.',
+  faqTitle: 'Frequent questions',
+  back: 'Back',
+  tip: 'Tip',
+  nextTip: 'Next',
+  actions: {
+    guide: 'How it works',
+    guideDesc: 'Short guide to this section',
+    full: 'Full guide',
+    fullDesc: 'Step by step, with examples',
+    faq: 'Questions',
+    faqDesc: '{n} frequent questions',
+    all: 'All help',
+    allDesc: 'Every section of the portal',
+  },
+  dragHint: 'Drag me anywhere on the screen',
+  settings: 'Settings',
+  switch: {
+    open: 'Change robot',
+    title: 'Who will help you?',
+    subtitle: 'Your choice — only you see it',
+    hello: 'Hi, I’m {name}!',
+    helloText: 'Now I’m your assistant. Ask me anything.',
+    useDefault: 'Back to the default robot ({name})',
+    done: 'Done',
+  },
+  menu: {
+    title: 'Assistant options',
+    robot: 'Change robot',
+    color: 'Change colour',
+    size: 'Size',
+    corner: 'Back to the corner',
+    hide: 'Hide until reload',
+    off: 'Turn the assistant off',
+  },
+  account: {
+    title: 'Robot assistant',
+    desc: 'A helper in the corner of the screen: tips for the section you’re in and answers to questions.',
+    show: 'Show the assistant',
+    showDesc: 'Turned off, it disappears everywhere; turn it back on here.',
+    size: 'Size',
+    place: 'Position',
+    placeDesc: 'Drag the robot with the mouse or a finger; it remembers the spot on this device.',
+    again: 'Help offers',
+    againDesc: 'The robot offers help once in each section. Start over to see the offers again.',
+    againButton: 'Offer again',
+    againDone: 'The robot will offer help again',
+    ownChoice: 'This is your own choice.',
+    useDefault: 'Use the default robot ({name})',
+    defaultChoice: 'Now: the organisation’s default robot, {name}. Pick another one to keep it for yourself.',
+    fixedChoice: 'Your organisation uses one assistant for everyone: {name}.',
+  },
+};

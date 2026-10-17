@@ -22,6 +22,7 @@ import {
   rowState,
   toCents,
 } from './payLogic.js';
+import { decimalSeparator, exportLocale, translator } from '../../services/i18n/index.js';
 
 /*
  * The money side of a contract (docs/contracts.md "Deposit and payments"):
@@ -564,31 +565,25 @@ export async function registry(ctx, input = {}, { all = false } = {}) {
   };
 }
 
-const GROUP_TEXT = { overdue: ['Просрочено', 'Overdue'], today: ['Сегодня', 'Today'], week: ['На неделе', 'This week'], later: ['Позже', 'Later'] };
-const PURPOSE_TEXT = {
-  deposit: ['Задаток', 'Deposit'],
-  advance: ['Аванс', 'Advance'],
-  first: ['Первый взнос', 'First payment'],
-  monthly: ['Ежемесячный платёж', 'Monthly payment'],
-  rest: ['Остаток', 'Balance'],
-  full: ['Полная оплата', 'Full payment'],
-};
 
 /** The registry as CSV (`;`, UTF-8 BOM, formula-guarded cells), dates in the person's format. */
 export async function registryCsv(ctx, input, res) {
   const data = await registry(ctx, input, { all: true });
-  const locale = input.lang === 'en' ? 'en' : 'ru';
-  const ru = locale === 'ru' ? 0 : 1;
+  const locale = exportLocale(input.lang, ctx.req?.locale);
+  const t = translator(locale);
   const regional = ctx.regional || (await requestRegional(ctx.req));
-  const header = ru === 0
-    ? ['Группа', '№ договора', 'Договор', 'Контрагент', 'Назначение', 'Срок', 'Сумма', 'Оплачено', 'Остаток', 'Валюта', 'Ответственный']
-    : ['Group', 'Contract No.', 'Contract', 'Counterparty', 'Purpose', 'Due', 'Amount', 'Paid', 'Left', 'Currency', 'Owner'];
-  const num = (value) => String(value).replace('.', ru === 0 ? ',' : '.');
+  const header = t('contracts.paymentsCsv.head');
+  const separator = decimalSeparator(locale);
+  const num = (value) => String(value).replace('.', separator);
+  const purpose = (key) => {
+    const text = t(`contracts.paymentsCsv.purpose.${key}`);
+    return text.startsWith('contracts.') ? key : text;
+  };
   const lines = [header.map(csvCell).join(';')];
   for (const group of data.groups) {
     for (const item of group.items) {
       lines.push(
-        [GROUP_TEXT[group.key][ru], item.contract.number, item.contract.title, item.contract.counterparty, PURPOSE_TEXT[item.purpose]?.[ru] || item.purpose, item.dueOn ? formatDate(item.dueOn, regional, locale) : '', num(item.amount), num(item.paid), num(item.left), item.currency, item.contract.owner?.name]
+        [t(`contracts.paymentsCsv.group.${group.key}`), item.contract.number, item.contract.title, item.contract.counterparty, purpose(item.purpose), item.dueOn ? formatDate(item.dueOn, regional, locale) : '', num(item.amount), num(item.paid), num(item.left), item.currency, item.contract.owner?.name]
           .map(csvCell)
           .join(';')
       );

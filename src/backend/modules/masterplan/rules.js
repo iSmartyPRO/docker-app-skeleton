@@ -1,4 +1,5 @@
 import { FORWARD_MOVES, HELD, ROLES, ROLE_CAPS, STATUSES, STATUS_RANK, TIMED } from './constants.js';
+import { tr } from '../../services/i18n/index.js';
 
 /*
  * Pure rules of the Masterplan module: roles → capabilities with zones of
@@ -168,13 +169,13 @@ export function dealLinkAllowed(unit, dealId) {
 }
 
 /**
- * The conflict text of §6.3, in Russian and English: who holds the unit now.
+ * The conflict text of §6.3 in a language (locales/<lang>/masterplan.js): who holds the unit now.
  * `current` = { status, managerName, actorName }.
  */
 export function conflictMessage(current, locale = 'ru') {
   const held = TIMED.has(current.status) && current.managerName;
-  if (locale === 'en') return held ? `The unit has just been reserved by ${current.managerName}` : `The unit has just been changed${current.actorName ? ` by ${current.actorName}` : ''}`;
-  return held ? `Объект только что забронирован менеджером ${current.managerName}` : `Объект только что изменён${current.actorName ? ` пользователем ${current.actorName}` : ''}`;
+  if (held) return tr(locale, 'masterplan.conflict.reserved', { manager: current.managerName });
+  return current.actorName ? tr(locale, 'masterplan.conflict.changedBy', { actor: current.actorName }) : tr(locale, 'masterplan.conflict.changed');
 }
 
 // ── Prices ──────────────────────────────────────────────────────────────────
