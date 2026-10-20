@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-10-20
+
 ### Fixed
 
 - **Org chart**: each unit is centred between its first and last child, not over its whole subtree, so a parent no longer drifts sideways when its children's branches have different widths. The connectors follow.
@@ -585,7 +587,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.6.1...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.6.2...HEAD
+[1.6.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.2
 [1.6.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.1
 [1.6.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.0
 [1.5.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.5.1
