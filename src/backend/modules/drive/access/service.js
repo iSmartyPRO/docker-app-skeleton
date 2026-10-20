@@ -39,6 +39,7 @@ import {
   userPaths,
 } from './naming.js';
 import { attachGroupsToNtfs, ntfsAttachAvailable } from './ntfsHook.js';
+import { markAllStale, markLoginsStale } from '../sessions.js';
 import { finishNtfsAttach, folderRef, recordPropagation, startNtfsAttach } from './ntfsJournal.js';
 import {
   accessFromRequest,
@@ -405,6 +406,11 @@ export async function applyMembership(client, actor, op, record = recordChange) 
     const state = action === 'member_move' && raw.rolledBack === false ? { inFrom: true, inTo: true } : null;
     const journalId = await recordDone(record, actor, { ...base, after: state, ok: false, outcome: failure, errorCode: err.code, error: err.message });
     return { ok: false, outcome: failure, journalId, code: err.code, error: err.message, rolledBack: raw.rolledBack, group: group.name, toGroup: toGroup?.name || null, member: member.name, memberDn: member.dn };
+  }
+  // New groups reach the File server only through a new SMB session (../sessions.js).
+  if (outcome === 'changed') {
+    if (member.kind && member.kind !== 'user' && member.kind !== 'computer') markAllStale();
+    else markLoginsStale([member.login]);
   }
   const journalId = await recordDone(record, actor, { ...base, before, after, ok: true, outcome });
   return { ok: true, outcome, journalId, ...(journalId == null ? { journalFailed: true } : {}), group: group.name, toGroup: toGroup?.name || null, member: member.name, memberDn: member.dn };

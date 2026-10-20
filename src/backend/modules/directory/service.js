@@ -7,6 +7,7 @@ import { getUserAccess } from '../../services/rbac.js';
 import { unlinkDirectory } from '../../services/userLinks.js';
 import { DIRECTORY_DEFAULTS } from '../catalog.js';
 import { actorCredential, credentialStatus, isImpersonation, parkCredential, savePassword } from '../drive/access/credentials.js';
+import { markAllStale, markLoginsStale } from '../drive/sessions.js';
 import { canonDn, childDn, firstRdn, isUnder, nameOf, parentDn, parseDn } from './dn.js';
 import { DEMO_BASE, DEMO_EXCLUDED, DEMO_ROOT, demoDirectoryExists, demoProvider } from './demoDirectory.js';
 import { ldapProvider, moduleError } from './ldap.js';
@@ -843,6 +844,11 @@ export async function membership(req, { groups, members, action }) {
   });
   const changed = results.filter((item) => item.outcome === 'changed').length;
   const failed = results.filter((item) => !item.ok).length;
+  // New groups reach the File server only through a new SMB session (drive/sessions.js).
+  if (changed && ctx.mode !== 'demo') {
+    if (memberObjects.some((member) => member.kind !== 'user' && member.kind !== 'computer')) markAllStale();
+    else markLoginsStale(memberObjects.map((member) => member.login));
+  }
   if (changed || failed) event(req, 'ad_changed', `${action === 'add' ? '+' : '−'} members · ${changed} changed, ${failed} failed`, failed ? 'warning' : 'info');
   return { results, changed, failed, unchanged: results.filter((item) => item.outcome === 'unchanged').length };
 }

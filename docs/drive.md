@@ -195,6 +195,13 @@ Reactivating the author's account makes their links work again. Deleting the acc
 | Password | Optional, at least 4 characters; unlocking is rate-limited |
 | Expiry | 1 / 7 / 30 days or a date; capped by *maximum days* |
 
+### Group changes take effect at once
+
+Windows builds a person's groups into an SMB session when it logs on and keeps them for the life of the session. The gateway reuses sessions for up to 15 minutes, so without help a person added to a folder access group would keep getting «access denied» until the session expired. Two mechanisms close that gap (`modules/drive/sessions.js`):
+
+- **After a change made in the portal.** A change of someone's groups in File server → Access or in the AD directory closes that person's sessions. Their next request logs on with the new groups. A group added to a group affects everyone, so all sessions are refreshed.
+- **After a change made directly in AD.** An `ACCESS_DENIED` on a session that was not refreshed in the last minute is retried once on a new session. This costs at most one extra logon per credential per minute.
+
 ## Security
 
 - **SMB gateway.** SMB runs in a small Python process (`modules/drive/gateway/smbgate.py`, smbprotocol) that Node starts on first use and restarts if it dies. It listens on a private Unix socket (mode `0600`) and accepts only requests that carry a random per-start key. No credentials touch the disk there. SMB sessions are pooled per server and credential (one pool for all users of a service-account server); `SMBGATE_READS` (default 4) bounds parallel SMB read calls per pool — each `stat`, `open` and chunk read takes a slot only for that call, never while the chunk is written to a (possibly slow) client, so any number of downloads share a pool; a call that waits more than 30 s for a slot answers `503 SMB_BUSY` (tests: `gateway/test_gate_busy.py`).

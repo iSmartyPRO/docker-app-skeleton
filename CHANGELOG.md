@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- **File server**: access granted by adding someone to a folder access group now works at once. Their file-server sessions are refreshed after a group change in File server → Access or in the AD directory, and an «access denied» on an older session is retried once on a new session. Before, it took up to 15 minutes. See [docs/drive.md](docs/drive.md#group-changes-take-effect-at-once).
+
 ## [1.6.0] - 2026-10-17
 
 ### Added

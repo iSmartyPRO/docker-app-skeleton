@@ -13,6 +13,7 @@ import { httpError, intId } from '../shared/acl.js';
 import { CONVERTIBLE, FILE_CSP, INLINE, contentDisposition, extOf, mimeOf, officePreview, previewDir, touchPreview } from '../shared/storage.js';
 import { connectionStatus, credentialFor, driveSettings, isAuthFailure, parkCredential, serverParams } from './credentials.js';
 import { gateCall, gateReadAll, gateRequest } from './gate.js';
+import { needsFreshSession, noteRefreshed, shouldRetryDenied } from './sessions.js';
 import { folderTree } from '../shared/relpath.js';
 import { cleanName, cleanPath, joinPath, nameOf, parentOf, relativeTo } from './paths.js';
 
@@ -147,7 +148,26 @@ export async function openTarget(ctx, shareId, { settings } = {}) {
   const resolved = await credentialFor(ctx.userId, entry.server, { settings });
   const target = { ...entry, resolved };
   await authenticate(target);
+  if (needsFreshSession(credKey(target.server, resolved.cred), resolved.cred.username)) await dropSessions(target);
   return target;
+}
+
+/** Closes the credential's SMB sessions in the gateway: the next call logs on with current groups. */
+async function dropSessions(target) {
+  noteRefreshed(credKey(target.server, target.resolved.cred));
+  try {
+    await gateCall('logout', { server: serverParams(target.server), cred: target.resolved.cred });
+  } catch (err) {
+    console.warn('Drive: closing SMB sessions failed:', err.message);
+  }
+}
+
+/** ACCESS_DENIED on a session that may predate a group change: one retry on a new session. */
+async function retryDenied(target, err, attempt) {
+  const key = credKey(target.server, target.resolved.cred);
+  if (err?.code !== 'ACCESS_DENIED' || !shouldRetryDenied(key)) throw err;
+  await dropSessions(target);
+  return attempt();
 }
 
 export function fullPath(target, rel) {
@@ -159,16 +179,20 @@ function params(target, extra = {}) {
 }
 
 async function call(target, op, extra) {
+  const attempt = () => gateCall(op, params(target, extra));
   try {
-    return await gateCall(op, params(target, extra));
+    return await attempt().catch((err) => retryDenied(target, err, attempt));
   } catch (err) {
     throw await failure(target, err);
   }
 }
 
 async function stream(target, op, extra, options) {
+  const attempt = () => gateRequest(op, params(target, extra), options);
+  // An upload body is a one-shot stream: only bodiless requests are retried.
+  const retryable = !options?.body || Buffer.isBuffer(options.body);
   try {
-    return await gateRequest(op, params(target, extra), options);
+    return await attempt().catch((err) => (retryable ? retryDenied(target, err, attempt) : Promise.reject(err)));
   } catch (err) {
     throw await failure(target, err);
   }
