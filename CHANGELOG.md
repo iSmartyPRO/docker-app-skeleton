@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-20
+
 ### Fixed
 
 - **File server**: access granted by adding someone to a folder access group now works at once. Their file-server sessions are refreshed after a group change in File server → Access or in the AD directory, and an «access denied» on an older session is retried once on a new session. Before, it took up to 15 minutes. See [docs/drive.md](docs/drive.md#group-changes-take-effect-at-once).
@@ -579,7 +581,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.1
 [1.6.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.0
 [1.5.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.5.1
 [1.5.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.5.0
