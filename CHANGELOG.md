@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- **Org chart**: each unit is centred between its first and last child, not over its whole subtree, so a parent no longer drifts sideways when its children's branches have different widths. The connectors follow.
+
 ## [1.6.1] - 2026-10-20
 
 ### Fixed

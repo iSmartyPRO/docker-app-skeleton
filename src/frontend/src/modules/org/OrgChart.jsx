@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Avatar, Button, Empty, Tooltip } from 'antd';
 import Segmented from '../../components/ui/Segmented';
 import { CompressOutlined, MinusOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
@@ -58,6 +58,17 @@ export default function OrgChart({ tree = [], meta, onSelect, selectedId, countL
     return () => cancelAnimationFrame(frame);
   }, [tree, view]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Each unit sits midway between its first and last child (not over its whole subtree).
+  const canvas = useRef(null);
+  useLayoutEffect(() => {
+    const root = canvas.current;
+    if (view !== 'chart' || !root) return undefined;
+    centreParents(root);
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => centreParents(root)) : null;
+    observer?.observe(root);
+    return () => observer?.disconnect();
+  }, [tree, collapsed, view, zoom]);
+
   const toggle = (id) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -111,7 +122,7 @@ export default function OrgChart({ tree = [], meta, onSelect, selectedId, countL
       </div>
       {view === 'chart' ? (
         <div className="org-chart__scroll" ref={scroller}>
-          <div className="org-chart__canvas" style={{ zoom }}>
+          <div className="org-chart__canvas" style={{ zoom }} ref={canvas}>
             <ul className="org-tree">
               {tree.map((node) => (
                 <ChartNode key={node.id} node={node} meta={meta} collapsed={collapsed} toggle={toggle} onSelect={onSelect} selectedId={selectedId} countLabel={countLabel} />
@@ -128,6 +139,33 @@ export default function OrgChart({ tree = [], meta, onSelect, selectedId, countL
       )}
     </div>
   );
+}
+
+/**
+ * Flexbox centres a unit over its whole subtree, so a parent whose children
+ * have subtrees of different widths drifts sideways. Children first (reverse
+ * document order), each unit gets `--shift`: the offset from its slot's centre
+ * to the midpoint of its first and last child cards. The card moves by it
+ * (`translate`) and the connectors follow (org.css).
+ */
+function centreParents(root) {
+  const items = Array.from(root.querySelectorAll('.org-tree li')).reverse();
+  for (const li of items) {
+    const kids = li.querySelector(':scope > ul');
+    const first = kids?.firstElementChild?.querySelector(':scope > .org-node');
+    const last = kids?.lastElementChild?.querySelector(':scope > .org-node');
+    if (!first || !last) {
+      li.style.setProperty('--shift', '0px');
+      continue;
+    }
+    const box = li.getBoundingClientRect();
+    const scale = li.offsetWidth ? box.width / li.offsetWidth : 1;
+    const a = first.getBoundingClientRect();
+    const b = last.getBoundingClientRect();
+    const target = (a.left + a.right + b.left + b.right) / 4;
+    const shift = (target - (box.left + box.width / 2)) / (scale || 1);
+    li.style.setProperty('--shift', `${Math.round(shift * 10) / 10}px`);
+  }
 }
 
 function countNodes(nodes) {

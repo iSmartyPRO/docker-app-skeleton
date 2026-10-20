@@ -541,20 +541,25 @@
 }
 
 /* Connectors: a line up from every child, joined by a horizontal bar. */
+/* --shift (OrgChart.jsx centreParents): the card's offset from the slot centre. */
+.org-tree li {
+  --shift: 0px;
+}
+
 .org-tree li::before,
 .org-tree li::after {
   content: '';
   position: absolute;
   top: 0;
-  right: 50%;
-  width: 50%;
+  left: 0;
+  width: calc(50% + var(--shift));
   height: 22px;
   border-top: 1.5px solid var(--da-border);
 }
 
 .org-tree li::after {
-  right: auto;
-  left: 50%;
+  left: calc(50% + var(--shift));
+  width: calc(50% - var(--shift));
   border-left: 1.5px solid var(--da-border);
 }
 
@@ -585,7 +590,7 @@
   content: '';
   position: absolute;
   top: 0;
-  left: 50%;
+  left: calc(50% + var(--shift));
   height: 22px;
   border-left: 1.5px solid var(--da-border);
 }
@@ -601,6 +606,7 @@
 
 .org-node {
   position: relative;
+  translate: var(--shift) 0;
   width: 220px;
   background: var(--da-surface);
   border: 1px solid var(--da-hairline);
