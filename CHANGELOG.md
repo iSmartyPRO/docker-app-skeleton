@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-21
+
 ### Added
 
 - **QR codes** module ([docs/qr.md](docs/qr.md), off by default): branded codes for a website, vCard business card, Wi-Fi, e-mail, phone, SMS, WhatsApp, Telegram, location, event and text. A studio with the kind and its fields, a gallery of templates drawn with the person's own content, and the design in tabs — six dot styles, five corner frames and centres, solid / linear / radial colours, the portal brand colour that follows the theme, the company logo (light or dark), an uploaded logo or an icon on a plate, caption frames (caption, card, ticket, badge), quiet zone and error correction. The live preview is checked for scanning by a built-in decoder as you design, with warnings for low contrast, inverted colours and an oversized logo. Downloads: PNG 512–4096 px, SVG, copy as picture.
@@ -593,7 +595,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.6.2...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.7.0
 [1.6.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.2
 [1.6.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.1
 [1.6.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.0
