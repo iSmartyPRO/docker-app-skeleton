@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-21
+
 ### Added
 
 - **iSMS Server** integration ([docs/integrations.md](docs/integrations.md#isms-server-sms)): SMS through your own [iSMS Server](https://github.com/iSmartyPRO/isms-gw-server) — any server address and its own API token per portal. *Test connection* lists the phones and SIMs the token can use; the SIM to send from can be chosen or left to the server; a test SMS checks the whole path to the phone. The token is stored write-only and is sent only to the saved server.
@@ -599,7 +601,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.8.0
 [1.7.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.7.0
 [1.6.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.2
 [1.6.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.1
