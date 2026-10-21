@@ -108,6 +108,10 @@ export const testAdminIntegration = (kind, payload) =>
   api.post(`/admin/integrations/${kind}/test`, payload || {});
 export const listWazzupChannels = (payload) =>
   api.post('/admin/integrations/wazzup/channels', payload || {});
+export const listIsmsDevices = (payload) =>
+  api.post('/admin/integrations/isms/devices', payload || {});
+export const sendIsmsTest = (payload) =>
+  api.post('/admin/integrations/isms/send', payload || {});
 
 export const getAdminOverview = () => api.get('/admin/overview');
 export const getAdminSystem = () => api.get('/admin/system');

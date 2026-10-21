@@ -80,6 +80,14 @@ export const DEFAULTS = {
       notifyChannelId: '',
       notifySecurity: false,
     },
+    // iSMS Server (github.com/iSmartyPRO/isms-gw-server): SMS through Android phones.
+    // simId 0 = the server picks the SIM (or the one the token is tied to).
+    isms: {
+      enabled: false,
+      serverUrl: '',
+      apiToken: '',
+      simId: 0,
+    },
     // Google OAuth client: sign-in, Google Calendar per user, Gmail as the mail sender.
     google: {
       enabled: false,
@@ -134,6 +142,7 @@ const SECRET_PATHS = [
   ['whatsapp', 'apiKey'],
   ['wazzup', 'apiKey'],
   ['mattermost', 'botToken'],
+  ['isms', 'apiToken'],
   ['google', 'clientSecret'],
   ['google', 'gmailToken'],
   ['activeDirectory', 'bindPassword'],
@@ -665,6 +674,7 @@ export function toPublicSettings(parsed) {
       whatsapp: { enabled: Boolean(parsed.integrations.whatsapp?.enabled) },
       wazzup: { enabled: Boolean(parsed.integrations.wazzup?.enabled) },
       mattermost: { enabled: Boolean(parsed.integrations.mattermost?.enabled) },
+      isms: { enabled: Boolean(parsed.integrations.isms?.enabled) },
       documents: { enabled: Boolean(parsed.integrations.documents?.enabled) },
       google: {
         enabled: authAvailability(parsed).ready.google,
@@ -716,7 +726,7 @@ export function sanitizeRateLimit(current, incoming) {
   };
 }
 
-const INTEGRATION_GROUPS = ['email', 'telegram', 'whatsapp', 'wazzup', 'mattermost', 'documents', 'google', 'activeDirectory'];
+const INTEGRATION_GROUPS = ['email', 'telegram', 'whatsapp', 'wazzup', 'mattermost', 'isms', 'documents', 'google', 'activeDirectory'];
 
 /** "Example.com, @corp.kz" → "example.com,corp.kz". */
 export function normalizeDomains(value) {
@@ -742,6 +752,7 @@ const SECRET_ENDPOINTS = {
   email: ['host', 'port'],
   whatsapp: ['serverUrl'],
   mattermost: ['serverUrl'],
+  isms: ['serverUrl'],
   activeDirectory: ['host', 'port'],
 };
 
@@ -751,7 +762,7 @@ function endpointValue(field, value) {
     .trim()
     .toLowerCase()
     .replace(/\/+$/, '')
-    .replace(/\/api(\/v4)?$/, '');
+    .replace(/\/api(\/v4|\/v1\/app\/sms|\/app\/sms)?$/, '');
 }
 
 /** True when `next` would send the group's secret somewhere other than `current`. */
@@ -836,6 +847,17 @@ export function sanitizeCaCert(value) {
     }
   }
   return blocks.join('\n');
+}
+
+/** iSMS: a trimmed address without a trailing slash and a whole-number SIM id (0 = automatic). */
+export function sanitizeIsms(group = {}) {
+  const simId = Number(group.simId);
+  return {
+    ...group,
+    enabled: Boolean(group.enabled),
+    serverUrl: String(group.serverUrl ?? '').trim().replace(/\/+$/, '').slice(0, 500),
+    simId: Number.isInteger(simId) && simId > 0 ? simId : 0,
+  };
 }
 
 /** Keeps only `{ transport: channelId }` string pairs; drops the pre-release `channelId` field. */
@@ -952,6 +974,7 @@ export async function updateAdminSettings(patch, { locked = false } = {}) {
   if (patch.integrations) {
     const merged = mergeKeepSecrets(parsed.integrations, patch.integrations);
     merged.wazzup = sanitizeWazzup(merged.wazzup);
+    merged.isms = sanitizeIsms(merged.isms);
     // The editing block is replaced as a whole by the patch, cleaned (addresses, formats, limits).
     merged.documents.editing = sanitizeEditing(parsed.integrations.documents?.editing, patch.integrations.documents?.editing);
     if (merged.activeDirectory) merged.activeDirectory.caCert = sanitizeCaCert(merged.activeDirectory.caCert);

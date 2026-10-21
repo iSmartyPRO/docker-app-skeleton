@@ -15,6 +15,8 @@ export default {
   mattermostToken: 'Bot access token',
   mattermostChannel: 'Alert channel ID',
   mattermostAlerts: 'Post security alerts',
+  ismsUrl: 'Server address',
+  ismsToken: 'API token',
   apiKey: 'API key',
   bindDn: 'Bind DN',
   baseDn: 'Base DN',

@@ -21,6 +21,7 @@ export const SETTINGS_PAGES = {
   whatsapp: Integration,
   wazzup: Integration,
   mattermost: Integration,
+  isms: Integration,
   ad: Integration,
   system: lazy(() => import('../pages/admin/settings/System')),
   notifications: lazy(() => import('../pages/admin/settings/NotificationDelivery')),

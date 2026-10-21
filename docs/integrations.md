@@ -9,6 +9,7 @@ External services the product talks to. All are **off by default**, configured i
 | [WhatsApp Gateway](#whatsapp-gateway-wagw) | Sign-in codes in WhatsApp (main or fallback provider) | `GET /api/health`, then a read-only key check |
 | [Wazzup](#wazzup) | Sign-in codes in WhatsApp; channel per messenger | Lists the account's channels, validates the selected ones |
 | [Mattermost](#mattermost) | Sign-in codes by direct message; security alerts to a channel | `GET /system/ping`, `GET /users/me`, alert channel access |
+| [iSMS Server](#isms-server-sms) | Sending SMS through your own Android phones (`sendSms` in `services/integrations.js`) | `GET /devices` with the token; lists phones and SIMs, checks the chosen SIM |
 | [Google](#google) | Sign-in with Google, Google Calendar per user, Gmail as the mail sender | Validates the OAuth client with Google's token endpoint; checks the Gmail sender if connected |
 | [Document conversion](#document-conversion-collabora--libreoffice) | Office previews in the Knowledge Base (`.doc`, `.docx`, `.ppt`, `.pptx`, `.xls`, OpenDocument, `.rtf`) | Converts a tiny document to PDF and reports the time |
 | [Active Directory](#active-directory--ldap) | Domain sign-in, auto-provisioning, group mapping | Service-account bind and a search under the base DN |
@@ -106,6 +107,31 @@ Works with any Mattermost server (self-hosted or cloud) through REST API v4. The
 **Sign-in codes:** enable *Code in Mattermost* in **Sign-in methods**. Users need their **Mattermost username** in the profile. The bot opens a direct channel (`POST /channels/direct`) and posts the code (`POST /posts`).
 
 Alerts are best-effort: a Mattermost outage never blocks sign-in, it is only logged.
+
+## iSMS Server (SMS)
+
+[iSMS Server](https://github.com/iSmartyPRO/isms-gw-server) turns Android phones with the iSMS GW app into an SMS gateway. Each portal (each company) points at **its own** server with **its own** token — the address is not tied to a domain; a trailing `/` or the `/api/v1/app/sms` path copied from the server's API page is ignored.
+
+1. On the iSMS server open **SMS → API** and create an API token (`pat_…`) with `sms:read` and `sms:write`. It may be limited to one phone and SIM.
+2. Paste the server URL and token and press **Test connection** (or **Load phones**). The phones the token can use are listed with their SIMs and online state.
+3. *(Optional)* Pick **SIM to send from**. *Automatic* lets the server choose (or use the token's SIM). Save.
+4. **Test SMS** sends one message with the values on screen — the whole path to the phone.
+
+| Field | Notes |
+|-------|-------|
+| Server URL | `https://sms.example.com` |
+| API token | Secret; sent as `Authorization: Bearer …`; reused only for the saved server |
+| SIM to send from | `simId` of the SIM row on the server; `0` = automatic. A token tied to another SIM answers `SIM_NOT_ALLOWED` |
+
+Requests (relative to `{Server URL}/api/v1/app/sms`):
+
+| Purpose | Request |
+|---------|---------|
+| Test, SIM picker | `GET /devices` |
+| Send | `POST /messages`, body `{ "to": ["+996555123456"], "text": "…", "simId": 43, "ref": "…" }` |
+| Status | `GET /messages/:id` — `queued → dispatched → accepted → sent → delivered`, or `failed` / `cancelled` / `expired` |
+
+Errors of the iSMS API (`TOKEN_INVALID`, `SCOPE_DENIED`, `SIM_NOT_ALLOWED`, `IP_NOT_ALLOWED`, `SIM_LIMIT`, `RATE_LIMITED`, …) are shown as a sentence with the code. In code: `sendSms({ phone, text, ref })` queues one SMS and returns `{ id, status }`; `smsStatus(id)` reads its status.
 
 ## Google
 

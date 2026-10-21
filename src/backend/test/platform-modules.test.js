@@ -158,7 +158,7 @@ test('integration status carries no values, only on / off / incomplete', () => {
   assert.equal(by.telegram.status, 'incomplete');
   assert.deepEqual(by.telegram.missing, ['botToken']);
   assert.equal(by.activeDirectory.status, 'off');
-  assert.equal(list.length, 8);
+  assert.equal(list.length, 9);
 });
 
 test('health checks say whether values are set, never the values', async () => {

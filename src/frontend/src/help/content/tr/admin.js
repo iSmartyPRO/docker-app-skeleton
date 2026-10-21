@@ -408,6 +408,10 @@ Sayfa yüklemeleri, dosya görüntülemeleri ve oturum açma sayılmaz. Sınırl
       title: 'Mattermost',
       text: 'Sunucu adresi ve bot hesabı belirteci. Uyarılar için botu bir kanala ekleyin ve kanalın adını değil, kimliğini (26 karakter) girin.',
     },
+    isms: {
+      title: 'iSMS Server',
+      text: 'iSMS Server adresiniz (örneğin https://sms.ismarty.pro) ve sunucunun API sayfasından bir API belirteci (pat_ ile başlar). Belirteç tek bir telefon ve SIM ile sınırlı olabilir — o zaman o SIM’i seçin veya “Otomatik” bırakın.',
+    },
     documents: {
       title: 'Belge dönüştürme',
       text: 'Portal sunucusundan erişilebilen bir Collabora / LibreOffice sunucu adresi. Belgeler ağınızın içinde kalır ve dönüştürücüde saklanmaz.',

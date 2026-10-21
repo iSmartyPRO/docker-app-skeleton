@@ -27,7 +27,7 @@ import { getOverview, getSystemInfo } from '../services/overview.js';
 import platformRoutes from './platform.routes.js';
 import { emitEvent } from '../api/events.js';
 import { adminTest, notifyOverview, saveNotifyConfig } from '../services/notifications.js';
-import { listWazzupChannels, testIntegration } from '../services/integrations.js';
+import { listIsmsDevices, listWazzupChannels, sendSms, testIntegration } from '../services/integrations.js';
 import {
   addIpRule,
   decideIpAccess,
@@ -213,6 +213,17 @@ router.delete('/integrations/google/gmail', integrationSettings, wrap(async (req
 // Channel picker for the Wazzup screen; accepts an unsaved API key in the body.
 router.post('/integrations/wazzup/channels', integrationSettings, wrap(async (req, res) => {
   res.json({ success: true, channels: await listWazzupChannels(req.body || {}) });
+}));
+
+// iSMS Server: phones and SIMs for the SIM picker, and a test SMS. Both accept unsaved fields in the body.
+router.post('/integrations/isms/devices', integrationSettings, wrap(async (req, res) => {
+  res.json({ success: true, devices: await listIsmsDevices(req.body || {}) });
+}));
+
+router.post('/integrations/isms/send', integrationSettings, wrap(async (req, res) => {
+  const { to, text, ...override } = req.body || {};
+  const message = await sendSms({ phone: to, text, ref: 'portal-test', override });
+  res.json({ success: true, message: `iSMS Server queued SMS #${message.id} (${message.status})`, sms: message });
 }));
 
 // ── Users ───────────────────────────────────────────────────────────────────

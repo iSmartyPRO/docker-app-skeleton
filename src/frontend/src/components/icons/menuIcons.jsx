@@ -33,6 +33,7 @@ import {
   IconGoogle,
   IconWazzup,
   IconWhatsapp,
+  IconSms,
 } from './AdminIcons';
 import { PREMIUM_ICONS } from './premiumIcons';
 import {
@@ -55,6 +56,7 @@ export const ICON_CATALOG = {
   whatsapp: IconWhatsapp,
   wazzup: IconWazzup,
   mattermost: IconMattermost,
+  sms: IconSms,
   google: IconGoogle,
   directory: IconDirectory,
   people: IconPeople,

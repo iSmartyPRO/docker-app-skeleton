@@ -29,6 +29,7 @@ export default {
     whatsapp: 'WhatsApp',
     wazzup: 'Wazzup',
     mattermost: 'Mattermost',
+    isms: 'iSMS Server（短信）',
     google: 'Google',
     documents: '文档服务器（Collabora）',
     activeDirectory: 'Active Directory',

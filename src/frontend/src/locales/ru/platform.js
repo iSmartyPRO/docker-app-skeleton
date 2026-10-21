@@ -29,6 +29,7 @@ export default {
     whatsapp: 'WhatsApp',
     wazzup: 'Wazzup',
     mattermost: 'Mattermost',
+    isms: 'iSMS Server (SMS)',
     google: 'Google',
     documents: 'Сервер документов (Collabora)',
     activeDirectory: 'Active Directory',

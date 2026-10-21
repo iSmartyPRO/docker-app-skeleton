@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **iSMS Server** integration ([docs/integrations.md](docs/integrations.md#isms-server-sms)): SMS through your own [iSMS Server](https://github.com/iSmartyPRO/isms-gw-server) — any server address and its own API token per portal. *Test connection* lists the phones and SIMs the token can use; the SIM to send from can be chosen or left to the server; a test SMS checks the whole path to the phone. The token is stored write-only and is sent only to the saved server.
+
 ## [1.7.0] - 2026-10-21
 
 ### Added

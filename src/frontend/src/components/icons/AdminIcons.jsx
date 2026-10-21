@@ -188,6 +188,18 @@ export function IconWazzup({ variant = 'colored' } = {}) {
   );
 }
 
+/** SMS: a speech bubble with three dots (iSMS Server). */
+export function IconSms({ variant = 'colored' } = {}) {
+  return (
+    <Tile color="#0EA5E9" variant={variant}>
+      <path fill="#fff" d="M6.5 6h11A2.5 2.5 0 0 1 20 8.5v6a2.5 2.5 0 0 1-2.5 2.5H11l-3.6 2.7c-.4.3-.9 0-.9-.5V17A2.5 2.5 0 0 1 4 14.5v-6A2.5 2.5 0 0 1 6.5 6z" />
+      <circle cx="8.5" cy="11.5" r="1.1" fill="var(--da-icon-hole)" />
+      <circle cx="12" cy="11.5" r="1.1" fill="var(--da-icon-hole)" />
+      <circle cx="15.5" cy="11.5" r="1.1" fill="var(--da-icon-hole)" />
+    </Tile>
+  );
+}
+
 export function IconMattermost({ variant = 'colored' } = {}) {
   return (
     <Tile color="#1E325C" variant={variant}>

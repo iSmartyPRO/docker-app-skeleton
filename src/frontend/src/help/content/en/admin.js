@@ -455,6 +455,11 @@ Page loads, file views and sign-in are not counted. Limits apply at once; a new 
       text: 'Server address and bot account token. For alerts, add the bot to a channel and enter the channel ID (26 characters), not its name.',
       more: 'integrations',
     },
+    isms: {
+      title: 'iSMS Server',
+      text: 'The address of your iSMS Server (for example https://sms.ismarty.pro) and an API token from the server’s API page (starts with pat_). A token may be limited to one phone and SIM — then pick that SIM or keep “Automatic”.',
+      more: 'integrations',
+    },
     documents: {
       title: 'Document conversion',
       text: 'A Collabora / LibreOffice server address reachable from the portal server. Documents stay inside your network and are not kept on the converter.',

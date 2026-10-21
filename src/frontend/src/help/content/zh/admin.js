@@ -408,6 +408,10 @@ export default {
       title: 'Mattermost',
       text: '服务器地址和机器人账户令牌。如需警报，请将机器人加入频道，并输入频道 ID（26 个字符），而不是频道名称。',
     },
+    isms: {
+      title: 'iSMS Server',
+      text: '您的 iSMS Server 地址（例如 https://sms.ismarty.pro）以及服务器 API 页面中的 API 令牌（以 pat_ 开头）。令牌可能仅限一部手机和一张 SIM 卡——此时请选择该卡或保持“自动”。',
+    },
     documents: {
       title: '文档转换',
       text: '门户服务器可访问的 Collabora / LibreOffice 服务器地址。文档始终留在您的网络内，不会保存在转换服务器上。',

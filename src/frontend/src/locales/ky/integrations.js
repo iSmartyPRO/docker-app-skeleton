@@ -15,6 +15,8 @@ export default {
   mattermostToken: 'Боттун токени',
   mattermostChannel: 'Билдирүүлөр каналынын ID',
   mattermostAlerts: 'Коопсуздук билдирүүлөрүн жөнөтүү',
+  ismsUrl: 'Сервердин дареги',
+  ismsToken: 'API-токен',
   apiKey: 'API ачкычы',
   bindDn: 'Bind DN',
   baseDn: 'Base DN',

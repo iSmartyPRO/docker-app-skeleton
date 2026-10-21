@@ -15,6 +15,8 @@ export default {
   mattermostToken: '机器人访问令牌',
   mattermostChannel: '告警频道 ID',
   mattermostAlerts: '发布安全告警',
+  ismsUrl: '服务器地址',
+  ismsToken: 'API 令牌',
   apiKey: 'API 密钥',
   bindDn: 'Bind DN',
   baseDn: 'Base DN',

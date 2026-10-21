@@ -267,6 +267,138 @@ export async function sendWhatsapp({ phone, text, provider, fallback }) {
   throw fail(errors.join(' | ') || 'No WhatsApp provider is configured');
 }
 
+// ── iSMS Server (SMS through Android phones, REST API /api/v1/app/sms) ─────
+
+/**
+ * Any iSMS Server address works; a trailing slash or the `/api/v1/app/sms`
+ * (or `/api/app/sms`) suffix copied from its API page is tolerated.
+ */
+export function ismsBase(url) {
+  return String(url || '').trim().replace(/\/+$/, '').replace(/\/api(\/v1)?(\/app\/sms)?$/i, '');
+}
+
+/** Error codes of the iSMS API → a sentence an administrator can act on. */
+const ISMS_ERRORS = {
+  TOKEN_INVALID: 'iSMS Server rejected the API token',
+  TOKEN_EXPIRED: 'The iSMS API token has expired',
+  TOKEN_REVOKED: 'The iSMS API token was revoked',
+  SCOPE_DENIED: 'The iSMS API token is not allowed to do this (check its sms scopes)',
+  SIM_NOT_ALLOWED: 'The iSMS API token is tied to another SIM — clear the SIM or choose the token’s SIM',
+  SIM_NOT_FOUND: 'iSMS Server does not know this SIM (or the token cannot see it)',
+  SIM_DISABLED: 'Sending is switched off for this SIM in iSMS Server',
+  IP_NOT_ALLOWED: 'iSMS Server does not accept requests from this portal’s address for the token',
+  NO_RECIPIENTS: 'iSMS Server found no valid phone number',
+  NO_DEVICE: 'iSMS Server has no phone this token can send through',
+  SIM_LIMIT: 'The daily limit of the SIM is used up',
+  LIMIT_REACHED: 'The daily SIM limits are used up',
+  RATE_LIMITED: 'Too many requests to iSMS Server — try again in a minute',
+};
+
+function ismsConfig(parsed, override = {}) {
+  const cfg = { ...parsed.integrations.isms, ...override };
+  if (!cfg.serverUrl) throw fail('iSMS Server URL is required');
+  // The saved token is reused only for the saved server (SECRET_REQUIRED otherwise).
+  cfg.apiToken = reusableSecret('isms', 'apiToken', parsed.integrations.isms, override);
+  if (!cfg.apiToken) throw fail('iSMS API token is required');
+  return cfg;
+}
+
+async function ismsRequest(cfg, path, { method = 'GET', body } = {}) {
+  const base = ismsBase(cfg.serverUrl);
+  if (!/^https?:\/\//i.test(base)) throw fail('iSMS Server URL must start with http:// or https://');
+  let res;
+  try {
+    res = await fetch(`${base}/api/v1/app/sms${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${cfg.apiToken}`,
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err) {
+    throw fail(`iSMS Server is not reachable: ${err.cause?.code || err.message}`);
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    const known = ISMS_ERRORS[data?.code];
+    const detail = data?.error ? `: ${String(data.error).slice(0, 160)}` : '';
+    throw fail(known ? `${known} (${data.code})` : `iSMS Server returned HTTP ${res.status}${detail}`);
+  }
+  return data;
+}
+
+/** Phones (with their SIMs) the token can see; the SIM picker and the test use it. */
+export async function listIsmsDevices(override = {}) {
+  const parsed = parseSettings(await getSettings());
+  const cfg = ismsConfig(parsed, override);
+  const data = await ismsRequest(cfg, '/devices');
+  return (Array.isArray(data.devices) ? data.devices : []).map((device) => ({
+    id: device.id,
+    name: String(device.name || device.phoneName || `#${device.id}`),
+    online: Boolean(device.online),
+    enabled: device.enabled !== false,
+    sims: (Array.isArray(device.sims) ? device.sims : []).map((sim) => ({
+      id: sim.id,
+      slot: sim.slot,
+      label: String(sim.label || sim.displayName || sim.carrier || `SIM ${Number(sim.slot) + 1}`),
+      number: String(sim.number || ''),
+      active: sim.active !== false,
+      sendEnabled: sim.sendEnabled !== false,
+      dailyLimit: sim.dailyLimit ?? null,
+      sentToday: Number(sim.sentToday || 0),
+    })),
+  }));
+}
+
+/** Token check (GET /devices) plus the phones and SIMs it may send through. */
+export async function testIsms(override = {}) {
+  const parsed = parseSettings(await getSettings());
+  const devices = await listIsmsDevices(override);
+  const simId = Number({ ...parsed.integrations.isms, ...override }.simId) || null;
+  if (simId && !devices.some((device) => device.sims.some((sim) => sim.id === simId))) {
+    throw fail(`The token is valid, but SIM #${simId} is not among the SIMs it can use`);
+  }
+  if (!devices.length) throw fail('The token is valid, but it sees no phone to send through');
+  const online = devices.filter((device) => device.online).length;
+  return {
+    ok: true,
+    message: `iSMS Server accepted the token · ${devices.length} phone(s), ${online} online`,
+    devices,
+  };
+}
+
+/**
+ * Sends one SMS through iSMS Server. Returns the message as the server
+ * queued it ({ id, status, … }); delivery happens on the phone afterwards
+ * (queued → dispatched → accepted → sent → delivered).
+ */
+export async function sendSms({ phone, text, ref, override } = {}) {
+  const parsed = parseSettings(await getSettings());
+  const cfg = ismsConfig(parsed, override);
+  if (!override && !cfg.enabled) throw fail('iSMS Server integration is disabled');
+  const to = String(phone || '').trim();
+  if (!to) throw fail('Phone number is required');
+  if (!String(text || '').trim()) throw fail('Message text is required');
+  const body = { to: [to], text: String(text) };
+  if (Number(cfg.simId)) body.simId = Number(cfg.simId);
+  if (ref) body.ref = String(ref).slice(0, 64);
+  const data = await ismsRequest(cfg, '/messages', { method: 'POST', body });
+  const message = data.messages?.[0];
+  if (!message) throw fail('iSMS Server did not queue the message');
+  return { id: message.id, status: message.status, phone: message.phone, parts: message.parts ?? data.segments?.parts };
+}
+
+/** Status of a sent message (GET /messages/:id). */
+export async function smsStatus(id) {
+  const parsed = parseSettings(await getSettings());
+  const cfg = ismsConfig(parsed);
+  const data = await ismsRequest(cfg, `/messages/${encodeURIComponent(id)}`);
+  const message = data.message || {};
+  return { id: message.id, status: message.status, errorCode: message.errorCode || null, error: message.error || null };
+}
+
 // ── Document conversion (Collabora Online / LibreOffice convert-to) ─────────
 
 export function documentsBase(url) {
@@ -398,6 +530,7 @@ export async function testIntegration(kind, override) {
   if (kind === 'whatsapp') return testWhatsapp(override);
   if (kind === 'wazzup') return testWazzup(override);
   if (kind === 'mattermost') return testMattermost(override);
+  if (kind === 'isms') return testIsms(override);
   if (kind === 'documents') return testDocuments(override);
   // Online editor: discovery, capabilities and the WOPI callback address (services/office/session.js).
   if (kind === 'documentsEditor') return (await import('./office/session.js')).testEditor(override);

@@ -8,7 +8,7 @@ import { useAdminSettings } from '../../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../../hooks/useSettingsForm';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
-import { listWazzupChannels, testAdminIntegration } from '../../../services/api';
+import { listIsmsDevices, listWazzupChannels, sendIsmsTest, testAdminIntegration } from '../../../services/api';
 import SettingsPageHeader from './SettingsPageHeader';
 import EditorSettings from './EditorSettings';
 import { HintLabel } from '../../../help/Hint';
@@ -20,6 +20,7 @@ const HINTS = {
   whatsapp: 'admin.whatsappGateway',
   wazzup: 'admin.wazzup',
   mattermost: 'admin.mattermost',
+  isms: 'admin.isms',
   documents: 'admin.documents',
   activeDirectory: 'admin.activeDirectory',
 };
@@ -52,6 +53,10 @@ const FIELDS = {
     { name: 'botToken', label: 'mattermostToken', secret: true },
     { name: 'notifyChannelId', label: 'mattermostChannel', placeholder: 'e.g. 8zq1k3…' },
     { name: 'notifySecurity', label: 'mattermostAlerts', type: 'switch' },
+  ],
+  isms: [
+    { name: 'serverUrl', label: 'ismsUrl', placeholder: 'https://sms.example.com' },
+    { name: 'apiToken', label: 'ismsToken', secret: true },
   ],
   activeDirectory: [
     { name: 'host', label: 'host', placeholder: 'dc01.corp.local' },
@@ -157,6 +162,130 @@ function WazzupChannelPicker({ value = {}, onChange, channels, loading, error, o
   );
 }
 
+/**
+ * Phones and SIMs come from iSMS Server (what the token can see); the admin
+ * picks the SIM to send from, or leaves it to the server. Stored as `simId`.
+ */
+function IsmsSimPicker({ value = 0, onChange, devices, loading, error, onLoad }) {
+  const { t } = useLocale();
+
+  if (!devices) {
+    return (
+      <div className="channel-empty">
+        <Text type={error ? 'danger' : 'secondary'}>{error || t('settings.isms.notLoaded')}</Text>
+        <Button onClick={onLoad} loading={loading}>
+          {t('settings.isms.load')}
+        </Button>
+      </div>
+    );
+  }
+
+  if (!devices.length) {
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('settings.isms.none')} />;
+  }
+
+  const options = [
+    { value: 0, label: t('settings.isms.auto') },
+    ...devices.flatMap((device) =>
+      device.sims.map((sim) => ({
+        value: sim.id,
+        label: (
+          <span className="channel-option">
+            <span>
+              {device.name} · {sim.label}
+              {sim.number ? ` (${sim.number})` : ''}
+            </span>
+            {!(sim.active && sim.sendEnabled) && (
+              <Tag bordered={false} color="orange">
+                {t('settings.isms.simOff')}
+              </Tag>
+            )}
+          </span>
+        ),
+      }))
+    ),
+  ];
+  // A saved SIM the token no longer sees stays visible, so it is not swapped silently.
+  if (value && !options.some((option) => option.value === value)) {
+    options.push({ value, label: t('settings.isms.unknownSim', { id: value }) });
+  }
+
+  return (
+    <div>
+      <SettingRow label={t('settings.isms.sim')} description={t('settings.isms.simDesc')}>
+        <Select style={{ width: '100%', maxWidth: 420 }} value={value || 0} onChange={(id) => onChange?.(id || 0)} options={options} />
+      </SettingRow>
+      {devices.map((device) => (
+        <SettingRow
+          key={device.id}
+          label={device.name}
+          description={t('settings.isms.simCount', { count: device.sims.length })}
+        >
+          <Tag bordered={false} color={device.online ? 'green' : 'default'}>
+            {device.online ? t('settings.isms.online') : t('settings.isms.offline')}
+          </Tag>
+          {!device.enabled && (
+            <Tag bordered={false} color="orange">
+              {t('settings.isms.disabled')}
+            </Tag>
+          )}
+        </SettingRow>
+      ))}
+    </div>
+  );
+}
+
+/** Sends one SMS with the values on screen (saved or not) — proves the whole path to the phone. */
+function IsmsTestSend({ form }) {
+  const { t } = useLocale();
+  const { message } = App.useApp();
+  const [to, setTo] = useState('');
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const onSend = async () => {
+    setSending(true);
+    try {
+      const values = form.getFieldsValue(true);
+      const res = await sendIsmsTest({
+        serverUrl: values.serverUrl,
+        apiToken: values.apiToken || undefined,
+        simId: values.simId || 0,
+        to,
+        text: text.trim() || t('settings.isms.testText'),
+      });
+      message.success(t('settings.isms.queued', { id: res.data?.sms?.id ?? '—', status: res.data?.sms?.status || '' }));
+    } catch (err) {
+      message.error(errorMessage(err));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <SettingsSection title={t('settings.isms.testTitle')} description={t('settings.isms.testDesc')}>
+      <SettingRow label={t('settings.isms.testTo')}>
+        <Input value={to} onChange={(event) => setTo(event.target.value)} placeholder="+996555123456" style={{ maxWidth: 260 }} />
+      </SettingRow>
+      <SettingRow label={t('settings.isms.testMessage')}>
+        <Input.TextArea
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder={t('settings.isms.testText')}
+          rows={2}
+          maxLength={1600}
+          style={{ maxWidth: 420 }}
+        />
+      </SettingRow>
+      <SettingRow label="">
+        <Button type="primary" onClick={onSend} loading={sending} disabled={!to.trim()}>
+          {t('settings.isms.send')}
+        </Button>
+      </SettingRow>
+    </SettingsSection>
+  );
+}
+
 function fieldControl(field, current, t) {
   if (field.type === 'number') return <InputNumber min={1} max={65535} style={{ width: 140 }} />;
   if (field.type === 'switch') return <Switch />;
@@ -184,6 +313,7 @@ function IntegrationForm({ group, settings, save }) {
   const initial = useMemo(() => {
     const values = { enabled: Boolean(current.enabled) };
     if (group === 'wazzup') values.channels = current.channels || {};
+    if (group === 'isms') values.simId = Number(current.simId) || 0;
     for (const field of fields) {
       if (field.secret) values[field.name] = '';
       else if (field.type === 'switch') values[field.name] = Boolean(current[field.name]);
@@ -219,9 +349,28 @@ function IntegrationForm({ group, settings, save }) {
     }
   }, [form]);
 
-  // With a saved key, show the account's channels straight away.
+  const [devices, setDevices] = useState(null);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [devicesError, setDevicesError] = useState('');
+
+  const loadDevices = useCallback(async () => {
+    setDevicesLoading(true);
+    setDevicesError('');
+    try {
+      const { serverUrl, apiToken } = form.getFieldsValue(['serverUrl', 'apiToken']);
+      const res = await listIsmsDevices({ serverUrl, ...(apiToken ? { apiToken } : {}) });
+      setDevices(res.data.devices || []);
+    } catch (err) {
+      setDevicesError(errorMessage(err));
+    } finally {
+      setDevicesLoading(false);
+    }
+  }, [form]);
+
+  // With a saved key, show the account's channels (iSMS: phones and SIMs) straight away.
   useEffect(() => {
     if (group === 'wazzup' && current.apiKeySet) loadChannels();
+    if (group === 'isms' && current.apiTokenSet && current.serverUrl) loadDevices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group]);
 
@@ -230,6 +379,7 @@ function IntegrationForm({ group, settings, save }) {
     try {
       const res = await testAdminIntegration(group, form.getFieldsValue(true));
       if (res.data?.channels) setChannels(res.data.channels);
+      if (res.data?.devices) setDevices(res.data.devices);
       // Telegram: the bot's @username is needed for the login widget — fill it in.
       if (group === 'telegram' && res.data?.bot?.username && form.getFieldValue('botUsername') !== res.data.bot.username) {
         form.setFieldsValue({ botUsername: res.data.bot.username });
@@ -304,6 +454,24 @@ function IntegrationForm({ group, settings, save }) {
           </Form.Item>
         </SettingsSection>
       )}
+      {group === 'isms' && (
+        <SettingsSection
+          title={t('settings.isms.phones')}
+          description={t('settings.isms.phonesDesc')}
+          extra={
+            devices && (
+              <Button onClick={loadDevices} loading={devicesLoading}>
+                {t('settings.isms.reload')}
+              </Button>
+            )
+          }
+        >
+          <Form.Item name="simId" noStyle>
+            <IsmsSimPicker devices={devices} loading={devicesLoading} error={devicesError} onLoad={loadDevices} />
+          </Form.Item>
+        </SettingsSection>
+      )}
+      {group === 'isms' && <IsmsTestSend form={form} />}
       <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={reset} />
     </Form>
   );

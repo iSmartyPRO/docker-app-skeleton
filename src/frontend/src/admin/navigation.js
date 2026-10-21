@@ -194,6 +194,12 @@ export const SETTINGS_GROUPS = [
         keywords: 'mattermost chat bot team messenger alerts notifications чат бот уведомления',
       },
       {
+        id: 'isms',
+        integration: 'isms',
+        defaultIcon: 'sms',
+        keywords: 'isms sms gateway android phone sim text message смс шлюз телефон сим',
+      },
+      {
         id: 'google',
         integration: 'google',
         defaultIcon: 'google',

@@ -15,6 +15,8 @@ export default {
   mattermostToken: 'Bot erişim belirteci',
   mattermostChannel: 'Uyarı kanalı kimliği',
   mattermostAlerts: 'Güvenlik uyarılarını gönder',
+  ismsUrl: 'Sunucu adresi',
+  ismsToken: 'API belirteci',
   apiKey: 'API anahtarı',
   bindDn: 'Bind DN',
   baseDn: 'Base DN',

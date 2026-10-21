@@ -194,6 +194,7 @@ export function integrationStatus(integrations = {}) {
     whatsapp: ['serverUrl', 'apiKey'],
     wazzup: ['apiKey'],
     mattermost: ['serverUrl', 'botToken'],
+    isms: ['serverUrl', 'apiToken'],
     google: ['clientId', 'clientSecret'],
     documents: ['serverUrl'],
     activeDirectory: ['host', 'baseDn'],

@@ -37,7 +37,7 @@
 export const CATEGORIES = ['work', 'documents', 'sales', 'supply', 'construction', 'people', 'infrastructure'];
 
 /** Integrations a manifest may name in `requires` / `enhances` (keys of settings.integrations). */
-export const INTEGRATIONS = ['email', 'telegram', 'whatsapp', 'wazzup', 'mattermost', 'google', 'documents', 'activeDirectory'];
+export const INTEGRATIONS = ['email', 'telegram', 'whatsapp', 'wazzup', 'mattermost', 'isms', 'google', 'documents', 'activeDirectory'];
 
 const FIRST = '2026-10-16';
 const first = (en, ru, more = {}) => [{ version: '1.0.0', date: FIRST, changes: { en, ru, ...more } }];

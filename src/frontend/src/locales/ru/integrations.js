@@ -15,6 +15,8 @@ export default {
   mattermostToken: 'Токен бота',
   mattermostChannel: 'ID канала для оповещений',
   mattermostAlerts: 'Отправлять оповещения безопасности',
+  ismsUrl: 'Адрес сервера',
+  ismsToken: 'API-токен',
   apiKey: 'API-ключ',
   bindDn: 'Bind DN',
   baseDn: 'Base DN',
