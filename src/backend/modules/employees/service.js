@@ -362,15 +362,19 @@ function uniqueErrors(err) {
 
 /**
  * Keeps the linked portal account in step with the card: its unit and
- * position (the light link the core org structure reads).
+ * position (the light link the core org structure reads) and the first name
+ * greetings use.
  */
 export async function syncUser(client, employeeId) {
   const { rows } = await client.query(
-    `SELECT e.user_id, e.unit_id, p.name AS position FROM employees e LEFT JOIN emp_positions p ON p.id = e.position_id WHERE e.id = $1`,
+    `SELECT e.user_id, e.unit_id, e.first_name, p.name AS position FROM employees e LEFT JOIN emp_positions p ON p.id = e.position_id WHERE e.id = $1`,
     [employeeId]
   );
   if (!rows[0]?.user_id) return;
-  await client.query(`UPDATE users SET org_unit_id = $2, position_title = $3, updated_at = NOW() WHERE id = $1`, [rows[0].user_id, rows[0].unit_id, rows[0].position]);
+  await client.query(
+    `UPDATE users SET org_unit_id = $2, position_title = $3, first_name = COALESCE(NULLIF($4, ''), first_name), updated_at = NOW() WHERE id = $1`,
+    [rows[0].user_id, rows[0].unit_id, rows[0].position, String(rows[0].first_name || '').trim().slice(0, 80)]
+  );
 }
 
 export async function createEmployee(req, raw = {}) {
@@ -424,7 +428,7 @@ export async function updateEmployee(req, id, raw = {}) {
       await client.query(`UPDATE employees SET ${keys.map((key, index) => `${COLUMNS[key]} = $${index + 2}`).join(', ')}, updated_at = NOW() WHERE id = $1`, [row.id, ...keys.map((key) => input[key])]);
       const action = changes.status ? `status_${input.status}` : 'updated';
       await logEvent(client, row.id, action.slice(0, 24), actorOf(req), { changes });
-      if (changes.unitId || changes.positionId) await syncUser(client, row.id);
+      if (changes.unitId || changes.positionId || changes.firstName) await syncUser(client, row.id);
     });
   } catch (err) {
     throw uniqueErrors(err);

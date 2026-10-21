@@ -36,6 +36,9 @@ export async function ensureUsersTable() {
   `);
 
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(128)`);
+  // Given name for greetings ("Good evening, Ilias"): display names are often "Surname Name".
+  // Filled from the employee card and from the directory (givenName); see firstNameOf.
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(80)`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path TEXT`);
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS locale VARCHAR(8) DEFAULT 'en'`);
   // NULL language = "as the portal": the default language from the settings.
@@ -96,7 +99,7 @@ export async function ensureUsersTable() {
 }
 
 const USER_COLUMNS = `
-  id, username, email, display_name, avatar_path, locale, last_locale, theme,
+  id, username, email, display_name, first_name, avatar_path, locale, last_locale, theme,
   role, is_active, is_blocked, last_login_at, token_version, created_at, updated_at,
   phone, telegram_id, telegram_username, instagram, mattermost, auth_source, external_id, directory_guid, last_login_method, email_trusted,
   regional, device_tz, ui,
@@ -201,6 +204,7 @@ export function toPublicUser(user, access = EMPTY_ACCESS) {
     instagram: user.instagram || null,
     mattermost: user.mattermost || null,
     displayName: user.display_name || user.username,
+    firstName: user.first_name || null,
     avatarUrl: avatarUrl(user.avatar_path),
     // null = follow the portal's default language
     locale: user.locale || null,
@@ -591,7 +595,7 @@ export async function provisionExternalUser(client, { username, displayName, ema
 }
 
 /** Keeps directory-sourced profile fields in sync on every sign-in. */
-export async function syncExternalProfile(id, { displayName, email }) {
+export async function syncExternalProfile(id, { displayName, firstName, email }) {
   let safeEmail;
   try {
     safeEmail = normalizeEmail(email);
@@ -607,9 +611,10 @@ export async function syncExternalProfile(id, { displayName, email }) {
          display_name = COALESCE($2, display_name),
          email = COALESCE($3, email),
          email_trusted = CASE WHEN $3::text IS NULL THEN email_trusted ELSE TRUE END,
+         first_name = COALESCE($4, first_name),
          updated_at = NOW()
        WHERE id = $1`,
-      [id, displayName ? String(displayName).slice(0, 128) : null, safeEmail || null]
+      [id, displayName ? String(displayName).slice(0, 128) : null, safeEmail || null, String(firstName || '').trim().slice(0, 80) || null]
     );
   });
 }

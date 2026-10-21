@@ -107,6 +107,12 @@ export async function ensureEmployeesSchema() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS emp_events_employee_idx ON emp_events (employee_id, id DESC)`);
   await query(`CREATE TABLE IF NOT EXISTS emp_notices (key VARCHAR(160) PRIMARY KEY, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  // Accounts linked before cards carried the first name over (greetings): fill the gaps once.
+  await query(
+    `UPDATE users u SET first_name = e.first_name
+     FROM employees e
+     WHERE e.user_id = u.id AND u.first_name IS NULL AND COALESCE(e.first_name, '') <> ''`
+  );
 
   registerJob({ name: 'employees:clearances', everyMs: 30 * 60 * 1000, run: () => runClearanceReminders() });
 }

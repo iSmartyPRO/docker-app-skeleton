@@ -13,6 +13,7 @@ import { ROBOTS, Robot } from './robots';
 import Cast from './Cast';
 import { livePrefs, readPosition, savePrefs, searchHelp, useAssistantPrefs, writePosition } from './store';
 import './assistant.css';
+import { firstNameOf } from '../../lib/firstName';
 
 /*
  * The robot assistant: a small animated helper floating over every signed-in
@@ -405,7 +406,7 @@ function FloatingRobot({ user, prefs, pathname, onHide }) {
   );
 }
 
-const firstName = (user) => String(user?.displayName || user?.username || '').split(/\s+/)[0];
+const firstName = firstNameOf;
 
 function AssistantPanel({ user, prefs, kind, name, section, setMood, onClose, onHide, openHelp, go }) {
   const { t, locale } = useLocale();

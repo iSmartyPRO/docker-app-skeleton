@@ -185,7 +185,7 @@ export async function authenticateDirectory(cfg, login, password) {
   return profileOf(entry, login);
 }
 
-/** A directory entry as a portal profile: { dn, guid, username, displayName, email, memberOf }. */
+/** A directory entry as a portal profile: { dn, guid, username, displayName, firstName, email, memberOf }. */
 function profileOf(entry, fallback = '') {
   // Attribute names come back in whatever case the server uses (memberOf / memberof).
   const attrs = Object.fromEntries(Object.entries(entry).map(([key, value]) => [key.toLowerCase(), value]));
@@ -196,6 +196,7 @@ function profileOf(entry, fallback = '') {
     guid: directoryGuid(attrs),
     username: String(account),
     displayName: String(first(attrs.displayname) || first(attrs.cn) || account),
+    firstName: first(attrs.givenname) ? String(first(attrs.givenname)) : null,
     email: first(attrs.mail) ? String(first(attrs.mail)) : null,
     memberOf: asList(attrs.memberof),
   };

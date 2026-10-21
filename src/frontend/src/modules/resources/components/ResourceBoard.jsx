@@ -24,6 +24,7 @@ import { MODULE_REGISTRY } from '../../registry';
 import { nowInZone } from '../../../lib/datetime';
 import ResourceIcon from './ResourceIcon';
 import '../resources.css';
+import { firstNameOf } from '../../../lib/firstName';
 
 function greeting(t, name) {
   const hour = nowInZone().hour();
@@ -183,7 +184,7 @@ export default function ResourceBoard({ variant = 'page' }) {
 
   const config = data?.config || {};
   const title = config.title || t('resources.title');
-  const name = user?.displayName?.split(' ')[0] || user?.username;
+  const name = firstNameOf(user);
   const activeItem = items.find((item) => item.id === active);
 
   if (error) return <div className="rs-empty">{errorMessage(error)}</div>;

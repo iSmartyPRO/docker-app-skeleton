@@ -11,6 +11,7 @@ import { enabledModules, moduleLabel } from '../../registry';
 import { MODULE_COLORS } from '../../resources/api';
 import { useWidgetData } from '../api';
 import { WidgetState, When, cap, initials, localeTag, timeOf } from './common';
+import { firstNameOf } from '../../../lib/firstName';
 
 // ── Welcome ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ export function Welcome({ widget }) {
   const now = useNow();
   const state = useWidgetData('welcome', widget.settings);
   const data = state.data || {};
-  const first = (user?.displayName || user?.username || '').split(/\s+/)[0];
+  const first = firstNameOf(user);
   const tasks = data.tasks;
   const events = data.events;
 

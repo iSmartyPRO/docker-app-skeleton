@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- **Greetings by first name**: «Good evening, …» on Online resources, the dashboard, My tasks and the assistant used the first word of the display name, which is the surname when the directory writes «Surname Name». Accounts now keep a first name — from the linked employee card and from Active Directory `givenName` on sign-in — and greetings use it (the first word stays the fallback).
+- **CI**: the backend job also installs the frontend packages, which backend tests import through shared modules (`marked` for README rendering); the job had been failing since 1.4.0.
+
 ## [1.9.0] - 2026-10-21
 
 ### Added

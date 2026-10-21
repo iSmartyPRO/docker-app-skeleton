@@ -13,6 +13,7 @@ import TaskList from '../components/TaskList';
 import { useTaskEditor } from '../components/editor/EditorContext';
 import { CreateButton } from '../components/editor/QuickTask';
 import { FilterChips, applyFilter, isLate, isPending } from '../components/acceptance';
+import { firstNameOf } from '../../../lib/firstName';
 
 /** Buckets by due date in the person's time zone; tasks waiting for my acceptance come first. */
 function bucketsOf(tasks, t, meId) {
@@ -123,7 +124,7 @@ export default function MyTasks({ openRef }) {
     refresh();
   };
 
-  const name = (user.displayName || user.username).split(' ')[0];
+  const name = firstNameOf(user);
   const counts = { doing: mine?.open, helping: mine?.helping, assigned: mine?.assigned, auditing: mine?.auditing };
 
   return (
