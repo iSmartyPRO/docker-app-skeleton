@@ -37,6 +37,7 @@ export default {
   method_whatsappCode: 'WhatsApp 验证码',
   method_telegramCode: 'Telegram 验证码',
   method_mattermostCode: 'Mattermost 验证码',
+  method_smsCode: '短信验证码',
   method_magic_link: '登录链接',
   method_impersonation: '“以…身份登录”',
   method_legacy: '旧版登录',

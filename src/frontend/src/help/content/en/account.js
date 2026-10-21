@@ -59,7 +59,7 @@ On a phone the section menu collapses to icons — tap them the same way.`,
 
 - **Display name** — how colleagues see you in tasks, chats and the calendar. Your username (@name) cannot be changed.
 - **Email** — notifications and email sign-in codes go here.
-- **Phone** — for WhatsApp sign-in codes, in international format. An invalid number is highlighted in red.
+- **Phone** — for sign-in codes in WhatsApp or SMS, in international format. An invalid number is highlighted in red.
 - **Mattermost** — your Mattermost username: the bot sends sign-in codes and notifications there.
 - **Instagram** — optional.
 
@@ -236,7 +236,7 @@ A token is shown only once — store it safely and never paste it into a chat. M
     },
     phone: {
       title: 'Phone',
-      text: 'For WhatsApp sign-in codes. Use international format, e.g. +996 700 123 456.',
+      text: 'For sign-in codes in WhatsApp or SMS. Use international format, e.g. +996 700 123 456.',
       more: 'profile',
     },
     mattermost: {

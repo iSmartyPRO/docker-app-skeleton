@@ -76,5 +76,7 @@ export default {
   method_whatsappCode: 'WhatsApp kodu',
   method_telegramCode: 'Telegram kodu',
   method_mattermostCode: 'Mattermost kodu',
+  method_sms: 'SMS kodu',
+  method_smsCode: 'SMS kodu',
   method_impersonation: '“olarak oturum aç”',
 };

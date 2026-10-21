@@ -57,7 +57,7 @@ Built-in roles are inserted once by key and never overwritten, so permission cha
 | `settings.general` | Name, logos, theme, typography, icons |
 | `settings.security` | Site access, lockouts, sessions, IP filtering |
 | `settings.auth` | Sign-in methods |
-| `settings.integrations` | Email, Telegram, WhatsApp, Wazzup, Mattermost, document conversion, Active Directory |
+| `settings.integrations` | Email, Telegram, WhatsApp, Wazzup, Mattermost, iSMS Server, document conversion, Active Directory |
 | `settings.system` | API rate limit |
 | `api.tokens` | Creating personal API tokens under *Account → API tokens*; a token never has more rights than its owner. See [Public API](public-api.md) |
 | `api.admin` | The API console (`/admin/api`): tokens of anyone (including on behalf of other accounts), access templates, webhooks, request log, API settings |
@@ -116,6 +116,7 @@ Configured in **Settings → Security → Sign-in methods**. Each method beyond 
 | Code by email | Email (SMTP) | email in the profile |
 | Code in Telegram | Telegram | linked Telegram account (`@username`) |
 | Code in Mattermost | Mattermost (server URL + bot token) | Mattermost username in the profile |
+| Code by SMS | iSMS Server (server URL + API token) | phone number in the profile |
 | Magic link | any code channel | as above |
 
 The sign-in page shows only the methods that are both enabled and ready. User profiles carry the identifiers these methods need: **phone**, **email**, **Mattermost username**, **Instagram** and a **linked Telegram** account.
@@ -162,6 +163,12 @@ The widget uses redirect mode (`/auth/telegram`), so the CSP does not need `unsa
 1. Configure **Integrations → WhatsApp Gateway** (URL + API key) and/or **Integrations → Wazzup** (API key + WhatsApp channel).
 2. Enable *Code in WhatsApp*, choose the main provider and, if both are set up, turn on fallback. The method appears on the sign-in page only when the chosen provider (or, with fallback, the other) is configured.
 3. Users need a valid phone number in their profile — it is validated against international numbering plans on save.
+
+### SMS (iSMS Server)
+
+1. Configure **Integrations → iSMS Server** (server URL + API token, optionally the SIM) — see [integrations.md](integrations.md#isms-server-sms).
+2. Enable *Code by SMS*. The account is found by the phone number in the profile (the same field as for WhatsApp); the code — or, with sign-in links on, a link — arrives by SMS from the phone connected to the iSMS server (`ref: "signin"` in its message log).
+3. Delivery problems (token, SIM limit, phone offline) appear in **Activity** as *Code delivery failed* with the iSMS error; the person on the sign-in page sees the usual answer.
 
 ### Mattermost
 

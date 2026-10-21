@@ -7,7 +7,7 @@ import PublicLayout from '../layouts/PublicLayout';
 import BrandMark from '../components/BrandMark';
 import OtpInput from '../components/ui/OtpInput';
 import TelegramLoginButton from '../components/TelegramLoginButton';
-import { IconGoogle, IconMail, IconMattermost, IconTelegram, IconUser, IconWhatsapp } from '../components/icons/AdminIcons';
+import { IconGoogle, IconMail, IconMattermost, IconSms, IconTelegram, IconUser, IconWhatsapp } from '../components/icons/AdminIcons';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
@@ -32,9 +32,14 @@ function clock(seconds) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-/** Channels that deliver one-time codes, with their identifier field. */
+/**
+ * Channels that deliver one-time codes, with their identifier field. `texts`
+ * picks the "check your …" wording when it differs from the field (SMS and
+ * WhatsApp both ask for a phone).
+ */
 const CODE_CHANNELS = {
   whatsapp: { flag: 'whatsappCode', icon: IconWhatsapp, input: 'phone' },
+  sms: { flag: 'smsCode', icon: IconSms, input: 'phone', texts: 'sms' },
   email: { flag: 'emailCode', icon: IconMail, input: 'email' },
   telegram: { flag: 'telegramCode', icon: IconTelegram, input: 'telegram' },
   mattermost: { flag: 'mattermostCode', icon: IconMattermost, input: 'mattermost' },
@@ -230,11 +235,11 @@ function CodePane({ channel, magicLink, onSuccess }) {
         </span>
         <div>
           {/* Same answer whether or not the account exists: nobody can probe which addresses are registered. */}
-          <strong>{t(`signin.checkInbox_${spec.input}`)}</strong>
+          <strong>{t(`signin.checkInbox_${spec.texts || spec.input}`)}</strong>
           <div>
             {expired
               ? t('signin.expired')
-              : t(`signin.${step === 'link' ? 'linkIf' : 'codeIf'}_${spec.input}`, { time: clock(left) })}
+              : t(`signin.${step === 'link' ? 'linkIf' : 'codeIf'}_${spec.texts || spec.input}`, { time: clock(left) })}
           </div>
         </div>
       </div>
@@ -250,7 +255,7 @@ function CodePane({ channel, magicLink, onSuccess }) {
           )}
           {!error && (
             <p className={`signin__notice${resendIn > 0 ? ' is-quiet' : ''}`}>
-              {t(`signin.notReceived_${spec.input}`)} <span className="signin__privacy">{t('signin.privacyNote')}</span>
+              {t(`signin.notReceived_${spec.texts || spec.input}`)} <span className="signin__privacy">{t('signin.privacyNote')}</span>
             </p>
           )}
         </>
@@ -318,6 +323,7 @@ export default function Login() {
     const list = [];
     if (auth.password) list.push({ id: 'password', icon: IconUser, label: t('signin.tabPassword') });
     if (auth.whatsappCode) list.push({ id: 'whatsapp', icon: IconWhatsapp, label: 'WhatsApp' });
+    if (auth.smsCode) list.push({ id: 'sms', icon: IconSms, label: 'SMS' });
     if (auth.emailCode) list.push({ id: 'email', icon: IconMail, label: t('signin.tabEmail') });
     if (auth.telegram?.enabled || auth.telegramCode) list.push({ id: 'telegram', icon: IconTelegram, label: 'Telegram' });
     if (auth.mattermostCode) list.push({ id: 'mattermost', icon: IconMattermost, label: 'Mattermost' });
@@ -386,7 +392,7 @@ export default function Login() {
 
           <div className="signin__pane" key={active.id}>
             {active.id === 'password' && <PasswordPane ldap={auth.ldap} onSuccess={onSuccess} />}
-            {(active.id === 'whatsapp' || active.id === 'email' || active.id === 'mattermost') && (
+            {['whatsapp', 'sms', 'email', 'mattermost'].includes(active.id) && (
               <CodePane channel={active.id} magicLink={auth.magicLink} onSuccess={onSuccess} />
             )}
             {active.id === 'telegram' && (

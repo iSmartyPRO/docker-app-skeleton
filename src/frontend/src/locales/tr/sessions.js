@@ -37,6 +37,7 @@ export default {
   method_whatsappCode: 'WhatsApp kodu',
   method_telegramCode: 'Telegram kodu',
   method_mattermostCode: 'Mattermost kodu',
+  method_smsCode: 'SMS kodu',
   method_magic_link: 'oturum açma bağlantısı',
   method_impersonation: '“olarak oturum aç”',
   method_legacy: 'önceki oturum açma',

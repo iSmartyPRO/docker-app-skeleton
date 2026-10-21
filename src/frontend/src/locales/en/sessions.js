@@ -37,6 +37,7 @@ export default {
   method_whatsappCode: 'WhatsApp code',
   method_telegramCode: 'Telegram code',
   method_mattermostCode: 'Mattermost code',
+  method_smsCode: 'SMS code',
   method_magic_link: 'sign-in link',
   method_impersonation: '“sign in as”',
   method_legacy: 'earlier sign-in',

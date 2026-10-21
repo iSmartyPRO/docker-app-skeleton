@@ -35,6 +35,8 @@ export default {
   telegramCodeHint: 'Отправляет бот тем, кто привязал Telegram.',
   mattermostCode: 'Код в Mattermost',
   mattermostCodeHint: 'Личное сообщение от бота на имя пользователя Mattermost из профиля.',
+  smsCode: 'Код в SMS',
+  smsCodeHint: 'Отправляется через iSMS Server на номер из профиля.',
   magicLink: 'Ссылки для входа (magic link)',
   magicLinkHint: 'Разрешить запрос ссылки в один клик вместо кода.',
   integrationReady: 'Интеграция настроена',

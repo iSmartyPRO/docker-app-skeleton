@@ -35,6 +35,8 @@ export default {
   telegramCodeHint: 'Bot tarafından Telegram’ı bağlamış kullanıcılara gönderilir.',
   mattermostCode: 'Mattermost’ta kod',
   mattermostCodeHint: 'Bottan profildeki Mattermost kullanıcı adına doğrudan mesaj.',
+  smsCode: 'SMS ile kod',
+  smsCodeHint: 'iSMS Server üzerinden profildeki telefon numarasına gönderilir.',
   magicLink: 'Oturum açma bağlantıları (magic link)',
   magicLinkHint: 'Kişilerin kod yerine tek tıklamalı bir bağlantı istemesine izin verin.',
   integrationReady: 'Entegrasyon hazır',

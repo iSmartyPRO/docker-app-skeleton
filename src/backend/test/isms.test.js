@@ -33,3 +33,22 @@ test('iSMS token is kept on save and reused only for the same server', () => {
   assert.throws(() => reusableSecret('isms', 'apiToken', current.isms, { serverUrl: 'https://evil.example.net' }), { code: 'SECRET_REQUIRED' });
   assert.equal(reusableSecret('isms', 'apiToken', current.isms, { serverUrl: 'https://evil.example.net', apiToken: 'pat_new' }), 'pat_new');
 });
+
+test('SMS sign-in codes: offered only when the method is on and iSMS Server is configured', async () => {
+  const { authAvailability, sanitizeAuth } = await import('../services/settings.js');
+  const parsed = (isms, smsCode) => ({
+    integrations: { isms, google: {}, activeDirectory: {}, telegram: {}, email: {}, mattermost: {}, whatsapp: {}, wazzup: {} },
+    auth: { password: { enabled: true }, smsCode: { enabled: smsCode }, magicLink: { enabled: true } },
+  });
+  const ready = { enabled: true, serverUrl: 'https://sms.example.com', apiToken: 'pat_x' };
+  assert.equal(authAvailability(parsed(ready, true)).smsCode, true);
+  assert.equal(authAvailability(parsed(ready, true)).ready.magicLink, true, 'links can go by SMS too');
+  assert.equal(authAvailability(parsed(ready, false)).smsCode, false);
+  assert.equal(authAvailability(parsed({ ...ready, apiToken: '' }, true)).smsCode, false);
+  assert.equal(authAvailability(parsed({ ...ready, enabled: false }, true)).smsCode, false);
+
+  // Switching the method on without the integration is refused.
+  const current = { password: { enabled: true }, smsCode: { enabled: false } };
+  assert.throws(() => sanitizeAuth(current, { smsCode: { enabled: true } }, { smsCode: false }), /iSMS Server/);
+  assert.equal(sanitizeAuth(current, { smsCode: { enabled: true } }, { smsCode: true }).smsCode.enabled, true);
+});

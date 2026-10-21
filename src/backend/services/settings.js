@@ -124,6 +124,8 @@ export const DEFAULTS = {
     whatsappCode: { enabled: false, provider: 'gateway', fallback: true },
     telegramCode: { enabled: false },
     mattermostCode: { enabled: false },
+    // SMS through iSMS Server to the phone in the profile.
+    smsCode: { enabled: false },
     // Lets code channels send a one-click sign-in link instead of a code.
     magicLink: { enabled: false },
   }),
@@ -474,6 +476,7 @@ export function authAvailability(parsed) {
     whatsappWazzup: Boolean(i.wazzup?.enabled && i.wazzup?.apiKey && i.wazzup?.channels?.whatsapp),
     telegramCode: Boolean(i.telegram?.enabled && i.telegram?.botToken),
     mattermostCode: Boolean(i.mattermost?.enabled && i.mattermost?.serverUrl && i.mattermost?.botToken),
+    smsCode: Boolean(i.isms?.enabled && i.isms?.serverUrl && i.isms?.apiToken),
   };
   // Email goes through SMTP or, when connected, through Gmail.
   ready.emailCode = ready.smtp || ready.gmail;
@@ -481,7 +484,7 @@ export function authAvailability(parsed) {
   ready.whatsappCode = ready.whatsappGateway || ready.whatsappWazzup;
   // Sign-in codes go through the provider chosen in Sign-in methods (the other one only with fallback on).
   ready.whatsappSignIn = whatsappSignInReady(ready, auth?.whatsappCode);
-  ready.magicLink = ready.emailCode || ready.whatsappSignIn || ready.telegramCode || ready.mattermostCode;
+  ready.magicLink = ready.emailCode || ready.whatsappSignIn || ready.telegramCode || ready.mattermostCode || ready.smsCode;
   return {
     ready,
     password: auth.password?.enabled !== false,
@@ -492,6 +495,7 @@ export function authAvailability(parsed) {
     whatsappCode: Boolean(auth.whatsappCode?.enabled && ready.whatsappSignIn),
     telegramCode: Boolean(auth.telegramCode?.enabled && ready.telegramCode),
     mattermostCode: Boolean(auth.mattermostCode?.enabled && ready.mattermostCode),
+    smsCode: Boolean(auth.smsCode?.enabled && ready.smsCode),
     magicLink: Boolean(auth.magicLink?.enabled),
   };
 }
@@ -504,6 +508,7 @@ const AUTH_INTEGRATION = {
   whatsappCode: 'WhatsApp Gateway or Wazzup (with a WhatsApp channel)',
   telegramCode: 'Telegram bot',
   mattermostCode: 'Mattermost',
+  smsCode: 'iSMS Server',
 };
 
 /**
@@ -663,9 +668,10 @@ export function toPublicSettings(parsed) {
         whatsappCode: available.whatsappCode,
         telegramCode: available.telegramCode,
         mattermostCode: available.mattermostCode,
+        smsCode: available.smsCode,
         magicLink:
           available.magicLink &&
-          (available.emailCode || available.whatsappCode || available.telegramCode || available.mattermostCode),
+          (available.emailCode || available.whatsappCode || available.telegramCode || available.mattermostCode || available.smsCode),
       };
     })(),
     integrations: {

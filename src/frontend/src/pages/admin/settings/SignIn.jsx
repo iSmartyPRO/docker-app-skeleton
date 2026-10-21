@@ -5,7 +5,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import SaveBar from '../../../components/ui/SaveBar';
 import LoadState from '../../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../../components/ui/SettingsSection';
-import { IconDirectory, IconGoogle, IconMail, IconMattermost, IconTelegram, IconUser, IconWhatsapp } from '../../../components/icons/AdminIcons';
+import { IconDirectory, IconGoogle, IconMail, IconMattermost, IconSms, IconTelegram, IconUser, IconWhatsapp } from '../../../components/icons/AdminIcons';
 import { useAdminSettings } from '../../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../../hooks/useSettingsForm';
 import { useAccessData } from '../../../hooks/useAccessData';
@@ -60,6 +60,7 @@ function SignInForm({ settings, save, groups }) {
       emailCodeEnabled: Boolean(auth.emailCode?.enabled),
       telegramCodeEnabled: Boolean(auth.telegramCode?.enabled),
       mattermostCodeEnabled: Boolean(auth.mattermostCode?.enabled),
+      smsCodeEnabled: Boolean(auth.smsCode?.enabled),
       magicLinkEnabled: Boolean(auth.magicLink?.enabled),
     }),
     [auth]
@@ -80,6 +81,7 @@ function SignInForm({ settings, save, groups }) {
         emailCode: { enabled: v.emailCodeEnabled },
         telegramCode: { enabled: v.telegramCodeEnabled },
         mattermostCode: { enabled: v.mattermostCodeEnabled },
+        smsCode: { enabled: v.smsCodeEnabled },
         magicLink: { enabled: v.magicLinkEnabled },
       },
     })
@@ -244,6 +246,9 @@ function SignInForm({ settings, save, groups }) {
         </MethodHead>
         <MethodHead icon={IconMattermost} title={t('signinSettings.mattermostCode')} description={t('signinSettings.mattermostCodeHint')} ready={ready.mattermostCode} to="/admin/settings/mattermost">
           {toggle('mattermostCodeEnabled', ready.mattermostCode)}
+        </MethodHead>
+        <MethodHead icon={IconSms} title={t('signinSettings.smsCode')} description={t('signinSettings.smsCodeHint')} ready={ready.smsCode} to="/admin/settings/isms">
+          {toggle('smsCodeEnabled', ready.smsCode)}
         </MethodHead>
         <SettingRow label={<HintLabel id="admin.magicLink">{t('signinSettings.magicLink')}</HintLabel>} description={t('signinSettings.magicLinkHint')}>
           <Form.Item name="magicLinkEnabled" valuePropName="checked" noStyle>

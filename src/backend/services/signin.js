@@ -5,7 +5,7 @@ import { query, withTransaction } from '../config/database.js';
 import { authAvailability, getSettings, localeFor, parseSettings } from './settings.js';
 import { authenticateDirectory, mapDirectoryGroups } from './ldap.js';
 import { emitDirectorySignIn } from './hooks.js';
-import { sendEmail, sendMattermostDirect, sendTelegram, sendWhatsapp } from './integrations.js';
+import { sendEmail, sendMattermostDirect, sendSms, sendTelegram, sendWhatsapp } from './integrations.js';
 import { getUserAccess, hasLocalPassword, isDemoSeedAccount } from './rbac.js';
 import { recordSecurityEvent } from './security.js';
 import { allowedDomains, domainAllowed, findGoogleAccountBySub, saveGoogleAccount } from './google.js';
@@ -332,7 +332,7 @@ export async function signInWithGoogle(claims) {
   return { user, method: 'google' };
 }
 
-// ── One-time codes and magic links (email / WhatsApp / Telegram) ───────────
+// ── One-time codes and magic links (email / WhatsApp / SMS / Telegram) ─────
 //
 // Protection:
 //  - 6-digit codes live 5 minutes, links 15 minutes; both are single-use
@@ -350,6 +350,7 @@ const CHANNELS = {
   whatsapp: { method: 'whatsappCode', find: findUserByPhone },
   telegram: { method: 'telegramCode', find: findUserByTelegramUsername },
   mattermost: { method: 'mattermostCode', find: findUserByMattermost },
+  sms: { method: 'smsCode', find: findUserByPhone },
 };
 
 const LINK_TTL_MINUTES = 15;
@@ -382,6 +383,7 @@ async function deliver(channel, user, message) {
   if (channel === 'email') return sendEmail({ to: user.email, ...message });
   if (channel === 'whatsapp') return sendWhatsapp({ phone: user.phone, text: message.text });
   if (channel === 'mattermost') return sendMattermostDirect({ username: user.mattermost, text: message.text });
+  if (channel === 'sms') return sendSms({ phone: user.phone, text: message.text, ref: 'signin' });
   return sendTelegram({ chatId: user.telegram_id, text: message.text });
 }
 

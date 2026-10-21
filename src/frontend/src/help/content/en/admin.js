@@ -13,7 +13,7 @@ export default {
     {
       icon: '🔐',
       title: 'Flexible sign-in',
-      text: 'Password, Active Directory, Google, Telegram and one-time codes via WhatsApp, email, Telegram or Mattermost.',
+      text: 'Password, Active Directory, Google, Telegram and one-time codes via WhatsApp, SMS, email, Telegram or Mattermost.',
     },
     {
       icon: '🛡️',
@@ -209,7 +209,7 @@ The tag next to a language shows how much of the interface is translated; anythi
 - **Google** — a Google or Google Workspace account, optionally limited to company domains.
 - **Active Directory / LDAP** — domain username and password. Accounts can be created automatically and directory groups mapped to portal groups.
 - **Telegram Login** — one tap; the person links Telegram in their profile first.
-- **One-time codes** — 6 digits via WhatsApp, email, Telegram or Mattermost. A code lives 5 minutes and allows 5 attempts.
+- **One-time codes** — 6 digits via WhatsApp, SMS, email, Telegram or Mattermost. A code lives 5 minutes and allows 5 attempts.
 - **Sign-in links (magic link)** — a one-click link instead of a code, valid for 15 minutes.`,
       example: {
         title: 'Sign-in with the domain account',

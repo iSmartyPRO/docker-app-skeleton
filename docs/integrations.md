@@ -9,7 +9,7 @@ External services the product talks to. All are **off by default**, configured i
 | [WhatsApp Gateway](#whatsapp-gateway-wagw) | Sign-in codes in WhatsApp (main or fallback provider) | `GET /api/health`, then a read-only key check |
 | [Wazzup](#wazzup) | Sign-in codes in WhatsApp; channel per messenger | Lists the account's channels, validates the selected ones |
 | [Mattermost](#mattermost) | Sign-in codes by direct message; security alerts to a channel | `GET /system/ping`, `GET /users/me`, alert channel access |
-| [iSMS Server](#isms-server-sms) | Sending SMS through your own Android phones (`sendSms` in `services/integrations.js`) | `GET /devices` with the token; lists phones and SIMs, checks the chosen SIM |
+| [iSMS Server](#isms-server-sms) | Sign-in codes and links by SMS; sending SMS through your own Android phones (`sendSms` in `services/integrations.js`) | `GET /devices` with the token; lists phones and SIMs, checks the chosen SIM |
 | [Google](#google) | Sign-in with Google, Google Calendar per user, Gmail as the mail sender | Validates the OAuth client with Google's token endpoint; checks the Gmail sender if connected |
 | [Document conversion](#document-conversion-collabora--libreoffice) | Office previews in the Knowledge Base (`.doc`, `.docx`, `.ppt`, `.pptx`, `.xls`, OpenDocument, `.rtf`) | Converts a tiny document to PDF and reports the time |
 | [Active Directory](#active-directory--ldap) | Domain sign-in, auto-provisioning, group mapping | Service-account bind and a search under the base DN |

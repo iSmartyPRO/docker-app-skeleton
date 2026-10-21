@@ -35,6 +35,8 @@ export default {
   telegramCodeHint: '由机器人发送给已绑定 Telegram 的用户。',
   mattermostCode: 'Mattermost 验证码',
   mattermostCodeHint: '由机器人私信发送到个人资料中的 Mattermost 用户名。',
+  smsCode: '短信验证码',
+  smsCodeHint: '通过 iSMS Server 发送到个人资料中的手机号码。',
   magicLink: '登录链接（magic link）',
   magicLinkHint: '允许用户申请一键登录链接来代替验证码。',
   integrationReady: '集成已就绪',

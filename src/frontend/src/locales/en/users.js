@@ -76,5 +76,7 @@ export default {
   method_whatsappCode: 'WhatsApp code',
   method_telegramCode: 'Telegram code',
   method_mattermostCode: 'Mattermost code',
+  method_sms: 'SMS code',
+  method_smsCode: 'SMS code',
   method_impersonation: '“sign in as”',
 };

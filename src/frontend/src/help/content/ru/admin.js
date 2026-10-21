@@ -13,7 +13,7 @@ export default {
     {
       icon: '🔐',
       title: 'Гибкий вход',
-      text: 'Пароль, Active Directory, Google, Telegram и одноразовые коды в WhatsApp, на почту, в Telegram или Mattermost.',
+      text: 'Пароль, Active Directory, Google, Telegram и одноразовые коды в WhatsApp, SMS, на почту, в Telegram или Mattermost.',
     },
     {
       icon: '🛡️',
@@ -209,7 +209,7 @@ export default {
 - **Google** — вход аккаунтом Google или Google Workspace, можно ограничить доменами компании.
 - **Active Directory / LDAP** — доменный логин и пароль. Можно создавать учётные записи автоматически и сопоставлять группы каталога с группами портала.
 - **Вход через Telegram** — одно нажатие; сначала человек привязывает Telegram в профиле.
-- **Одноразовые коды** — 6 цифр в WhatsApp, на почту, в Telegram или в Mattermost. Код живёт 5 минут, даётся 5 попыток.
+- **Одноразовые коды** — 6 цифр в WhatsApp, SMS, на почту, в Telegram или в Mattermost. Код живёт 5 минут, даётся 5 попыток.
 - **Ссылки для входа (magic link)** — вместо кода приходит ссылка в один клик, действует 15 минут.`,
       example: {
         title: 'Вход по доменной учётной записи',

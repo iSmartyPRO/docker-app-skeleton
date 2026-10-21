@@ -35,6 +35,8 @@ export default {
   telegramCodeHint: 'Sent by the bot to users who linked Telegram.',
   mattermostCode: 'Code in Mattermost',
   mattermostCodeHint: 'A direct message from the bot to the Mattermost username in the profile.',
+  smsCode: 'Code by SMS',
+  smsCodeHint: 'Sent through iSMS Server to the phone number in the profile.',
   magicLink: 'Sign-in links (magic link)',
   magicLinkHint: 'Let people request a one-click link instead of a code.',
   integrationReady: 'Integration ready',

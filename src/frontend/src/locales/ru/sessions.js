@@ -37,6 +37,7 @@ export default {
   method_whatsappCode: 'код в WhatsApp',
   method_telegramCode: 'код в Telegram',
   method_mattermostCode: 'код в Mattermost',
+  method_smsCode: 'код в SMS',
   method_magic_link: 'ссылку для входа',
   method_impersonation: '«войти как»',
   method_legacy: 'прежний вход',

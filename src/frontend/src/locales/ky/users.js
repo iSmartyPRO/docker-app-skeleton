@@ -76,5 +76,7 @@ export default {
   method_whatsappCode: 'WhatsApp\'тагы код',
   method_telegramCode: 'Telegram\'дагы код',
   method_mattermostCode: 'Mattermost\'тогу код',
+  method_sms: 'SMS код',
+  method_smsCode: 'SMS код',
   method_impersonation: '«катары кирүү»',
 };

@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Code by SMS** sign-in method ([docs/access-control.md](docs/access-control.md#sms-isms-server)): a one-time 6-digit code — or a sign-in link — by SMS through the iSMS Server integration to the phone number in the profile. Settings → Sign-in methods → *Code by SMS*; the sign-in page gets an *SMS* tab. Same protection as the other code channels (5 minutes, single use, 5 attempts, send limits, no account enumeration).
+
 ## [1.8.0] - 2026-10-21
 
 ### Added

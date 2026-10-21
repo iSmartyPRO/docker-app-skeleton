@@ -35,6 +35,8 @@ export default {
   telegramCodeHint: 'Telegram\'ды байланыштыргандарга бот жөнөтөт.',
   mattermostCode: 'Mattermost\'тогу код',
   mattermostCodeHint: 'Профилдеги Mattermost колдонуучу атына боттон жеке билдирүү.',
+  smsCode: 'SMS менен код',
+  smsCodeHint: 'iSMS Server аркылуу профилдеги номерге жөнөтүлөт.',
   magicLink: 'Кирүү шилтемелери (magic link)',
   magicLinkHint: 'Коддун ордуна бир басуудагы шилтемени сурап алууга уруксат берүү.',
   integrationReady: 'Интеграция жөндөлгөн',
