@@ -553,6 +553,16 @@ export default {
       text: 'Ülkeler, ilişkiler, siciller ve kartın alanları — modül yöneticileri için.',
     },
   },
+  qr: {
+    title: 'QR kodları turu',
+    intro: { title: 'Kurumsal QR kodları', text: 'Web sitesi, kartvizit, Wi-Fi ve daha fazlası için kodlar — şirketinizin renklerinde, logosuyla, taranabilirliği kontrol edilmiş.' },
+    quick: { title: 'Türle başlayın', text: 'Kodun ne yapacağını seçin; kodlarınız aşağıda saklanır, indirmeler bir tık uzağınızda.' },
+    types: { title: 'Kod ne yapar', text: 'Türü seçin ve alanları doldurun. Web sitesi kodu dinamik olabilir: baskıdan sonra adresi değiştirin ve taramaları sayın.' },
+    templates: { title: 'Şirket şablonları', text: 'Her şablon sizin içeriğinizle çizilir. Bazıları kurumsal renkleri veya logoyu sabitler.' },
+    designer: { title: 'Tasarım', text: 'Nokta ve köşe şekilleri, renkler ve gradyanlar, ortada logo ve başlıklı bir çerçeve.' },
+    preview: { title: 'Canlı önizleme', text: 'Her değişiklik anında taranabilirlik açısından kontrol edilir. 4096 px’e kadar PNG veya baskı için vektör SVG indirin.' },
+    manage: { title: 'Şablonlar', text: 'Herkes için görünümler hazırlayın, varsayılanı seçin ve markaya uygun kalması gerekenleri kilitleyin.' },
+  },
   resources: {
     title: 'Çevrimiçi kaynaklar turu',
     intro: {

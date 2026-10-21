@@ -160,6 +160,16 @@ export const MODULE_REGISTRY = [
     Settings: lazy(() => import('./directory/DirectorySettings')),
   },
   {
+    // QR codes (docs/qr.md): branded codes from templates; templates for qr.admin.
+    id: 'qr',
+    path: '/app/qr',
+    icon: 'qr',
+    labelKey: 'apps.qr.name',
+    descKey: 'apps.qr.desc',
+    App: lazyPage(() => import('./qr/QrApp')),
+    Settings: lazy(() => import('./qr/QrSettings')),
+  },
+  {
     id: 'drive',
     path: '/app/drive',
     icon: 'server',

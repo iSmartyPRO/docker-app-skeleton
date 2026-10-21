@@ -233,6 +233,10 @@ export default {
       title: 'Employees',
       desc: 'The registry, cards, positions, clearances, accounts, import and export',
     },
+    qr: {
+      title: 'QR codes',
+      desc: 'Own codes, designs, dynamic links and scans',
+    },
   },
   resources: {
     tasks_projects: 'Task projects',

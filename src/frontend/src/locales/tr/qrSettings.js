@@ -1,0 +1,15 @@
+export default {
+  enabledDesc: 'Herkes için kurumsal QR kodları: web sitesi, kartvizitler, Wi-Fi, etkinlikler ve daha fazlası.',
+  templates: 'Şablonlar',
+  templatesDesc: 'Kullanıcıların seçtiği hazır görünümler; markayı korumak için renkleri veya logoyu kilitleyin.',
+  people: 'Kullanıcılar ne yapabilir',
+  peopleDesc: 'Şablon yöneticileri (qr.admin) dışındaki herkes için sınırlar.',
+  allowCustom: 'Tasarımı değiştirme',
+  allowCustomDesc: 'Kapalı: kodlar şablonların aynısıdır (yalnızca içerik seçilir).',
+  allowUploads: 'Kendi logosunu yükleme',
+  allowUploadsDesc: 'Kapalı: ortaya yalnızca şirket logosu ve simgeler konabilir.',
+  dynamic: 'Dinamik kodlar',
+  dynamicDesc: 'Kısa portal bağlantısı (/q/…) taşıyan web sitesi kodları: adres baskıdan sonra değişebilir, taramalar sayılır.',
+  maxCodes: 'Kişi başına kod',
+  maxCodesDesc: 'Bir kişinin tutabileceği kod sayısı.',
+};

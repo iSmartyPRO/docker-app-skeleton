@@ -13,6 +13,7 @@ export default {
     module_chat: 'Chats',
     api: 'API',
     module_resources: 'Online resources',
+    module_qr: 'QR codes',
     module_companies: 'Counterparties',
     module_crm: 'CRM',
     module_masterplan: 'Masterplan',
@@ -127,6 +128,10 @@ export default {
   resources_admin: {
     title: 'Manage online resources',
     desc: 'Add, edit and order resources and choose who sees each one.',
+  },
+  qr_admin: {
+    title: 'Manage QR templates',
+    desc: 'Prepare the templates people pick from, lock brand colours and logos.',
   },
   companies_admin: {
     title: 'Counterparties admin',

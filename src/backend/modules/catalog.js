@@ -1288,6 +1288,31 @@ export const MODULE_CATALOG = [
     sanitize: sanitizeEmployees,
   },
   {
+    id: 'qr',
+    // QR codes (docs/qr.md): installable, off until an administrator turns it on.
+    defaultEnabled: false,
+    // admin: prepare templates (brand looks people pick from) and their locks.
+    permissions: ['qr.admin'],
+    defaults: {
+      // People may change a template's options that are not locked (false: templates as they are).
+      allowCustom: true,
+      // People may upload their own logo.
+      allowUploads: true,
+      // Website codes may be dynamic: /q/<slug>, target editable after printing, scans counted.
+      dynamic: true,
+      maxCodes: 500,
+    },
+    sanitize(current, incoming = {}) {
+      const next = { ...current };
+      for (const flag of ['allowCustom', 'allowUploads', 'dynamic']) {
+        if (typeof incoming[flag] === 'boolean') next[flag] = incoming[flag];
+      }
+      const max = Number(incoming.maxCodes);
+      if (Number.isInteger(max)) next.maxCodes = Math.min(10000, Math.max(10, max));
+      return next;
+    },
+  },
+  {
     id: 'directory',
     // Infrastructure: off until an administrator turns it on; works only with the AD integration
     // (or the demo directory) — docs/directory.md.

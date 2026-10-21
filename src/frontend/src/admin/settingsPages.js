@@ -34,6 +34,7 @@ export const SETTINGS_PAGES = {
   files: lazy(() => import('../modules/files/FilesSettings')),
   drive: lazy(() => import('../modules/drive/DriveSettings')),
   resources: lazy(() => import('../modules/resources/ResourcesSettings')),
+  qr: lazy(() => import('../modules/qr/QrSettings')),
   companies: lazy(() => import('../modules/companies/CompaniesSettings')),
   tasks: lazy(() => import('../modules/tasks/TasksSettings')),
   crm: lazy(() => import('../modules/crm/CrmSettings')),

@@ -1,0 +1,15 @@
+export default {
+  enabledDesc: '面向所有人的品牌二维码：网站、名片、Wi-Fi、活动等。',
+  templates: '模板',
+  templatesDesc: '员工可选的现成样式；锁定颜色或标志以保持品牌一致。',
+  people: '员工可以做什么',
+  peopleDesc: '对模板管理员（qr.admin）以外所有人的限制。',
+  allowCustom: '修改样式',
+  allowCustomDesc: '关闭：二维码与模板完全一致（只选择内容）。',
+  allowUploads: '上传自己的标志',
+  allowUploadsDesc: '关闭：中间只能放公司标志和图标。',
+  dynamic: '动态码',
+  dynamicDesc: '包含门户短链接（/q/…）的网址码：印刷后仍可更改地址，并统计扫描次数。',
+  maxCodes: '每人二维码数',
+  maxCodesDesc: '每人最多可保存的二维码数量。',
+};

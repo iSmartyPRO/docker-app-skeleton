@@ -13,6 +13,7 @@ export default {
     module_chat: 'Чаты',
     api: 'API',
     module_resources: 'Онлайн-ресурсы',
+    module_qr: 'QR-коды',
     module_companies: 'Контрагенты',
     module_crm: 'CRM',
     module_masterplan: 'Мастерплан',
@@ -127,6 +128,10 @@ export default {
   resources_admin: {
     title: 'Управление онлайн-ресурсами',
     desc: 'Добавление, изменение и порядок ресурсов, выбор, кому они видны.',
+  },
+  qr_admin: {
+    title: 'Управление шаблонами QR',
+    desc: 'Готовит шаблоны, из которых выбирают сотрудники, закрепляет фирменные цвета и логотип.',
   },
   companies_admin: {
     title: 'Администратор контрагентов',

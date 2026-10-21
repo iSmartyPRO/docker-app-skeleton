@@ -553,6 +553,16 @@ export default {
       text: 'Countries, relations, registers and the fields of the card — for administrators of the module.',
     },
   },
+  qr: {
+    title: 'QR codes tour',
+    intro: { title: 'Branded QR codes', text: 'Make codes for a website, a business card, Wi-Fi and more — in your company’s colours, with its logo, checked for scanning.' },
+    quick: { title: 'Start by kind', text: 'Pick what the code should do; your codes are kept below with downloads one click away.' },
+    types: { title: 'What the code does', text: 'Choose the kind and fill in the fields. A website code can be dynamic: change the address after printing and count scans.' },
+    templates: { title: 'Company templates', text: 'Every template is drawn with your own content. Some fix the brand colours or logo.' },
+    designer: { title: 'Design', text: 'Shapes of dots and corners, colours and gradients, a logo in the centre and a frame with a caption.' },
+    preview: { title: 'Live preview', text: 'Each change is checked for scanning at once. Download PNG up to 4096 px or a vector SVG for print.' },
+    manage: { title: 'Templates', text: 'Prepare looks for everyone, choose the default and lock what must stay on brand.' },
+  },
   resources: {
     title: 'Online resources tour',
     intro: {

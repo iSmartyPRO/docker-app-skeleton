@@ -37,6 +37,7 @@ export const HELP_ORDER = [
   'procurement',
   'warehouse',
   'resources',
+  'qr',
   'admin',
   'api',
 ];

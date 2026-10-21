@@ -231,6 +231,10 @@ export default {
       title: '员工',
       desc: '花名册、卡片、职位、资质证书、账户、导入和导出',
     },
+    qr: {
+      title: '二维码',
+      desc: '自己的二维码、样式、动态链接和扫描',
+    },
   },
   resources: {
     tasks_projects: '任务项目',

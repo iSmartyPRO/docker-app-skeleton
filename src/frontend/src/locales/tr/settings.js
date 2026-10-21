@@ -256,6 +256,10 @@ export default {
     title: 'Çevrimiçi kaynaklar',
     desc: 'Ana sayfada şirket hizmetlerine bağlantılar: görünüm, arama, kişisel düzenler',
   },
+  qr: {
+    title: 'QR kodları',
+    desc: 'Şablonlar, özel tasarım, logo yükleme, dinamik kodlar',
+  },
   companies: {
     title: 'Cari hesaplar',
     desc: 'Ülkeler, siciller (Kırgızistan Adalet Bakanlığı, EGRUL, DaData), ilişki türleri, özel alanlar',

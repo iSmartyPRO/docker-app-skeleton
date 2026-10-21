@@ -254,6 +254,11 @@ export const SETTINGS_GROUPS = [
         keywords: 'online resources links home page bookmarks icons онлайн ресурсы ссылки главная страница закладки иконки',
       },
       {
+        id: 'qr',
+        defaultIcon: 'qr',
+        keywords: 'qr codes qr-code vcard wifi branding logo templates dynamic scan куар qr-коды коды визитка вайфай брендирование логотип шаблоны динамические сканирования',
+      },
+      {
         id: 'drive',
         defaultIcon: 'server',
         keywords: 'drive file server smb share dfs network windows active directory сетевой диск файловый сервер шара папки access security groups ntfs permissions sg доступ к папкам группы безопасности права ntfs',

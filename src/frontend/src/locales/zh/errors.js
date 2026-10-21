@@ -10,6 +10,12 @@ export default {
     other: '此联系方式',
   },
   codes: {
+    QR_LIMIT: '二维码数量已达上限，请删除不再需要的。',
+    QR_TYPE: '未知的二维码类型。',
+    QR_URL: '动态码需要以 http:// 或 https:// 开头的网址。',
+    DYNAMIC_OFF: '管理员已关闭动态码。',
+    TEMPLATE_REQUIRED: '请选择一个公司模板。',
+    QR_FILE_TYPE: '请上传 PNG、SVG、WebP 或 JPEG 图片。',
     SECRET_REQUIRED: '服务器地址已更改，请重新输入连接的密码、密钥或令牌。',
     TOKEN_FORBIDDEN_FIELD: 'API 令牌无法更改电子邮件、手机号码或 Mattermost。',
     TARGET_TOO_POWERFUL: '此人的权限高于您：您无法以其名义创建令牌或 Webhook。',

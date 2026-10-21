@@ -256,6 +256,10 @@ export default {
     title: '在线资源',
     desc: '首页上的公司服务链接：外观、搜索、个人布局',
   },
+  qr: {
+    title: '二维码',
+    desc: '模板、自定义样式、上传标志、动态码',
+  },
   companies: {
     title: '往来单位',
     desc: '国家、登记簿（吉尔吉斯司法部、EGRUL、DaData）、关系类型、自定义字段',

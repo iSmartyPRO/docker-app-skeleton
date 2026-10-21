@@ -27,6 +27,7 @@ import warehouse from './warehouse/index.js';
 import org from './org/index.js';
 import employees from './employees/index.js';
 import directory from './directory/index.js';
+import qr from './qr/index.js';
 
 /*
  * Module platform.
@@ -53,7 +54,7 @@ import directory from './directory/index.js';
 // Approvals first: modules register their document types against it at import time and its tables must exist for theirs.
 // Org structure before everything: approvals resolve «руководитель подразделения» through it, Employees point at its units.
 // Directory after Employees and Drive: it adds a section to employee cards and reuses the File server's AD credentials.
-export const MODULES = [org, approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, masterplan, procurement, warehouse, dashboard, assistant, contracts, employees, directory];
+export const MODULES = [org, approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, masterplan, procurement, warehouse, dashboard, assistant, contracts, employees, directory, qr];
 
 /*
  * Manifests are checked when the platform loads: an unknown id or a

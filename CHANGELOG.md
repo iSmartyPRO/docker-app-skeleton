@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **QR codes** module ([docs/qr.md](docs/qr.md), off by default): branded codes for a website, vCard business card, Wi-Fi, e-mail, phone, SMS, WhatsApp, Telegram, location, event and text. A studio with the kind and its fields, a gallery of templates drawn with the person's own content, and the design in tabs — six dot styles, five corner frames and centres, solid / linear / radial colours, the portal brand colour that follows the theme, the company logo (light or dark), an uploaded logo or an icon on a plate, caption frames (caption, card, ticket, badge), quiet zone and error correction. The live preview is checked for scanning by a built-in decoder as you design, with warnings for low contrast, inverted colours and an oversized logo. Downloads: PNG 512–4096 px, SVG, copy as picture.
+- **QR templates** (permission `qr.admin`): nine ready-made templates (two follow the brand), a default one, order, show / hide, names per language and locks (colours, shape, logo, frame) that the server enforces in people's codes; deleted ready-made templates can be restored.
+- **Dynamic QR codes**: a website code may hold a short portal link `/q/<slug>` (nginx → `/api/qr/go/<slug>`), so its target changes after printing; the link can be paused; scans are counted per day (link-preview bots are not). Module settings: own design, own logos, dynamic codes, codes per person.
+
 ## [1.6.2] - 2026-10-20
 
 ### Fixed

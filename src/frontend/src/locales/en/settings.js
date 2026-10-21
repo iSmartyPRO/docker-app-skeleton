@@ -257,6 +257,10 @@ export default {
     title: 'Online resources',
     desc: 'Links to company services on the home page: look, search, personal layouts',
   },
+  qr: {
+    title: 'QR codes',
+    desc: 'Templates, own designs, logo uploads, dynamic codes',
+  },
   companies: {
     title: 'Counterparties',
     desc: 'Countries, registers (Minjust KG, EGRUL, DaData), relationship types, custom fields',

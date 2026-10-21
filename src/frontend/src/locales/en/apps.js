@@ -39,6 +39,10 @@ export default {
     name: 'Online resources',
     desc: 'Company services and links in one place',
   },
+  qr: {
+    name: 'QR codes',
+    desc: 'Branded QR codes for websites, cards and Wi-Fi',
+  },
   companies: {
     name: 'Counterparties',
     desc: 'Companies and contacts: details from registers, people and their careers, history and ratings',

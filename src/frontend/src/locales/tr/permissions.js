@@ -13,6 +13,7 @@ export default {
     module_chat: 'Sohbetler',
     api: 'API',
     module_resources: 'Çevrimiçi kaynaklar',
+    module_qr: 'QR kodları',
     module_companies: 'Cari hesaplar',
     module_crm: 'CRM',
     module_masterplan: 'Master plan',
@@ -127,6 +128,10 @@ export default {
   resources_admin: {
     title: 'Çevrimiçi kaynakları yönetme',
     desc: 'Kaynak ekleme, düzenleme ve sıralama; her birini kimlerin göreceğini seçme.',
+  },
+  qr_admin: {
+    title: 'QR şablonlarını yönet',
+    desc: 'Kullanıcıların seçtiği şablonları hazırlar, kurumsal renkleri ve logoyu kilitler.',
   },
   companies_admin: {
     title: 'Cari hesap yöneticisi',

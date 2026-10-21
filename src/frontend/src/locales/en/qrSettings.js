@@ -1,0 +1,15 @@
+export default {
+  enabledDesc: 'Branded QR codes for everyone: websites, business cards, Wi-Fi, events and more.',
+  templates: 'Templates',
+  templatesDesc: 'Ready-made looks people choose from; lock colours or the logo to keep the brand.',
+  people: 'What people may do',
+  peopleDesc: 'Limits for everyone except template managers (qr.admin).',
+  allowCustom: 'Change the design',
+  allowCustomDesc: 'Off: codes look exactly like the templates (only the content is chosen).',
+  allowUploads: 'Upload own logos',
+  allowUploadsDesc: 'Off: only the company logo and icons can go in the centre.',
+  dynamic: 'Dynamic codes',
+  dynamicDesc: 'Website codes that hold a short portal link (/q/…): the address can change after printing and scans are counted.',
+  maxCodes: 'Codes per person',
+  maxCodesDesc: 'How many codes one person may keep.',
+};

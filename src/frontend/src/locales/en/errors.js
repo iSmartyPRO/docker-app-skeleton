@@ -10,6 +10,12 @@ export default {
     other: 'This contact',
   },
   codes: {
+    QR_LIMIT: 'You have reached the limit of QR codes. Delete the ones you no longer need.',
+    QR_TYPE: 'Unknown kind of QR code.',
+    QR_URL: 'A dynamic code needs a website address starting with http:// or https://.',
+    DYNAMIC_OFF: 'Dynamic codes are switched off by the administrator.',
+    TEMPLATE_REQUIRED: 'Pick one of the company templates.',
+    QR_FILE_TYPE: 'Use a PNG, SVG, WebP or JPEG picture.',
     SECRET_REQUIRED: 'The server address has changed — enter the password, key or token of the connection again.',
     TOKEN_FORBIDDEN_FIELD: 'An API token cannot change the e-mail, phone or Mattermost.',
     TARGET_TOO_POWERFUL: 'This person has more access than you: you cannot create a token or webhook on their behalf.',

@@ -39,6 +39,10 @@ export default {
     name: 'Çevrimiçi kaynaklar',
     desc: 'Şirket hizmetleri ve bağlantıları tek yerde',
   },
+  qr: {
+    name: 'QR kodları',
+    desc: 'Web sitesi, kartvizit ve Wi-Fi için kurumsal QR kodları',
+  },
   companies: {
     name: 'Cari hesaplar',
     desc: 'Şirketler ve kişiler: sicillerden alınan bilgiler, çalışanlar ve kariyerleri, geçmiş ve puanlar',

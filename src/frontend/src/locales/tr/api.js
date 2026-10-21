@@ -233,6 +233,10 @@ export default {
       title: 'Çalışanlar',
       desc: 'Kayıt, kartlar, pozisyonlar, yetki belgeleri, hesaplar, içe ve dışa aktarma',
     },
+    qr: {
+      title: 'QR kodları',
+      desc: 'Kendi kodları, tasarımlar, dinamik bağlantılar ve taramalar',
+    },
   },
   resources: {
     tasks_projects: 'Görev projeleri',

@@ -23,6 +23,7 @@ export const AREA_ICONS = {
   calendar: 'calendar',
   drive: 'server',
   resources: 'compass',
+  qr: 'qr',
   companies: 'building',
   crm: 'target',
   dashboard: 'dashboard',

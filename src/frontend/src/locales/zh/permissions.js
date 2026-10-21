@@ -13,6 +13,7 @@ export default {
     module_chat: '聊天',
     api: 'API',
     module_resources: '在线资源',
+    module_qr: '二维码',
     module_companies: '往来单位',
     module_crm: 'CRM',
     module_masterplan: '总体规划',
@@ -127,6 +128,10 @@ export default {
   resources_admin: {
     title: '管理在线资源',
     desc: '添加、编辑资源并调整顺序，选择每个资源的可见对象。',
+  },
+  qr_admin: {
+    title: '管理二维码模板',
+    desc: '准备供员工选择的模板，锁定品牌颜色和标志。',
   },
   companies_admin: {
     title: '往来单位管理员',

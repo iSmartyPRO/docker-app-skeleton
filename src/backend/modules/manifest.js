@@ -310,6 +310,28 @@ export const MODULE_MANIFEST = {
       ['Дерево OU внутри корня управления, пользователи, группы и компьютеры, действия с учётными записями от AD-учётки администратора, сброс пароля по LDAPS / StartTLS, журнал, демо-каталог.'], { ky: ['Башкаруу тамырынын ичиндеги OU дарагы, колдонуучулар, топтор жана компьютерлер, администратордун өз AD эсептик жазуусу аркылуу аракеттер, LDAPS / StartTLS аркылуу сырсөздү калыбына келтирүү, журнал, демо каталог.'], tr: ['Yönetilen kök içinde OU ağacı, kullanıcılar, gruplar ve bilgisayarlar, yöneticinin kendi AD hesabıyla hesap işlemleri, LDAPS / StartTLS üzerinden parola sıfırlama, günlük, demo dizini.'], zh: ['受管根节点下的 OU 树、用户、组和计算机，以管理员本人 AD 账户执行账户操作，通过 LDAPS / StartTLS 重置密码，日志，演示目录。'] }
     ),
   },
+  qr: {
+    name: { en: 'QR codes', ky: 'QR-коддор', tr: 'QR kodları', zh: '二维码', ru: 'QR-коды' },
+    version: '1.0.0',
+    category: 'work',
+    minCore: '1.6.0',
+    requires: [],
+    enhances: [],
+    docs: { user: 'qr', guide: 'docs/qr.md' },
+    changelog: [
+      {
+        version: '1.0.0',
+        date: '2026-10-21',
+        changes: {
+          en: ['Website, vCard, Wi-Fi, e-mail, phone, SMS, WhatsApp, Telegram, location, event and text codes; brand templates with locks; logo, colours, gradients, shapes and frames with a live preview and a scan check; dynamic website codes with scan counts; PNG and SVG export.'],
+          ru: ['Коды для сайта, визитки vCard, Wi-Fi, почты, телефона, SMS, WhatsApp, Telegram, места, события и текста; фирменные шаблоны с блокировками; логотип, цвета, градиенты, формы и рамки с мгновенным превью и проверкой сканирования; динамические коды сайта со счётчиком сканирований; выгрузка PNG и SVG.'],
+          ky: ['Сайт, vCard, Wi-Fi, почта, телефон, SMS, WhatsApp, Telegram, жайгашкан жер, иш-чара жана текст үчүн коддор; бекитүүлөрү бар фирмалык үлгүлөр; логотип, түстөр, градиенттер, формалар жана алкактар, ыкчам алдын ала көрүү жана сканерлөө текшерүүсү; сканерлөө эсептегичи бар динамикалык коддор; PNG жана SVG.'],
+          tr: ['Web sitesi, vCard, Wi-Fi, e-posta, telefon, SMS, WhatsApp, Telegram, konum, etkinlik ve metin kodları; kilitli kurumsal şablonlar; anlık önizleme ve tarama kontrolüyle logo, renkler, geçişler, şekiller ve çerçeveler; tarama sayaçlı dinamik web sitesi kodları; PNG ve SVG dışa aktarma.'],
+          zh: ['网站、vCard 名片、Wi-Fi、邮件、电话、短信、WhatsApp、Telegram、位置、活动和文本二维码；可锁定的品牌模板；标志、颜色、渐变、形状和边框，实时预览并检测可扫描性；带扫描统计的动态网址码；导出 PNG 和 SVG。'],
+        },
+      },
+    ],
+  },
 };
 
 /**

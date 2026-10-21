@@ -10,6 +10,12 @@ export default {
     other: 'Bu iletişim bilgisi',
   },
   codes: {
+    QR_LIMIT: 'QR kodu sınırına ulaştınız. Gerekmeyenleri silin.',
+    QR_TYPE: 'Bilinmeyen QR kodu türü.',
+    QR_URL: 'Dinamik kod için http:// veya https:// ile başlayan bir web adresi gerekir.',
+    DYNAMIC_OFF: 'Dinamik kodlar yönetici tarafından kapatıldı.',
+    TEMPLATE_REQUIRED: 'Şirket şablonlarından birini seçin.',
+    QR_FILE_TYPE: 'PNG, SVG, WebP veya JPEG bir görsel yükleyin.',
     SECRET_REQUIRED: 'Sunucu adresi değişti — bağlantının parolasını, anahtarını veya belirtecini yeniden girin.',
     TOKEN_FORBIDDEN_FIELD: 'API belirteci e-postayı, telefonu veya Mattermost’u değiştiremez.',
     TARGET_TOO_POWERFUL: 'Bu kişinin erişimi sizinkinden fazla: onun adına belirteç veya web kancası oluşturamazsınız.',

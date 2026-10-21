@@ -33,6 +33,7 @@ export const MODULE_UI = {
   calendar: { tour: null },
   chat: { tour: null },
   resources: { tour: null },
+  qr: { tour: null },
   assistant: { tour: null },
   files: { tour: null },
   kb: { tour: null },

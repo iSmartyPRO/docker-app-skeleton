@@ -494,4 +494,19 @@ export const PREMIUM_ICONS = {
       <path d="M6.4 8.2V6.4H8.4M17.6 8.2V6.4H15.6M6.4 15.8v1.8H8.4M17.6 15.8v1.8H15.6M5.8 12h12.4" {...S} />
     </>
   )),
+  // QR codes module: three finder squares and a few data modules.
+  qr: icon('#7048E8', () => (
+    <>
+      <rect x="5.4" y="5.4" width="5.4" height="5.4" rx="1.4" fill="#fff" />
+      <rect x="13.2" y="5.4" width="5.4" height="5.4" rx="1.4" fill="#fff" />
+      <rect x="5.4" y="13.2" width="5.4" height="5.4" rx="1.4" fill="#fff" />
+      <rect x="7.2" y="7.2" width="1.8" height="1.8" rx=".5" fill="var(--da-icon-hole)" />
+      <rect x="15" y="7.2" width="1.8" height="1.8" rx=".5" fill="var(--da-icon-hole)" />
+      <rect x="7.2" y="15" width="1.8" height="1.8" rx=".5" fill="var(--da-icon-hole)" />
+      <rect x="13.2" y="13.2" width="2.2" height="2.2" rx=".6" fill="#fff" />
+      <rect x="16.4" y="16.4" width="2.2" height="2.2" rx=".6" fill="#fff" />
+      <rect x="16.4" y="13.2" width="2.2" height="2.2" rx=".6" fill="#fff" opacity=".7" />
+      <rect x="13.2" y="16.4" width="2.2" height="2.2" rx=".6" fill="#fff" opacity=".7" />
+    </>
+  )),
 };
