@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-10-21
+
 ### Fixed
 
 - **Greetings by first name**: «Good evening, …» on Online resources, the dashboard, My tasks and the assistant used the first word of the display name, which is the surname when the directory writes «Surname Name». Accounts now keep a first name — from the linked employee card and from Active Directory `givenName` on sign-in — and greetings use it (the first word stays the fallback).
@@ -612,7 +614,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.9.1...HEAD
+[1.9.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.9.1
 [1.9.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.9.0
 [1.8.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.8.0
 [1.7.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.7.0
