@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-21
+
 ### Added
 
 - **Code by SMS** sign-in method ([docs/access-control.md](docs/access-control.md#sms-isms-server)): a one-time 6-digit code — or a sign-in link — by SMS through the iSMS Server integration to the phone number in the profile. Settings → Sign-in methods → *Code by SMS*; the sign-in page gets an *SMS* tab. Same protection as the other code channels (5 minutes, single use, 5 attempts, send limits, no account enumeration).
@@ -605,7 +607,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.9.0
 [1.8.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.8.0
 [1.7.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.7.0
 [1.6.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.6.2
