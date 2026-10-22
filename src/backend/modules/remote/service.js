@@ -72,15 +72,31 @@ function hostShape(row) {
     credDomain: row.cred_domain || '',
     hasCredentials: Boolean(row.cred_password),
     defaultCred: row.default_cred || '',
-    gatewayHost: row.gateway_host || '',
-    gatewayPort: row.gateway_port || 443,
-    gatewayDomain: row.gateway_domain || '',
-    appCount: row.app_count != null ? Number(row.app_count) : undefined,
+    folderId: row.folder_id || null,
   };
 }
 
 function appShape(row) {
-  return { id: row.id, hostId: row.host_id, hostName: row.host_name, name: row.name, alias: row.alias, args: row.args, workDir: row.work_dir, loadBalanceInfo: row.load_balance_info || '', icon: row.icon, active: row.active, sort: row.sort };
+  return {
+    id: row.id,
+    name: row.name,
+    alias: row.alias,
+    address: row.address || '',
+    port: row.port || 3389,
+    gatewayId: row.gateway_id || null,
+    gatewayName: row.gateway_name || null,
+    folderId: row.folder_id || null,
+    args: row.args || '',
+    workDir: row.work_dir || '',
+    loadBalanceInfo: row.load_balance_info || '',
+    icon: row.icon || 'app',
+    active: row.active,
+    sort: row.sort,
+    credUsername: row.cred_username || '',
+    credDomain: row.cred_domain || '',
+    hasCredentials: Boolean(row.cred_password),
+    defaultCred: row.default_cred || '',
+  };
 }
 
 function sessionShape(row) {
@@ -143,22 +159,20 @@ export async function saveHost(ctx, input = {}, id = null) {
   const credPassword =
     input.credPassword === undefined ? current?.cred_password ?? null : input.credPassword ? seal(String(input.credPassword)) : null;
   const defaultCred = input.defaultCred === undefined ? current?.default_cred ?? '' : String(input.defaultCred || '').replace(/[^a-z0-9:_-]/gi, '').slice(0, 80);
-  const gatewayHost = input.gatewayHost === undefined ? current?.gateway_host ?? '' : text(input.gatewayHost, 255);
-  const gatewayPort = input.gatewayPort === undefined ? current?.gateway_port ?? 443 : Math.min(65535, Math.max(1, Number(input.gatewayPort) || 443));
-  const gatewayDomain = input.gatewayDomain === undefined ? current?.gateway_domain ?? '' : text(input.gatewayDomain, 120);
-  const values = [name, address, protocol, port, kind, ownerId, monitored, text(input.note ?? current?.note, 300), input.active === undefined ? current?.active ?? true : Boolean(input.active), credUsername, credDomain, credPassword, defaultCred, gatewayHost, gatewayPort, gatewayDomain];
+  const folderId = input.folderId === undefined ? current?.folder_id ?? null : input.folderId ? intId(input.folderId) : null;
+  const values = [name, address, protocol, port, kind, ownerId, monitored, text(input.note ?? current?.note, 300), input.active === undefined ? current?.active ?? true : Boolean(input.active), credUsername, credDomain, credPassword, defaultCred, folderId];
   let row;
   try {
     if (current) {
       ({ rows: [row] } = await query(
-        `UPDATE remote_hosts SET name=$1, address=$2, protocol=$3, port=$4, kind=$5, owner_user_id=$6, monitored=$7, note=$8, active=$9, cred_username=$10, cred_domain=$11, cred_password=$12, default_cred=$13, gateway_host=$14, gateway_port=$15, gateway_domain=$16, updated_at=NOW()
-         WHERE id=$17 RETURNING *`,
+        `UPDATE remote_hosts SET name=$1, address=$2, protocol=$3, port=$4, kind=$5, owner_user_id=$6, monitored=$7, note=$8, active=$9, cred_username=$10, cred_domain=$11, cred_password=$12, default_cred=$13, folder_id=$14, updated_at=NOW()
+         WHERE id=$15 RETURNING *`,
         [...values, current.id]
       ));
     } else {
       ({ rows: [row] } = await query(
-        `INSERT INTO remote_hosts (name, address, protocol, port, kind, owner_user_id, monitored, note, active, cred_username, cred_domain, cred_password, default_cred, gateway_host, gateway_port, gateway_domain, source, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'manual',$17) RETURNING *`,
+        `INSERT INTO remote_hosts (name, address, protocol, port, kind, owner_user_id, monitored, note, active, cred_username, cred_domain, cred_password, default_cred, folder_id, source, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'manual',$15) RETURNING *`,
         [...values, ctx.userId]
       ));
     }
@@ -175,25 +189,116 @@ export async function deleteHost(ctx, id) {
   if (!rowCount) throw httpError(404, 'Computer not found', 'NOT_FOUND');
 }
 
-/* ── RemoteApp (published applications) ─────────────────────────────────── */
+/* ── Folders ────────────────────────────────────────────────────────────── */
+
+const folderText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, max);
+
+export async function listFolders() {
+  const { rows } = await query(`SELECT * FROM remote_folders ORDER BY sort, LOWER(name)`);
+  return rows.map((r) => ({ id: r.id, name: r.name, parentId: r.parent_id }));
+}
+
+export async function saveFolder(ctx, input = {}, id = null) {
+  requireAdmin(ctx);
+  const name = folderText(input.name, 120);
+  if (!name) throw httpError(400, 'Name is required', 'NAME_REQUIRED');
+  const parentId = input.parentId ? intId(input.parentId) : null;
+  let row;
+  if (id) {
+    ({ rows: [row] } = await query(`UPDATE remote_folders SET name=$1, parent_id=$2 WHERE id=$3 RETURNING *`, [name, parentId, intId(id)]));
+    if (!row) throw httpError(404, 'Folder not found', 'NOT_FOUND');
+  } else {
+    ({ rows: [row] } = await query(`INSERT INTO remote_folders (name, parent_id, sort) VALUES ($1,$2,(SELECT COALESCE(MAX(sort),-1)+1 FROM remote_folders)) RETURNING *`, [name, parentId]));
+  }
+  return { id: row.id, name: row.name, parentId: row.parent_id };
+}
+
+export async function deleteFolder(ctx, id) {
+  requireAdmin(ctx);
+  // Items in the folder fall back to the general list (ON DELETE SET NULL).
+  const { rowCount } = await query(`DELETE FROM remote_folders WHERE id = $1`, [intId(id)]);
+  if (!rowCount) throw httpError(404, 'Folder not found', 'NOT_FOUND');
+}
+
+/** Moves a computer or an application to a folder (null = the general list). */
+export async function moveToFolder(ctx, { kind, id, folderId }) {
+  requireAdmin(ctx);
+  const table = kind === 'app' ? 'remote_apps' : 'remote_hosts';
+  const fid = folderId ? intId(folderId) : null;
+  const { rowCount } = await query(`UPDATE ${table} SET folder_id = $1 WHERE id = $2`, [fid, intId(id)]);
+  if (!rowCount) throw httpError(404, 'Not found', 'NOT_FOUND');
+}
+
+/* ── Gateways (named RD Gateways) ──────────────────────────────────────────── */
+
+export async function listGateways() {
+  const { rows } = await query(`SELECT * FROM remote_gateways ORDER BY LOWER(name)`);
+  return rows.map((r) => ({ id: r.id, name: r.name, host: r.host, port: r.port, domain: r.domain }));
+}
+
+async function gatewayById(id) {
+  const { rows } = await query(`SELECT * FROM remote_gateways WHERE id = $1`, [id]);
+  return rows[0] || null;
+}
+
+export async function saveGateway(ctx, input = {}, id = null) {
+  requireAdmin(ctx);
+  const host = folderText(input.host, 255);
+  if (!host) throw httpError(400, 'Gateway host is required', 'NAME_REQUIRED');
+  const name = folderText(input.name, 120) || host;
+  const port = Math.min(65535, Math.max(1, Number(input.port) || 443));
+  const domain = folderText(input.domain, 120);
+  let row;
+  try {
+    if (id) {
+      ({ rows: [row] } = await query(`UPDATE remote_gateways SET name=$1, host=$2, port=$3, domain=$4 WHERE id=$5 RETURNING *`, [name, host, port, domain, intId(id)]));
+      if (!row) throw httpError(404, 'Gateway not found', 'NOT_FOUND');
+    } else {
+      ({ rows: [row] } = await query(`INSERT INTO remote_gateways (name, host, port, domain) VALUES ($1,$2,$3,$4) RETURNING *`, [name, host, port, domain]));
+    }
+  } catch (err) {
+    if (err.code === '23505') throw httpError(409, 'A gateway with this address already exists', 'GATEWAY_EXISTS');
+    throw err;
+  }
+  return { id: row.id, name: row.name, host: row.host, port: row.port, domain: row.domain };
+}
+
+export async function deleteGateway(ctx, id) {
+  requireAdmin(ctx);
+  const { rowCount } = await query(`DELETE FROM remote_gateways WHERE id = $1`, [intId(id)]);
+  if (!rowCount) throw httpError(404, 'Gateway not found', 'NOT_FOUND');
+}
+
+/** Finds a gateway by host:port, creating it if missing (for .rdp import). */
+async function gatewayByHost(host, port, domain = '') {
+  if (!host) return null;
+  const { rows } = await query(
+    `INSERT INTO remote_gateways (name, host, port, domain) VALUES ($1,$2,$3,$4)
+     ON CONFLICT (LOWER(host), port) DO UPDATE SET host = EXCLUDED.host RETURNING *`,
+    [host, host, port || 443, domain]
+  );
+  return rows[0];
+}
+
+/* ── Applications (self-contained RemoteApp connections) ───────────────────── */
 
 const appText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, max);
 
 async function appById(id) {
   const { rows } = await query(
-    `SELECT a.*, h.name AS host_name FROM remote_apps a JOIN remote_hosts h ON h.id = a.host_id WHERE a.id = $1`,
+    `SELECT a.*, g.name AS gateway_name, g.host AS gateway_host, g.port AS gateway_port, g.domain AS gateway_domain
+       FROM remote_apps a LEFT JOIN remote_gateways g ON g.id = a.gateway_id WHERE a.id = $1`,
     [id]
   );
   return rows[0] || null;
 }
 
-/** Published apps of active servers (for the launcher), or of one host (admin). */
-export async function listApps(ctx, { hostId = null, all = false } = {}) {
+/** Applications (launcher: active ones; admin: all). */
+export async function listApps(ctx, { all = false } = {}) {
   const { rows } = await query(
-    `SELECT a.*, h.name AS host_name FROM remote_apps a JOIN remote_hosts h ON h.id = a.host_id
-      WHERE ${hostId ? 'a.host_id = $1' : 'TRUE'} ${all ? '' : 'AND a.active AND h.active'}
-      ORDER BY h.name, a.sort, a.id`,
-    hostId ? [intId(hostId)] : []
+    `SELECT a.*, g.name AS gateway_name, g.host AS gateway_host, g.port AS gateway_port, g.domain AS gateway_domain
+       FROM remote_apps a LEFT JOIN remote_gateways g ON g.id = a.gateway_id
+      ${all ? '' : 'WHERE a.active'} ORDER BY a.sort, LOWER(a.name)`
   );
   return rows.map(appShape);
 }
@@ -202,55 +307,66 @@ export async function saveApp(ctx, input = {}, id = null) {
   requireAdmin(ctx);
   const current = id ? await appById(intId(id)) : null;
   if (id && !current) throw httpError(404, 'Application not found', 'APP_NOT_FOUND');
-  const hostId = current?.host_id ?? intId(input.hostId);
-  const host = await hostById(hostId);
-  if (!host) throw httpError(404, 'Computer not found', 'NOT_FOUND');
   const name = appText(input.name ?? current?.name, 120);
   const alias = appText(input.alias ?? current?.alias, 255);
-  if (!name || !alias) throw httpError(400, 'Name and program are required', 'NAME_REQUIRED');
-  const lbi = appText(input.loadBalanceInfo ?? current?.load_balance_info, 512);
-  const values = [name, alias, appText(input.args ?? current?.args, 500), appText(input.workDir ?? current?.work_dir, 300), appText(input.icon ?? current?.icon, 40) || 'app', input.active === undefined ? current?.active ?? true : Boolean(input.active), lbi];
+  const address = appText(input.address ?? current?.address, 255);
+  if (!name || !alias || !address) throw httpError(400, 'Name, program and server address are required', 'NAME_REQUIRED');
+  const port = input.port === undefined ? current?.port ?? 3389 : Math.min(65535, Math.max(1, Number(input.port) || 3389));
+  const gatewayId = input.gatewayId === undefined ? current?.gateway_id ?? null : input.gatewayId ? intId(input.gatewayId) : null;
+  const folderId = input.folderId === undefined ? current?.folder_id ?? null : input.folderId ? intId(input.folderId) : null;
+  const defaultCred = input.defaultCred === undefined ? current?.default_cred ?? '' : String(input.defaultCred || '').replace(/[^a-z0-9:_-]/gi, '').slice(0, 80);
+  const credUsername = input.credUsername === undefined ? current?.cred_username ?? null : appText(input.credUsername, 160) || null;
+  const credDomain = input.credDomain === undefined ? current?.cred_domain ?? null : appText(input.credDomain, 120) || null;
+  const credPassword = input.credPassword === undefined ? current?.cred_password ?? null : input.credPassword ? seal(String(input.credPassword)) : null;
+  const values = [
+    name, alias, address, port, gatewayId, folderId,
+    appText(input.args ?? current?.args, 500), appText(input.workDir ?? current?.work_dir, 300),
+    appText(input.loadBalanceInfo ?? current?.load_balance_info, 512), appText(input.icon ?? current?.icon, 40) || 'app',
+    input.active === undefined ? current?.active ?? true : Boolean(input.active),
+    defaultCred, credUsername, credDomain, credPassword,
+  ];
   let row;
   if (current) {
-    ({ rows: [row] } = await query(`UPDATE remote_apps SET name=$1, alias=$2, args=$3, work_dir=$4, icon=$5, active=$6, load_balance_info=$7 WHERE id=$8 RETURNING *`, [...values, current.id]));
+    ({ rows: [row] } = await query(
+      `UPDATE remote_apps SET name=$1, alias=$2, address=$3, port=$4, gateway_id=$5, folder_id=$6, args=$7, work_dir=$8, load_balance_info=$9, icon=$10, active=$11, default_cred=$12, cred_username=$13, cred_domain=$14, cred_password=$15 WHERE id=$16 RETURNING *`,
+      [...values, current.id]
+    ));
   } else {
     ({ rows: [row] } = await query(
-      `INSERT INTO remote_apps (host_id, name, alias, args, work_dir, icon, active, load_balance_info, sort)
-       VALUES ($8,$1,$2,$3,$4,$5,$6,$7, (SELECT COALESCE(MAX(sort),-1)+1 FROM remote_apps WHERE host_id=$8)) RETURNING *`,
-      [...values, hostId]
+      `INSERT INTO remote_apps (name, alias, address, port, gateway_id, folder_id, args, work_dir, load_balance_info, icon, active, default_cred, cred_username, cred_domain, cred_password, sort)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, (SELECT COALESCE(MAX(sort),-1)+1 FROM remote_apps)) RETURNING *`,
+      values
     ));
   }
   return appShape(await appById(row.id));
-}
-
-/**
- * Imports an RDWeb .rdp file: creates (or reuses by address) the RDS server with
- * its RD Gateway, and adds the RemoteApp with its load-balance info. Returns the
- * host and app. The signature in the file is ignored — we only read the fields.
- */
-export async function importRdp(ctx, text) {
-  requireAdmin(ctx);
-  const parsed = parseRdp(text);
-  if (!parsed) throw httpError(400, 'This is not a valid .rdp file', 'RDP_INVALID');
-
-  // Reuse a host with the same address/port, else create it (carrying the gateway).
-  const { rows } = await query(`SELECT * FROM remote_hosts WHERE LOWER(address) = LOWER($1) AND port = $2`, [parsed.host.address, parsed.host.port]);
-  let host = rows[0] ? hostShape(rows[0]) : null;
-  if (!host) {
-    host = await saveHost(ctx, { ...parsed.host });
-  } else if (parsed.host.gatewayHost && !host.gatewayHost) {
-    host = await saveHost(ctx, { gatewayHost: parsed.host.gatewayHost, gatewayPort: parsed.host.gatewayPort }, host.id);
-  }
-
-  let app = null;
-  if (parsed.app) app = await saveApp(ctx, { hostId: host.id, ...parsed.app });
-  return { host, app };
 }
 
 export async function deleteApp(ctx, id) {
   requireAdmin(ctx);
   const { rowCount } = await query(`DELETE FROM remote_apps WHERE id = $1`, [intId(id)]);
   if (!rowCount) throw httpError(404, 'Application not found', 'APP_NOT_FOUND');
+}
+
+/**
+ * Imports an RDWeb .rdp file into a self-contained application: finds/creates the
+ * RD Gateway (by host) and creates the RemoteApp with its address, alias and
+ * load-balance info. No server computer is created. The file signature is ignored.
+ */
+export async function importRdp(ctx, text) {
+  requireAdmin(ctx);
+  const parsed = parseRdp(text);
+  if (!parsed || !parsed.app) throw httpError(400, 'This .rdp file has no RemoteApp to import', 'RDP_INVALID');
+  const gw = parsed.host.gatewayHost ? await gatewayByHost(parsed.host.gatewayHost, parsed.host.gatewayPort) : null;
+  const app = await saveApp(ctx, {
+    name: parsed.app.name,
+    alias: parsed.app.alias,
+    args: parsed.app.args,
+    loadBalanceInfo: parsed.app.loadBalanceInfo,
+    address: parsed.host.address,
+    port: parsed.host.port,
+    gatewayId: gw?.id || null,
+  });
+  return { app, gateway: gw ? { id: gw.id, name: gw.name, host: gw.host } : null };
 }
 
 /* ── Sessions (the audit trail) ────────────────────────────────────────── */
@@ -264,59 +380,70 @@ export async function deleteApp(ctx, id) {
  * phase (docs/specs/remote-access.ru.md §Этапы) and answers GUACD_OFF until then.
  */
 export async function startSession(ctx, input = {}) {
-  const host = await hostById(intId(input.hostId));
-  if (!host || !host.active) throw httpError(404, 'Computer not found', 'NOT_FOUND');
-  const mode = MODES.includes(input.mode) ? input.mode : 'assist';
-  const wantsControl = Boolean(input.control);
+  const isApp = Boolean(input.appId);
+  const wantsControl = isApp ? true : Boolean(input.control);
+  let mode = isApp ? 'assist' : MODES.includes(input.mode) ? input.mode : 'assist';
+  const settings = await remoteSettings();
 
-  if (mode === 'monitor') {
-    if (!ctx.canMonitor) throw httpError(403, 'Monitoring is not allowed for you', 'FORBIDDEN');
-    if (!host.monitored) throw httpError(400, 'This computer is not in the monitoring scope', 'NOT_MONITORED');
-    const settings = await remoteSettings();
-    if (!settings.policyAckAt) throw httpError(409, 'Confirm the monitoring policy first', 'POLICY_NOT_ACKED');
-  } else if (!ctx.canConnect) {
-    throw httpError(403, 'You cannot connect', 'FORBIDDEN');
+  // Build the connection target (a computer, or an application with its gateway).
+  let target;
+  let appMeta = null;
+  let appName = null;
+  if (isApp) {
+    const app = await appById(intId(input.appId));
+    if (!app || !app.active) throw httpError(404, 'Application not found', 'APP_NOT_FOUND');
+    if (!ctx.canConnect) throw httpError(403, 'You cannot connect', 'FORBIDDEN');
+    appName = app.name;
+    appMeta = { alias: app.alias, workDir: app.work_dir, args: app.args, loadBalanceInfo: app.load_balance_info };
+    target = {
+      id: null, name: app.name, address: app.address, port: app.port, protocol: 'rdp', ownerId: null, kind: 'app',
+      gateway_host: app.gateway_host || '', gateway_port: app.gateway_port || 443, gateway_domain: app.gateway_domain || '',
+      cred_username: app.cred_username, cred_domain: app.cred_domain, cred_password: app.cred_password, default_cred: app.default_cred,
+    };
+  } else {
+    const host = await hostById(intId(input.hostId));
+    if (!host || !host.active) throw httpError(404, 'Computer not found', 'NOT_FOUND');
+    if (mode === 'monitor') {
+      if (!ctx.canMonitor) throw httpError(403, 'Monitoring is not allowed for you', 'FORBIDDEN');
+      if (!host.monitored) throw httpError(400, 'This computer is not in the monitoring scope', 'NOT_MONITORED');
+      if (!settings.policyAckAt) throw httpError(409, 'Confirm the monitoring policy first', 'POLICY_NOT_ACKED');
+    } else if (!ctx.canConnect) {
+      throw httpError(403, 'You cannot connect', 'FORBIDDEN');
+    }
+    target = {
+      id: host.id, name: host.name, address: host.address, port: host.port, protocol: host.protocol, ownerId: host.owner_user_id, kind: host.kind,
+      gateway_host: '', gateway_port: 443, gateway_domain: '', // computers are direct
+      cred_username: host.cred_username, cred_domain: host.cred_domain, cred_password: host.cred_password, default_cred: host.default_cred,
+    };
   }
 
-  // Control in monitor mode may require the employee's consent (default on).
-  // A server has no person behind it, so there is nobody to consent — it is an
-  // unattended admin connection.
-  const settings = await remoteSettings();
-  const server = host.kind === 'server';
-  const needsConsent = !server && (mode === 'assist' || (wantsControl && settings.requireConsentForControl !== false));
-  const consent = server ? 'unattended' : needsConsent ? 'requested' : 'announced';
+  // A server / application has no person behind it → unattended. A workstation in
+  // assist/monitor asks consent (control) and notifies its owner.
+  const unattended = target.kind === 'app' || target.kind === 'server';
+  const needsConsent = !unattended && (mode === 'assist' || (wantsControl && settings.requireConsentForControl !== false));
+  const consent = unattended ? 'unattended' : needsConsent ? 'requested' : 'announced';
 
   const { rows: [session] } = await query(
     `INSERT INTO remote_sessions (host_id, host_name, operator_id, watched_user_id, mode, control, consent, recorded)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-    [host.id, host.name, ctx.userId, host.owner_user_id, mode, wantsControl, consent, Boolean(settings.recording)]
+    [target.id, appName ? `${appName}` : target.name, ctx.userId, target.ownerId, mode, wantsControl, consent, Boolean(settings.recording)]
   );
 
-  // Transparency: always tell the watched employee, in their own language.
-  if (host.owner_user_id) {
+  // Transparency: always tell the watched employee.
+  if (target.ownerId) {
     await notify({
-      userIds: [host.owner_user_id],
-      kind: 'remote.connected',
-      module: 'remote',
-      actorId: ctx.userId,
-      link: '/app/remote/my',
-      render: (locale, regional) => ({
-        title: tr(locale, mode === 'monitor' ? 'monitorTitle' : 'assistTitle'),
-        body: tr(locale, wantsControl ? 'bodyControl' : 'bodyView', { host: host.name }),
-      }),
+      userIds: [target.ownerId], kind: 'remote.connected', module: 'remote', actorId: ctx.userId, link: '/app/remote/my',
+      render: (locale) => ({ title: tr(locale, mode === 'monitor' ? 'monitorTitle' : 'assistTitle'), body: tr(locale, wantsControl ? 'bodyControl' : 'bodyView', { host: target.name }) }),
     });
   }
 
-  // When guacd is configured, mint the live-connection token for the browser.
   if (!settings.guacdHost) {
-    return { session: sessionShape(session), token: null, tunnel: 'GUACD_OFF', path: TUNNEL_PATH, protocol: host.protocol, readOnly: !wantsControl };
+    return { session: sessionShape(session), token: null, tunnel: 'GUACD_OFF', path: TUNNEL_PATH, protocol: target.protocol, readOnly: !wantsControl, app: appName };
   }
-  // Fast pre-flight: the portal is on the same network as guacd, so this is what
-  // a session would do. Fail in a few seconds with a clear message instead of
-  // letting the RDP handshake hang. Behind an RD Gateway only the gateway (443)
-  // is reachable — the RDP port is not — so probe the gateway in that case.
-  const probeHost = host.gateway_host || host.address;
-  const probePort = host.gateway_host ? host.gateway_port || 443 : host.port;
+
+  // Fast pre-flight. Behind an RD Gateway only the gateway (443) is reachable.
+  const probeHost = target.gateway_host || target.address;
+  const probePort = target.gateway_host ? target.gateway_port || 443 : target.port;
   const reach = await tcpProbe(probeHost, probePort, 4000);
   if (!reach.ok) {
     await query(`UPDATE remote_sessions SET ended_at = NOW(), note = $2 WHERE id = $1`, [session.id, `unreachable: ${reach.reason}`]);
@@ -324,48 +451,34 @@ export async function startSession(ctx, input = {}) {
     error.details = { address: `${probeHost}:${probePort}`, reason: reach.reason, ms: reach.ms };
     throw error;
   }
-  // RemoteApp: launch one published application instead of the whole desktop.
-  let app = null;
-  if (input.appId) {
-    app = await appById(intId(input.appId));
-    if (!app || app.host_id !== host.id || !app.active) throw httpError(404, 'Application not found', 'APP_NOT_FOUND');
-  }
 
-  const creds = await resolveCredentials(ctx, host, input);
+  const creds = await resolveCredentials(ctx, target, input);
   const size = {
     width: Math.min(3840, Math.max(640, Number(input.width) || 1280)),
     height: Math.min(2160, Math.max(480, Number(input.height) || 720)),
     dpi: Math.min(192, Math.max(72, Number(input.dpi) || 96)),
-    app: app ? { alias: app.alias, workDir: app.work_dir, args: app.args, loadBalanceInfo: app.load_balance_info } : null,
+    app: appMeta,
   };
-  const connection = connectionFor(host, creds, size);
-  // «Only view» is enforced by guacd itself (read-only), not just hidden in the UI.
+  const connection = connectionFor(target, creds, size);
   if (!wantsControl) connection.settings['read-only'] = 'true';
   const token = buildToken(connection);
-  return { session: sessionShape(session), token, tunnel: 'READY', path: TUNNEL_PATH, protocol: host.protocol, readOnly: !wantsControl, app: app ? app.name : null };
+  return { session: sessionShape(session), token, tunnel: 'READY', path: TUNNEL_PATH, protocol: target.protocol, readOnly: !wantsControl, app: appName };
 }
 
 /*
- * Resolves the credentials for a session from the chosen source:
- *   manual   — typed in for this session, nothing stored
- *   host     — the computer's own stored credentials
- *   vault    — an entry of the portal password manager
- *   passbolt — an entry of the person's own Passbolt
- * When no source is given, the host's default is used, then its own credentials.
+ * Resolves the credentials from the chosen source for a credential holder (a
+ * computer or an application, both carrying cred_* and default_cred):
+ *   manual · host (the holder's own) · vault (password manager) · passbolt.
  */
-export async function resolveCredentials(ctx, host, input = {}) {
+export async function resolveCredentials(ctx, holder, input = {}) {
   const auth = input.auth && typeof input.auth === 'object' ? input.auth : null;
   let source = auth?.source || '';
   let id = auth?.id;
-
-  // Legacy manual fields (connect dialog) without an explicit source.
   if (!source && (input.username != null || input.password != null)) source = 'manual';
-  // No choice at all → the host's default, then its own credentials.
   if (!source) {
-    const def = host.default_cred || (host.cred_password ? 'host' : '');
+    const def = holder.default_cred || (holder.cred_password ? 'host' : '');
     if (def.includes(':')) { [source, id] = def.split(':'); } else source = def;
   }
-
   switch (source) {
     case 'manual':
       return { username: text(input.username, 160), domain: text(input.domain, 120), password: input.password ? String(input.password) : '' };
@@ -376,9 +489,9 @@ export async function resolveCredentials(ctx, host, input = {}) {
     case 'host':
     default:
       return {
-        username: host.cred_username || '',
-        domain: host.cred_domain || '',
-        password: unseal(host.cred_password, { label: `remote host ${host.id} password` }) || '',
+        username: holder.cred_username || '',
+        domain: holder.cred_domain || '',
+        password: unseal(holder.cred_password, { label: `remote cred ${holder.id || 'app'}` }) || '',
       };
   }
 }
@@ -412,10 +525,12 @@ export async function listSessions(ctx, { scope = 'mine', limit = 200 } = {}) {
 
 export async function bootstrap(ctx) {
   const settings = await remoteSettings();
-  const [hosts, apps] = await Promise.all([listHosts(ctx), listApps(ctx)]);
+  const [hosts, apps, folders, gateways] = await Promise.all([listHosts(ctx), listApps(ctx), listFolders(), ctx.isAdmin ? listGateways() : Promise.resolve([])]);
   return {
     hosts,
     apps,
+    folders,
+    gateways,
     settings: {
       guacdConfigured: Boolean(settings.guacdHost),
       requireConsentForControl: settings.requireConsentForControl !== false,

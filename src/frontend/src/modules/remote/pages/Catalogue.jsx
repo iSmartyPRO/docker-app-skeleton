@@ -1,18 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { App, Button, Empty, Input, Modal, Segmented, Select, Switch, Tag, Tooltip } from 'antd';
-import { AppstoreOutlined, CloudServerOutlined, DesktopOutlined, EyeOutlined, HistoryOutlined, ImportOutlined, KeyOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Empty, Segmented, Tag, Tooltip } from 'antd';
+import { AppstoreOutlined, CloudServerOutlined, DesktopOutlined, EyeOutlined, HistoryOutlined, KeyOutlined, MoreOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
-import { errorMessage } from '../../../lib/errors';
 import ModuleHeader from '../../shared/ModuleHeader';
-import { remoteApi } from '../api';
 import { useRemote } from '../RemoteContext';
 import HostDialog from '../components/HostDialog';
 import ConnectDialog from '../components/ConnectDialog';
-import RdpImportDialog from '../components/RdpImportDialog';
+import FolderBar, { moveMenuItems } from '../components/FolderBar';
 
-function HostCard({ host, can, onConnect, onEdit }) {
+function HostCard({ host, can, onConnect, onEdit, menu }) {
   const { t } = useLocale();
   const isServer = host.kind === 'server';
   return (
@@ -35,7 +33,14 @@ function HostCard({ host, can, onConnect, onEdit }) {
             {isServer ? (host.note || t('remote.catalogue.serverNote')) : host.ownerName ? t('remote.catalogue.owner', { name: host.ownerName }) : t('remote.catalogue.noOwner')}
           </span>
         </div>
-        {can.admin && <Button type="text" size="small" icon={<SettingOutlined />} aria-label={t('common.edit')} onClick={() => onEdit(host)} />}
+        {can.admin && (
+          <span className="rm-host__head-tools">
+            <Button type="text" size="small" icon={<SettingOutlined />} aria-label={t('common.edit')} onClick={() => onEdit(host)} />
+            <Dropdown trigger={['click']} placement="bottomRight" menu={{ items: menu }}>
+              <Button type="text" size="small" icon={<MoreOutlined />} aria-label={t('moduleHeader.more')} />
+            </Dropdown>
+          </span>
+        )}
       </div>
       <div className="rm-host__actions">
         {can.connect && <Button block type={isServer ? 'primary' : 'default'} icon={isServer ? <DesktopOutlined /> : <ToolOutlined />} onClick={() => onConnect(host, 'assist')}>{isServer ? t('remote.catalogue.connect') : t('remote.catalogue.assist')}</Button>}
@@ -45,26 +50,28 @@ function HostCard({ host, can, onConnect, onEdit }) {
   );
 }
 
-/** /app/remote — the computers people may reach. */
+/** /app/remote — computers (direct RDP/VNC), organised by folder. */
 export default function Catalogue() {
   const { t } = useLocale();
   const navigate = useNavigate();
-  const { message } = App.useApp();
   const remote = useRemote();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [monitored, setMonitored] = useState('all');
+  const [folder, setFolder] = useState('all');
   const [editing, setEditing] = useState(null);
   const [connect, setConnect] = useState(null);
-  const [importing, setImporting] = useState(false);
 
+  const inFolder = useCallback((h) => (folder === 'all' ? true : folder === 'none' ? !h.folderId : String(h.folderId) === String(folder)), [folder]);
   const shown = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return remote.hosts.filter((host) => {
-      if (filter === 'monitored' && !host.monitored) return false;
+      if (!inFolder(host)) return false;
+      if (monitored === 'monitored' && !host.monitored) return false;
       if (!needle) return true;
       return `${host.name} ${host.address} ${host.ownerName || ''}`.toLowerCase().includes(needle);
     });
-  }, [remote.hosts, search, filter]);
+  }, [remote.hosts, search, monitored, inFolder]);
+  const countFor = (key) => remote.hosts.filter((h) => (key === 'all' ? true : key === 'none' ? !h.folderId : String(h.folderId) === String(key))).length;
 
   const empty = remote.hosts.length === 0;
 
@@ -73,44 +80,24 @@ export default function Catalogue() {
       <ModuleHeader
         crumbs={[{ key: 'root', label: t('apps.remote.name') }]}
         icon={<MenuIcon name="remote" />}
-        title={t('apps.remote.name')}
+        title={t('remote.nav.computers')}
         description={t('remote.catalogue.lead')}
         actions={[
+          { key: 'apps', icon: <AppstoreOutlined />, label: t('remote.apps.title'), onClick: () => navigate('/app/remote/apps') },
           { key: 'vault', icon: <KeyOutlined />, label: t('remote.vault.title'), onClick: () => navigate('/app/remote/vault') },
           { key: 'my', icon: <SafetyCertificateOutlined />, label: t('remote.my.title'), onClick: () => navigate('/app/remote/my') },
           remote.can.admin && { key: 'journal', icon: <HistoryOutlined />, label: t('remote.journal.title'), onClick: () => navigate('/app/remote/journal') },
-          remote.can.admin && { key: 'rdp', icon: <ImportOutlined />, label: t('remote.rdp.title'), onClick: () => setImporting(true) },
           remote.can.admin && { key: 'add', primary: true, icon: <PlusOutlined />, label: t('remote.catalogue.add'), onClick: () => setEditing({}) },
         ]}
         search={!empty ? { value: search, onChange: setSearch, onSearch: setSearch, placeholder: t('remote.catalogue.search') } : undefined}
         filters={!empty && remote.hosts.some((h) => h.monitored) ? (
-          <Segmented size="small" value={filter} onChange={setFilter} options={[{ value: 'all', label: t('remote.catalogue.all') }, { value: 'monitored', label: t('remote.catalogue.monitored') }]} />
+          <Segmented size="small" value={monitored} onChange={setMonitored} options={[{ value: 'all', label: t('remote.catalogue.all') }, { value: 'monitored', label: t('remote.catalogue.monitored') }]} />
         ) : null}
       />
 
-      {!remote.settings.guacdConfigured && (
-        <p className="rm-note is-info">{t('remote.catalogue.guacdOff')}</p>
-      )}
+      {!remote.settings.guacdConfigured && <p className="rm-note is-info">{t('remote.catalogue.guacdOff')}</p>}
 
-      {remote.apps.length > 0 && (
-        <section className="rm-apps" data-tour="rm.apps">
-          <h2 className="rm-section-title"><AppstoreOutlined /> {t('remote.apps.title')}</h2>
-          <div className="rm-apps__grid">
-            {remote.apps.map((app) => {
-              const appHost = remote.hosts.find((h) => h.id === app.hostId);
-              return (
-                <button key={app.id} type="button" className="rm-app" onClick={() => appHost && setConnect({ host: appHost, app })} disabled={!appHost}>
-                  <span className="rm-app__icon"><AppstoreOutlined /></span>
-                  <span className="rm-app__text">
-                    <strong>{app.name}</strong>
-                    <small>{app.hostName}</small>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {!empty && <FolderBar value={folder} onChange={setFolder} countFor={countFor} />}
 
       {empty ? (
         <div className="rm-empty">
@@ -124,14 +111,20 @@ export default function Catalogue() {
       ) : (
         <div className="rm-grid" data-tour="rm.catalogue">
           {shown.map((host) => (
-            <HostCard key={host.id} host={host} can={remote.can} onEdit={setEditing} onConnect={(h, m) => setConnect({ host: h, mode: m })} />
+            <HostCard
+              key={host.id}
+              host={host}
+              can={remote.can}
+              onEdit={setEditing}
+              onConnect={(h, m) => setConnect({ host: h, mode: m })}
+              menu={[moveMenuItems(remote, 'host', host.id, t, remote.refresh)]}
+            />
           ))}
         </div>
       )}
 
       <HostDialog open={Boolean(editing)} host={editing} onClose={(changed) => { setEditing(null); if (changed) remote.refresh(); }} />
       <ConnectDialog open={Boolean(connect)} host={connect?.host} app={connect?.app} mode={connect?.mode} onClose={() => setConnect(null)} />
-      <RdpImportDialog open={importing} onClose={(changed) => { setImporting(false); if (changed) remote.refresh(); }} />
     </div>
   );
 }

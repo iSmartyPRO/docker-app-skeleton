@@ -4,6 +4,7 @@ import AppFooter from '../../components/AppFooter';
 import PageTransition from '../../components/ui/PageTransition';
 import { RemoteProvider } from './RemoteContext';
 import Catalogue from './pages/Catalogue';
+import Applications from './pages/Applications';
 import Journal from './pages/Journal';
 import MyComputer from './pages/MyComputer';
 import Vault from './pages/Vault';
@@ -20,6 +21,7 @@ export default function RemoteApp() {
           <PageTransition>
             <Routes>
               <Route index element={<Catalogue />} />
+              <Route path="apps" element={<Applications />} />
               <Route path="my" element={<MyComputer />} />
               <Route path="vault" element={<Vault />} />
               <Route path="journal" element={<Journal />} />

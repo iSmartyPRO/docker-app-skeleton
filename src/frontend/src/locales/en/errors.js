@@ -10,6 +10,7 @@ export default {
     other: 'This contact',
   },
   codes: {
+    GATEWAY_EXISTS: 'A gateway with this address already exists.',
     RDP_INVALID: 'This is not a valid .rdp file.',
     PASSBOLT_OFF: 'Passbolt is not enabled.',
     PASSBOLT_NOT_SET: 'Connect your Passbolt first (Password manager).',

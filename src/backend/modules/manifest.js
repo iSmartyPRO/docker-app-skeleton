@@ -334,7 +334,7 @@ export const MODULE_MANIFEST = {
   },
   remote: {
     name: { en: 'Remote access', ky: 'Алыстан кирүү', tr: 'Uzak erişim', zh: '远程访问', ru: 'Удалённый доступ' },
-    version: '1.2.0',
+    version: '1.3.0',
     category: 'infrastructure',
     minCore: '1.7.0',
     requires: [],
@@ -343,6 +343,17 @@ export const MODULE_MANIFEST = {
     ],
     docs: { user: 'remote', guide: 'docs/specs/remote-access.ru.md' },
     changelog: [
+      {
+        version: '1.3.0',
+        date: '2026-10-22',
+        changes: {
+          en: ['Reorganised: computers and applications are now separate pages. Folders group connections by site/office/role. Applications are self-contained (own RDS address, gateway and credentials) and pick a named RD Gateway. Computers are direct RDP/VNC.'],
+          ru: ['Реорганизация: компьютеры и приложения — на отдельных страницах. Папки группируют подключения по площадке/офису/роли. Приложения самостоятельны (свой адрес RDS, шлюз и учётные данные) и выбирают именованный шлюз RD Gateway. Компьютеры — прямой RDP/VNC.'],
+          ky: ['Кайра уюштуруу: компьютерлер жана колдонмолор өзүнчө барактарда. Папкалар байланыштарды топтойт.'],
+          tr: ['Yeniden düzenleme: bilgisayarlar ve uygulamalar ayrı sayfalarda. Klasörler bağlantıları gruplar.'],
+          zh: ['重组：计算机和应用程序现在分属不同页面。文件夹按站点/办公室/角色分组连接。'],
+        },
+      },
       {
         version: '1.2.0',
         date: '2026-10-22',

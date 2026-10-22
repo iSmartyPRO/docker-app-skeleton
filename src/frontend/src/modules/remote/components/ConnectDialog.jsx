@@ -31,7 +31,7 @@ export default function ConnectDialog({ open, host, app, mode, onClose }) {
   }, [open, host, mode]);
 
   if (!host) return null;
-  const isServer = host.kind === 'server';
+  const isServer = host.kind === 'server' || host.kind === 'app' || Boolean(app);
   const isMonitor = mode === 'monitor' && !isServer;
   const needsRdpCreds = host.protocol === 'rdp';
 
@@ -40,7 +40,7 @@ export default function ConnectDialog({ open, host, app, mode, onClose }) {
     setStarting(true);
     try {
       const res = await remoteApi.start({
-        hostId: host.id,
+        hostId: app ? undefined : host.id,
         appId: app?.id || undefined,
         mode: isServer ? 'assist' : mode,
         control,

@@ -47,8 +47,8 @@ export default function RdpImportDialog({ open, onClose }) {
           message={t('remote.rdp.created')}
           description={
             <div>
-              <div><strong>{result.host.name}</strong> · {result.host.address}{result.host.gatewayHost ? ` · ${t('remote.rdp.viaGateway', { gw: result.host.gatewayHost })}` : ''}</div>
-              {result.app && <div>{t('remote.rdp.app')}: <strong>{result.app.name}</strong> (<code>{result.app.alias}</code>)</div>}
+              <div>{t('remote.rdp.app')}: <strong>{result.app.name}</strong> (<code>{result.app.alias}</code>)</div>
+              <div>{result.app.address}{result.gateway ? ` · ${t('remote.rdp.viaGateway', { gw: result.gateway.host })}` : ''}</div>
             </div>
           }
         />

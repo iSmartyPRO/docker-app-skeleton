@@ -128,4 +128,81 @@ export async function ensureRemoteSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  /*
+   * Folders: a tree to organise computers and applications (by site / office /
+   * role). A connection with folder_id NULL is in the general list.
+   */
+  await query(`
+    CREATE TABLE IF NOT EXISTS remote_folders (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      parent_id INTEGER REFERENCES remote_folders(id) ON DELETE CASCADE,
+      sort INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  /*
+   * RD Gateways: named, reusable HTTPS entry points in front of RDS farms.
+   * An application points at one (its own or a shared one); computers never use
+   * a gateway (they are direct RDP/VNC).
+   */
+  await query(`
+    CREATE TABLE IF NOT EXISTS remote_gateways (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      host VARCHAR(255) NOT NULL,
+      port INTEGER NOT NULL DEFAULT 443,
+      domain VARCHAR(120) NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE UNIQUE INDEX IF NOT EXISTS remote_gateways_host_idx ON remote_gateways (LOWER(host), port)`);
+
+  await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS folder_id INTEGER REFERENCES remote_folders(id) ON DELETE SET NULL`);
+
+  // Applications become self-contained connections: their own target, gateway,
+  // folder and credentials (no longer children of a server host).
+  await query(`ALTER TABLE remote_apps ADD COLUMN IF NOT EXISTS folder_id INTEGER REFERENCES remote_folders(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE remote_apps ADD COLUMN IF NOT EXISTS address VARCHAR(255) NOT NULL DEFAULT ''`);
+  await query(`ALTER TABLE remote_apps ADD COLUMN IF NOT EXISTS port INTEGER NOT NULL DEFAULT 3389`);
+  await query(`ALTER TABLE remote_apps ADD COLUMN IF NOT EXISTS gateway_id INTEGER REFERENCES remote_gateways(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE remote_apps ADD COLUMN IF NOT EXISTS default_cred VARCHAR(80) NOT NULL DEFAULT ''`);
+  await query(`ALTER TABLE remote_apps ADD COLUMN IF NOT EXISTS cred_username VARCHAR(160)`);
+  await query(`ALTER TABLE remote_apps ADD COLUMN IF NOT EXISTS cred_domain VARCHAR(120)`);
+  await query(`ALTER TABLE remote_apps ADD COLUMN IF NOT EXISTS cred_password TEXT`);
+  await query(`ALTER TABLE remote_apps ALTER COLUMN host_id DROP NOT NULL`);
+
+  await migrateAppsToIndependent();
+}
+
+/*
+ * One-time, idempotent: move apps that still depend on a server host to the
+ * self-contained model — copy the host's address/port/credentials/default
+ * source into the app, and turn the host's RD Gateway into a named gateway the
+ * app points at. Runs only for apps that have no own address yet.
+ */
+async function migrateAppsToIndependent() {
+  const { rows } = await query(
+    `SELECT a.id AS app_id, h.address, h.port, h.gateway_host, h.gateway_port, h.gateway_domain,
+            h.cred_username, h.cred_domain, h.cred_password, h.default_cred, h.folder_id, h.name AS host_name
+       FROM remote_apps a JOIN remote_hosts h ON h.id = a.host_id
+      WHERE COALESCE(a.address, '') = ''`
+  );
+  for (const row of rows) {
+    let gatewayId = null;
+    if (row.gateway_host) {
+      const { rows: gw } = await query(
+        `INSERT INTO remote_gateways (name, host, port, domain) VALUES ($1,$2,$3,$4)
+         ON CONFLICT (LOWER(host), port) DO UPDATE SET host = EXCLUDED.host RETURNING id`,
+        [row.gateway_host, row.gateway_host, row.gateway_port || 443, row.gateway_domain || '']
+      );
+      gatewayId = gw[0].id;
+    }
+    await query(
+      `UPDATE remote_apps SET address=$1, port=$2, gateway_id=$3, cred_username=$4, cred_domain=$5, cred_password=$6, default_cred=$7, folder_id=$8 WHERE id=$9`,
+      [row.address, row.port, gatewayId, row.cred_username, row.cred_domain, row.cred_password, row.default_cred || '', row.folder_id, row.app_id]
+    );
+  }
 }

@@ -10,6 +10,7 @@ export default {
     other: 'Этот контакт',
   },
   codes: {
+    GATEWAY_EXISTS: 'Шлюз с таким адресом уже существует.',
     RDP_INVALID: 'Это не похоже на корректный .rdp-файл.',
     PASSBOLT_OFF: 'Passbolt не включён.',
     PASSBOLT_NOT_SET: 'Сначала подключите свой Passbolt (Менеджер паролей).',

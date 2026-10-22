@@ -4,15 +4,21 @@ import { requirePermission } from '../../middleware/auth.js';
 import {
   bootstrap,
   deleteApp,
+  deleteFolder,
+  deleteGateway,
   deleteHost,
   endSession,
   importRdp,
   listApps,
+  listGateways,
   listHosts,
   listSessions,
+  moveToFolder,
   remoteContext,
   requireAdmin,
   saveApp,
+  saveFolder,
+  saveGateway,
   saveHost,
   startSession,
 } from './service.js';
@@ -77,12 +83,33 @@ export function privateRoutes() {
     res.json({ success: true });
   }));
 
-  router.get('/admin/apps', admin(async (req, res) => res.json({ success: true, apps: await listApps(req.remote_ctx, { hostId: req.query.hostId || null, all: true }) })));
+  router.get('/admin/apps', admin(async (req, res) => res.json({ success: true, apps: await listApps(req.remote_ctx, { all: true }) })));
   router.post('/admin/apps/import', admin(async (req, res) => res.json({ success: true, ...(await importRdp(req.remote_ctx, req.body?.rdp || '')) })));
   router.post('/admin/apps', admin(async (req, res) => res.json({ success: true, app: await saveApp(req.remote_ctx, req.body || {}) })));
   router.put('/admin/apps/:id', admin(async (req, res) => res.json({ success: true, app: await saveApp(req.remote_ctx, req.body || {}, req.params.id) })));
   router.delete('/admin/apps/:id', admin(async (req, res) => {
     await deleteApp(req.remote_ctx, req.params.id);
+    res.json({ success: true });
+  }));
+
+  // Folders (organise computers and applications).
+  router.post('/admin/folders', admin(async (req, res) => res.json({ success: true, folder: await saveFolder(req.remote_ctx, req.body || {}) })));
+  router.put('/admin/folders/:id', admin(async (req, res) => res.json({ success: true, folder: await saveFolder(req.remote_ctx, req.body || {}, req.params.id) })));
+  router.delete('/admin/folders/:id', admin(async (req, res) => {
+    await deleteFolder(req.remote_ctx, req.params.id);
+    res.json({ success: true });
+  }));
+  router.post('/admin/move', admin(async (req, res) => {
+    await moveToFolder(req.remote_ctx, req.body || {});
+    res.json({ success: true });
+  }));
+
+  // Named RD Gateways (used by applications).
+  router.get('/admin/gateways', admin(async (req, res) => res.json({ success: true, gateways: await listGateways() })));
+  router.post('/admin/gateways', admin(async (req, res) => res.json({ success: true, gateway: await saveGateway(req.remote_ctx, req.body || {}) })));
+  router.put('/admin/gateways/:id', admin(async (req, res) => res.json({ success: true, gateway: await saveGateway(req.remote_ctx, req.body || {}, req.params.id) })));
+  router.delete('/admin/gateways/:id', admin(async (req, res) => {
+    await deleteGateway(req.remote_ctx, req.params.id);
     res.json({ success: true });
   }));
   return router;

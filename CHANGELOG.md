@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **Remote access — reorganised into two pages**: **Computers** (direct RDP/VNC) and **Applications** (RemoteApp) are now separate, each organised by **folders** (group by site, office or role — Central office, Construction site, DC…; move a connection to a folder or keep it in the general list). Applications are now **self-contained connections**: each has its own RDS server address, credentials and a named **RD Gateway** (its own or a shared one), chosen from a managed gateways list. Computers are always direct. `.rdp` import creates a self-contained application and its gateway (no stray server entry). Existing data is migrated automatically. See [docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md#структура-модуля).
+
+
 ## [1.13.0] - 2026-10-22
 
 ### Added

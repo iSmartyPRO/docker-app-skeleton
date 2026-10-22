@@ -21,6 +21,16 @@ export const remoteApi = {
   deleteApp: (id) => api.delete(`${base}/admin/apps/${id}`),
   importRdp: (rdp) => api.post(`${base}/admin/apps/import`, { rdp }),
 
+  // Folders & gateways
+  saveFolder: (payload) => api.post(`${base}/admin/folders`, payload),
+  updateFolder: (id, payload) => api.put(`${base}/admin/folders/${id}`, payload),
+  deleteFolder: (id) => api.delete(`${base}/admin/folders/${id}`),
+  move: (payload) => api.post(`${base}/admin/move`, payload),
+  gateways: () => api.get(`${base}/admin/gateways`),
+  saveGateway: (payload) => api.post(`${base}/admin/gateways`, payload),
+  updateGateway: (id, payload) => api.put(`${base}/admin/gateways/${id}`, payload),
+  deleteGateway: (id) => api.delete(`${base}/admin/gateways/${id}`),
+
   // Password manager
   credentials: () => api.get(`${base}/credentials`),
   saveCredential: (payload) => api.post(`${base}/credentials`, payload),
