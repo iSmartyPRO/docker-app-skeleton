@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { App, Button, Dropdown, Empty, Tag, Tooltip } from 'antd';
+import { Button, Dropdown, Empty } from 'antd';
 import { AppstoreOutlined, DesktopOutlined, ImportOutlined, MoreOutlined, PlusOutlined, SafetyOutlined, SettingOutlined } from '@ant-design/icons';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
@@ -10,7 +10,7 @@ import ConnectDialog from '../components/ConnectDialog';
 import AppDialog from '../components/AppDialog';
 import GatewaysDialog from '../components/GatewaysDialog';
 import RdpImportDialog from '../components/RdpImportDialog';
-import FolderBar, { moveMenuItems } from '../components/FolderBar';
+import FolderBar, { matchesFolder, moveMenuItems } from '../components/FolderBar';
 
 function AppTile({ app, gateway, canAdmin, onLaunch, onEdit, menu }) {
   const { t } = useLocale();
@@ -46,9 +46,8 @@ export default function Applications() {
   const [importing, setImporting] = useState(false);
   const [gateways, setGateways] = useState(false);
 
-  const inFolder = useCallback((item) => (folder === 'all' ? true : folder === 'none' ? !item.folderId : String(item.folderId) === String(folder)), [folder]);
-  const shown = useMemo(() => remote.apps.filter(inFolder), [remote.apps, inFolder]);
-  const countFor = (key) => remote.apps.filter((a) => (key === 'all' ? true : key === 'none' ? !a.folderId : String(a.folderId) === String(key))).length;
+  const shown = useMemo(() => remote.apps.filter(matchesFolder(folder)), [remote.apps, folder]);
+  const countFor = (key) => remote.apps.filter(matchesFolder(key)).length;
   const gatewayOf = (app) => remote.gateways.find((g) => g.id === app.gatewayId) || (app.gatewayName ? { name: app.gatewayName } : null);
 
   const empty = remote.apps.length === 0;

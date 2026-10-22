@@ -282,7 +282,7 @@ async function gatewayByHost(host, port, domain = '') {
 
 /* ── Applications (self-contained RemoteApp connections) ───────────────────── */
 
-const appText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, max);
+const appText = folderText;
 
 async function appById(id) {
   const { rows } = await query(

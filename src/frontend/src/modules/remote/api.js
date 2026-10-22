@@ -15,7 +15,6 @@ export const remoteApi = {
 
   // RemoteApp (published applications)
   apps: () => api.get(`${base}/apps`),
-  adminApps: (hostId) => api.get(`${base}/admin/apps`, { params: hostId ? { hostId } : {} }),
   saveApp: (payload) => api.post(`${base}/admin/apps`, payload),
   updateApp: (id, payload) => api.put(`${base}/admin/apps/${id}`, payload),
   deleteApp: (id) => api.delete(`${base}/admin/apps/${id}`),
@@ -28,7 +27,6 @@ export const remoteApi = {
   move: (payload) => api.post(`${base}/admin/move`, payload),
   gateways: () => api.get(`${base}/admin/gateways`),
   saveGateway: (payload) => api.post(`${base}/admin/gateways`, payload),
-  updateGateway: (id, payload) => api.put(`${base}/admin/gateways/${id}`, payload),
   deleteGateway: (id) => api.delete(`${base}/admin/gateways/${id}`),
 
   // Password manager

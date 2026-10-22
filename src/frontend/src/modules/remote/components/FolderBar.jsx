@@ -6,10 +6,13 @@ import { errorMessage } from '../../../lib/errors';
 import { remoteApi } from '../api';
 import { useRemote } from '../RemoteContext';
 
+/** Predicate for the selected folder key ('all' | 'none' | id) over a host/app. */
+export const matchesFolder = (key) => (item) =>
+  key === 'all' ? true : key === 'none' ? !item.folderId : String(item.folderId) === String(key);
+
 /** Chip row to filter by folder, plus folder management for administrators. */
 export default function FolderBar({ value, onChange, countFor }) {
   const { t } = useLocale();
-  const { message } = App.useApp();
   const remote = useRemote();
   const [manage, setManage] = useState(false);
 

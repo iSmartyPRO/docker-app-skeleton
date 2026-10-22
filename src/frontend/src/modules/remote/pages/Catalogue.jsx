@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Dropdown, Empty, Segmented, Tag, Tooltip } from 'antd';
 import { AppstoreOutlined, CloudServerOutlined, DesktopOutlined, EyeOutlined, HistoryOutlined, KeyOutlined, MoreOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
@@ -8,7 +8,7 @@ import ModuleHeader from '../../shared/ModuleHeader';
 import { useRemote } from '../RemoteContext';
 import HostDialog from '../components/HostDialog';
 import ConnectDialog from '../components/ConnectDialog';
-import FolderBar, { moveMenuItems } from '../components/FolderBar';
+import FolderBar, { matchesFolder, moveMenuItems } from '../components/FolderBar';
 
 function HostCard({ host, can, onConnect, onEdit, menu }) {
   const { t } = useLocale();
@@ -61,17 +61,17 @@ export default function Catalogue() {
   const [editing, setEditing] = useState(null);
   const [connect, setConnect] = useState(null);
 
-  const inFolder = useCallback((h) => (folder === 'all' ? true : folder === 'none' ? !h.folderId : String(h.folderId) === String(folder)), [folder]);
   const shown = useMemo(() => {
     const needle = search.trim().toLowerCase();
+    const inFolder = matchesFolder(folder);
     return remote.hosts.filter((host) => {
       if (!inFolder(host)) return false;
       if (monitored === 'monitored' && !host.monitored) return false;
       if (!needle) return true;
       return `${host.name} ${host.address} ${host.ownerName || ''}`.toLowerCase().includes(needle);
     });
-  }, [remote.hosts, search, monitored, inFolder]);
-  const countFor = (key) => remote.hosts.filter((h) => (key === 'all' ? true : key === 'none' ? !h.folderId : String(h.folderId) === String(key))).length;
+  }, [remote.hosts, search, monitored, folder]);
+  const countFor = (key) => remote.hosts.filter(matchesFolder(key)).length;
 
   const empty = remote.hosts.length === 0;
 
