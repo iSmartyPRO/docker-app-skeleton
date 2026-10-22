@@ -5,10 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-22
+
 ### Added
 
 - **Remote access — RDWeb / RD Gateway**: import a RemoteApp `.rdp` file exported from RDWeb and the RDS server, its RD Gateway (HTTPS entry point in front of the farm) and the published application are set up automatically — including `load-balance-info` so the RDS Connection Broker routes to the right collection and the RemoteApp alias. Connections now go through an RD Gateway when one is set (reachability is pre-checked against the gateway). See [docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md#импорт-из-rdweb-и-rd-gateway).
-
 
 ## [1.12.1] - 2026-10-22
 
@@ -653,7 +654,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.12.1...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.13.0
 [1.12.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.12.1
 [1.12.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.12.0
 [1.11.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.11.2
