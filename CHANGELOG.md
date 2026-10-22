@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-22
+
 ### Added
 
 - **Remote access** module ([docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md), off by default): remote desktop access to employees' computers over Guacamole — a computers catalogue, access by portal and AD groups, attended support (`assist`, with the employee's consent) and announced monitoring (`monitor`). Transparency is enforced by the server, not the UI: every connection writes an audit row and notifies the watched employee, who can review all connections to their own computer; monitoring is refused until a superadministrator confirms the policy checklist; there is no covert / silent mode, and the settings have no switch to add one. guacd runs as a separate container; the module needs only its address. The live tunnel, in-browser viewer and the UltraVNC GPO package follow a pilot. Permissions: `remote.view|connect|monitor|admin`.
@@ -618,7 +620,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.9.1...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.10.0
 [1.9.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.9.1
 [1.9.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.9.0
 [1.8.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.8.0
