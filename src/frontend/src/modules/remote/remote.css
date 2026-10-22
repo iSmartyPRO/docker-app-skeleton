@@ -556,3 +556,19 @@
   color: #cbd5e1;
   align-self: center;
 }
+
+/* Hidden field that summons the mobile keyboard / IME */
+.rm-viewer-input {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  resize: none;
+  pointer-events: none;
+  background: transparent;
+  color: transparent;
+}
