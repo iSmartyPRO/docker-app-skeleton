@@ -5,12 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-10-22
+
 ### Added
 
 - **Remote access — RemoteApp**: launch a single published Windows application instead of the whole desktop (RAIL). A server lists its programs (an RDS `||alias` or a full `.exe` path); they appear as tiles in an «Applications» section and open in the same viewer showing only that program. See the use cases in [docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md#remoteapp--запуск-отдельного-приложения).
 - **Remote access — password manager**: save personal or shared credentials once and reuse them when connecting, instead of retyping. Passwords are sealed; a computer can have a default credential source. At connect time the operator chooses the source: the computer's own credentials, a password-manager entry, Passbolt, or manual entry.
 - **Remote access — Passbolt integration** (per person, toggled in the module settings): each operator connects their own Passbolt with their OpenPGP private key (GPGAuth); the portal reads and decrypts their entries on demand to sign in to computers. The key and passphrase are sealed and never leave the server. Three credential sources in total: `local` (manual), `portal` (password manager), `passbolt`.
-
 
 ## [1.11.2] - 2026-10-22
 
@@ -641,7 +642,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.11.2...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.12.0
 [1.11.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.11.2
 [1.11.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.11.1
 [1.11.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.11.0
