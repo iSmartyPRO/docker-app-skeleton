@@ -5,10 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-10-22
+
 ### Fixed
 
 - **Remote access**: the live viewer no longer hangs silently on «Connecting…». A fast pre-flight TCP check fails in seconds with a clear reason when a computer is unreachable (wrong address, host off, port closed), instead of waiting for the RDP timeout. The viewer now shows connection phases (reachable → secure tunnel → RDP/sign-in), surfaces guacd errors in plain words (wrong credentials, connection refused, timeout), offers «Try again», and shows a live quality indicator (lag in ms, signal bars) once connected. A reverse proxy in front of the portal must forward WebSocket upgrades on `/api/app/remote/tunnel` — see [docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md#обратный-прокси-и-websocket).
-
 
 ## [1.11.0] - 2026-10-22
 
@@ -629,7 +630,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.11.1
 [1.11.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.11.0
 [1.10.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.10.0
 [1.9.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.9.1
