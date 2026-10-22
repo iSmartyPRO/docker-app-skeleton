@@ -334,7 +334,7 @@ export const MODULE_MANIFEST = {
   },
   remote: {
     name: { en: 'Remote access', ky: 'Алыстан кирүү', tr: 'Uzak erişim', zh: '远程访问', ru: 'Удалённый доступ' },
-    version: '1.1.0',
+    version: '1.2.0',
     category: 'infrastructure',
     minCore: '1.7.0',
     requires: [],
@@ -343,6 +343,17 @@ export const MODULE_MANIFEST = {
     ],
     docs: { user: 'remote', guide: 'docs/specs/remote-access.ru.md' },
     changelog: [
+      {
+        version: '1.2.0',
+        date: '2026-10-22',
+        changes: {
+          en: ['RDWeb / RD Gateway: import a RemoteApp .rdp file to set up the RDS server, its RD Gateway and the application automatically (gateway, load-balance-info and the app alias). Connect to published apps behind a gateway.'],
+          ru: ['RDWeb / RD Gateway: импорт .rdp-файла RemoteApp автоматически создаёт сервер RDS, его шлюз RD Gateway и приложение (шлюз, load-balance-info и алиас). Подключение к опубликованным приложениям за шлюзом.'],
+          ky: ['RDWeb / RD Gateway: RemoteApp .rdp файлын импорттоо RDS серверин, анын шлюзун жана колдонмону автоматтык түрдө түзөт.'],
+          tr: ['RDWeb / RD Gateway: RemoteApp .rdp dosyasını içe aktarma RDS sunucusunu, RD Gateway\'ini ve uygulamayı otomatik kurar.'],
+          zh: ['RDWeb / RD Gateway：导入 RemoteApp 的 .rdp 文件可自动配置 RDS 服务器、RD 网关和应用程序。'],
+        },
+      },
       {
         version: '1.1.0',
         date: '2026-10-22',

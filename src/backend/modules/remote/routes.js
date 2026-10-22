@@ -6,6 +6,7 @@ import {
   deleteApp,
   deleteHost,
   endSession,
+  importRdp,
   listApps,
   listHosts,
   listSessions,
@@ -77,6 +78,7 @@ export function privateRoutes() {
   }));
 
   router.get('/admin/apps', admin(async (req, res) => res.json({ success: true, apps: await listApps(req.remote_ctx, { hostId: req.query.hostId || null, all: true }) })));
+  router.post('/admin/apps/import', admin(async (req, res) => res.json({ success: true, ...(await importRdp(req.remote_ctx, req.body?.rdp || '')) })));
   router.post('/admin/apps', admin(async (req, res) => res.json({ success: true, app: await saveApp(req.remote_ctx, req.body || {}) })));
   router.put('/admin/apps/:id', admin(async (req, res) => res.json({ success: true, app: await saveApp(req.remote_ctx, req.body || {}, req.params.id) })));
   router.delete('/admin/apps/:id', admin(async (req, res) => {

@@ -19,6 +19,7 @@ export const remoteApi = {
   saveApp: (payload) => api.post(`${base}/admin/apps`, payload),
   updateApp: (id, payload) => api.put(`${base}/admin/apps/${id}`, payload),
   deleteApp: (id) => api.delete(`${base}/admin/apps/${id}`),
+  importRdp: (rdp) => api.post(`${base}/admin/apps/import`, { rdp }),
 
   // Password manager
   credentials: () => api.get(`${base}/credentials`),

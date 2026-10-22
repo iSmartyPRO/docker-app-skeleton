@@ -68,8 +68,56 @@ export function connectionFor(host, creds = {}, { width, height, dpi, app } = {}
     settings['remote-app'] = app.alias;
     if (app.workDir) settings['remote-app-dir'] = app.workDir;
     if (app.args) settings['remote-app-args'] = app.args;
+    // The RDS Connection Broker uses this to route to the right collection (RDWeb).
+    if (app.loadBalanceInfo) settings['load-balance-info'] = app.loadBalanceInfo;
+  }
+  // RD Gateway (RDWeb / TS Gateway): connect through the HTTPS gateway in front of
+  // the farm. Gateway credentials reuse the session credentials (credssource:0).
+  if (host.gateway_host) {
+    settings['gateway-hostname'] = host.gateway_host;
+    settings['gateway-port'] = String(host.gateway_port || 443);
+    settings['gateway-domain'] = host.gateway_domain || creds.domain || '';
+    settings['gateway-username'] = creds.username || '';
+    settings['gateway-password'] = creds.password || '';
   }
   return { type: 'rdp', settings };
+}
+
+/*
+ * Parses an RDWeb-exported .rdp file into a host + app for the module.
+ * Lines are «key:type:value» (i int, s string, b binary). We read only the
+ * fields we map to guacd; the signature and device-redirection flags are ignored.
+ */
+export function parseRdp(text) {
+  const fields = {};
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const match = /^([^:]+):([isb]):(.*)$/.exec(line.trim());
+    if (match) fields[match[1].toLowerCase()] = match[3];
+  }
+  const address = (fields['full address'] || fields['alternate full address'] || '').trim();
+  if (!address) return null;
+  const isApp = fields['remoteapplicationmode'] === '1';
+  const alias = (fields['remoteapplicationprogram'] || fields['alternate shell'] || '').trim();
+  const gatewayMethod = fields['gatewayusagemethod'];
+  const useGateway = gatewayMethod === '1' || gatewayMethod === '2';
+  return {
+    host: {
+      name: (fields['remoteapplicationname'] ? `RDS ${address}` : address).slice(0, 120),
+      address,
+      port: Number(fields['server port']) || 3389,
+      kind: 'server',
+      gatewayHost: useGateway ? (fields['gatewayhostname'] || '').trim() : '',
+      gatewayPort: 443,
+    },
+    app: isApp && alias
+      ? {
+          name: (fields['remoteapplicationname'] || alias).replace(/^\|\|/, '').slice(0, 120),
+          alias,
+          args: (fields['remoteapplicationcmdline'] || '').trim(),
+          loadBalanceInfo: (fields['loadbalanceinfo'] || '').trim(),
+        }
+      : null,
+  };
 }
 
 function clean(object) {

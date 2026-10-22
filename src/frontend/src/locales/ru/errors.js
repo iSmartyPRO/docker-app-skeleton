@@ -10,6 +10,7 @@ export default {
     other: 'Этот контакт',
   },
   codes: {
+    RDP_INVALID: 'Это не похоже на корректный .rdp-файл.',
     PASSBOLT_OFF: 'Passbolt не включён.',
     PASSBOLT_NOT_SET: 'Сначала подключите свой Passbolt (Менеджер паролей).',
     PASSBOLT_KEY: 'Неверный ключ или парольная фраза Passbolt.',

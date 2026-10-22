@@ -31,6 +31,8 @@ export default function HostDialog({ open, host, onClose }) {
       credUsername: host?.credUsername || '',
       credDomain: host?.credDomain || '',
       credPassword: '',
+      gatewayHost: host?.gatewayHost || '',
+      gatewayPort: host?.gatewayPort || 443,
       note: host?.note || '',
     });
     remoteApi.subjects().then((res) => setPeople(res.data?.users || [])).catch(() => setPeople([]));
@@ -126,6 +128,21 @@ export default function HostDialog({ open, host, onClose }) {
             <Input.Password placeholder={editing && host?.hasCredentials ? '••••••••' : ''} autoComplete="new-password" />
           </Form.Item>
         </div>
+
+        {kind === 'server' && (
+          <div className="rm-creds-block">
+            <div className="rm-creds-block__head">{t('remote.host.gateway')}</div>
+            <p className="rm-muted">{t('remote.host.gatewayHint')}</p>
+            <div className="rm-form__row">
+              <Form.Item name="gatewayHost" label={t('remote.host.gatewayHost')} style={{ flex: 2 }}>
+                <Input maxLength={255} placeholder="rds.example.com" autoComplete="off" />
+              </Form.Item>
+              <Form.Item name="gatewayPort" label={t('remote.host.gatewayPort')}>
+                <InputNumber min={1} max={65535} style={{ width: 92 }} />
+              </Form.Item>
+            </div>
+          </div>
+        )}
 
         <Form.Item name="note" label={t('remote.host.note')}>
           <Input.TextArea rows={2} maxLength={300} />

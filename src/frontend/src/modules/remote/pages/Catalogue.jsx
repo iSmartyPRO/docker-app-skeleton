@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App, Button, Empty, Input, Modal, Segmented, Select, Switch, Tag, Tooltip } from 'antd';
-import { AppstoreOutlined, CloudServerOutlined, DesktopOutlined, EyeOutlined, HistoryOutlined, KeyOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, CloudServerOutlined, DesktopOutlined, EyeOutlined, HistoryOutlined, ImportOutlined, KeyOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -10,6 +10,7 @@ import { remoteApi } from '../api';
 import { useRemote } from '../RemoteContext';
 import HostDialog from '../components/HostDialog';
 import ConnectDialog from '../components/ConnectDialog';
+import RdpImportDialog from '../components/RdpImportDialog';
 
 function HostCard({ host, can, onConnect, onEdit }) {
   const { t } = useLocale();
@@ -54,6 +55,7 @@ export default function Catalogue() {
   const [filter, setFilter] = useState('all');
   const [editing, setEditing] = useState(null);
   const [connect, setConnect] = useState(null);
+  const [importing, setImporting] = useState(false);
 
   const shown = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -77,6 +79,7 @@ export default function Catalogue() {
           { key: 'vault', icon: <KeyOutlined />, label: t('remote.vault.title'), onClick: () => navigate('/app/remote/vault') },
           { key: 'my', icon: <SafetyCertificateOutlined />, label: t('remote.my.title'), onClick: () => navigate('/app/remote/my') },
           remote.can.admin && { key: 'journal', icon: <HistoryOutlined />, label: t('remote.journal.title'), onClick: () => navigate('/app/remote/journal') },
+          remote.can.admin && { key: 'rdp', icon: <ImportOutlined />, label: t('remote.rdp.title'), onClick: () => setImporting(true) },
           remote.can.admin && { key: 'add', primary: true, icon: <PlusOutlined />, label: t('remote.catalogue.add'), onClick: () => setEditing({}) },
         ]}
         search={!empty ? { value: search, onChange: setSearch, onSearch: setSearch, placeholder: t('remote.catalogue.search') } : undefined}
@@ -128,6 +131,7 @@ export default function Catalogue() {
 
       <HostDialog open={Boolean(editing)} host={editing} onClose={(changed) => { setEditing(null); if (changed) remote.refresh(); }} />
       <ConnectDialog open={Boolean(connect)} host={connect?.host} app={connect?.app} mode={connect?.mode} onClose={() => setConnect(null)} />
+      <RdpImportDialog open={importing} onClose={(changed) => { setImporting(false); if (changed) remote.refresh(); }} />
     </div>
   );
 }

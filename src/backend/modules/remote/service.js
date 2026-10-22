@@ -4,7 +4,7 @@ import { getSettings, parseSettings } from '../../services/settings.js';
 import { notify } from '../../services/notifications.js';
 import { seal, unseal } from '../../services/crypto.js';
 import { contextFromRequest, httpError, intId } from '../shared/acl.js';
-import { buildToken, connectionFor, TUNNEL_PATH } from './tunnel.js';
+import { buildToken, connectionFor, parseRdp, TUNNEL_PATH } from './tunnel.js';
 import { resolveVault } from './credentials.js';
 import { resolvePassbolt } from './passbolt.js';
 
@@ -72,12 +72,15 @@ function hostShape(row) {
     credDomain: row.cred_domain || '',
     hasCredentials: Boolean(row.cred_password),
     defaultCred: row.default_cred || '',
+    gatewayHost: row.gateway_host || '',
+    gatewayPort: row.gateway_port || 443,
+    gatewayDomain: row.gateway_domain || '',
     appCount: row.app_count != null ? Number(row.app_count) : undefined,
   };
 }
 
 function appShape(row) {
-  return { id: row.id, hostId: row.host_id, hostName: row.host_name, name: row.name, alias: row.alias, args: row.args, workDir: row.work_dir, icon: row.icon, active: row.active, sort: row.sort };
+  return { id: row.id, hostId: row.host_id, hostName: row.host_name, name: row.name, alias: row.alias, args: row.args, workDir: row.work_dir, loadBalanceInfo: row.load_balance_info || '', icon: row.icon, active: row.active, sort: row.sort };
 }
 
 function sessionShape(row) {
@@ -140,19 +143,22 @@ export async function saveHost(ctx, input = {}, id = null) {
   const credPassword =
     input.credPassword === undefined ? current?.cred_password ?? null : input.credPassword ? seal(String(input.credPassword)) : null;
   const defaultCred = input.defaultCred === undefined ? current?.default_cred ?? '' : String(input.defaultCred || '').replace(/[^a-z0-9:_-]/gi, '').slice(0, 80);
-  const values = [name, address, protocol, port, kind, ownerId, monitored, text(input.note ?? current?.note, 300), input.active === undefined ? current?.active ?? true : Boolean(input.active), credUsername, credDomain, credPassword, defaultCred];
+  const gatewayHost = input.gatewayHost === undefined ? current?.gateway_host ?? '' : text(input.gatewayHost, 255);
+  const gatewayPort = input.gatewayPort === undefined ? current?.gateway_port ?? 443 : Math.min(65535, Math.max(1, Number(input.gatewayPort) || 443));
+  const gatewayDomain = input.gatewayDomain === undefined ? current?.gateway_domain ?? '' : text(input.gatewayDomain, 120);
+  const values = [name, address, protocol, port, kind, ownerId, monitored, text(input.note ?? current?.note, 300), input.active === undefined ? current?.active ?? true : Boolean(input.active), credUsername, credDomain, credPassword, defaultCred, gatewayHost, gatewayPort, gatewayDomain];
   let row;
   try {
     if (current) {
       ({ rows: [row] } = await query(
-        `UPDATE remote_hosts SET name=$1, address=$2, protocol=$3, port=$4, kind=$5, owner_user_id=$6, monitored=$7, note=$8, active=$9, cred_username=$10, cred_domain=$11, cred_password=$12, default_cred=$13, updated_at=NOW()
-         WHERE id=$14 RETURNING *`,
+        `UPDATE remote_hosts SET name=$1, address=$2, protocol=$3, port=$4, kind=$5, owner_user_id=$6, monitored=$7, note=$8, active=$9, cred_username=$10, cred_domain=$11, cred_password=$12, default_cred=$13, gateway_host=$14, gateway_port=$15, gateway_domain=$16, updated_at=NOW()
+         WHERE id=$17 RETURNING *`,
         [...values, current.id]
       ));
     } else {
       ({ rows: [row] } = await query(
-        `INSERT INTO remote_hosts (name, address, protocol, port, kind, owner_user_id, monitored, note, active, cred_username, cred_domain, cred_password, default_cred, source, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'manual',$14) RETURNING *`,
+        `INSERT INTO remote_hosts (name, address, protocol, port, kind, owner_user_id, monitored, note, active, cred_username, cred_domain, cred_password, default_cred, gateway_host, gateway_port, gateway_domain, source, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'manual',$17) RETURNING *`,
         [...values, ctx.userId]
       ));
     }
@@ -202,18 +208,43 @@ export async function saveApp(ctx, input = {}, id = null) {
   const name = appText(input.name ?? current?.name, 120);
   const alias = appText(input.alias ?? current?.alias, 255);
   if (!name || !alias) throw httpError(400, 'Name and program are required', 'NAME_REQUIRED');
-  const values = [name, alias, appText(input.args ?? current?.args, 500), appText(input.workDir ?? current?.work_dir, 300), appText(input.icon ?? current?.icon, 40) || 'app', input.active === undefined ? current?.active ?? true : Boolean(input.active)];
+  const lbi = appText(input.loadBalanceInfo ?? current?.load_balance_info, 512);
+  const values = [name, alias, appText(input.args ?? current?.args, 500), appText(input.workDir ?? current?.work_dir, 300), appText(input.icon ?? current?.icon, 40) || 'app', input.active === undefined ? current?.active ?? true : Boolean(input.active), lbi];
   let row;
   if (current) {
-    ({ rows: [row] } = await query(`UPDATE remote_apps SET name=$1, alias=$2, args=$3, work_dir=$4, icon=$5, active=$6 WHERE id=$7 RETURNING *`, [...values, current.id]));
+    ({ rows: [row] } = await query(`UPDATE remote_apps SET name=$1, alias=$2, args=$3, work_dir=$4, icon=$5, active=$6, load_balance_info=$7 WHERE id=$8 RETURNING *`, [...values, current.id]));
   } else {
     ({ rows: [row] } = await query(
-      `INSERT INTO remote_apps (host_id, name, alias, args, work_dir, icon, active, sort)
-       VALUES ($7,$1,$2,$3,$4,$5,$6, (SELECT COALESCE(MAX(sort),-1)+1 FROM remote_apps WHERE host_id=$7)) RETURNING *`,
+      `INSERT INTO remote_apps (host_id, name, alias, args, work_dir, icon, active, load_balance_info, sort)
+       VALUES ($8,$1,$2,$3,$4,$5,$6,$7, (SELECT COALESCE(MAX(sort),-1)+1 FROM remote_apps WHERE host_id=$8)) RETURNING *`,
       [...values, hostId]
     ));
   }
   return appShape(await appById(row.id));
+}
+
+/**
+ * Imports an RDWeb .rdp file: creates (or reuses by address) the RDS server with
+ * its RD Gateway, and adds the RemoteApp with its load-balance info. Returns the
+ * host and app. The signature in the file is ignored — we only read the fields.
+ */
+export async function importRdp(ctx, text) {
+  requireAdmin(ctx);
+  const parsed = parseRdp(text);
+  if (!parsed) throw httpError(400, 'This is not a valid .rdp file', 'RDP_INVALID');
+
+  // Reuse a host with the same address/port, else create it (carrying the gateway).
+  const { rows } = await query(`SELECT * FROM remote_hosts WHERE LOWER(address) = LOWER($1) AND port = $2`, [parsed.host.address, parsed.host.port]);
+  let host = rows[0] ? hostShape(rows[0]) : null;
+  if (!host) {
+    host = await saveHost(ctx, { ...parsed.host });
+  } else if (parsed.host.gatewayHost && !host.gatewayHost) {
+    host = await saveHost(ctx, { gatewayHost: parsed.host.gatewayHost, gatewayPort: parsed.host.gatewayPort }, host.id);
+  }
+
+  let app = null;
+  if (parsed.app) app = await saveApp(ctx, { hostId: host.id, ...parsed.app });
+  return { host, app };
 }
 
 export async function deleteApp(ctx, id) {
@@ -282,12 +313,15 @@ export async function startSession(ctx, input = {}) {
   }
   // Fast pre-flight: the portal is on the same network as guacd, so this is what
   // a session would do. Fail in a few seconds with a clear message instead of
-  // letting the RDP handshake hang on an unreachable host.
-  const reach = await tcpProbe(host.address, host.port, 4000);
+  // letting the RDP handshake hang. Behind an RD Gateway only the gateway (443)
+  // is reachable — the RDP port is not — so probe the gateway in that case.
+  const probeHost = host.gateway_host || host.address;
+  const probePort = host.gateway_host ? host.gateway_port || 443 : host.port;
+  const reach = await tcpProbe(probeHost, probePort, 4000);
   if (!reach.ok) {
     await query(`UPDATE remote_sessions SET ended_at = NOW(), note = $2 WHERE id = $1`, [session.id, `unreachable: ${reach.reason}`]);
     const error = httpError(409, 'The computer is not reachable on the network', 'HOST_UNREACHABLE');
-    error.details = { address: `${host.address}:${host.port}`, reason: reach.reason, ms: reach.ms };
+    error.details = { address: `${probeHost}:${probePort}`, reason: reach.reason, ms: reach.ms };
     throw error;
   }
   // RemoteApp: launch one published application instead of the whole desktop.
@@ -302,7 +336,7 @@ export async function startSession(ctx, input = {}) {
     width: Math.min(3840, Math.max(640, Number(input.width) || 1280)),
     height: Math.min(2160, Math.max(480, Number(input.height) || 720)),
     dpi: Math.min(192, Math.max(72, Number(input.dpi) || 96)),
-    app: app ? { alias: app.alias, workDir: app.work_dir, args: app.args } : null,
+    app: app ? { alias: app.alias, workDir: app.work_dir, args: app.args, loadBalanceInfo: app.load_balance_info } : null,
   };
   const connection = connectionFor(host, creds, size);
   // «Only view» is enforced by guacd itself (read-only), not just hidden in the UI.

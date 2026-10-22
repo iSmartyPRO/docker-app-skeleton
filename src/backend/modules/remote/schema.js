@@ -105,6 +105,13 @@ export async function ensureRemoteSchema() {
 
   // A host's preferred credential source: 'host' | 'vault:<id>' | 'passbolt:<resId>' | '' (ask each time).
   await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS default_cred VARCHAR(80) NOT NULL DEFAULT ''`);
+  // RD Gateway (RDWeb / TS Gateway): the HTTPS entry point in front of an RDS farm.
+  // Gateway credentials reuse the session credentials (credssource:0, the common case).
+  await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS gateway_host VARCHAR(255) NOT NULL DEFAULT ''`);
+  await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS gateway_port INTEGER NOT NULL DEFAULT 443`);
+  await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS gateway_domain VARCHAR(120) NOT NULL DEFAULT ''`);
+  // RemoteApp load-balance-info routes the RDS Connection Broker to the right collection.
+  await query(`ALTER TABLE remote_apps ADD COLUMN IF NOT EXISTS load_balance_info VARCHAR(512) NOT NULL DEFAULT ''`);
 
   /*
    * Passbolt integration: each person connects their own Passbolt (GPGAuth with

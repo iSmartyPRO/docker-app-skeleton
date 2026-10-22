@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Remote access — RDWeb / RD Gateway**: import a RemoteApp `.rdp` file exported from RDWeb and the RDS server, its RD Gateway (HTTPS entry point in front of the farm) and the published application are set up automatically — including `load-balance-info` so the RDS Connection Broker routes to the right collection and the RemoteApp alias. Connections now go through an RD Gateway when one is set (reachability is pre-checked against the gateway). See [docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md#импорт-из-rdweb-и-rd-gateway).
+
+
 ## [1.12.1] - 2026-10-22
 
 ### Fixed
