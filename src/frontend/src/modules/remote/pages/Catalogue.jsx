@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App, Button, Empty, Input, Modal, Segmented, Select, Switch, Tag, Tooltip } from 'antd';
-import { DesktopOutlined, EyeOutlined, HistoryOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
+import { CloudServerOutlined, DesktopOutlined, EyeOutlined, HistoryOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -13,14 +13,16 @@ import ConnectDialog from '../components/ConnectDialog';
 
 function HostCard({ host, can, onConnect, onEdit }) {
   const { t } = useLocale();
+  const isServer = host.kind === 'server';
   return (
-    <article className={`rm-host${host.active ? '' : ' is-off'}`}>
+    <article className={`rm-host${host.active ? '' : ' is-off'}${isServer ? ' is-server' : ''}`}>
       <div className="rm-host__head">
-        <div className="rm-host__icon"><DesktopOutlined /></div>
+        <div className="rm-host__icon">{isServer ? <CloudServerOutlined /> : <DesktopOutlined />}</div>
         <div className="rm-host__body">
           <div className="rm-host__title">
             <strong>{host.name}</strong>
             <Tag bordered={false} className="rm-proto">{host.protocol.toUpperCase()}</Tag>
+            {isServer && <Tag bordered={false} className="rm-badge is-server">{t('remote.catalogue.server')}</Tag>}
             {host.monitored && (
               <Tooltip title={t('remote.catalogue.monitoredHint')}>
                 <Tag bordered={false} className="rm-badge is-monitored"><EyeOutlined /> {t('remote.catalogue.monitored')}</Tag>
@@ -28,12 +30,14 @@ function HostCard({ host, can, onConnect, onEdit }) {
             )}
           </div>
           <span className="rm-host__addr">{host.address}:{host.port}</span>
-          <span className="rm-host__owner">{host.ownerName ? t('remote.catalogue.owner', { name: host.ownerName }) : t('remote.catalogue.noOwner')}</span>
+          <span className="rm-host__owner">
+            {isServer ? (host.note || t('remote.catalogue.serverNote')) : host.ownerName ? t('remote.catalogue.owner', { name: host.ownerName }) : t('remote.catalogue.noOwner')}
+          </span>
         </div>
         {can.admin && <Button type="text" size="small" icon={<SettingOutlined />} aria-label={t('common.edit')} onClick={() => onEdit(host)} />}
       </div>
       <div className="rm-host__actions">
-        {can.connect && <Button block icon={<ToolOutlined />} onClick={() => onConnect(host, 'assist')}>{t('remote.catalogue.assist')}</Button>}
+        {can.connect && <Button block type={isServer ? 'primary' : 'default'} icon={isServer ? <DesktopOutlined /> : <ToolOutlined />} onClick={() => onConnect(host, 'assist')}>{isServer ? t('remote.catalogue.connect') : t('remote.catalogue.assist')}</Button>}
         {can.monitor && host.monitored && <Button block icon={<EyeOutlined />} onClick={() => onConnect(host, 'monitor')}>{t('remote.catalogue.observe')}</Button>}
       </div>
     </article>

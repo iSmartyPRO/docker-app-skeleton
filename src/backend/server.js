@@ -13,6 +13,7 @@ import { ipGuard } from './middleware/ipGuard.js';
 import { trustProxy } from './services/security.js';
 import { getSettings, getSettingsView, parseSettings } from './services/settings.js';
 import { verifyToken } from './services/auth.js';
+import { initRemoteTunnel } from './modules/remote/tunnel.js';
 import { bootstrapSchema, schemaBootstrapped } from './services/schema.js';
 import { APP_VERSION } from './config/version.js';
 import apiRoutes from './routes/index.js';
@@ -265,6 +266,9 @@ async function start() {
   });
   // Large uploads to file servers can take longer than Node's 5-minute default.
   server.requestTimeout = 60 * 60 * 1000;
+
+  // Remote access: the WebSocket bridge to guacd (docs/specs/remote-access.ru.md).
+  initRemoteTunnel(server);
 
   const shutdown = async (signal) => {
     if (shuttingDown) return;

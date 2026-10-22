@@ -34,6 +34,12 @@ export async function ensureRemoteSchema() {
     )
   `);
   await query(`CREATE UNIQUE INDEX IF NOT EXISTS remote_hosts_address_idx ON remote_hosts (LOWER(address), port)`);
+  // kind: 'workstation' (a person's machine — owner is notified) or 'server' (infrastructure,
+  // no person behind it — a plain admin connection). Credentials are sealed (services/crypto).
+  await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS kind VARCHAR(12) NOT NULL DEFAULT 'workstation'`);
+  await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS cred_username VARCHAR(120)`);
+  await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS cred_domain VARCHAR(120)`);
+  await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS cred_password TEXT`);
   await ensureAclTable('remote_host_acl', 'remote_hosts');
   await query(`
     CREATE TABLE IF NOT EXISTS remote_sessions (

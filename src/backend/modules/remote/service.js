@@ -1,7 +1,9 @@
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { notify } from '../../services/notifications.js';
+import { seal, unseal } from '../../services/crypto.js';
 import { contextFromRequest, httpError, intId } from '../shared/acl.js';
+import { buildToken, connectionFor, TUNNEL_PATH } from './tunnel.js';
 
 /*
  * Remote access & assistance. Transparency is enforced here, not left to the
@@ -37,6 +39,7 @@ function hostShape(row) {
     address: row.address,
     protocol: row.protocol,
     port: row.port,
+    kind: row.kind || 'workstation',
     source: row.source,
     adDn: row.ad_dn,
     ownerUserId: row.owner_user_id,
@@ -44,6 +47,10 @@ function hostShape(row) {
     monitored: row.monitored,
     note: row.note,
     active: row.active,
+    // The password itself is never sent out, only whether one is stored.
+    credUsername: row.cred_username || '',
+    credDomain: row.cred_domain || '',
+    hasCredentials: Boolean(row.cred_password),
   };
 }
 
@@ -96,28 +103,29 @@ export async function saveHost(ctx, input = {}, id = null) {
   if (!name || !address) throw httpError(400, 'Name and address are required', 'NAME_REQUIRED');
   const protocol = PROTOCOLS[input.protocol] ? input.protocol : current?.protocol || 'rdp';
   const port = Number.isInteger(Number(input.port)) ? Math.min(65535, Math.max(1, Number(input.port))) : current?.port || PROTOCOLS[protocol];
-  const values = [
-    name,
-    address,
-    protocol,
-    port,
-    input.ownerUserId === undefined ? current?.owner_user_id ?? null : input.ownerUserId ? intId(input.ownerUserId) : null,
-    input.monitored === undefined ? current?.monitored ?? false : Boolean(input.monitored),
-    text(input.note ?? current?.note, 300),
-    input.active === undefined ? current?.active ?? true : Boolean(input.active),
-  ];
+  const kind = ['workstation', 'server'].includes(input.kind) ? input.kind : current?.kind || 'workstation';
+  // A server has no person behind it, so it is never a monitoring target.
+  const monitored = kind === 'server' ? false : input.monitored === undefined ? current?.monitored ?? false : Boolean(input.monitored);
+  const ownerId = kind === 'server' ? null : input.ownerUserId === undefined ? current?.owner_user_id ?? null : input.ownerUserId ? intId(input.ownerUserId) : null;
+  // Credentials: username/domain are plain, the password is sealed and write-only
+  // ('' clears it, undefined keeps the stored one).
+  const credUsername = input.credUsername === undefined ? current?.cred_username ?? null : text(input.credUsername, 120) || null;
+  const credDomain = input.credDomain === undefined ? current?.cred_domain ?? null : text(input.credDomain, 120) || null;
+  const credPassword =
+    input.credPassword === undefined ? current?.cred_password ?? null : input.credPassword ? seal(String(input.credPassword)) : null;
+  const values = [name, address, protocol, port, kind, ownerId, monitored, text(input.note ?? current?.note, 300), input.active === undefined ? current?.active ?? true : Boolean(input.active), credUsername, credDomain, credPassword];
   let row;
   try {
     if (current) {
       ({ rows: [row] } = await query(
-        `UPDATE remote_hosts SET name=$1, address=$2, protocol=$3, port=$4, owner_user_id=$5, monitored=$6, note=$7, active=$8, updated_at=NOW()
-         WHERE id=$9 RETURNING *`,
+        `UPDATE remote_hosts SET name=$1, address=$2, protocol=$3, port=$4, kind=$5, owner_user_id=$6, monitored=$7, note=$8, active=$9, cred_username=$10, cred_domain=$11, cred_password=$12, updated_at=NOW()
+         WHERE id=$13 RETURNING *`,
         [...values, current.id]
       ));
     } else {
       ({ rows: [row] } = await query(
-        `INSERT INTO remote_hosts (name, address, protocol, port, owner_user_id, monitored, note, active, source, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'manual',$9) RETURNING *`,
+        `INSERT INTO remote_hosts (name, address, protocol, port, kind, owner_user_id, monitored, note, active, cred_username, cred_domain, cred_password, source, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'manual',$13) RETURNING *`,
         [...values, ctx.userId]
       ));
     }
@@ -160,9 +168,12 @@ export async function startSession(ctx, input = {}) {
   }
 
   // Control in monitor mode may require the employee's consent (default on).
+  // A server has no person behind it, so there is nobody to consent — it is an
+  // unattended admin connection.
   const settings = await remoteSettings();
-  const needsConsent = mode === 'assist' || (wantsControl && settings.requireConsentForControl !== false);
-  const consent = needsConsent ? 'requested' : 'announced';
+  const server = host.kind === 'server';
+  const needsConsent = !server && (mode === 'assist' || (wantsControl && settings.requireConsentForControl !== false));
+  const consent = server ? 'unattended' : needsConsent ? 'requested' : 'announced';
 
   const { rows: [session] } = await query(
     `INSERT INTO remote_sessions (host_id, host_name, operator_id, watched_user_id, mode, control, consent, recorded)
@@ -185,7 +196,25 @@ export async function startSession(ctx, input = {}) {
     });
   }
 
-  return { session: sessionShape(session), token: null, tunnel: 'GUACD_OFF' };
+  // When guacd is configured, mint the live-connection token for the browser.
+  if (!settings.guacdHost) {
+    return { session: sessionShape(session), token: null, tunnel: 'GUACD_OFF', path: TUNNEL_PATH, protocol: host.protocol, readOnly: !wantsControl };
+  }
+  const creds = {
+    username: text(input.username, 120) || host.cred_username || '',
+    domain: text(input.domain, 120) || host.cred_domain || '',
+    password: input.password ? String(input.password) : unseal(host.cred_password, { label: `remote host ${host.id} password` }) || '',
+  };
+  const size = {
+    width: Math.min(3840, Math.max(640, Number(input.width) || 1280)),
+    height: Math.min(2160, Math.max(480, Number(input.height) || 720)),
+    dpi: Math.min(192, Math.max(72, Number(input.dpi) || 96)),
+  };
+  const connection = connectionFor(host, creds, size);
+  // «Only view» is enforced by guacd itself (read-only), not just hidden in the UI.
+  if (!wantsControl) connection.settings['read-only'] = 'true';
+  const token = buildToken(connection);
+  return { session: sessionShape(session), token, tunnel: 'READY', path: TUNNEL_PATH, protocol: host.protocol, readOnly: !wantsControl };
 }
 
 export async function endSession(ctx, id, input = {}) {
