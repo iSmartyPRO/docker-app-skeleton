@@ -462,3 +462,97 @@
   margin: 0;
   max-width: 360px;
 }
+
+/* Connection phases + quality */
+
+.rm-viewer-status__err {
+  font-size: 34px;
+  color: #f87171;
+}
+
+.rm-viewer-status__title {
+  margin: 10px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.rm-viewer-status__detail {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #94a3b8;
+  max-width: 420px;
+}
+
+.rm-viewer-status__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.rm-viewer-steps {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.rm-viewer-steps li {
+  position: relative;
+  padding-left: 24px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.rm-viewer-steps li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid #475569;
+}
+
+.rm-viewer-steps li.is-done { color: #cbd5e1; }
+.rm-viewer-steps li.is-done::before { background: #4ade80; border-color: #4ade80; }
+.rm-viewer-steps li.is-active { color: #e2e8f0; }
+.rm-viewer-steps li.is-active::before { border-color: #38bdf8; animation: rm-pulse 1s infinite; }
+
+@keyframes rm-pulse { 0%,100% { box-shadow: 0 0 0 0 rgb(56 189 248 / 50%); } 50% { box-shadow: 0 0 0 4px rgb(56 189 248 / 0%); } }
+
+/* Signal strength indicator */
+
+.rm-signal {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 20px;
+  padding: 0 8px 0 2px;
+}
+
+.rm-signal i {
+  width: 4px;
+  border-radius: 1px;
+  background: rgb(255 255 255 / 25%);
+}
+
+.rm-signal i:nth-child(1) { height: 6px; }
+.rm-signal i:nth-child(2) { height: 11px; }
+.rm-signal i:nth-child(3) { height: 16px; }
+
+.rm-signal.is-3 i { background: #4ade80; }
+.rm-signal.is-2 i:nth-child(-n+2) { background: #a3e635; }
+.rm-signal.is-1 i:nth-child(1) { background: #fbbf24; }
+.rm-signal.is-0 i:nth-child(1) { background: #f87171; }
+
+.rm-signal__num {
+  margin-left: 6px;
+  font-size: 11px;
+  color: #cbd5e1;
+  align-self: center;
+}

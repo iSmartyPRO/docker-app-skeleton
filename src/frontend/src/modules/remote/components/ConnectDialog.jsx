@@ -63,7 +63,7 @@ export default function ConnectDialog({ open, host, mode, onClose }) {
 
   // Live screen.
   if (session?.tunnel === 'READY') {
-    return <RemoteViewer token={session.token} path={session.path} hostName={host.name} readOnly={session.readOnly} onClose={finish} />;
+    return <RemoteViewer token={session.token} path={session.path} hostName={host.name} readOnly={session.readOnly} onClose={finish} onRetry={async () => { if (session.session?.id) await remoteApi.end(session.session.id).catch(() => {}); setSession(null); start(); }} />;
   }
 
   return (

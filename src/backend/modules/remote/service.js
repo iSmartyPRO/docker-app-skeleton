@@ -1,3 +1,4 @@
+import net from 'net';
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { notify } from '../../services/notifications.js';
@@ -13,6 +14,23 @@ import { buildToken, connectionFor, TUNNEL_PATH } from './tunnel.js';
 
 const PROTOCOLS = { rdp: 3389, vnc: 5900 };
 const MODES = ['assist', 'monitor'];
+
+/** A quick TCP reachability check from the portal (same network as guacd). */
+export function tcpProbe(host, port, timeout = 4000) {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const socket = new net.Socket();
+    const done = (ok, reason) => {
+      socket.destroy();
+      resolve({ ok, reason: reason || '', ms: Date.now() - started });
+    };
+    socket.setTimeout(timeout);
+    socket.once('connect', () => done(true));
+    socket.once('timeout', () => done(false, 'timeout'));
+    socket.once('error', (err) => done(false, err.code === 'ECONNREFUSED' ? 'refused' : err.code || 'error'));
+    socket.connect(Number(port), String(host));
+  });
+}
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
 
 export function remoteContext(req) {
@@ -199,6 +217,16 @@ export async function startSession(ctx, input = {}) {
   // When guacd is configured, mint the live-connection token for the browser.
   if (!settings.guacdHost) {
     return { session: sessionShape(session), token: null, tunnel: 'GUACD_OFF', path: TUNNEL_PATH, protocol: host.protocol, readOnly: !wantsControl };
+  }
+  // Fast pre-flight: the portal is on the same network as guacd, so this is what
+  // a session would do. Fail in a few seconds with a clear message instead of
+  // letting the RDP handshake hang on an unreachable host.
+  const reach = await tcpProbe(host.address, host.port, 4000);
+  if (!reach.ok) {
+    await query(`UPDATE remote_sessions SET ended_at = NOW(), note = $2 WHERE id = $1`, [session.id, `unreachable: ${reach.reason}`]);
+    const error = httpError(409, 'The computer is not reachable on the network', 'HOST_UNREACHABLE');
+    error.details = { address: `${host.address}:${host.port}`, reason: reach.reason, ms: reach.ms };
+    throw error;
   }
   const creds = {
     username: text(input.username, 120) || host.cred_username || '',

@@ -10,6 +10,7 @@ export default {
     other: 'This contact',
   },
   codes: {
+    HOST_UNREACHABLE: 'The computer is not reachable on the network (host off or the port is closed).',
     HOST_EXISTS: 'A computer with this address and port is already in the catalogue.',
     NOT_MONITORED: 'This computer is not in the monitoring scope.',
     POLICY_NOT_ACKED: 'Confirm the monitoring policy in the module settings first.',

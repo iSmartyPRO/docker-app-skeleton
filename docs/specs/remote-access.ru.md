@@ -192,6 +192,27 @@ remote_sessions       журнал: компьютер, оператор, наб
 
 ---
 
+## Обратный прокси и WebSocket
+
+Живой экран идёт через **WebSocket** на `/api/app/remote/tunnel`. Каждый обратный
+прокси перед порталом должен пробрасывать для этого пути заголовки `Upgrade` и
+`Connection`, иначе соединение молча зависает на «Подключение…», а бэкенд видит
+обычный запрос и отвечает `401`. nginx портала это уже делает; если перед
+порталом стоит **внешний** nginx/Traefik, добавьте там:
+
+```nginx
+location = /api/app/remote/tunnel {
+    proxy_pass http://<portal-upstream>;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;   # map $http_upgrade → "upgrade"/""
+    proxy_read_timeout 3600s;
+    proxy_buffering off;
+}
+```
+
+---
+
 ## Безопасность
 
 - Наружу смотрит только HTTPS портала; порты 3389/5900/4822 в интернет не открываются.

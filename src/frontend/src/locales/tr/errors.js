@@ -10,6 +10,7 @@ export default {
     other: 'Bu iletişim bilgisi',
   },
   codes: {
+    HOST_UNREACHABLE: 'Bilgisayara ağ üzerinden ulaşılamıyor (kapalı veya bağlantı noktası kapalı).',
     HOST_EXISTS: 'Bu adres ve bağlantı noktasına sahip bir bilgisayar kataloğda zaten var.',
     NOT_MONITORED: 'Bu bilgisayar izleme kapsamında değil.',
     POLICY_NOT_ACKED: 'Önce modül ayarlarında izleme politikasını onaylayın.',

@@ -10,6 +10,7 @@ export default {
     other: '此联系方式',
   },
   codes: {
+    HOST_UNREACHABLE: '无法通过网络访问该计算机（已关机或端口关闭）。',
     HOST_EXISTS: '目录中已存在使用该地址和端口的计算机。',
     NOT_MONITORED: '该计算机不在监看范围内。',
     POLICY_NOT_ACKED: '请先在模块设置中确认监看策略。',
