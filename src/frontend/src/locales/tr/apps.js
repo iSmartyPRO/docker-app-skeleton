@@ -43,6 +43,10 @@ export default {
     name: 'QR kodları',
     desc: 'Web sitesi, kartvizit ve Wi-Fi için kurumsal QR kodları',
   },
+  remote: {
+    name: 'Uzak erişim',
+    desc: 'Destek ve izleme için bilgisayarlara bağlanın',
+  },
   companies: {
     name: 'Cari hesaplar',
     desc: 'Şirketler ve kişiler: sicillerden alınan bilgiler, çalışanlar ve kariyerleri, geçmiş ve puanlar',

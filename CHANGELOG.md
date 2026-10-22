@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Remote access** module ([docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md), off by default): remote desktop access to employees' computers over Guacamole — a computers catalogue, access by portal and AD groups, attended support (`assist`, with the employee's consent) and announced monitoring (`monitor`). Transparency is enforced by the server, not the UI: every connection writes an audit row and notifies the watched employee, who can review all connections to their own computer; monitoring is refused until a superadministrator confirms the policy checklist; there is no covert / silent mode, and the settings have no switch to add one. guacd runs as a separate container; the module needs only its address. The live tunnel, in-browser viewer and the UltraVNC GPO package follow a pilot. Permissions: `remote.view|connect|monitor|admin`.
+
 ## [1.9.1] - 2026-10-21
 
 ### Fixed

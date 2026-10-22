@@ -170,6 +170,17 @@ export const MODULE_REGISTRY = [
     Settings: lazy(() => import('./qr/QrSettings')),
   },
   {
+    // Remote access & assistance (docs/specs/remote-access.ru.md). Listed only for people with a remote.* permission.
+    id: 'remote',
+    path: '/app/remote',
+    icon: 'remote',
+    permission: ['remote.view', 'remote.connect', 'remote.monitor', 'remote.admin'],
+    labelKey: 'apps.remote.name',
+    descKey: 'apps.remote.desc',
+    App: lazyPage(() => import('./remote/RemoteApp')),
+    Settings: lazy(() => import('./remote/RemoteSettings')),
+  },
+  {
     id: 'drive',
     path: '/app/drive',
     icon: 'server',

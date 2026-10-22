@@ -43,6 +43,10 @@ export default {
     name: '二维码',
     desc: '网站、名片和 Wi-Fi 的品牌二维码',
   },
+  remote: {
+    name: '远程访问',
+    desc: '连接计算机进行协助和监看',
+  },
   companies: {
     name: '往来单位',
     desc: '公司和联系人：来自登记簿的工商信息、人员及其履历、历史记录和评级',

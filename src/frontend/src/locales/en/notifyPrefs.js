@@ -1,5 +1,6 @@
 export default {
   groups: {
+    remote: 'Remote access',
     drive: 'File server',
     tasks: 'Tasks',
     crm: 'CRM',
@@ -14,6 +15,10 @@ export default {
     employees: 'Employees',
   },
   events: {
+    remote_connected: {
+      title: 'Connection to my computer',
+      desc: 'Someone connected to your computer for support or monitoring',
+    },
     drive_linkActivity: {
       title: 'Activity on my links',
       desc: 'Visitors of your public links uploaded, changed or deleted files (one notice per visit)',

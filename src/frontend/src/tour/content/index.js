@@ -15,8 +15,9 @@ import kb from './kb.js';
 import companies from './companies.js';
 import resources from './resources.js';
 import qr from './qr.js';
+import remote from './remote.js';
 import notifications from './notifications.js';
 
-export const BUILTIN_TOURS = [portal, dashboard, tasks, files, drive, chat, calendar, kb, companies, resources, qr, notifications];
+export const BUILTIN_TOURS = [portal, dashboard, tasks, files, drive, chat, calendar, kb, companies, resources, qr, remote, notifications];
 
 BUILTIN_TOURS.forEach((tour) => registerTour(tour));

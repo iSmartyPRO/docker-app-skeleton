@@ -286,6 +286,10 @@ export default {
     title: 'QR kodları',
     desc: 'Şablonlar, özel tasarım, logo yükleme, dinamik kodlar',
   },
+  remote: {
+    title: 'Uzak erişim',
+    desc: 'Bilgisayarlar, erişim, guacd hizmeti, oturumlar ve izleme politikası',
+  },
   companies: {
     title: 'Cari hesaplar',
     desc: 'Ülkeler, siciller (Kırgızistan Adalet Bakanlığı, EGRUL, DaData), ilişki türleri, özel alanlar',

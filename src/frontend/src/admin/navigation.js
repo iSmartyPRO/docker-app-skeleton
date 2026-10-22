@@ -265,6 +265,11 @@ export const SETTINGS_GROUPS = [
         keywords: 'qr codes qr-code vcard wifi branding logo templates dynamic scan куар qr-коды коды визитка вайфай брендирование логотип шаблоны динамические сканирования',
       },
       {
+        id: 'remote',
+        defaultIcon: 'remote',
+        keywords: 'remote access desktop rdp vnc guacamole assistance monitoring support удалённый доступ рабочий стол помощь наблюдение поддержка rdp vnc гуакамоле',
+      },
+      {
         id: 'drive',
         defaultIcon: 'server',
         keywords: 'drive file server smb share dfs network windows active directory сетевой диск файловый сервер шара папки access security groups ntfs permissions sg доступ к папкам группы безопасности права ntfs',

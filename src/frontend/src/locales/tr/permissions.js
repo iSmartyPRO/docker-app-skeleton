@@ -14,6 +14,7 @@ export default {
     api: 'API',
     module_resources: 'Çevrimiçi kaynaklar',
     module_qr: 'QR kodları',
+    module_remote: 'Uzak erişim',
     module_companies: 'Cari hesaplar',
     module_crm: 'CRM',
     module_masterplan: 'Master plan',
@@ -132,6 +133,22 @@ export default {
   qr_admin: {
     title: 'QR şablonlarını yönet',
     desc: 'Kullanıcıların seçtiği şablonları hazırlar, kurumsal renkleri ve logoyu kilitler.',
+  },
+  remote_view: {
+    title: 'Bilgisayarları gör',
+    desc: 'Bilgisayar kataloğunu ve durumlarını görüntüle.',
+  },
+  remote_connect: {
+    title: 'Uzaktan yardım',
+    desc: 'Destek modunda bir bilgisayara bağlan (çalışanın onayıyla).',
+  },
+  remote_monitor: {
+    title: 'Çalışmayı izle',
+    desc: 'İzleme kapsamındaki bilgisayarlara izleme modunda bağlan. Çalışan her zaman bilgilendirilir.',
+  },
+  remote_admin: {
+    title: 'Uzak erişimi yönet',
+    desc: 'Bilgisayar ekle, izleme kapsamı ve politikasını belirle, tüm günlüğü gör.',
   },
   companies_admin: {
     title: 'Cari hesap yöneticisi',

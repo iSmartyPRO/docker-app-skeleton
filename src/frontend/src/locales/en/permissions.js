@@ -14,6 +14,7 @@ export default {
     api: 'API',
     module_resources: 'Online resources',
     module_qr: 'QR codes',
+    module_remote: 'Remote access',
     module_companies: 'Counterparties',
     module_crm: 'CRM',
     module_masterplan: 'Masterplan',
@@ -132,6 +133,22 @@ export default {
   qr_admin: {
     title: 'Manage QR templates',
     desc: 'Prepare the templates people pick from, lock brand colours and logos.',
+  },
+  remote_view: {
+    title: 'See the computers',
+    desc: 'Browse the catalogue of computers and their status.',
+  },
+  remote_connect: {
+    title: 'Help over remote',
+    desc: 'Connect to a computer in support mode (with the employee’s consent).',
+  },
+  remote_monitor: {
+    title: 'Observe work',
+    desc: 'Connect in monitoring mode to computers in the monitoring scope. The employee is always notified.',
+  },
+  remote_admin: {
+    title: 'Manage remote access',
+    desc: 'Add computers, set the monitoring scope and policy, and see the whole journal.',
   },
   companies_admin: {
     title: 'Counterparties admin',

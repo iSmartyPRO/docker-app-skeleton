@@ -332,6 +332,30 @@ export const MODULE_MANIFEST = {
       },
     ],
   },
+  remote: {
+    name: { en: 'Remote access', ky: 'Алыстан кирүү', tr: 'Uzak erişim', zh: '远程访问', ru: 'Удалённый доступ' },
+    version: '1.0.0',
+    category: 'infrastructure',
+    minCore: '1.7.0',
+    requires: [],
+    enhances: [
+      { id: 'directory', what: { en: 'Import computers from Active Directory', ky: 'Компьютерлерди Active Directory\'den импорттоо', tr: 'Bilgisayarları Active Directory\'den içe aktarma', zh: '从 Active Directory 导入计算机', ru: 'Импорт компьютеров из Active Directory' } },
+    ],
+    docs: { user: 'remote', guide: 'docs/specs/remote-access.ru.md' },
+    changelog: [
+      {
+        version: '1.0.0',
+        date: '2026-10-22',
+        changes: {
+          en: ['Computers catalogue, access by portal and AD groups, attended support and announced monitoring with a built-in audit journal the watched employee can see, and a consent prompt for taking control. Transparency is enforced by the server; there is no covert mode. The live guacd tunnel, in-browser viewer and GPO package follow a pilot.'],
+          ru: ['Каталог компьютеров, доступ по группам портала и AD, помощь по запросу и наблюдение с уведомлением, встроенный журнал подключений (виден и самому сотруднику) и запрос согласия на управление. Прозрачность обеспечивается сервером; скрытого режима нет. Живой туннель guacd, просмотрщик в браузере и пакет GPO — после пилота.'],
+          ky: ['Компьютерлер каталогу, портал жана AD топтору боюнча кирүү, суроо боюнча жардам жана эскертүү менен байкоо, кызматкер көрө алган камтылган журнал жана башкарууга макулдук суроо. Ачык режим жок. guacd туннели, браузердеги көрсөткүч жана GPO пакети — пилоттон кийин.'],
+          tr: ['Bilgisayar kataloğu, portal ve AD gruplarına göre erişim, talep üzerine destek ve bildirimli izleme, çalışanın görebildiği yerleşik günlük ve kontrolü devralmak için onay istemi. Gizli mod yoktur. Canlı guacd tüneli, tarayıcı görüntüleyici ve GPO paketi pilottan sonra gelir.'],
+          zh: ['计算机目录、按门户和 AD 组的访问、应请求的协助与告知式监看、员工可查看的内置审计日志，以及接管控制前的同意提示。不提供隐蔽模式。实时 guacd 隧道、浏览器查看器和 GPO 包在试点后推出。'],
+        },
+      },
+    ],
+  },
 };
 
 /**

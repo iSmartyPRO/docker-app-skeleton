@@ -43,6 +43,10 @@ export default {
     name: 'QR codes',
     desc: 'Branded QR codes for websites, cards and Wi-Fi',
   },
+  remote: {
+    name: 'Remote access',
+    desc: 'Connect to computers for support and monitoring',
+  },
   companies: {
     name: 'Counterparties',
     desc: 'Companies and contacts: details from registers, people and their careers, history and ratings',

@@ -563,6 +563,13 @@ export default {
     preview: { title: 'Live preview', text: 'Each change is checked for scanning at once. Download PNG up to 4096 px or a vector SVG for print.' },
     manage: { title: 'Templates', text: 'Prepare looks for everyone, choose the default and lock what must stay on brand.' },
   },
+  remote: {
+    title: 'Remote access tour',
+    intro: { title: 'Help and observe — openly', text: 'Connect to employees’ computers for support, or observe work with the employee’s knowledge. Every connection is notified and logged; there is no hidden mode.' },
+    catalogue: { title: 'Computers', text: 'The computers you can reach. «Help» asks the employee’s consent; «Observe» is for machines in the monitoring scope.' },
+    my: { title: 'Connections to my computer', text: 'Everyone sees who connected to their own computer and when — this is the transparency guarantee.' },
+    journal: { title: 'Journal and settings', text: 'Administrators see every connection and set the guacd service, the monitoring scope and the policy.' },
+  },
   resources: {
     title: 'Online resources tour',
     intro: {

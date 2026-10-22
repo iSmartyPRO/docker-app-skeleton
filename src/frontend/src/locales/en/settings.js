@@ -288,6 +288,10 @@ export default {
     title: 'QR codes',
     desc: 'Templates, own designs, logo uploads, dynamic codes',
   },
+  remote: {
+    title: 'Remote access',
+    desc: 'Computers, access, guacd service, sessions and the monitoring policy',
+  },
   companies: {
     title: 'Counterparties',
     desc: 'Countries, registers (Minjust KG, EGRUL, DaData), relationship types, custom fields',

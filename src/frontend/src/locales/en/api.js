@@ -237,6 +237,10 @@ export default {
       title: 'QR codes',
       desc: 'Own codes, designs, dynamic links and scans',
     },
+    remote: {
+      title: 'Remote access',
+      desc: 'Computers I may reach, sessions and the journal of connections to my computer',
+    },
   },
   resources: {
     tasks_projects: 'Task projects',

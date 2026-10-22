@@ -235,6 +235,10 @@ export default {
       title: '二维码',
       desc: '自己的二维码、样式、动态链接和扫描',
     },
+    remote: {
+      title: '远程访问',
+      desc: '我可访问的计算机、会话以及连接到我计算机的日志',
+    },
   },
   resources: {
     tasks_projects: '任务项目',

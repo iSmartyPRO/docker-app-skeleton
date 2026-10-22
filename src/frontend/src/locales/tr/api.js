@@ -237,6 +237,10 @@ export default {
       title: 'QR kodları',
       desc: 'Kendi kodları, tasarımlar, dinamik bağlantılar ve taramalar',
     },
+    remote: {
+      title: 'Uzak erişim',
+      desc: 'Erişebildiğim bilgisayarlar, oturumlar ve bilgisayarıma yapılan bağlantıların günlüğü',
+    },
   },
   resources: {
     tasks_projects: 'Görev projeleri',

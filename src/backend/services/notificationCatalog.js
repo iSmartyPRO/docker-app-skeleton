@@ -18,6 +18,14 @@ const on = (push, email, messenger) => ({ push, email, telegram: messenger, what
 
 export const NOTIFICATION_GROUPS = [
   {
+    key: 'remote',
+    module: 'remote',
+    events: [
+      // The watched employee is always told when someone connects to their computer.
+      { kind: 'remote.connected', defaults: on(true, false, false) },
+    ],
+  },
+  {
     key: 'tasks',
     module: 'tasks',
     events: [

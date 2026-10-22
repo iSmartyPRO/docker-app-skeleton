@@ -10,6 +10,11 @@ export default {
     other: '此联系方式',
   },
   codes: {
+    HOST_EXISTS: '目录中已存在使用该地址和端口的计算机。',
+    NOT_MONITORED: '该计算机不在监看范围内。',
+    POLICY_NOT_ACKED: '请先在模块设置中确认监看策略。',
+    GUACD_OFF: '连接服务（guacd）尚未配置。',
+    NAME_REQUIRED: '请填写计算机名称和地址。',
     QR_LIMIT: '二维码数量已达上限，请删除不再需要的。',
     QR_TYPE: '未知的二维码类型。',
     QR_URL: '动态码需要以 http:// 或 https:// 开头的网址。',

@@ -14,6 +14,7 @@ export default {
     api: 'API',
     module_resources: '在线资源',
     module_qr: '二维码',
+    module_remote: '远程访问',
     module_companies: '往来单位',
     module_crm: 'CRM',
     module_masterplan: '总体规划',
@@ -132,6 +133,22 @@ export default {
   qr_admin: {
     title: '管理二维码模板',
     desc: '准备供员工选择的模板，锁定品牌颜色和标志。',
+  },
+  remote_view: {
+    title: '查看计算机',
+    desc: '浏览计算机目录及其状态。',
+  },
+  remote_connect: {
+    title: '远程协助',
+    desc: '以协助模式连接计算机（需员工同意）。',
+  },
+  remote_monitor: {
+    title: '监看工作',
+    desc: '以监看模式连接监看范围内的计算机。始终会通知员工。',
+  },
+  remote_admin: {
+    title: '管理远程访问',
+    desc: '添加计算机、设置监看范围和策略、查看全部日志。',
   },
   companies_admin: {
     title: '往来单位管理员',

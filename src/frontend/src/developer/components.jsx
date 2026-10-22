@@ -24,6 +24,7 @@ export const AREA_ICONS = {
   drive: 'server',
   resources: 'compass',
   qr: 'qr',
+  remote: 'remote',
   companies: 'building',
   crm: 'target',
   dashboard: 'dashboard',

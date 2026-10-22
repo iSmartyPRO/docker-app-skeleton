@@ -10,6 +10,11 @@ export default {
     other: 'This contact',
   },
   codes: {
+    HOST_EXISTS: 'A computer with this address and port is already in the catalogue.',
+    NOT_MONITORED: 'This computer is not in the monitoring scope.',
+    POLICY_NOT_ACKED: 'Confirm the monitoring policy in the module settings first.',
+    GUACD_OFF: 'The connection service (guacd) is not set up yet.',
+    NAME_REQUIRED: 'Give the computer a name and address.',
     QR_LIMIT: 'You have reached the limit of QR codes. Delete the ones you no longer need.',
     QR_TYPE: 'Unknown kind of QR code.',
     QR_URL: 'A dynamic code needs a website address starting with http:// or https://.',

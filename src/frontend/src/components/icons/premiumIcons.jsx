@@ -494,6 +494,14 @@ export const PREMIUM_ICONS = {
       <path d="M6.4 8.2V6.4H8.4M17.6 8.2V6.4H15.6M6.4 15.8v1.8H8.4M17.6 15.8v1.8H15.6M5.8 12h12.4" {...S} />
     </>
   )),
+  // Remote access module: a monitor with a cursor arrow on screen.
+  remote: icon('#2B8A9B', () => (
+    <>
+      <rect x="4.6" y="5.4" width="14.8" height="10.2" rx="2.2" fill="#fff" />
+      <path d="M9.4 19.2h5.2M12 16v3.2" stroke="var(--da-icon-hole)" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M9.2 8.4v4.6l1.35-1.3 1 2.1 1.15-.52-.98-2.05h1.86L9.2 8.4Z" fill="var(--da-icon-hole)" />
+    </>
+  )),
   // QR codes module: three finder squares and a few data modules.
   qr: icon('#7048E8', () => (
     <>

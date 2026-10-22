@@ -286,6 +286,10 @@ export default {
     title: '二维码',
     desc: '模板、自定义样式、上传标志、动态码',
   },
+  remote: {
+    title: '远程访问',
+    desc: '计算机、访问、guacd 服务、会话和监看策略',
+  },
   companies: {
     title: '往来单位',
     desc: '国家、登记簿（吉尔吉斯司法部、EGRUL、DaData）、关系类型、自定义字段',
