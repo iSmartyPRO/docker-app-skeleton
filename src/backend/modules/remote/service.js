@@ -5,6 +5,8 @@ import { notify } from '../../services/notifications.js';
 import { seal, unseal } from '../../services/crypto.js';
 import { contextFromRequest, httpError, intId } from '../shared/acl.js';
 import { buildToken, connectionFor, TUNNEL_PATH } from './tunnel.js';
+import { resolveVault } from './credentials.js';
+import { resolvePassbolt } from './passbolt.js';
 
 /*
  * Remote access & assistance. Transparency is enforced here, not left to the
@@ -69,7 +71,13 @@ function hostShape(row) {
     credUsername: row.cred_username || '',
     credDomain: row.cred_domain || '',
     hasCredentials: Boolean(row.cred_password),
+    defaultCred: row.default_cred || '',
+    appCount: row.app_count != null ? Number(row.app_count) : undefined,
   };
+}
+
+function appShape(row) {
+  return { id: row.id, hostId: row.host_id, hostName: row.host_name, name: row.name, alias: row.alias, args: row.args, workDir: row.work_dir, icon: row.icon, active: row.active, sort: row.sort };
 }
 
 function sessionShape(row) {
@@ -131,19 +139,20 @@ export async function saveHost(ctx, input = {}, id = null) {
   const credDomain = input.credDomain === undefined ? current?.cred_domain ?? null : text(input.credDomain, 120) || null;
   const credPassword =
     input.credPassword === undefined ? current?.cred_password ?? null : input.credPassword ? seal(String(input.credPassword)) : null;
-  const values = [name, address, protocol, port, kind, ownerId, monitored, text(input.note ?? current?.note, 300), input.active === undefined ? current?.active ?? true : Boolean(input.active), credUsername, credDomain, credPassword];
+  const defaultCred = input.defaultCred === undefined ? current?.default_cred ?? '' : String(input.defaultCred || '').replace(/[^a-z0-9:_-]/gi, '').slice(0, 80);
+  const values = [name, address, protocol, port, kind, ownerId, monitored, text(input.note ?? current?.note, 300), input.active === undefined ? current?.active ?? true : Boolean(input.active), credUsername, credDomain, credPassword, defaultCred];
   let row;
   try {
     if (current) {
       ({ rows: [row] } = await query(
-        `UPDATE remote_hosts SET name=$1, address=$2, protocol=$3, port=$4, kind=$5, owner_user_id=$6, monitored=$7, note=$8, active=$9, cred_username=$10, cred_domain=$11, cred_password=$12, updated_at=NOW()
-         WHERE id=$13 RETURNING *`,
+        `UPDATE remote_hosts SET name=$1, address=$2, protocol=$3, port=$4, kind=$5, owner_user_id=$6, monitored=$7, note=$8, active=$9, cred_username=$10, cred_domain=$11, cred_password=$12, default_cred=$13, updated_at=NOW()
+         WHERE id=$14 RETURNING *`,
         [...values, current.id]
       ));
     } else {
       ({ rows: [row] } = await query(
-        `INSERT INTO remote_hosts (name, address, protocol, port, kind, owner_user_id, monitored, note, active, cred_username, cred_domain, cred_password, source, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'manual',$13) RETURNING *`,
+        `INSERT INTO remote_hosts (name, address, protocol, port, kind, owner_user_id, monitored, note, active, cred_username, cred_domain, cred_password, default_cred, source, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'manual',$14) RETURNING *`,
         [...values, ctx.userId]
       ));
     }
@@ -158,6 +167,59 @@ export async function deleteHost(ctx, id) {
   requireAdmin(ctx);
   const { rowCount } = await query(`DELETE FROM remote_hosts WHERE id = $1`, [intId(id)]);
   if (!rowCount) throw httpError(404, 'Computer not found', 'NOT_FOUND');
+}
+
+/* ── RemoteApp (published applications) ─────────────────────────────────── */
+
+const appText = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, max);
+
+async function appById(id) {
+  const { rows } = await query(
+    `SELECT a.*, h.name AS host_name FROM remote_apps a JOIN remote_hosts h ON h.id = a.host_id WHERE a.id = $1`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+/** Published apps of active servers (for the launcher), or of one host (admin). */
+export async function listApps(ctx, { hostId = null, all = false } = {}) {
+  const { rows } = await query(
+    `SELECT a.*, h.name AS host_name FROM remote_apps a JOIN remote_hosts h ON h.id = a.host_id
+      WHERE ${hostId ? 'a.host_id = $1' : 'TRUE'} ${all ? '' : 'AND a.active AND h.active'}
+      ORDER BY h.name, a.sort, a.id`,
+    hostId ? [intId(hostId)] : []
+  );
+  return rows.map(appShape);
+}
+
+export async function saveApp(ctx, input = {}, id = null) {
+  requireAdmin(ctx);
+  const current = id ? await appById(intId(id)) : null;
+  if (id && !current) throw httpError(404, 'Application not found', 'APP_NOT_FOUND');
+  const hostId = current?.host_id ?? intId(input.hostId);
+  const host = await hostById(hostId);
+  if (!host) throw httpError(404, 'Computer not found', 'NOT_FOUND');
+  const name = appText(input.name ?? current?.name, 120);
+  const alias = appText(input.alias ?? current?.alias, 255);
+  if (!name || !alias) throw httpError(400, 'Name and program are required', 'NAME_REQUIRED');
+  const values = [name, alias, appText(input.args ?? current?.args, 500), appText(input.workDir ?? current?.work_dir, 300), appText(input.icon ?? current?.icon, 40) || 'app', input.active === undefined ? current?.active ?? true : Boolean(input.active)];
+  let row;
+  if (current) {
+    ({ rows: [row] } = await query(`UPDATE remote_apps SET name=$1, alias=$2, args=$3, work_dir=$4, icon=$5, active=$6 WHERE id=$7 RETURNING *`, [...values, current.id]));
+  } else {
+    ({ rows: [row] } = await query(
+      `INSERT INTO remote_apps (host_id, name, alias, args, work_dir, icon, active, sort)
+       VALUES ($7,$1,$2,$3,$4,$5,$6, (SELECT COALESCE(MAX(sort),-1)+1 FROM remote_apps WHERE host_id=$7)) RETURNING *`,
+      [...values, hostId]
+    ));
+  }
+  return appShape(await appById(row.id));
+}
+
+export async function deleteApp(ctx, id) {
+  requireAdmin(ctx);
+  const { rowCount } = await query(`DELETE FROM remote_apps WHERE id = $1`, [intId(id)]);
+  if (!rowCount) throw httpError(404, 'Application not found', 'APP_NOT_FOUND');
 }
 
 /* ── Sessions (the audit trail) ────────────────────────────────────────── */
@@ -228,21 +290,63 @@ export async function startSession(ctx, input = {}) {
     error.details = { address: `${host.address}:${host.port}`, reason: reach.reason, ms: reach.ms };
     throw error;
   }
-  const creds = {
-    username: text(input.username, 120) || host.cred_username || '',
-    domain: text(input.domain, 120) || host.cred_domain || '',
-    password: input.password ? String(input.password) : unseal(host.cred_password, { label: `remote host ${host.id} password` }) || '',
-  };
+  // RemoteApp: launch one published application instead of the whole desktop.
+  let app = null;
+  if (input.appId) {
+    app = await appById(intId(input.appId));
+    if (!app || app.host_id !== host.id || !app.active) throw httpError(404, 'Application not found', 'APP_NOT_FOUND');
+  }
+
+  const creds = await resolveCredentials(ctx, host, input);
   const size = {
     width: Math.min(3840, Math.max(640, Number(input.width) || 1280)),
     height: Math.min(2160, Math.max(480, Number(input.height) || 720)),
     dpi: Math.min(192, Math.max(72, Number(input.dpi) || 96)),
+    app: app ? { alias: app.alias, workDir: app.work_dir, args: app.args } : null,
   };
   const connection = connectionFor(host, creds, size);
   // «Only view» is enforced by guacd itself (read-only), not just hidden in the UI.
   if (!wantsControl) connection.settings['read-only'] = 'true';
   const token = buildToken(connection);
-  return { session: sessionShape(session), token, tunnel: 'READY', path: TUNNEL_PATH, protocol: host.protocol, readOnly: !wantsControl };
+  return { session: sessionShape(session), token, tunnel: 'READY', path: TUNNEL_PATH, protocol: host.protocol, readOnly: !wantsControl, app: app ? app.name : null };
+}
+
+/*
+ * Resolves the credentials for a session from the chosen source:
+ *   manual   — typed in for this session, nothing stored
+ *   host     — the computer's own stored credentials
+ *   vault    — an entry of the portal password manager
+ *   passbolt — an entry of the person's own Passbolt
+ * When no source is given, the host's default is used, then its own credentials.
+ */
+export async function resolveCredentials(ctx, host, input = {}) {
+  const auth = input.auth && typeof input.auth === 'object' ? input.auth : null;
+  let source = auth?.source || '';
+  let id = auth?.id;
+
+  // Legacy manual fields (connect dialog) without an explicit source.
+  if (!source && (input.username != null || input.password != null)) source = 'manual';
+  // No choice at all → the host's default, then its own credentials.
+  if (!source) {
+    const def = host.default_cred || (host.cred_password ? 'host' : '');
+    if (def.includes(':')) { [source, id] = def.split(':'); } else source = def;
+  }
+
+  switch (source) {
+    case 'manual':
+      return { username: text(input.username, 160), domain: text(input.domain, 120), password: input.password ? String(input.password) : '' };
+    case 'vault':
+      return resolveVault(ctx, id);
+    case 'passbolt':
+      return resolvePassbolt(ctx, id);
+    case 'host':
+    default:
+      return {
+        username: host.cred_username || '',
+        domain: host.cred_domain || '',
+        password: unseal(host.cred_password, { label: `remote host ${host.id} password` }) || '',
+      };
+  }
 }
 
 export async function endSession(ctx, id, input = {}) {
@@ -274,13 +378,16 @@ export async function listSessions(ctx, { scope = 'mine', limit = 200 } = {}) {
 
 export async function bootstrap(ctx) {
   const settings = await remoteSettings();
+  const [hosts, apps] = await Promise.all([listHosts(ctx), listApps(ctx)]);
   return {
-    hosts: await listHosts(ctx),
+    hosts,
+    apps,
     settings: {
       guacdConfigured: Boolean(settings.guacdHost),
       requireConsentForControl: settings.requireConsentForControl !== false,
       recording: Boolean(settings.recording),
       monitoringReady: Boolean(settings.policyAckAt),
+      passbolt: Boolean(settings.passbolt),
     },
     can: { connect: ctx.canConnect, monitor: ctx.canMonitor, admin: ctx.isAdmin },
   };

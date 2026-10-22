@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App, Button, Empty, Input, Modal, Segmented, Select, Switch, Tag, Tooltip } from 'antd';
-import { CloudServerOutlined, DesktopOutlined, EyeOutlined, HistoryOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, CloudServerOutlined, DesktopOutlined, EyeOutlined, HistoryOutlined, KeyOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -74,6 +74,7 @@ export default function Catalogue() {
         title={t('apps.remote.name')}
         description={t('remote.catalogue.lead')}
         actions={[
+          { key: 'vault', icon: <KeyOutlined />, label: t('remote.vault.title'), onClick: () => navigate('/app/remote/vault') },
           { key: 'my', icon: <SafetyCertificateOutlined />, label: t('remote.my.title'), onClick: () => navigate('/app/remote/my') },
           remote.can.admin && { key: 'journal', icon: <HistoryOutlined />, label: t('remote.journal.title'), onClick: () => navigate('/app/remote/journal') },
           remote.can.admin && { key: 'add', primary: true, icon: <PlusOutlined />, label: t('remote.catalogue.add'), onClick: () => setEditing({}) },
@@ -88,6 +89,26 @@ export default function Catalogue() {
         <p className="rm-note is-info">{t('remote.catalogue.guacdOff')}</p>
       )}
 
+      {remote.apps.length > 0 && (
+        <section className="rm-apps" data-tour="rm.apps">
+          <h2 className="rm-section-title"><AppstoreOutlined /> {t('remote.apps.title')}</h2>
+          <div className="rm-apps__grid">
+            {remote.apps.map((app) => {
+              const appHost = remote.hosts.find((h) => h.id === app.hostId);
+              return (
+                <button key={app.id} type="button" className="rm-app" onClick={() => appHost && setConnect({ host: appHost, app })} disabled={!appHost}>
+                  <span className="rm-app__icon"><AppstoreOutlined /></span>
+                  <span className="rm-app__text">
+                    <strong>{app.name}</strong>
+                    <small>{app.hostName}</small>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {empty ? (
         <div className="rm-empty">
           <div className="rm-empty__art"><DesktopOutlined /></div>
@@ -100,13 +121,13 @@ export default function Catalogue() {
       ) : (
         <div className="rm-grid" data-tour="rm.catalogue">
           {shown.map((host) => (
-            <HostCard key={host.id} host={host} can={remote.can} onEdit={setEditing} onConnect={(h, mode) => setConnect({ host: h, mode })} />
+            <HostCard key={host.id} host={host} can={remote.can} onEdit={setEditing} onConnect={(h, m) => setConnect({ host: h, mode: m })} />
           ))}
         </div>
       )}
 
       <HostDialog open={Boolean(editing)} host={editing} onClose={(changed) => { setEditing(null); if (changed) remote.refresh(); }} />
-      <ConnectDialog open={Boolean(connect)} host={connect?.host} mode={connect?.mode} onClose={() => setConnect(null)} />
+      <ConnectDialog open={Boolean(connect)} host={connect?.host} app={connect?.app} mode={connect?.mode} onClose={() => setConnect(null)} />
     </div>
   );
 }

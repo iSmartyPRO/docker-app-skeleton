@@ -1330,6 +1330,8 @@ export const MODULE_CATALOG = [
       recording: false,
       // Delete recordings after this many days.
       retentionDays: 30,
+      // Passbolt password manager: let each person connect their own Passbolt and use its entries.
+      passbolt: false,
       // Set when a superadministrator confirms the monitoring policy checklist
       // (docs/specs/remote-access.ru.md). Monitoring connections are refused until then.
       policyAckAt: null,
@@ -1339,7 +1341,7 @@ export const MODULE_CATALOG = [
       if (typeof incoming.guacdHost === 'string') next.guacdHost = incoming.guacdHost.replace(/[^a-zA-Z0-9.\-_:]/g, '').slice(0, 120);
       const port = Number(incoming.guacdPort);
       if (Number.isInteger(port) && port > 0 && port <= 65535) next.guacdPort = port;
-      for (const flag of ['requireConsentForControl', 'recording']) {
+      for (const flag of ['requireConsentForControl', 'recording', 'passbolt']) {
         if (typeof incoming[flag] === 'boolean') next[flag] = incoming[flag];
       }
       const days = Number(incoming.retentionDays);

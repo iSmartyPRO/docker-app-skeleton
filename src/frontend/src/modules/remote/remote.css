@@ -572,3 +572,131 @@
   background: transparent;
   color: transparent;
 }
+
+/* ── Sections, apps, vault ──────────────────────────────────────────────── */
+
+.rm-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.rm-apps__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.rm-app {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+  color: var(--da-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: transform 0.2s var(--da-ease), box-shadow 0.2s var(--da-ease);
+}
+
+.rm-app:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--da-shadow); }
+.rm-app:disabled { opacity: 0.5; cursor: default; }
+
+.rm-app__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  font-size: 19px;
+  color: #7048e8;
+  background: color-mix(in srgb, #7048e8 12%, transparent);
+}
+
+.rm-app__text { display: flex; flex-direction: column; min-width: 0; }
+.rm-app__text small { color: var(--da-muted); font-size: 12px; }
+
+.rm-vault-section { margin-bottom: 28px; }
+
+.rm-cred-list {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+}
+
+.rm-cred {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--da-hairline);
+}
+
+.rm-cred:last-child { border-bottom: 0; }
+
+.rm-cred__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
+  color: #0891b2;
+  background: color-mix(in srgb, #0891b2 12%, transparent);
+}
+
+.rm-cred__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rm-cred__actions { display: inline-flex; }
+
+.rm-badge.is-shared { color: #0e7490; background: color-mix(in srgb, #0891b2 14%, transparent); }
+
+/* Passbolt */
+
+.rm-passbolt-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--da-hairline);
+  background: var(--da-surface);
+}
+
+.rm-passbolt-status__row { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.rm-passbolt-status__actions { display: flex; gap: 8px; }
+.rm-ok { color: var(--da-success); }
+
+/* App manager (host dialog) */
+
+.rm-appman { display: flex; flex-direction: column; gap: 8px; }
+.rm-appman__list { display: flex; flex-direction: column; gap: 4px; }
+.rm-appman__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--da-surface);
+  border: 1px solid var(--da-hairline);
+}
+.rm-appman__text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rm-appman__text code { font-size: 11px; color: var(--da-muted); }
+.rm-appman__add { display: flex; gap: 8px; }
+
+/* Credential picker */
+
+.rm-creds-pick { margin-top: 14px; }
+.rm-creds-pick__sub { margin-top: 10px; }
+.rm-field__label { display: block; font-size: 12px; font-weight: 600; color: var(--da-muted); margin-bottom: 6px; }

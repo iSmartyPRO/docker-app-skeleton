@@ -3,6 +3,7 @@ import { App, Form, Input, InputNumber, Modal, Popconfirm, Segmented, Select, Sw
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { remoteApi } from '../api';
+import AppManager from './AppManager';
 
 const DEFAULT_PORT = { rdp: 3389, vnc: 5900 };
 
@@ -129,6 +130,14 @@ export default function HostDialog({ open, host, onClose }) {
         <Form.Item name="note" label={t('remote.host.note')}>
           <Input.TextArea rows={2} maxLength={300} />
         </Form.Item>
+
+        {editing && kind === 'server' && (
+          <div className="rm-creds-block">
+            <div className="rm-creds-block__head">{t('remote.apps.title')}</div>
+            <p className="rm-muted">{t('remote.apps.lead')}</p>
+            <AppManager hostId={host.id} />
+          </div>
+        )}
         {editing && (
           <Popconfirm title={t('remote.host.deleteConfirm')} okText={t('common.delete')} cancelText={t('common.cancel')} okButtonProps={{ danger: true }} onConfirm={remove}>
             <a className="rm-danger">{t('remote.host.delete')}</a>

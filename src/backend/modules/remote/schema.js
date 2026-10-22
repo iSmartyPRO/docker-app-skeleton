@@ -61,4 +61,64 @@ export async function ensureRemoteSchema() {
   await query(`CREATE INDEX IF NOT EXISTS remote_sessions_host_idx ON remote_sessions (host_id, started_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS remote_sessions_watched_idx ON remote_sessions (watched_user_id, started_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS remote_sessions_operator_idx ON remote_sessions (operator_id, started_at DESC)`);
+
+  /*
+   * RemoteApp: a single published Windows application launched instead of the
+   * whole desktop (RAIL). `alias` is «||<name>» for an RDS-published app, or a
+   * full path to an executable (the registry/allow-list variant).
+   */
+  await query(`
+    CREATE TABLE IF NOT EXISTS remote_apps (
+      id SERIAL PRIMARY KEY,
+      host_id INTEGER NOT NULL REFERENCES remote_hosts(id) ON DELETE CASCADE,
+      name VARCHAR(120) NOT NULL,
+      alias VARCHAR(255) NOT NULL,
+      args VARCHAR(500) NOT NULL DEFAULT '',
+      work_dir VARCHAR(300) NOT NULL DEFAULT '',
+      icon VARCHAR(40) NOT NULL DEFAULT 'app',
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      sort INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS remote_apps_host_idx ON remote_apps (host_id, sort)`);
+
+  /*
+   * Password manager (portal credential store). A credential is either personal
+   * (owner_id set — only its owner may use it) or shared (owner_id NULL — any
+   * operator with remote access). The password is sealed (services/crypto).
+   */
+  await query(`
+    CREATE TABLE IF NOT EXISTS remote_credentials (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      username VARCHAR(160) NOT NULL DEFAULT '',
+      domain VARCHAR(120) NOT NULL DEFAULT '',
+      password TEXT NOT NULL DEFAULT '',
+      owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS remote_credentials_owner_idx ON remote_credentials (owner_id)`);
+
+  // A host's preferred credential source: 'host' | 'vault:<id>' | 'passbolt:<resId>' | '' (ask each time).
+  await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS default_cred VARCHAR(80) NOT NULL DEFAULT ''`);
+
+  /*
+   * Passbolt integration: each person connects their own Passbolt (GPGAuth with
+   * their private key). URL, armored private key and passphrase are sealed.
+   */
+  await query(`
+    CREATE TABLE IF NOT EXISTS remote_passbolt (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      url VARCHAR(255) NOT NULL,
+      fingerprint VARCHAR(80) NOT NULL DEFAULT '',
+      private_key TEXT NOT NULL,
+      passphrase TEXT NOT NULL DEFAULT '',
+      verified_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 }

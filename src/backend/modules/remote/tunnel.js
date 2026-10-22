@@ -38,7 +38,7 @@ export function buildToken(connection) {
 }
 
 /** Builds the RDP/VNC/SSH settings guacd understands for a host + resolved credentials. */
-export function connectionFor(host, creds = {}, { width, height, dpi } = {}) {
+export function connectionFor(host, creds = {}, { width, height, dpi, app } = {}) {
   const base = {
     hostname: host.address,
     port: String(host.port),
@@ -51,20 +51,25 @@ export function connectionFor(host, creds = {}, { width, height, dpi } = {}) {
   }
   // RDP (default): take credentials when we have them, tolerate self-signed certs,
   // and let the desktop follow the browser window size.
-  return {
-    type: 'rdp',
-    settings: clean({
-      ...base,
-      username: creds.username,
-      password: creds.password,
-      domain: creds.domain,
-      security: 'any',
-      'ignore-cert': 'true',
-      'resize-method': 'display-update',
-      'enable-wallpaper': 'true',
-      'enable-font-smoothing': 'true',
-    }),
-  };
+  const settings = clean({
+    ...base,
+    username: creds.username,
+    password: creds.password,
+    domain: creds.domain,
+    security: 'any',
+    'ignore-cert': 'true',
+    'resize-method': 'display-update',
+    'enable-wallpaper': 'true',
+    'enable-font-smoothing': 'true',
+  });
+  // RemoteApp (RAIL): launch a single published application instead of the desktop.
+  // `alias` is «||<name>» for an RDS-published app or a full path to an executable.
+  if (app?.alias) {
+    settings['remote-app'] = app.alias;
+    if (app.workDir) settings['remote-app-dir'] = app.workDir;
+    if (app.args) settings['remote-app-args'] = app.args;
+  }
+  return { type: 'rdp', settings };
 }
 
 function clean(object) {

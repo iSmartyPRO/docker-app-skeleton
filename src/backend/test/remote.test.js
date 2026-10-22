@@ -64,3 +64,17 @@ test('remote: the usual settings are whitelisted and clamped', () => {
   assert.equal(next.recording, remote.defaults.recording, 'non-boolean ignored');
   assert.equal(next.retentionDays, 1, 'clamped to the minimum');
 });
+
+test('remote: RemoteApp settings are added only when an app is given', async () => {
+  const { connectionFor } = await import('../modules/remote/tunnel.js');
+  const host = { address: '10.0.0.4', port: 3389, protocol: 'rdp' };
+  const plain = connectionFor(host, { username: 'u', password: 'p' }, {});
+  assert.equal(plain.settings['remote-app'], undefined);
+  const app = connectionFor(host, { username: 'u', password: 'p' }, { app: { alias: '||calc', workDir: 'C:/', args: '-x' } });
+  assert.equal(app.settings['remote-app'], '||calc');
+  assert.equal(app.settings['remote-app-dir'], 'C:/');
+  assert.equal(app.settings['remote-app-args'], '-x');
+  // VNC never carries RemoteApp.
+  const vnc = connectionFor({ ...host, protocol: 'vnc' }, { password: 'p' }, { app: { alias: '||calc' } });
+  assert.equal(vnc.settings['remote-app'], undefined);
+});

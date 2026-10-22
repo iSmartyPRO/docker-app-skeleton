@@ -26,6 +26,7 @@ function RemoteForm({ settings, save }) {
     requireConsentForControl: state.settings?.requireConsentForControl !== false,
     recording: Boolean(state.settings?.recording),
     retentionDays: state.settings?.retentionDays || 30,
+    passbolt: Boolean(state.settings?.passbolt),
     policyAck: acked,
   }), [state]);
 
@@ -62,6 +63,15 @@ function RemoteForm({ settings, save }) {
         </SettingRow>
         <SettingRow label={t('remoteSettings.retention')} description={t('remoteSettings.retentionDesc')}>
           <Form.Item name="retentionDays" noStyle><InputNumber min={1} max={3650} style={{ width: 120 }} addonAfter={t('remoteSettings.days')} /></Form.Item>
+        </SettingRow>
+      </SettingsSection>
+
+      <SettingsSection title={t('remoteSettings.passwords')} description={t('remoteSettings.passwordsDesc')}>
+        <SettingRow label={t('remoteSettings.vault')} description={t('remoteSettings.vaultDesc')}>
+          <Link to="/app/remote/vault">{t('remote.vault.title')} →</Link>
+        </SettingRow>
+        <SettingRow label={t('remoteSettings.passbolt')} description={t('remoteSettings.passboltDesc')}>
+          <Form.Item name="passbolt" valuePropName="checked" noStyle><Switch /></Form.Item>
         </SettingRow>
       </SettingsSection>
 

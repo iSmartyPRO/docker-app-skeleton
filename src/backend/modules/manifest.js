@@ -334,7 +334,7 @@ export const MODULE_MANIFEST = {
   },
   remote: {
     name: { en: 'Remote access', ky: 'Алыстан кирүү', tr: 'Uzak erişim', zh: '远程访问', ru: 'Удалённый доступ' },
-    version: '1.0.0',
+    version: '1.1.0',
     category: 'infrastructure',
     minCore: '1.7.0',
     requires: [],
@@ -343,6 +343,17 @@ export const MODULE_MANIFEST = {
     ],
     docs: { user: 'remote', guide: 'docs/specs/remote-access.ru.md' },
     changelog: [
+      {
+        version: '1.1.0',
+        date: '2026-10-22',
+        changes: {
+          en: ['RemoteApp: launch a single published application (RDS alias or an executable path) instead of the whole desktop. Password manager: save personal or shared credentials and reuse them when connecting. Passbolt integration: each person connects their own Passbolt (GPGAuth) and uses its entries. Three credential sources at connect: manual, portal password manager, Passbolt.'],
+          ru: ['RemoteApp: запуск одного опубликованного приложения (алиас RDS или путь к exe) вместо всего рабочего стола. Менеджер паролей: сохранение личных и общих учётных данных и их переиспользование при подключении. Интеграция с Passbolt: каждый подключает свой Passbolt (GPGAuth) и использует его записи. Три источника при подключении: вручную, менеджер паролей портала, Passbolt.'],
+          ky: ['RemoteApp: бүт рабочий столдун ордуна бир жарыяланган колдонмону иштетүү. Сырсөз менеджери: жеке жана жалпы эсептик жазууларды сактоо жана кайра колдонуу. Passbolt интеграциясы: ар бир колдонуучу өз Passbolt\'ун туташтырат.'],
+          tr: ['RemoteApp: tüm masaüstü yerine tek bir yayımlanmış uygulamayı başlatma. Parola yöneticisi: kişisel veya paylaşılan kimlik bilgilerini kaydetme ve yeniden kullanma. Passbolt entegrasyonu: herkes kendi Passbolt\'unu bağlar.'],
+          zh: ['RemoteApp：启动单个已发布的应用程序而非整个桌面。密码管理器：保存个人或共享凭据并在连接时重用。Passbolt 集成：每个人连接自己的 Passbolt。'],
+        },
+      },
       {
         version: '1.0.0',
         date: '2026-10-22',

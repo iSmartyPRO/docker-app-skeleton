@@ -24,7 +24,8 @@ export function RemoteProvider({ children }) {
     error,
     refresh,
     hosts: data?.hosts || [],
-    settings: data?.settings || { guacdConfigured: false, requireConsentForControl: true, recording: false, monitoringReady: false },
+    apps: data?.apps || [],
+    settings: data?.settings || { guacdConfigured: false, requireConsentForControl: true, recording: false, monitoringReady: false, passbolt: false },
     can: data?.can || { connect: false, monitor: false, admin: false },
   }), [data, error, refresh]);
 

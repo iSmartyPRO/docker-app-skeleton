@@ -6,6 +6,7 @@ import { RemoteProvider } from './RemoteContext';
 import Catalogue from './pages/Catalogue';
 import Journal from './pages/Journal';
 import MyComputer from './pages/MyComputer';
+import Vault from './pages/Vault';
 import '../shared/module.css';
 import './remote.css';
 
@@ -20,6 +21,7 @@ export default function RemoteApp() {
             <Routes>
               <Route index element={<Catalogue />} />
               <Route path="my" element={<MyComputer />} />
+              <Route path="vault" element={<Vault />} />
               <Route path="journal" element={<Journal />} />
               <Route path="*" element={<Navigate to="/app/remote" replace />} />
             </Routes>

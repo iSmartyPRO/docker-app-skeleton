@@ -29,4 +29,10 @@ export default {
     scope: 'The monitoring scope is a defined set of computers (OU / groups), not everyone.',
     responsible: 'Named people hold the monitoring right.',
   },
+  passwords: 'Password manager',
+  passwordsDesc: 'Where connection credentials come from.',
+  vault: 'Saved credentials',
+  vaultDesc: 'Personal and shared logins people reuse when connecting.',
+  passbolt: 'Passbolt',
+  passboltDesc: 'Let people connect their own Passbolt and use its entries as credentials.',
 };
