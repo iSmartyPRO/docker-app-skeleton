@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-22
+
+- feat(remote): live in-browser RDP/VNC viewer via guacd tunnel, server profiles, sealed credentials
+
 ## [1.10.0] - 2026-10-22
 
 ### Added
@@ -620,7 +624,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.11.0
 [1.10.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.10.0
 [1.9.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.9.1
 [1.9.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.9.0
