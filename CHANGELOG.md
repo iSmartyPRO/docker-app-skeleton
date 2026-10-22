@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-10-22
+
+- refactor(remote): dedup folder predicate and sanitizer, drop dead api methods and imports (code review)
+
 ## [1.14.0] - 2026-10-22
 
 ### Changed
@@ -660,7 +664,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.14.1...HEAD
+[1.14.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.14.1
 [1.14.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.14.0
 [1.13.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.13.0
 [1.12.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.12.1
