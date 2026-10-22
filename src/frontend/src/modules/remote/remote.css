@@ -529,15 +529,19 @@
 
 .rm-signal {
   display: inline-flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 2px;
-  height: 20px;
-  padding: 0 8px 0 2px;
+  height: 22px;
+  padding: 0 8px 0 6px;
+  border-radius: 999px;
+  transition: background 0.3s ease;
 }
 
 .rm-signal i {
   width: 4px;
   border-radius: 1px;
+  align-self: flex-end;
+  margin-bottom: 4px;
   background: rgb(255 255 255 / 25%);
 }
 
@@ -550,12 +554,24 @@
 .rm-signal.is-1 i:nth-child(1) { background: #fbbf24; }
 .rm-signal.is-0 i:nth-child(1) { background: #f87171; }
 
+/* Poor connection is also obvious by colour, not just by the bars. */
+.rm-signal.is-1 { background: rgb(251 191 36 / 14%); }
+.rm-signal.is-0 { background: rgb(248 113 113 / 18%); }
+
 .rm-signal__num {
   margin-left: 6px;
+  /* Fixed width + tabular figures so the number does not shift the toolbar
+     when it grows from «0» to «10», «100»… */
+  min-width: 46px;
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
   color: #cbd5e1;
-  align-self: center;
+  white-space: nowrap;
 }
+
+.rm-signal.is-2 .rm-signal__num { color: #d9f99d; }
+.rm-signal.is-1 .rm-signal__num { color: #fcd34d; font-weight: 600; }
+.rm-signal.is-0 .rm-signal__num { color: #fca5a5; font-weight: 700; }
 
 /* Hidden field that summons the mobile keyboard / IME */
 .rm-viewer-input {

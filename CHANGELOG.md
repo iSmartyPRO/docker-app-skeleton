@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- **Remote access viewer**: the connection-quality indicator no longer shifts the toolbar when the latency grows from one digit to two or three (fixed width, tabular figures). It is now also clearly colour-coded — amber for a weak link (150–350 ms) and red for a poor one (≥ 350 ms), background and number included — so a bad connection is obvious at a glance.
+
+
 ## [1.12.0] - 2026-10-22
 
 ### Added
