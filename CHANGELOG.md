@@ -5,10 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-10-22
+
 ### Fixed
 
 - **Remote access viewer**: the connection-quality indicator no longer shifts the toolbar when the latency grows from one digit to two or three (fixed width, tabular figures). It is now also clearly colour-coded — amber for a weak link (150–350 ms) and red for a poor one (≥ 350 ms), background and number included — so a bad connection is obvious at a glance.
-
 
 ## [1.12.0] - 2026-10-22
 
@@ -647,7 +648,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.12.1...HEAD
+[1.12.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.12.1
 [1.12.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.12.0
 [1.11.2]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.11.2
 [1.11.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.11.1
