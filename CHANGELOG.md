@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-23
+
 ### Added
 
 - **Remote access — upload the Portal VNC certificates from a file**: each field on «Connect from the portal» (CA, client certificate, client key) now has an «Upload file» button that reads a `.crt`/`.pem`/`.key` and fills the field, so you no longer have to open each file in a text editor and paste it. The file is read in the browser; only the final value is saved (the key still sealed).
@@ -696,7 +698,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.17.1...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.18.0...HEAD
+[1.18.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.18.0
 [1.17.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.17.1
 [1.17.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.17.0
 [1.16.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.16.0
