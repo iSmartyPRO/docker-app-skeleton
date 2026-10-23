@@ -428,6 +428,7 @@ export function RemovedPackages({ packages, canManage, onChanged }) {
                 <Tag bordered={false}>{t('packages.state.removed')}</Tag>
               </div>
             </header>
+            <p className="pf-muted pf-card__hint">{t('packages.removed.reinstall')}</p>
             {canManage && (
               <footer className="pf-card__actions">
                 <button type="button" className="pf-action pf-action--danger" onClick={() => purge(pkg)}>

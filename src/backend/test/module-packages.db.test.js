@@ -317,19 +317,49 @@ async function installVersion(version, edit) {
 test('boot crash: the next start finds the marker and rolls the update back before importing it', { skip, timeout: 240_000 }, async () => {
   await installVersion('1.4.0', prependServer(`globalThis.__hello140Imported = true;`));
   assert.equal((await helloRow()).pending_check, true);
-  // The process died while loading 1.4.0 (an uncaught exception from a timer, say): its marker is left behind.
-  writeFileSync(join(ctx.modulesDir, 'hello/.boot-attempt'), JSON.stringify({ version: '1.4.0', status: 'loading', bootId: 'crashed' }));
+  // The process died while loading 1.4.0 and the crash guard found 1.4.0 in the stack: its marker says «crashed».
+  writeFileSync(join(ctx.modulesDir, 'hello/.boot-attempt'), JSON.stringify({ version: '1.4.0', status: 'crashed', bootId: 'crashed', reason: 'it crashed the portal while starting: boom' }));
   ctx.restarts.length = 0;
   const results = await reboot();
   const hello = results.find((item) => item.id === 'hello');
   assert.equal(hello.ok, false);
-  assert.match(hello.error, /previous start stopped while loading it/);
+  assert.match(hello.error, /crashed the portal while starting/);
   assert.equal(globalThis.__hello140Imported, undefined, 'the crashing version was not imported again');
   assert.equal(currentOf(), '1.1.0');
   assert.ok(!existsSync(join(ctx.modulesDir, 'hello/.boot-attempt')));
   assert.equal((await helloRow()).last_rollback.from, '1.4.0');
   assert.ok(ctx.restarts.some((reason) => /rollback of hello/.test(reason)));
   assert.deepEqual((await reboot()).filter((item) => item.id === 'hello').map((item) => [item.version, item.ok]), [['1.1.0', true]]);
+});
+
+test('unattributed stop of an update (OOM, kill): loaded again once; the second unfinished boot in a row rolls it back', { skip, timeout: 240_000 }, async () => {
+  await installVersion('1.4.1');
+  writeFileSync(join(ctx.modulesDir, 'hello/.boot-attempt'), JSON.stringify({ version: '1.4.1', status: 'loading', bootId: 'killed' }));
+  // Loaded again (attempt 2); the boot confirms it (no settle window in these tests) and the marker goes.
+  assert.deepEqual((await reboot()).filter((item) => item.id === 'hello').map((item) => [item.version, item.ok]), [['1.4.1', true]]);
+  assert.ok(!existsSync(join(ctx.modulesDir, 'hello/.boot-attempt')));
+  assert.equal(currentOf(), '1.4.1');
+  // Two in a row: another update, stopped twice.
+  await installVersion('1.4.2');
+  writeFileSync(join(ctx.modulesDir, 'hello/.boot-attempt'), JSON.stringify({ version: '1.4.2', status: 'loading', bootId: 'killed', attempts: 2 }));
+  const hello = (await reboot()).find((item) => item.id === 'hello');
+  assert.equal(hello.ok, false);
+  assert.match(hello.error, /2 starts in a row/);
+  assert.equal(currentOf(), '1.4.1');
+  assert.equal((await helloRow()).last_rollback.from, '1.4.2');
+  assert.deepEqual((await reboot()).filter((item) => item.id === 'hello').map((item) => [item.version, item.ok]), [['1.4.1', true]]);
+});
+
+test('a deliberate restart before the server listens clears the markers of packages still loading', { skip }, async () => {
+  const { exitForRestart } = await import('../platform/packages/restart.js');
+  const loader = await import('../platform/packages/loader.js');
+  const { writeBootMarker, readBootMarker } = await import('../platform/packages/disk.js');
+  writeBootMarker('hello', { version: currentOf(), status: 'loading', bootId: 'now' });
+  loader.markInFlightForTests('hello');
+  let code = null;
+  exitForRestart({ exit: (value) => (code = value) });
+  assert.equal(code, 75);
+  assert.equal(readBootMarker('hello'), null);
 });
 
 test('settle window: an update stays on probation for a while; a crash in it rolls back, a graceful shutdown confirms', { skip, timeout: 240_000 }, async () => {
@@ -339,9 +369,13 @@ test('settle window: an update stays on probation for a while; a crash in it rol
     assert.deepEqual((await reboot()).filter((item) => item.id === 'hello').map((item) => [item.version, item.ok]), [['1.5.0', true]]);
     assert.equal((await helloRow()).pending_check, true, 'still on probation');
     assert.ok(existsSync(join(ctx.modulesDir, 'hello/.boot-attempt')));
-    // Crash (no shutdown hooks) and start again: rolled back.
+    // Stopped without the shutdown hooks (nobody knows why): loaded once more, still on probation.
     await reboot();
-    assert.equal(currentOf(), '1.1.0');
+    assert.equal(currentOf(), '1.5.0');
+    assert.equal(JSON.parse(readFileSync(join(ctx.modulesDir, 'hello/.boot-attempt'), 'utf8')).attempts, 2);
+    // The second time in a row: rolled back.
+    await reboot();
+    assert.equal(currentOf(), '1.4.1');
     assert.equal((await helloRow()).last_rollback.from, '1.5.0');
     await reboot();
     await installVersion('1.5.1');
@@ -359,7 +393,12 @@ test('settle window: an update stays on probation for a while; a crash in it rol
 });
 
 test('a running package that crashed the boot is skipped («blocked») until a new version is installed', { skip, timeout: 240_000 }, async () => {
-  writeFileSync(join(ctx.modulesDir, 'hello/.boot-attempt'), JSON.stringify({ version: '1.5.1', status: 'loading', bootId: 'crashed' }));
+  // An unfinished boot nobody can attribute: an innocent running package is loaded again.
+  writeFileSync(join(ctx.modulesDir, 'hello/.boot-attempt'), JSON.stringify({ version: '1.5.1', status: 'loading', bootId: 'killed' }));
+  assert.deepEqual((await reboot()).filter((item) => item.id === 'hello').map((item) => [item.version, item.ok]), [['1.5.1', true]]);
+  assert.ok(!existsSync(join(ctx.modulesDir, 'hello/.boot-attempt')));
+  // The crash guard attributed the crash to it: blocked at once.
+  writeFileSync(join(ctx.modulesDir, 'hello/.boot-attempt'), JSON.stringify({ version: '1.5.1', status: 'crashed', bootId: 'crashed' }));
   for (let i = 0; i < 2; i += 1) {
     const hello = (await reboot()).find((item) => item.id === 'hello');
     assert.equal(hello.ok, false);
@@ -394,6 +433,46 @@ test('a package that hangs at boot times out; an update is rolled back at the ne
     delete process.env.HELLO_HANG;
     delete process.env.MODULE_BOOT_TIMEOUT_MS;
   }
+  assert.deepEqual((await reboot()).filter((item) => item.id === 'hello').map((item) => [item.version, item.ok]), [['1.5.2', true]]);
+});
+
+test('a running package that times out: the app restarts at once, it is loaded once more, blocked after the second timeout', { skip, timeout: 240_000 }, async () => {
+  const { clearBootMarker, writePointer } = await import('../platform/packages/disk.js');
+  // register() hangs on demand (an import would be cached by this test process after the first boot).
+  await installVersion('1.6.1', (src) => {
+    const file = join(src, 'server/index.js');
+    writeFileSync(file, readFileSync(file, 'utf8').replace('register(ctx) {', `async register(ctx) {\n    if (process.env.HELLO_HANG_REGISTER === '1') await new Promise(() => {});`));
+  });
+  assert.deepEqual((await reboot()).filter((item) => item.id === 'hello').map((item) => [item.version, item.ok]), [['1.6.1', true]]);
+  assert.equal((await helloRow()).pending_check, false, 'running, not an update any more');
+  process.env.HELLO_HANG_REGISTER = '1';
+  process.env.MODULE_BOOT_TIMEOUT_MS = '1500';
+  const marker = () => JSON.parse(readFileSync(join(ctx.modulesDir, 'hello/.boot-attempt'), 'utf8'));
+  try {
+    ctx.restarts.length = 0;
+    await reboot();
+    assert.ok(ctx.restarts.some((reason) => /hello: loading timed out/.test(reason)), 'restart requested for a running package too');
+    assert.match((await helloRow()).error, /loaded once more/);
+    assert.deepEqual([marker().status, marker().attempts], ['timeout', 1]);
+    ctx.restarts.length = 0;
+    await reboot();
+    assert.ok(ctx.restarts.some((reason) => /loading timed out/.test(reason)), 'second try, timed out again');
+    assert.deepEqual([marker().status, marker().attempts], ['timeout', 2]);
+    assert.match((await helloRow()).error, /blocked at the restart/);
+    const third = (await reboot()).find((item) => item.id === 'hello');
+    assert.equal(third.ok, false);
+    assert.match(third.error, /2 starts in a row/);
+    assert.match((await helloRow()).error, /not loaded until a new version is installed/);
+    assert.equal(marker().status, 'blocked');
+    assert.equal(currentOf(), '1.6.1', 'never rolled back: it was not an update');
+  } finally {
+    delete process.env.HELLO_HANG_REGISTER;
+    delete process.env.MODULE_BOOT_TIMEOUT_MS;
+  }
+  // Back to the state the next tests expect: 1.5.2 running.
+  clearBootMarker('hello');
+  writePointer('hello', 'current', '1.5.2');
+  await ctx.db.query(`UPDATE installed_modules SET version = '1.5.2', state = 'installed', error = NULL, previous_version = NULL, pending_check = FALSE, listing_sha256 = NULL WHERE id = 'hello'`);
   assert.deepEqual((await reboot()).filter((item) => item.id === 'hello').map((item) => [item.version, item.ok]), [['1.5.2', true]]);
 });
 
@@ -487,7 +566,7 @@ test('rollback with a pg_dump backup: tables of the failed version are dropped f
   delete process.env.MODULE_BACKUP_PGDUMP;
   backup.resetPgDumpProbe();
   try {
-    assert.ok(backup.pgDumpAvailable(), 'pg_dump reaches the test database');
+    assert.equal(await backup.pgDumpAvailable(), true, 'pg_dump reaches the test database');
     const before = (await ctx.db.query(`SELECT count(*)::int AS n FROM hello_messages`)).rows[0].n;
     await installVersion('1.10.0', (src) => {
       // The new table references the restored one: pg_restore --clean could not drop hello_messages while it exists.
@@ -615,4 +694,11 @@ async function runIdentityChecks(inventory, INVENTORY_FORMAT, canonicalJson) {
   const { digest, signature, ...body } = first;
   assert.equal(digest, (await import('node:crypto')).createHash('sha256').update(canonicalJson(body)).digest('hex'));
   assert.ok(verify(null, Buffer.from(digest), createPublicKey(first.portal.publicKey), Buffer.from(signature, 'base64')));
+  // The store's challenge is part of what is signed: an answer is good for that request only.
+  const challenged = await inventory({ challenge: 'store-nonce-123456' });
+  assert.equal(challenged.challenge, 'store-nonce-123456');
+  const { digest: d2, signature: s2, ...body2 } = challenged;
+  assert.equal(d2, (await import('node:crypto')).createHash('sha256').update(canonicalJson(body2)).digest('hex'));
+  assert.ok(verify(null, Buffer.from(d2), createPublicKey(challenged.portal.publicKey), Buffer.from(s2, 'base64')));
+  assert.equal(first.challenge, undefined);
 }

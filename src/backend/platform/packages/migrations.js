@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { MIGRATION_FILE } from './archive.js';
 import { installSdkResolver } from '../sdkLoader.mjs';
+import { MODULE_TABLES } from './tableOwnership.js';
 
 /*
  * Versioned migrations of a module (spec §6 stage 2, docs/module-packages.md «Migrations»).
@@ -76,6 +77,8 @@ const XACT_TABLES = `SELECT c.relname FROM pg_class c
     AND c.xmin::text = (pg_current_xact_id()::text::bigint % 4294967296)::text`;
 const tablesIn = async (client) => new Set((await client.query(`SELECT tablename FROM pg_tables WHERE schemaname = current_schema()`)).rows.map((row) => row.tablename));
 const tablesOfThisTransaction = async (client) => (await client.query(XACT_TABLES)).rows.map((row) => row.relname);
+/** Prefixes a module's tables always have ("<id>_" and the legacy ones the core declares, e.g. mp_). */
+const ownPrefixes = (moduleId) => [`${moduleId}_`, ...(MODULE_TABLES[moduleId] || []).filter((entry) => entry.endsWith('_'))];
 
 const migrationError = (code, message, extra = {}) => Object.assign(new Error(message), { code, ...extra });
 
@@ -122,8 +125,13 @@ export async function runMigrations({ moduleId, version, migrations, transaction
     const existing = await tablesIn(client);
     const applied = [];
     const created = [];
+    const prefixes = ownPrefixes(moduleId);
     for (const migration of migrations) {
       if (done.has(migration.id)) continue;
+      // Per-migration snapshot (under the advisory lock): a table created in a subtransaction
+      // (DO … EXCEPTION, SAVEPOINT) has the subtransaction's xmin, not this transaction's, so XACT_TABLES
+      // misses it; new tables with the module's own prefixes are taken from the snapshot difference.
+      const before = await tablesIn(client);
       try {
         const up = await upOf(migration);
         await up({ query: (text, params) => client.query(text, params), client, moduleId, version });
@@ -132,7 +140,8 @@ export async function runMigrations({ moduleId, version, migrations, transaction
         err.migration = migration.id;
         throw err;
       }
-      for (const table of await tablesOfThisTransaction(client)) {
+      const appeared = [...(await tablesIn(client))].filter((table) => !before.has(table) && prefixes.some((prefix) => table.startsWith(prefix)));
+      for (const table of new Set([...(await tablesOfThisTransaction(client)), ...appeared])) {
         if (existing.has(table) || created.includes(table)) continue;
         created.push(table);
         await client.query(`INSERT INTO module_tables (module_id, table_name, migration_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [moduleId, table, migration.id]);

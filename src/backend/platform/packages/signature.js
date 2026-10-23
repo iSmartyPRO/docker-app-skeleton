@@ -53,20 +53,36 @@ export function keyIdOf(publicKey) {
   return sha256(rawPublicKey(publicKey)).slice(0, 16);
 }
 
-/** A new Ed25519 key pair as PEM strings with its keyId. */
-export function generateSigningKey() {
+/**
+ * A new Ed25519 key pair as PEM strings with its keyId. With `passphrase` the private key is
+ * an encrypted PKCS#8 PEM (AES-256-CBC): a copy of the file alone cannot sign.
+ */
+export function generateSigningKey({ passphrase = null } = {}) {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const publicPem = publicKey.export({ type: 'spki', format: 'pem' });
   return {
     publicKey: publicPem,
-    privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }),
+    privateKey: privateKey.export({ type: 'pkcs8', format: 'pem', ...(passphrase ? { cipher: 'aes-256-cbc', passphrase } : {}) }),
     keyId: keyIdOf(publicPem),
+    encrypted: Boolean(passphrase),
   };
 }
 
+/** The private key of a PEM (encrypted ones need `passphrase`). */
+export function readSigningKey(privateKeyPem, { passphrase = null } = {}) {
+  const encrypted = /-----BEGIN ENCRYPTED PRIVATE KEY-----/.test(String(privateKeyPem));
+  if (encrypted && !passphrase) throw new Error('The signing key is protected by a passphrase: set MODULE_SIGNING_KEY_PASSPHRASE');
+  try {
+    return createPrivateKey(encrypted ? { key: privateKeyPem, format: 'pem', passphrase } : privateKeyPem);
+  } catch (err) {
+    if (encrypted) throw new Error(`The signing key cannot be opened (wrong MODULE_SIGNING_KEY_PASSPHRASE?): ${err.message}`);
+    throw err;
+  }
+}
+
 /** The SIGNATURE file contents (a Buffer) for these files. */
-export function signFiles(files, privateKeyPem) {
-  const privateKey = createPrivateKey(privateKeyPem);
+export function signFiles(files, privateKeyPem, { passphrase = null } = {}) {
+  const privateKey = readSigningKey(privateKeyPem, { passphrase });
   if (privateKey.asymmetricKeyType !== 'ed25519') throw new Error('The signing key must be an Ed25519 key');
   const publicKey = createPublicKey(privateKey);
   const signature = sign(null, Buffer.from(canonicalListing(files), 'utf8'), privateKey).toString('base64');

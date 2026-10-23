@@ -125,7 +125,12 @@ const stagedMeta = (token) => join(stagingDir(), `${token}.json`);
  * PackageError (422, «Файл повреждён или выпущен не нами»). The archive is
  * inflated once, here; install works from the unpacked folder.
  */
-export async function stagePackage(buffer, { actor = null, ip = null } = {}) {
+export function stagePackage(buffer, options = {}) {
+  // One at a time and never while a restart is pending: each upload holds the file and its inflated files in memory.
+  return exclusive(() => stageNow(buffer, options));
+}
+
+async function stageNow(buffer, { actor = null, ip = null } = {}) {
   let opened;
   try {
     opened = openPackage(buffer, openOptions());
@@ -230,11 +235,11 @@ function prepareProblem(prepared, current) {
 async function refuseForeignKeys(id, tables, { purge = false } = {}) {
   const keys = await foreignKeysInto(tables);
   if (!keys.length) return;
-  const list = keys.map((key) => `${key.from} → ${key.to}`).join(', ');
+  const list = keys.map((key) => `${key.kind && key.kind !== 'foreign key' ? `${key.kind} ` : ''}${key.from} → ${key.to}`).join(', ');
   throw problemError(409, [
     purge
-      ? simpleProblem('FOREIGN_KEYS', `На таблицы модуля ссылаются другие таблицы (${list}) — данные нельзя удалить, не повредив их`, `Other tables reference the module's tables (${list}) — its data cannot be deleted without breaking them`, { keys: list })
-      : simpleProblem('FOREIGN_KEYS', `На таблицы модуля ссылаются другие таблицы (${list}) — при неудачном обновлении его таблицы нельзя было бы восстановить, поэтому обновление отменено`, `Other tables reference the module's tables (${list}) — after a failed update its tables could not be restored, so the update is refused`, { keys: list }),
+      ? simpleProblem('FOREIGN_KEYS', `На таблицы модуля ссылаются другие таблицы или представления (${list}) — данные нельзя удалить, не повредив их`, `Other tables or views reference the module's tables (${list}) — its data cannot be deleted without breaking them`, { keys: list })
+      : simpleProblem('FOREIGN_KEYS', `На таблицы модуля ссылаются другие таблицы или представления (${list}) — при неудачном обновлении его таблицы нельзя было бы восстановить, поэтому обновление отменено`, `Other tables or views reference the module's tables (${list}) — after a failed update its tables could not be restored, so the update is refused`, { keys: list }),
   ]);
 }
 
@@ -356,7 +361,10 @@ export async function purgeModuleData(id, { actor = null, ip = null, confirm = n
 export async function backupNow(id, { actor = null, ip = null } = {}) {
   const row = typeof id === 'string' && ID_PATTERN.test(id) ? await getModuleRow(id) : null;
   if (!row || row.source !== 'package') throw problemError(404, [simpleProblem('NOT_INSTALLED', 'Модуль не найден', 'The module was not found')]);
-  const backup = await backupModule({ id, version: row.version, manifest: row.manifest || {}, reason: 'manual' });
-  journal({ actor, ip, code: 'module_backup', detail: `${id}: backup ${backup.file.split('/').pop()}`.slice(0, 200), params: { module: id } });
-  return backup;
+  // Like install / update: one module operation at a time, none while a restart is pending.
+  return exclusive(async () => {
+    const backup = await backupModule({ id, version: row.version, manifest: row.manifest || {}, reason: 'manual' });
+    journal({ actor, ip, code: 'module_backup', detail: `${id}: backup ${backup.file.split('/').pop()}`.slice(0, 200), params: { module: id } });
+    return backup;
+  });
 }

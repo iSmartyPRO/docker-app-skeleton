@@ -18,6 +18,7 @@ import { APP_VERSION } from './config/version.js';
 import apiRoutes from './routes/index.js';
 import { requestIds } from './services/incidents.js';
 import { installProcessGuards } from './services/processGuards.js';
+import { startHeartbeat } from './services/heartbeat.js';
 import { stopScheduler } from './services/scheduler.js';
 import { tokenGate, versionPrefix } from './api/gate.js';
 import { shellMiddleware } from './services/linkPreview/index.js';
@@ -285,16 +286,17 @@ async function start() {
     // forever: end the chat streams, drop idle connections, and give requests
     // in flight a moment before every remaining connection (other streams
     // included) is closed.
-    // No new background jobs start; the ones running finish within the grace period.
-    stopScheduler();
-    // Modules end their live streams (Chat) — ctx.onShutdown.
-    await runShutdownHooks();
-    server.closeIdleConnections?.();
+    // The force-exit timers first: nothing below (a module's hook that never resolves) can keep node alive.
     setTimeout(() => server.closeAllConnections?.(), 3000).unref();
     setTimeout(() => {
       console.error('Shutdown timed out, exiting');
       process.exit(1);
     }, 10000).unref();
+    // No new background jobs start; the ones running finish within the grace period.
+    stopScheduler();
+    // Modules end their live streams (Chat) — ctx.onShutdown; each hook has its own timeout.
+    await runShutdownHooks();
+    server.closeIdleConnections?.();
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -304,6 +306,8 @@ async function start() {
 }
 
 installProcessGuards();
+// Liveness for the start.sh watchdog: a synchronous hang (a package's import) stops it.
+startHeartbeat();
 
 start().catch((error) => {
   console.error('Failed to start server:', error);

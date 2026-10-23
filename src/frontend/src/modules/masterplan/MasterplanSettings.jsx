@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ColorPicker, Form, InputNumber, Select, Switch } from 'antd';
+import { App, Button, ColorPicker, Form, InputNumber, Select, Switch } from 'antd';
 import api from '../../services/api';
+import { errorMessage } from '../../lib/errors';
+import { mpApi } from './api';
 import SaveBar from '../../components/ui/SaveBar';
 import LoadState from '../../components/ui/LoadState';
 import { SettingRow, SettingsSection } from '../../components/ui/SettingsSection';
@@ -82,6 +84,29 @@ function Colors({ value = {}, onChange }) {
         </label>
       ))}
     </div>
+  );
+}
+
+/** «Сверить с договорами»: units follow their linked contracts' current state (docs/masterplan.md). */
+function ContractResync() {
+  const { t } = useLocale();
+  const { message } = App.useApp();
+  const [running, setRunning] = useState(false);
+  const run = async () => {
+    setRunning(true);
+    try {
+      const { data } = await mpApi.contractResync();
+      message.success(t('mpSettings.resyncDone', data.summary));
+    } catch (err) {
+      message.error(errorMessage(err));
+    } finally {
+      setRunning(false);
+    }
+  };
+  return (
+    <Button onClick={run} loading={running}>
+      {t('mpSettings.resyncRun')}
+    </Button>
   );
 }
 
@@ -175,6 +200,11 @@ export function MasterplanForm({ state, onSave, inApp }) {
           <Form.Item name="stageMap" noStyle>
             <StageMap />
           </Form.Item>
+        </SettingRow>
+      </SettingsSection>
+      <SettingsSection title={t('mpSettings.contracts')} description={t('mpSettings.contractsDesc')}>
+        <SettingRow label={t('mpSettings.resync')} description={t('mpSettings.resyncDesc')}>
+          <ContractResync />
         </SettingRow>
       </SettingsSection>
       <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={reset} />

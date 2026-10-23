@@ -1,7 +1,7 @@
 import { createMasterplanSchema, startMasterplan } from './schema.js';
 import { privateRoutes } from './routes.js';
 import * as api from './api.js';
-import { registerContractSync } from './contractSync.js';
+import { registerContractSync, scheduleContractResync } from './contractSync.js';
 import { objectSource } from './links.js';
 import { sanitizeSettings } from './settings.js';
 // Demo data (Settings → Modules → Demo data): registerDemo at import time.
@@ -27,6 +27,8 @@ export default {
     startMasterplan();
     // A unit follows the contract that sells it (contract.deposit_received / signed / paid).
     registerContractSync(ctx.events);
+    // Contract events of the time it was not installed went to nobody: catch up once per install.
+    scheduleContractResync(ctx);
     // Procurement and Warehouse pick «objects» (projects and their plots / objects) through the core.
     ctx.registerObjectSource(objectSource);
   },

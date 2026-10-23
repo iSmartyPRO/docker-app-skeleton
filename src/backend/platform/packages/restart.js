@@ -48,9 +48,23 @@ export function restartReady() {
   }
 }
 
-function exitForRestart() {
+const beforeExitHooks = [];
+/** loader.js: what must happen before exitForRestart() ends the process (the boot markers of packages still loading go). */
+export function onRestartExit(fn) {
+  if (typeof fn === 'function') beforeExitHooks.push(fn);
+}
+
+/** Exported for tests. A deliberate restart is not a crash: the hooks clear the in-flight boot markers first. */
+export function exitForRestart({ exit = (code) => process.exit(code) } = {}) {
   console.log('Restarting before the HTTP server started: exit 75');
-  process.exit(RESTART_EXIT_CODE);
+  for (const fn of beforeExitHooks) {
+    try {
+      fn();
+    } catch (err) {
+      console.warn(`Restart: a before-exit hook failed: ${err.message}`);
+    }
+  }
+  exit(RESTART_EXIT_CODE);
 }
 
 function defaultRestart() {

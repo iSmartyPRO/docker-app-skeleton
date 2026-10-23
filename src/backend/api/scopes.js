@@ -159,6 +159,27 @@ export function cleanScopes(input, { partial = false } = {}) {
   return out;
 }
 
+/*
+ * Stored scopes of areas this core does not know (a module package not installed yet or
+ * removed) are carried over by an edit, so the token or template gets them back with the package.
+ */
+export function keepUnknownScopes(stored, next) {
+  let parsed = stored;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      parsed = null;
+    }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return next;
+  const carried = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (!AREA_KEYS.includes(key) && key !== '__proto__' && LEVELS.includes(value)) carried[key] = value;
+  }
+  return { ...carried, ...next };
+}
+
 /** A template's scopes overlaid with the token's own changes. */
 export function effectivePolicy(template, token) {
   return {

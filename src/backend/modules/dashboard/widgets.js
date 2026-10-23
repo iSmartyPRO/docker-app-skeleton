@@ -86,3 +86,16 @@ export function cleanLayout(input) {
   }
   return out;
 }
+
+/*
+ * A saved layout: the widgets sent (only types available right now) plus the stored widgets of
+ * types not available now (module off, package not installed or not loaded, no permission),
+ * so they come back with the module. Used for personal layouts and the default one.
+ */
+export function mergeParked(incoming, stored, available) {
+  const allowed = new Set(available);
+  const kept = cleanLayout(incoming).filter((widget) => allowed.has(widget.type));
+  const parked = cleanLayout(stored).filter((widget) => !allowed.has(widget.type));
+  const ids = new Set(kept.map((widget) => widget.id));
+  return [...kept, ...parked.filter((widget) => !ids.has(widget.id))].slice(0, 40);
+}

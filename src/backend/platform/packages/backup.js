@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { chmodSync, closeSync, createReadStream, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createGunzip, createGzip } from 'node:zlib';
@@ -8,7 +8,7 @@ import { Readable } from 'node:stream';
 import config from '../../config/app.js';
 import { query, withTransaction } from '../../config/database.js';
 import { appliedMigrations, recordedTables } from './store.js';
-import { mayOwnTable } from './tableOwnership.js';
+import { MODULE_TABLES, mayOwnTable } from './tableOwnership.js';
 import { backupsDir } from './paths.js';
 
 /*
@@ -46,14 +46,19 @@ let pgDumpChecked = null;
  * True when pg_dump / pg_restore can back up this database: the probe dumps the
  * schema of one platform table over a real connection (a missing client, a
  * client older than the server or a refused login all count as «no»).
- * MODULE_BACKUP_PGDUMP=0 forces the NDJSON format. Checked once per process.
+ * MODULE_BACKUP_PGDUMP=0 forces the NDJSON format. Checked once per process,
+ * asynchronously (the event loop keeps serving), with a 20 s limit.
  */
-export function pgDumpAvailable() {
+export async function pgDumpAvailable() {
   if (process.env.MODULE_BACKUP_PGDUMP === '0') return false;
   if (pgDumpChecked === null) {
-    const probe = spawnSync('pg_dump', ['--schema-only', '--no-owner', '--no-privileges', '-t', 'installed_modules', '-f', '/dev/null'], { encoding: 'utf8', env: pgEnv(), timeout: 20_000 });
-    pgDumpChecked = probe.status === 0;
-    if (!pgDumpChecked) console.warn(`Module backups: pg_dump is not usable (${(probe.error?.message || probe.stderr || `exit ${probe.status}`).trim().split('\n')[0]}); the data-only NDJSON format is used`);
+    pgDumpChecked = run('pg_dump', ['--schema-only', '--no-owner', '--no-privileges', '-t', 'installed_modules', '-f', '/dev/null'], { timeoutMs: 20_000 }).then(
+      () => true,
+      (err) => {
+        console.warn(`Module backups: pg_dump is not usable (${String(err.message).trim().split('\n')[0]}); the data-only NDJSON format is used`);
+        return false;
+      }
+    );
   }
   return pgDumpChecked;
 }
@@ -63,15 +68,23 @@ export function resetPgDumpProbe() {
   pgDumpChecked = null;
 }
 
+/** pg_dump / pg_restore of one backup: MODULE_BACKUP_TIMEOUT_MS (30 min), then the tool is killed. */
+const toolTimeoutMs = () => Math.max(1000, Number.parseInt(process.env.MODULE_BACKUP_TIMEOUT_MS || '', 10) || 30 * 60_000);
+
+/** Prefix patterns a module always owns: "<id>_%" and the legacy prefixes the core declares for it (mp_% for Masterplan). */
+export const ownPatterns = (id) => [`${id}_%`, ...(MODULE_TABLES[id] || []).filter((entry) => entry.endsWith('_')).map((entry) => `${entry}%`)];
+
 /**
  * Tables of a module that exist now: the ones its migrations created
- * (module_tables) plus the names / prefix patterns of its manifest `tables` —
- * never a core table or another module's (tableOwnership.js), whatever an
- * older manifest says.
+ * (module_tables), the tables named by its own prefixes (ownPatterns: also the
+ * ones a migration created in a subtransaction — a DO … EXCEPTION block or a
+ * SAVEPOINT — which the migration runner may not have attributed) plus the
+ * names / prefix patterns of its manifest `tables` — never a core table or
+ * another module's (tableOwnership.js), whatever an older manifest says.
  */
 export async function moduleTables(id, manifest = null, db = { query }) {
   const names = new Set(await recordedTables(id, db));
-  const patterns = (manifest?.tables || []).filter(Boolean);
+  const patterns = [...ownPatterns(id), ...(manifest?.tables || [])].filter(Boolean);
   const existing = (await db.query(`SELECT tablename FROM pg_tables WHERE schemaname = current_schema()`)).rows.map((row) => row.tablename);
   for (const pattern of patterns) {
     const prefix = /[%*]$/.test(pattern) ? pattern.slice(0, -1) : null;
@@ -82,21 +95,48 @@ export async function moduleTables(id, manifest = null, db = { query }) {
 }
 
 /**
- * Foreign keys from tables outside `tables` into them: [{ from, to, constraint }].
+ * Objects outside `tables` that depend on them: [{ from, to, constraint, kind }] —
+ * foreign keys from other tables (kind 'foreign key'), views and materialized
+ * views reading them ('view': pg_depend through their rewrite rules), constraint
+ * triggers of other tables referencing them ('trigger') and SQL-standard
+ * functions (BEGIN ATOMIC) using them ('function').
  * A restore drops and recreates the module's tables and «Удалить данные» drops
- * them; both would have to CASCADE through such keys (silently removing
- * another table's constraint), so updates and data removal refuse instead.
+ * them; both would have to CASCADE through such objects (silently removing
+ * another table's constraint or view) or fail half-way, so updates and data
+ * removal refuse instead. (A plpgsql function body is not tracked by
+ * PostgreSQL and cannot be found.)
  */
 export async function foreignKeysInto(tables, db = { query }) {
   if (!tables.length) return [];
   const { rows } = await db.query(
-    `SELECT src.relname AS "from", dst.relname AS "to", c.conname AS "constraint"
+    `WITH mod AS (
+       SELECT c.oid, c.relname FROM pg_class c
+        WHERE c.relnamespace = current_schema()::regnamespace AND c.relname = ANY($1)
+     )
+     SELECT src.relname AS "from", mod.relname AS "to", c.conname AS "constraint", 'foreign key' AS kind
        FROM pg_constraint c
        JOIN pg_class src ON src.oid = c.conrelid
-       JOIN pg_class dst ON dst.oid = c.confrelid
-      WHERE c.contype = 'f' AND dst.relnamespace = current_schema()::regnamespace
-        AND dst.relname = ANY($1) AND NOT (src.relname = ANY($1))
-      ORDER BY 1, 2, 3`,
+       JOIN mod ON mod.oid = c.confrelid
+      WHERE c.contype = 'f' AND NOT (src.relname = ANY($1))
+     UNION
+     SELECT v.relname, mod.relname, r.rulename, 'view'
+       FROM pg_depend d
+       JOIN pg_rewrite r ON d.classid = 'pg_rewrite'::regclass AND r.oid = d.objid
+       JOIN pg_class v ON v.oid = r.ev_class
+       JOIN mod ON d.refclassid = 'pg_class'::regclass AND mod.oid = d.refobjid
+      WHERE v.oid <> mod.oid AND NOT (v.relname = ANY($1))
+     UNION
+     SELECT src.relname, mod.relname, t.tgname, 'trigger'
+       FROM pg_trigger t
+       JOIN pg_class src ON src.oid = t.tgrelid
+       JOIN mod ON mod.oid = t.tgconstrrelid
+      WHERE NOT (src.relname = ANY($1)) AND NOT EXISTS (SELECT 1 FROM pg_constraint fk WHERE fk.oid = t.tgconstraint AND fk.contype = 'f')
+     UNION
+     SELECT p.proname, mod.relname, p.oid::regprocedure::text, 'function'
+       FROM pg_depend d
+       JOIN pg_proc p ON d.classid = 'pg_proc'::regclass AND p.oid = d.objid
+       JOIN mod ON d.refclassid = 'pg_class'::regclass AND mod.oid = d.refobjid
+     ORDER BY 1, 2, 3`,
     [tables]
   );
   return rows;
@@ -113,29 +153,60 @@ function pgEnv() {
   };
 }
 
-function run(cmd, args, { out } = {}) {
+/** Runs pg_dump / pg_restore (credentials in the environment, never in argv); killed after `timeoutMs`. */
+function run(cmd, args, { out, timeoutMs = toolTimeoutMs() } = {}) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(cmd, args, { env: pgEnv(), stdio: ['ignore', out ? 'pipe' : 'ignore', 'pipe'] });
     let stderr = '';
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGKILL');
+    }, timeoutMs);
+    timer.unref?.();
     child.stderr.on('data', (chunk) => {
       stderr = (stderr + chunk).slice(-4000);
     });
     if (out) child.stdout.pipe(out);
-    child.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolvePromise() : reject(new Error(`${cmd} failed (${code}): ${stderr.trim()}`))));
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (timedOut) return reject(new Error(`${cmd} did not finish within ${Math.round(timeoutMs / 1000)} s`));
+      return code === 0 ? resolvePromise() : reject(new Error(`${cmd} failed (${code}): ${stderr.trim()}`));
+    });
   });
 }
 
+const NDJSON_BATCH = 1000;
+
+/*
+ * Data-only backup: one consistent snapshot (REPEATABLE READ, read only), each
+ * table read through a cursor NDJSON_BATCH rows at a time, so a big table never
+ * sits in memory as a whole. Each table section starts with
+ * { "#table": name, "rows": null } (the row count is not known in advance).
+ */
 async function dumpNdjson(file, tables, header) {
-  async function* lines() {
-    yield `${JSON.stringify(header)}\n`;
-    for (const table of tables) {
-      const rows = (await query(`SELECT row_to_json(t)::text AS r FROM ${quoteIdent(table)} t`)).rows;
-      yield `${JSON.stringify({ '#table': table, rows: rows.length })}\n`;
-      for (const row of rows) yield `${row.r}\n`;
+  await withTransaction(async (client) => {
+    await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
+    async function* lines() {
+      yield `${JSON.stringify(header)}\n`;
+      for (const [index, table] of tables.entries()) {
+        const cursor = `portal_backup_${index}`;
+        await client.query(`DECLARE ${cursor} NO SCROLL CURSOR FOR SELECT row_to_json(t)::text AS r FROM ${quoteIdent(table)} t`);
+        yield `${JSON.stringify({ '#table': table, rows: null })}\n`;
+        for (;;) {
+          const { rows } = await client.query(`FETCH ${NDJSON_BATCH} FROM ${cursor}`);
+          if (!rows.length) break;
+          yield rows.map((row) => `${row.r}\n`).join('');
+        }
+        await client.query(`CLOSE ${cursor}`);
+      }
     }
-  }
-  await pipeline(Readable.from(lines()), createGzip(), createWriteStream(file, { mode: PRIVATE_FILE }));
+    await pipeline(Readable.from(lines()), createGzip(), createWriteStream(file, { mode: PRIVATE_FILE }));
+  });
 }
 
 /** An empty file only the app user can read (pg_dump -f keeps the mode of an existing file). */
@@ -164,7 +235,7 @@ export async function backupModule({ id, version, manifest = null, reason = 'man
   const migrations = (await appliedMigrations(id)).map((row) => row.migration_id);
   const base = join(dir, `${id}-${version || '0.0.0'}-${stamp()}-${String(reason).replace(/[^a-z0-9-]/gi, '').slice(0, 20) || 'manual'}`);
   const header = { format: 'portal-module-backup', formatVersion: 1, module: id, version, tables, migrations, createdAt: new Date().toISOString() };
-  let format = tables.length > 0 && pgDumpAvailable() ? 'pg_dump' : 'ndjson';
+  let format = tables.length > 0 && (await pgDumpAvailable()) ? 'pg_dump' : 'ndjson';
   let file = null;
   if (format === 'pg_dump') {
     file = `${base}.dump`;
@@ -259,6 +330,30 @@ export function listBackups(id) {
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 }
 
+/*
+ * How rows go back into a table: only the columns that take a value (not GENERATED ALWAYS AS (…)
+ * STORED), OVERRIDING SYSTEM VALUE for GENERATED ALWAYS AS IDENTITY, and afterwards every sequence
+ * of the table (serial or identity) is set past the restored values.
+ */
+async function insertPlan(client, table) {
+  const { rows } = await client.query(
+    `SELECT a.attname, a.attgenerated <> '' AS generated, pg_get_serial_sequence($1, a.attname) AS seq
+       FROM pg_attribute a WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum`,
+    [quoteIdent(table)]
+  );
+  const columns = rows.filter((row) => !row.generated).map((row) => quoteIdent(row.attname)).join(', ');
+  return {
+    sql: `INSERT INTO ${quoteIdent(table)} (${columns}) OVERRIDING SYSTEM VALUE SELECT ${columns} FROM json_populate_record(NULL::${quoteIdent(table)}, $1::json)`,
+    sequences: rows.filter((row) => row.seq).map((row) => ({ column: row.attname, seq: row.seq })),
+  };
+}
+
+async function resetSequences(client, table, sequences) {
+  for (const { column, seq } of sequences) {
+    await client.query(`SELECT setval($1::regclass, COALESCE((SELECT MAX(${quoteIdent(column)}) FROM ${quoteIdent(table)}), 0) + 1, false)`, [seq]);
+  }
+}
+
 async function restoreNdjson(meta) {
   const current = (await appliedMigrations(meta.id)).map((row) => row.migration_id);
   if (current.join(',') !== (meta.migrations || []).join(',')) {
@@ -268,6 +363,7 @@ async function restoreNdjson(meta) {
   await withTransaction(async (client) => {
     if (meta.tables.length) await client.query(`TRUNCATE ${meta.tables.map(quoteIdent).join(', ')}`);
     let table = null;
+    let plan = null;
     let first = true;
     for await (const line of reader) {
       if (!line) continue;
@@ -279,11 +375,13 @@ async function restoreNdjson(meta) {
       if (value && typeof value['#table'] === 'string' && Object.keys(value).length === 2) {
         if (!meta.tables.includes(value['#table'])) throw new Error(`unexpected table ${value['#table']} in backup`);
         table = value['#table'];
+        plan = await insertPlan(client, table);
         continue;
       }
       if (!table) throw new Error('backup file is damaged');
-      await client.query(`INSERT INTO ${quoteIdent(table)} SELECT * FROM json_populate_record(NULL::${quoteIdent(table)}, $1::json)`, [line]);
+      await client.query(plan.sql, [line]);
     }
+    for (const name of meta.tables) await resetSequences(client, name, (await insertPlan(client, name)).sequences);
   });
 }
 

@@ -1,6 +1,6 @@
 import { query } from '../config/database.js';
 import { tokenResourceLister } from '../platform/registry.js';
-import { AREAS, RESOURCE_KINDS, cleanRules, cleanScopes } from './scopes.js';
+import { AREAS, RESOURCE_KINDS, cleanRules, cleanScopes, keepUnknownScopes } from './scopes.js';
 import { httpError } from './tokens.js';
 
 /* Access templates: reusable sets of scopes and rules. */
@@ -41,7 +41,7 @@ function cleanTemplate(input, current) {
   if (input.description !== undefined) out.description = String(input.description || '').trim().slice(0, 1000) || null;
   if (input.color !== undefined) out.color = HEX.test(input.color) ? input.color : '#6366F1';
   if (input.icon !== undefined) out.icon = ICONS.includes(input.icon) ? input.icon : 'key';
-  if (input.scopes !== undefined || !current) out.scopes = JSON.stringify(cleanScopes(input.scopes || {}));
+  if (input.scopes !== undefined || !current) out.scopes = JSON.stringify(keepUnknownScopes(current?.scopes, cleanScopes(input.scopes || {})));
   if (input.rules !== undefined) out.rules = JSON.stringify(cleanRules(input.rules));
   return out;
 }

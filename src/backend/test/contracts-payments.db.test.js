@@ -322,3 +322,89 @@ test('database: Masterplan — deposit → «Задаток», signed → «До
   assert.equal(data.masterplanSync[0].result, 'refused');
   assert.equal((await unit(c2)).status, 'booking');
 });
+
+test('database: Masterplan catches up with contracts changed while it was off (resync), once per install', { skip: skipMp }, async () => {
+  await setup();
+  const service = await import('../modules/contracts/service.js');
+  const pay = await import('../modules/contracts/payments.js');
+  const contractsApi = await import('../modules/contracts/api.js');
+  const settings = await import('../services/settings.js');
+  const { mpSettings } = await import('../modules/masterplan/access.js');
+  const { createProject } = await import('../modules/masterplan/projects.js');
+  const { createNode, bulkCreate } = await import('../modules/masterplan/nodes.js');
+  const { migrateUnit } = await import('../modules/masterplan/migration.js');
+  const { resyncFromContracts, autoResync, SYSTEM_ACTOR } = await import('../modules/masterplan/contractSync.js');
+
+  const mpSet = await mpSettings();
+  const admin = { userId: null, globalRoles: new Set(['admin']), isAdmin: true, assignments: [], settings: { ...mpSet, reserveLimit: 0 }, request: null };
+  const project = await createProject(admin, { name: `DBTEST-RESYNC ${tag}`, currency: 'USD' });
+  created.projects.push(project.id);
+  const { rows: types } = await db.query(`SELECT id FROM mp_types WHERE key = 'cottage'`);
+  const sector = await createNode(admin, { projectId: project.id, kind: 'level', levelKey: 'sector', code: 'R' });
+  await bulkCreate(admin, { projectId: project.id, parentId: sector.id, kind: 'object', typeId: types[0].id, prefix: 'R', from: 1, count: 2, pad: 0, unit: { price: 50000, areaTotal: 80, status: 'free' } });
+  const byCode = async (code) => (await db.query(`SELECT id FROM mp_nodes WHERE project_id = $1 AND code = $2`, [project.id, code])).rows[0].id;
+  const r1 = await byCode('R1');
+  const r2 = await byCode('R2');
+  await migrateUnit(admin, r1, { to: 'booking', reason: 'test', clientName: 'Покупатель R1' });
+  const unit = async (nodeId) => (await db.query(`SELECT status, paid_amount, contract_number FROM mp_units WHERE node_id = $1`, [nodeId])).rows[0];
+
+  const seller = await makeUser('rsseller', [await makeRole('rssell', ['contracts.create', 'masterplan.sales'])]);
+  const fin = await makeUser('rsfin', [await makeRole('rsfin', ['contracts.finance', 'masterplan.finance'])]);
+  const lawyer = await makeUser('rslawyer', [await makeRole('rslegal', ['contracts.legal', 'masterplan.legal'])]);
+  const [cSeller, cFin, cLawyer] = await contexts([seller, fin, lawyer]);
+  const today = cSeller.today;
+  const made = await service.createContract(cSeller, { title: `Коттедж R1 ${tag}`, typeKey: 'property_sale', direction: 'client', counterparty: 'Покупатель R1', amount: 50000, currency: 'USD', mpNodeId: r1 });
+  const id = made.contract.id;
+  created.contracts.push(id);
+  // R2 stays free: a free unit is never moved by a catch-up, even with a signed contract.
+  const freeOne = await service.createContract(cSeller, { title: `Коттедж R2 ${tag}`, direction: 'client', counterparty: 'Покупатель R2', amount: 1000, currency: 'USD', mpNodeId: r2 });
+  created.contracts.push(freeOne.contract.id);
+
+  // ── The window: Masterplan off (not installed yet) while the deposit, the signature and the payments happen ──
+  await settings.updateAdminSettings({ modules: { masterplan: { enabled: false } } });
+  try {
+    await pay.saveDeposit(cSeller, id, { amount: 5000, dueOn: today });
+    const preview = await pay.previewSchedule(cSeller, id, { mode: 'full', firstOn: addDays(today, 30) });
+    await pay.saveSchedule(cSeller, id, { rows: preview.rows, plan: preview.plan });
+    await pay.depositStatus(cFin, id, { status: 'received' });
+    for (const contractId of [id, freeOne.contract.id]) {
+      await db.query(`UPDATE ctr_contracts SET status = 'approved' WHERE id = $1`, [contractId]);
+      await service.changeStatus(cLawyer, contractId, { to: 'signed', signedOn: today });
+    }
+    await pay.addPayment(cFin, id, { amount: 45000 });
+    assert.equal((await unit(r1)).status, 'booking', 'nobody followed the events');
+    // Off: the catch-up does nothing (and says so).
+    assert.equal((await resyncFromContracts(contractsApi)).unavailable, true);
+  } finally {
+    await settings.updateAdminSettings({ modules: { masterplan: { enabled: true } } });
+  }
+
+  // ── Installed / on again: one catch-up brings the unit where the events would have: «Продано» ──
+  const summary = await resyncFromContracts(contractsApi, { actor: SYSTEM_ACTOR });
+  const mine = summary.results.filter((item) => item.unit?.id === r1);
+  assert.deepEqual(mine.map((item) => [item.action, item.result]), [['deposit', 'applied'], ['signed', 'applied'], ['sold', 'applied']], JSON.stringify(mine));
+  const after1 = await unit(r1);
+  assert.equal(after1.status, 'sold');
+  assert.equal(Number(after1.paid_amount), 50000);
+  assert.equal(after1.contract_number, made.contract.number);
+  assert.equal((await unit(r2)).status, 'free', 'a free unit is left alone');
+  assert.equal(summary.results.filter((item) => item.unit?.id === r2).length, 0);
+  const { rows: notes } = await db.query(`SELECT data FROM ctr_events WHERE contract_id = $1 AND kind = 'mp_sync' AND (data->>'resync')::boolean ORDER BY id`, [id]);
+  assert.ok(notes.length >= 3, 'the contract history shows the catch-up');
+  // Again: nothing left to do.
+  const again = await resyncFromContracts(contractsApi, { actor: SYSTEM_ACTOR });
+  assert.equal(again.results.filter((item) => item.unit?.id === r1 && item.result === 'applied').length, 0);
+
+  // ── Automatic: once per install (installed_at), not on every start ──
+  const before = (await db.query(`SELECT value FROM app_settings WHERE key = 'masterplan_contract_resync'`)).rows[0]?.value ?? null;
+  try {
+    const ctx = { installedAt: new Date('2026-01-02T03:04:05Z'), modules: { loaded: (moduleId) => (moduleId === 'contracts' ? { api: contractsApi } : null) } };
+    assert.ok(await autoResync(ctx), 'first start after the install');
+    assert.equal(await autoResync(ctx), null, 'already done for this install');
+    assert.ok(await autoResync({ ...ctx, installedAt: new Date('2026-02-02T03:04:05Z') }), 'a new install runs it again');
+    assert.equal(await autoResync({ modules: ctx.modules }), null, 'not a package install (source tree): never');
+  } finally {
+    if (before === null) await db.query(`DELETE FROM app_settings WHERE key = 'masterplan_contract_resync'`);
+    else await db.query(`UPDATE app_settings SET value = $1 WHERE key = 'masterplan_contract_resync'`, [before]);
+  }
+});

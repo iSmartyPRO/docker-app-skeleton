@@ -1,7 +1,7 @@
 import { query } from '../../config/database.js';
 import { emit } from '../../platform/events.js';
 import { modules } from '../../platform/registry.js';
-import { logEvent } from './service.js';
+import { loadRow, logEvent } from './service.js';
 import { DEPOSIT_HELD } from './payLogic.js';
 
 /*
@@ -23,7 +23,7 @@ import { DEPOSIT_HELD } from './payLogic.js';
  */
 
 /** Money received on the contract for its object: payments + the deposit while it is held. */
-async function objectPaid(contractId) {
+export async function objectPaid(contractId) {
   const { rows } = await query(
     `SELECT COALESCE((SELECT SUM(amount) FROM ctr_payments WHERE contract_id = $1), 0)
           + COALESCE((SELECT amount FROM ctr_deposits WHERE contract_id = $1 AND status = ANY($2::text[])), 0) AS paid`,
@@ -32,7 +32,7 @@ async function objectPaid(contractId) {
   return Math.round(Number(rows[0].paid) * 100) / 100;
 }
 
-const contractFacts = (row) => ({
+export const contractFacts = (row) => ({
   id: row.id,
   number: row.number,
   extNumber: row.ext_number || null,
@@ -53,6 +53,40 @@ async function announce(name, ctx, row, extra = {}) {
     if (answer.result) results.push(answer.result);
   }
   return results;
+}
+
+/** A follower's notes in the contract's history (ctr_events 'mp_sync'). */
+export async function recordSyncNotes(contractId, logs = [], userId = null) {
+  for (const log of logs || []) await logEvent({ query }, contractId, 'mp_sync', log, userId).catch((err) => console.warn('[contracts] object sync note:', err.message));
+}
+
+/*
+ * Catching up (the follower was not installed or was off while contracts changed — the events of that time
+ * went to nobody): every contract linked to an object, with what the events would have said. Not rejected or
+ * terminated ones: those never move an object forward.
+ *   { contract (as in the events), paid, depositHeld, signed, full, status }
+ */
+export async function linkedObjectStates() {
+  const { rows: ids } = await query(`SELECT id FROM ctr_contracts WHERE mp_node_id IS NOT NULL AND status NOT IN ('rejected', 'terminated') ORDER BY id`);
+  const out = [];
+  for (const { id } of ids) {
+    // The row as the live events read it (dates as text, the same columns).
+    const row = await loadRow(id);
+    if (!row) continue;
+    const total = row.pay_total === null || row.pay_total === undefined ? null : Number(row.pay_total);
+    const paidStored = Number(row.pay_paid || 0);
+    const amount = row.amount === null || row.amount === undefined ? null : Number(row.amount);
+    out.push({
+      contract: contractFacts(row),
+      paid: await objectPaid(row.id),
+      depositHeld: DEPOSIT_HELD.includes(row.deposit_status),
+      signed: Boolean(row.signed_at) && ['signed', 'active', 'expiring', 'completed'].includes(row.status),
+      // As payments.js recompute(): the schedule is paid in full and covers the contract amount.
+      full: Boolean(total > 0 && paidStored >= total && (amount === null || paidStored >= amount)),
+      status: row.status,
+    });
+  }
+  return out;
 }
 
 /** Deposit confirmed. */

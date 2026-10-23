@@ -10,6 +10,7 @@ export const mpApi = {
   users: () => api.get(`${base}/users`),
   groups: () => api.get(`${base}/groups`),
   requestAccess: (note) => api.post(`${base}/access-request`, { note }),
+  contractResync: () => api.post(`${base}/contract-resync`, {}, { timeout: 120000 }),
 
   types: (archived) => api.get(`${base}/types`, { params: archived ? { archived: 1 } : {} }),
   saveTypes: (types) => api.put(`${base}/types`, { types }),

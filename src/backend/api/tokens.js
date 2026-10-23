@@ -5,7 +5,7 @@ import { hasPermission, isSubset } from '../services/permissions.js';
 import { getUserAccess } from '../services/rbac.js';
 import { avatarUrl } from '../services/users.js';
 import { apiConfig } from './config.js';
-import { cleanLimits, cleanRules, cleanScopes, effectivePolicy, limitsByTable } from './scopes.js';
+import { cleanLimits, cleanRules, cleanScopes, effectivePolicy, keepUnknownScopes, limitsByTable } from './scopes.js';
 
 /*
  * API tokens.
@@ -150,7 +150,7 @@ async function cleanInput(input, current, { config }) {
       out.template_id = rows[0].id;
     }
   }
-  if (input.scopes !== undefined) out.scopes = JSON.stringify(cleanScopes(input.scopes, { partial: true }));
+  if (input.scopes !== undefined) out.scopes = JSON.stringify(keepUnknownScopes(current?.scopes, cleanScopes(input.scopes, { partial: true })));
   if (input.rules !== undefined) out.rules = JSON.stringify(cleanRules(input.rules));
   if (input.limits !== undefined) out.limits = JSON.stringify(cleanLimits(input.limits));
   if (input.ipAllow !== undefined) {

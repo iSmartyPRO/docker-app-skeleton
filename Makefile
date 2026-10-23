@@ -11,7 +11,7 @@
 .PHONY: db-setup db-create db-drop user-create user-drop
 .PHONY: psql sql dbs users
 .PHONY: install build-local test seed-demo clean clean-image
-.PHONY: module module-keygen modules-verify check-core-upgrade
+.PHONY: module module-keygen modules-verify check-core-upgrade backup-modules
 
 # ── Configuration ───────────────────────────────────────────────────────────
 COMPOSE      ?= docker compose
@@ -178,16 +178,28 @@ backup: ## Dump the app database to $(BACKUP_DIR)/<db>-<timestamp>.dump (skipped
 		echo "Backup failed: container $(DB_CONTAINER) is not running. Start it (or set DB_CONTAINER=…), or deploy without a backup: make deploy BACKUP=skip"; exit 1; \
 	else echo "Backup skipped: container $(DB_CONTAINER) is not running"; fi
 
+# Installed module packages, their pointers and table backups (data/modules): a tar next to the database dump.
+MODULES_HOST_DIR ?= $(PROJECT_ROOT)data/modules
+backup-modules: ## Archive data/modules (installed module packages) to $(BACKUP_DIR)/modules-<timestamp>.tar.gz (skipped when there is none)
+	@if [ "$(BACKUP)" = "skip" ]; then exit 0; fi; \
+	if [ -d "$(MODULES_HOST_DIR)" ] && [ -n "$$(ls -A "$(MODULES_HOST_DIR)" 2>/dev/null)" ]; then \
+		mkdir -p "$(BACKUP_DIR)"; f="$(BACKUP_DIR)/modules-$$(date +%Y%m%d-%H%M%S).tar.gz"; \
+		( umask 077; tar -czf "$$f" -C "$(MODULES_HOST_DIR)" . ) && test -s "$$f" && echo "Backup: $$f ($$(du -h "$$f" | cut -f1))" || { echo "Backup of $(MODULES_HOST_DIR) failed"; rm -f "$$f"; exit 1; }; \
+	else echo "Backup of module packages skipped: $(MODULES_HOST_DIR) is empty or missing"; fi
+
 # Deploy order: nothing is published before the new version runs. The release
 # commit and tag are made locally (--no-push), then backup, rebuild and the
 # health check (the new VERSION must answer); only then are the branch and the
 # tag pushed (GitHub publishes the release from the tag). A failed step stops
 # the deploy with the release unpublished — see docs/operations.md, "Failed deploy".
-deploy: ## Release locally (if anything changed) → backup (required; BACKUP=skip to skip) → tag previous image → rebuild → wait until healthy → push branch and tag
+deploy: ## Check module packages → release locally (if anything changed) → backup of the database and data/modules (required; BACKUP=skip to skip) → tag previous image → rebuild → wait until healthy → push branch and tag
+	@# Installed module packages must fit the new core, checked against the version about to be released and
+	@# BEFORE the release commit and tag exist, so a refusal leaves nothing behind (MODULES_CHECK=skip deploys
+	@# anyway; such modules are marked «needs an update» and not loaded).
+	@[ "$(MODULES_CHECK)" = "skip" ] || $(MAKE) --no-print-directory check-core-upgrade CORE="$$(node "$(PROJECT_ROOT)scripts/release.mjs" $(BUMP) --next-version)"
 	@node "$(PROJECT_ROOT)scripts/release.mjs" $(BUMP) --no-push
-	@# Installed module packages must fit the new core (MODULES_CHECK=skip deploys anyway; they are marked «needs an update»).
-	@[ "$(MODULES_CHECK)" = "skip" ] || $(MAKE) --no-print-directory check-core-upgrade
 	@$(MAKE) --no-print-directory backup BACKUP_REQUIRED=1
+	@$(MAKE) --no-print-directory backup-modules
 	@docker image inspect $(APP_IMAGE) >/dev/null 2>&1 && docker tag $(APP_IMAGE) $(APP_IMAGE):previous && echo "Tagged $(APP_IMAGE):previous" || true
 	@$(MAKE) --no-print-directory rebuild
 	@v="$$(tr -d '[:space:]' < "$(PROJECT_ROOT)VERSION")"; ok=; \

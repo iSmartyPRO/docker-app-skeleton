@@ -544,7 +544,12 @@ test('static: /modules/<id>/<version>-<digest>/web/* immutable, without a digest
     assert.doesNotMatch(plain.headers.get('cache-control'), /immutable/);
     // Another digest (the package was reinstalled with other bytes): not these files.
     assert.equal((await fetch(`${base}/modules/hello/1.0.0-ffffffffffff/web/index.js`)).status, 404);
+    // Another version on disk (the previous one, a failed or blocked one): never served, digest or not.
+    mkdirSync(join(root, 'hello/0.9.0/web'), { recursive: true });
+    writeFileSync(join(root, 'hello/0.9.0/web/index.js'), 'export default {};');
+    assert.equal((await fetch(`${base}/modules/hello/0.9.0/web/index.js`)).status, 404, 'not the loaded version');
     resetLoader();
+    assert.equal((await fetch(`${base}/modules/hello/1.0.0/web/index.js`)).status, 404, 'not loaded: no plain path either');
     assert.equal((await fetch(`${base}/modules/hello/1.0.0-ab12ab12ab12/web/index.js`)).status, 404, 'not loaded');
     for (const path of ['/modules/hello/1.0.0/manifest.json', '/modules/.backups/hello/x.json', '/modules/hello/1.0.0/web/../manifest.json', '/modules/hello/1.0.0/web/%2e%2e/manifest.json', '/modules/hello/1.0.0/web/missing.js', '/modules/hello/latest/web/index.js']) {
       assert.equal((await fetch(`${base}${path}`)).status, 404, path);

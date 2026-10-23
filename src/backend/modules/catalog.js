@@ -1297,6 +1297,24 @@ export function resolveModules(stored = {}, { locale } = {}) {
   );
 }
 
+/*
+ * Stored entries of modules this core does not know (a package not installed yet, removed, or
+ * failed to load; an old module id kept for a migration such as drive/access «folderaccess»)
+ * are carried over unchanged by every save of the modules settings, so they come back intact
+ * when the package is installed again. `stored`: the raw stored object; `next`: the sanitized
+ * catalog entries, which win.
+ */
+export function keepUnknownModules(stored, next) {
+  const known = new Set(MODULE_CATALOG.map((module) => module.id));
+  const carried = {};
+  if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+    for (const [id, value] of Object.entries(stored)) {
+      if (!known.has(id) && value !== undefined && id !== '__proto__') carried[id] = value;
+    }
+  }
+  return { ...carried, ...next };
+}
+
 export function sanitizeModules(current, incoming = {}) {
   const next = structuredClone(current);
   for (const module of MODULE_CATALOG) {

@@ -15,13 +15,14 @@ import { moduleContext as registryContext, onShutdown, registerModule as registr
 import { activePackages, clearBootMarker, readBootMarker, readManifestAt, readPointer, scanDisk, writeBootMarker, writePointer } from './disk.js';
 import { ensurePackageTables, getModuleRow, listModuleRows, saveModuleRow } from './store.js';
 import { inlineMigrations, mergeMigrations, packageMigrations, runMigrations } from './migrations.js';
-import { listBackups, restoreBackup } from './backup.js';
+import { listBackups, moduleTables, restoreBackup } from './backup.js';
 import { compatibilityProblem } from './checks.js';
 import { verifyPackageDir } from './integrity.js';
 import { startStagingCleanup } from './staging.js';
 import { satisfies } from './version.js';
 import { devMode, versionDir } from './paths.js';
-import { BOOT_ID, requestRestart } from './restart.js';
+import { BOOT_ID, onRestartExit, requestRestart } from './restart.js';
+import { CRASH_WINDOW_MS, clearCrashes, setCrashJournal } from './crashGuard.js';
 
 /*
  * The module loader (spec §6 stage 3, docs/module-packages.md «Boot»).
@@ -49,12 +50,25 @@ import { BOOT_ID, requestRestart } from './restart.js';
  * A boot that never finishes with a package (node crashes — an uncaught
  * exception from its timers — or hangs) cannot catch anything: the boot
  * marker (disk.js) catches it at the next start, before the package is
- * imported again. An update is rolled back; a package that was already
- * running is skipped («blocked») until a new version is installed or it is
+ * imported again. What happens then depends on whether the stop is the
+ * package's fault (docs/module-packages.md «Unfinished boots»):
+ *   - attributable — the crash guard (crashGuard.js) found the package in the
+ *     stack of the uncaught exception («crashed»), or its load timed out
+ *     («timeout», after which the app restarts at once to stop the hung work):
+ *     an update is rolled back at once; a running package is blocked at once
+ *     when it crashed, after the second timeout in a row when it timed out;
+ *   - not attributable («loading»: OOM kill, power loss, docker kill, the
+ *     watchdog, a crash of the core or of another package): the package is
+ *     loaded again; only the second unfinished boot in a row (the marker
+ *     counts attempts) rolls an update back or blocks a running package.
+ * A blocked package is skipped until a new version is installed or it is
  * removed. So a broken package can never crash the portal in a loop. The first
  * boot after an update keeps the marker (and pending_check) for
  * MODULE_BOOT_SETTLE_MS (30 s) after register(), so a crash shortly after
  * the start rolls the update back too; a graceful shutdown confirms it early.
+ * A deliberate restart before the server listens (exitForRestart) clears the
+ * markers of packages still loading. Crashes after the window are counted
+ * (crashGuard.js: blocked after 3 within 10 minutes).
  *
  * Loaded packages join the core registry (platform/registry.js), so other
  * modules reach their public API with ctx.modules.get(id)?.api — null while
@@ -106,6 +120,8 @@ export function moduleContext(record) {
     ...registryContext(record.module),
     version: record.version,
     source: record.source,
+    // When this package was installed (not updated): a module can do something once per install.
+    installedAt: record.row?.installed_at || null,
     dir: record.dir || null,
     manifest: record.manifest || null,
     db: { query, withTransaction },
@@ -302,19 +318,42 @@ async function markFailed(pkg, row, message, extra = {}) {
   }
 }
 
-/** The previous boot never finished with this package (marker found): roll an update back, else skip it. */
+/** Unfinished boots in a row (marker attempts) after which a stop nobody can attribute counts against the package. */
+export const UNFINISHED_LIMIT = 2;
+
+/**
+ * What an unfinished earlier boot means (marker found), without side effects:
+ * → { retry: true, attempt } (load it again, attempt = the number of this try) or
+ *   { retry: false, reason, rollback } (rollback: an update may be rolled back).
+ */
+export function unfinishedBootDecision(marker, { pending = false } = {}) {
+  const attempts = Math.max(1, Number(marker.attempts) || 1);
+  if (marker.status === 'blocked') return { retry: false, rollback: false, reason: marker.reason || 'an earlier start stopped while loading it' };
+  if (marker.status === 'crashed') return { retry: false, rollback: true, reason: marker.reason || 'it crashed the portal while starting' };
+  if (marker.status === 'timeout') {
+    const reason = marker.reason || 'it did not finish loading in time';
+    // An update that hangs is rolled back at once; a running package gets a second chance (a lock, a slow database).
+    if (pending || attempts >= UNFINISHED_LIMIT) return { retry: false, rollback: true, reason: attempts >= UNFINISHED_LIMIT && !pending ? `${reason} (${attempts} starts in a row)` : reason };
+    return { retry: true, attempt: attempts + 1 };
+  }
+  // «loading»: the process stopped for a reason nobody could attribute.
+  if (attempts >= UNFINISHED_LIMIT) return { retry: false, rollback: true, reason: `${attempts} starts in a row stopped while loading it (the process crashed, hung or was killed)` };
+  return { retry: true, attempt: attempts + 1 };
+}
+
+/** The previous boot never finished with this package (marker found): load it again, roll an update back, or skip it. */
 async function handleUnfinishedBoot(pkg, row, marker) {
-  const reason =
-    marker.status === 'blocked'
-      ? marker.reason || 'an earlier start stopped while loading it'
-      : marker.status === 'timeout'
-        ? marker.reason || 'it did not finish loading in time'
-        : 'the previous start stopped while loading it (the process crashed or hung)';
+  const decision = unfinishedBootDecision(marker, { pending: Boolean(row?.pending_check) });
+  if (decision.retry) {
+    console.warn(`Module ${pkg.id} ${pkg.version}: the previous start stopped while loading it (${marker.status}); loading it again (attempt ${decision.attempt} of ${UNFINISHED_LIMIT})`);
+    return decision;
+  }
+  const { reason } = decision;
   const error = new Error(reason);
-  if (marker.status !== 'blocked' && row?.pending_check && (await rollbackAfterFailedUpdate(pkg, row, error).catch((err) => (console.error(`Rollback of ${pkg.id} failed: ${err.message}`), false)))) return reason;
+  if (decision.rollback && row?.pending_check && (await rollbackAfterFailedUpdate(pkg, row, error).catch((err) => (console.error(`Rollback of ${pkg.id} failed: ${err.message}`), false)))) return { reason };
   if (marker.status !== 'blocked') writeBootMarker(pkg.id, { version: pkg.version, status: 'blocked', bootId: BOOT_ID, reason });
   await markFailed(pkg, row, `${reason}. It is not loaded until a new version is installed, or it is removed and installed again.`);
-  return reason;
+  return { reason };
 }
 
 /** A package that loaded: its first boot after an update is confirmed (pending_check off, marker gone). */
@@ -346,6 +385,42 @@ export function loadPackages({ builtinIds = [], manifestEntries = {} } = {}) {
   return loading;
 }
 
+/*
+ * Modules that were built into older cores and are packages now. A portal upgraded straight from such a
+ * core (before the package platform: no installed_modules table, so no «bundled» row to turn into
+ * «removed») gets a «removed» row for each whose data is there (its tables, or its stored settings), so
+ * Settings → Modules lists it under «Удалённые модули» with the hint to install its package, and an
+ * older package file counts as a downgrade. `version`: the last version built into the core.
+ */
+export const CONVERTED_MODULES = Object.freeze({
+  masterplan: { version: '1.0.0', name: { en: 'Masterplan', ru: 'Мастерплан', ky: 'Мастерплан', tr: 'Master plan', zh: '总体规划' } },
+});
+
+async function hasModuleData(id) {
+  if ((await moduleTables(id, null)).length) return true;
+  try {
+    const raw = (await query(`SELECT value FROM app_settings WHERE key = 'modules'`)).rows[0]?.value;
+    const stored = raw ? JSON.parse(raw) : {};
+    return Boolean(stored && typeof stored === 'object' && Object.hasOwn(stored, id));
+  } catch {
+    return false;
+  }
+}
+
+/** The «removed» rows of converted modules a portal has data of but no row for (CONVERTED_MODULES). → ids written. */
+export async function noteConvertedModules({ builtinIds = [], packageIds = [], rows = null } = {}) {
+  const existing = new Set((rows || (await listModuleRows())).map((row) => row.id));
+  const written = [];
+  for (const [id, info] of Object.entries(CONVERTED_MODULES)) {
+    if (builtinIds.includes(id) || packageIds.includes(id) || existing.has(id)) continue;
+    if (!(await hasModuleData(id))) continue;
+    await saveModuleRow({ id, version: info.version, state: 'removed', source: 'package', error: null, pending_check: false, manifest: { id, name: info.name, version: info.version } });
+    console.warn(`Module ${id} is no longer built into the core: install its package to use it again (its data is kept)`);
+    written.push(id);
+  }
+  return written;
+}
+
 async function doLoad(builtinIds, manifestEntries) {
   await ensurePackageTables();
   startStagingCleanup();
@@ -358,11 +433,15 @@ async function doLoad(builtinIds, manifestEntries) {
   const packages = requirementOrder(activePackages(builtinIds));
   // A module that was built into an older core and is now a package (masterplan): until its package
   // is installed it is «removed» — code gone, tables and settings kept (docs/module-packages.md).
-  for (const row of await listModuleRows()) {
+  const rows = await listModuleRows();
+  for (const row of rows) {
     if (row.source !== 'bundled' || builtinIds.includes(row.id) || packages.some((pkg) => pkg.id === row.id)) continue;
-    await saveModuleRow({ id: row.id, version: row.version, state: 'removed', source: 'package', error: null, pending_check: false });
+    const converted = CONVERTED_MODULES[row.id];
+    await saveModuleRow({ id: row.id, version: row.version, state: 'removed', source: 'package', error: null, pending_check: false, ...(converted && !row.manifest ? { manifest: { id: row.id, name: converted.name, version: row.version } } : {}) });
     console.warn(`Module ${row.id} is no longer built into the core: install its package to use it again (its data is kept)`);
   }
+  // Upgraded from a core without the package platform: no row at all yet.
+  await noteConvertedModules({ builtinIds, packageIds: packages.map((pkg) => pkg.id), rows });
   for (const [id, message] of problems) {
     if (packages.some((pkg) => pkg.id === id)) continue;
     const version = readPointer(id) || (await getModuleRow(id))?.version || '0.0.0';
@@ -382,6 +461,13 @@ async function doLoad(builtinIds, manifestEntries) {
  * server.js has no handler of its own yet (it is installed after the boot); removed by registerPackages().
  */
 const inFlight = new Set();
+// A deliberate restart before the server listens is not a crash of the packages still loading.
+onRestartExit(() => {
+  for (const id of inFlight) clearBootMarker(id);
+});
+// Crashes attributed to a package are journaled like the other boot events.
+setCrashJournal(journalBoot);
+let crashClearTimer = null;
 let bootGuards = null;
 function guardBoot() {
   if (bootGuards) return;
@@ -411,16 +497,21 @@ async function bootOne(pkg, results) {
     clearBootMarker(pkg.id); // left by another version
     marker = null;
   }
+  let attempt = 1;
   if (marker) {
-    const reason = await handleUnfinishedBoot(pkg, row, marker);
-    results.push({ id: pkg.id, version: pkg.version, ok: false, error: reason });
-    return;
+    const decision = await handleUnfinishedBoot(pkg, row, marker);
+    if (!decision.retry) {
+      results.push({ id: pkg.id, version: pkg.version, ok: false, error: decision.reason });
+      return;
+    }
+    attempt = decision.attempt;
   }
-  writeBootMarker(pkg.id, { version: pkg.version, status: 'loading', bootId: BOOT_ID, pending: Boolean(row?.pending_check) });
+  pkg.attempt = attempt;
+  writeBootMarker(pkg.id, { version: pkg.version, status: 'loading', bootId: BOOT_ID, pending: Boolean(row?.pending_check), attempts: attempt });
   inFlight.add(pkg.id);
   try {
     const { module, integrity } = await withTimeout(loadPackage(pkg, row), bootTimeoutMs(), `Loading ${pkg.id} ${pkg.version}`);
-    const record = { id: pkg.id, version: pkg.version, source: 'package', api: module.api || null, module, manifest: pkg.manifest, dir: pkg.dir, row, pendingCheck: Boolean(row?.pending_check), listingSha256: integrity.listingSha256 };
+    const record = { id: pkg.id, version: pkg.version, source: 'package', api: module.api || null, module, manifest: pkg.manifest, dir: pkg.dir, row, pendingCheck: Boolean(row?.pending_check), listingSha256: integrity.listingSha256, attempt };
     // In the core registry (ctx.modules.get(id)?.api for other modules), with the package version.
     registryAdd({ ...module, id: pkg.id, version: pkg.version });
     record.context = moduleContext(record);
@@ -449,15 +540,15 @@ async function bootOne(pkg, results) {
 async function failedAtBoot(pkg, row, err) {
   inFlight.delete(pkg.id);
   if (err.timedOut) {
-    // The hung work cannot be stopped in this process: the marker stays, the next start decides
-    // (a rollback runs there, in a fresh process, not against a transaction that may still hold locks).
-    writeBootMarker(pkg.id, { version: pkg.version, status: 'timeout', bootId: BOOT_ID, reason: err.message });
-    if (row?.pending_check) {
-      await saveModuleRow({ id: pkg.id, version: pkg.version, state: 'failed', error: `${err.message}; the update is rolled back at the restart` }).catch(() => {});
-      requestRestart(`rollback of ${pkg.id}: loading timed out`);
-      return;
-    }
-    await markFailed(pkg, row, `${err.message}. It is not loaded until a new version is installed, or it is removed and installed again.`);
+    // The hung work cannot be stopped in this process (it may still commit migrations or register
+    // things while the module shows as failed): the marker stays and the app restarts at once; the
+    // next start decides (a rollback runs there, in a fresh process, not against a transaction that
+    // may still hold locks; a running package is loaded once more, blocked after the second timeout).
+    writeBootMarker(pkg.id, { version: pkg.version, status: 'timeout', bootId: BOOT_ID, reason: err.message, attempts: pkg.attempt || 1 });
+    const next = row?.pending_check ? 'the update is rolled back at the restart' : (pkg.attempt || 1) >= UNFINISHED_LIMIT ? 'it is blocked at the restart' : 'the app restarts to stop it; it is loaded once more';
+    await saveModuleRow({ id: pkg.id, version: pkg.version, state: 'failed', source: 'package', error: `${err.message}; ${next}`.slice(0, 2000), pending_check: Boolean(row?.pending_check) }).catch(() => {});
+    await journalBoot({ code: 'module_failed', detail: `${pkg.id} ${pkg.version}: ${err.message}; ${next}`, params: { module: pkg.id, version: pkg.version } });
+    requestRestart(`${pkg.id}: loading timed out`);
     return;
   }
   clearBootMarker(pkg.id);
@@ -476,7 +567,7 @@ export async function registerPackages() {
       err = timeout;
     }
     if (err) {
-      const pkg = { id: record.id, version: record.version, dir: record.dir, manifest: record.manifest };
+      const pkg = { id: record.id, version: record.version, dir: record.dir, manifest: record.manifest, attempt: record.attempt };
       const failure = Object.assign(new Error(`register(): ${err.message}`), { timedOut: err.timedOut });
       await failedAtBoot(pkg, record.row, failure);
       continue;
@@ -491,6 +582,12 @@ export async function registerPackages() {
     }
   }
   unguardBoot();
+  // Stable uptime: the crash counts of the loaded packages start again (crashGuard.js).
+  clearTimeout(crashClearTimer);
+  crashClearTimer = setTimeout(() => {
+    for (const record of LOADED.values()) if (record.source === 'package' && record.registeredOk) clearCrashes(record.id);
+  }, CRASH_WINDOW_MS);
+  crashClearTimer.unref?.();
 }
 
 /** Package rows with the switch state, for the Modules page and the inventory. */
@@ -565,9 +662,15 @@ export function setLoadedForTests(record) {
   LOADED.set(record.id, { source: 'package', ...record });
 }
 
+/** Tests: a package counts as still loading (exitForRestart clears its marker). */
+export function markInFlightForTests(id) {
+  inFlight.add(id);
+}
+
 /** Tests: forget everything loaded. */
 export function resetLoader() {
   inFlight.clear();
+  clearTimeout(crashClearTimer);
   unguardBoot();
   for (const record of LOADED.values()) {
     if (record.source !== 'package') continue;

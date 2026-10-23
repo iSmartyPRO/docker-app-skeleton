@@ -106,6 +106,17 @@ export function normalizePermissions(list) {
   return [...new Set(input.filter((perm) => PERMISSIONS.includes(perm)))].sort();
 }
 
+/*
+ * Stored permissions this core does not know (a module package not installed yet, removed or
+ * failed to load) are carried over by an edit, which can only change the permissions it shows:
+ * otherwise the grants would be lost for good and not come back with the package.
+ */
+export function keepUnknownPermissions(stored, next) {
+  const kept = (Array.isArray(stored) ? stored : []).filter((perm) => typeof perm === 'string' && perm !== ALL && !PERMISSIONS.includes(perm));
+  if (!kept.length) return next;
+  return [...new Set([...next, ...kept])].sort();
+}
+
 export function hasPermission(perms, perm) {
   const set = perms instanceof Set ? perms : new Set(perms || []);
   return set.has(ALL) || set.has(perm);

@@ -6,6 +6,7 @@ import { addTranslationSource } from '../../i18n/translations';
 import { addPackageSettingsItem } from '../../admin/navigation';
 import { addMenuSlot } from '../../components/icons/menuIcons';
 import { installShared } from './shared';
+import { backgroundDelays, checkEntry, fetchInstalled as fetchList, fetchWithinBudget, lateAnswerAction, namespaceOf, packageBase, packagesToPrepare, shouldReload, withTimeout } from './loaderLogic';
 
 /*
  * Module packages in the browser shell (docs/module-packages.md «Shell»).
@@ -47,32 +48,19 @@ export const PACKAGES = [];
 const entries = new Map();
 let bootId = null;
 
-const withTimeout = (promise, ms) => Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const RELOAD_KEY = 'portal.packages.reloadedFor';
+// The pure decisions live in loaderLogic.js (tested without a browser).
+const fetchInstalled = (timeoutMs) => fetchList((...args) => fetch(...args), timeoutMs);
 
-/** One GET /api/modules/installed: { data } or { retry: true } (no answer, timeout, 5xx). */
-async function fetchInstalled(timeoutMs) {
-  try {
-    const res = await withTimeout(fetch('/api/modules/installed', { credentials: 'same-origin', headers: { Accept: 'application/json' }, cache: 'no-store' }), timeoutMs);
-    if (!res) return { retry: true };
-    if (res.ok) return { data: await res.json() };
-    return { retry: res.status >= 500 || res.status === 429 };
-  } catch {
-    return { retry: true };
-  }
-}
-
-/** Reloads the page once per boot of the server (never in a loop). */
+/** Reloads the page once per boot of the server and reason (never in a loop; never without storage). */
 function reloadOnce(reason, id) {
+  let storage = null;
   try {
-    const key = `${id || 'unknown'}:${reason}`;
-    if (window.sessionStorage.getItem(RELOAD_KEY) === key) return;
-    window.sessionStorage.setItem(RELOAD_KEY, key);
+    storage = window.sessionStorage;
   } catch {
-    return; // without storage a reload could repeat: keep the page as it is
+    return;
   }
-  window.location.reload();
+  if (shouldReload(storage, reason, id)) window.location.reload();
 }
 
 let retrying = false;
@@ -80,13 +68,13 @@ let retrying = false;
 async function retryLater() {
   if (retrying) return;
   retrying = true;
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    await sleep(Math.min(2000 * 2 ** attempt, 60000));
+  for (const delay of backgroundDelays()) {
+    await sleep(delay);
     const result = await fetchInstalled(5000);
-    if (result.retry) continue;
-    const data = result.data;
-    if (data?.signedIn === false) watchSignIn();
-    if (data?.modules?.some((pkg) => !PACKAGES.some((item) => item.id === pkg.id))) reloadOnce('late', data.bootId);
+    const action = lateAnswerAction(result, PACKAGES);
+    if (action === 'retry') continue;
+    if (action === 'reload') reloadOnce('late', result.data.bootId);
+    else if (action === 'watch-sign-in') watchSignIn();
     break;
   }
   retrying = false;
@@ -100,8 +88,9 @@ function watchSignIn() {
   window.addEventListener('auth:signed-in', async () => {
     watching = false;
     const result = await fetchInstalled(5000);
-    if (result.data?.modules?.length) reloadOnce('signin', result.data.bootId);
-    else if (result.retry) retryLater();
+    const action = lateAnswerAction(result, PACKAGES, { afterSignIn: true });
+    if (action === 'reload') reloadOnce('signin', result.data.bootId);
+    else if (action === 'retry') retryLater();
   }, { once: true });
 }
 
@@ -120,11 +109,7 @@ export function packageEntry(pkg) {
   if (!entries.has(pkg.id)) {
     entries.set(
       pkg.id,
-      import(/* @vite-ignore */ pkg.web.entry).then((mod) => {
-        const entry = mod.default || mod;
-        if (entry.id && entry.id !== pkg.id) throw new Error(`web/index.js of ${pkg.id} says id "${entry.id}"`);
-        return entry;
-      })
+      import(/* @vite-ignore */ pkg.web.entry).then((mod) => checkEntry(pkg, mod))
     );
   }
   return entries.get(pkg.id);
@@ -146,7 +131,7 @@ function translationsOf(pkg) {
     if (!cache.has(locale)) {
       cache.set(
         locale,
-        Promise.all(files.map((url) => import(/* @vite-ignore */ url).then((mod) => [url.split('/').pop().replace(/\.js$/, ''), mod.default || {}]))).then((parts) => Object.fromEntries(parts))
+        Promise.all(files.map((url) => import(/* @vite-ignore */ url).then((mod) => [namespaceOf(url), mod.default || {}]))).then((parts) => Object.fromEntries(parts))
       );
     }
     return cache.get(locale);
@@ -193,16 +178,7 @@ export const packagesBootId = () => bootId;
 export async function loadInstalledPackages({ timeoutMs = 3000 } = {}) {
   installShared();
   const deadline = Date.now() + timeoutMs;
-  let result = null;
-  for (let attempt = 0; ; attempt += 1) {
-    const left = deadline - Date.now();
-    if (left <= 50) break;
-    result = await fetchInstalled(left);
-    if (!result.retry) break;
-    const pause = Math.min(250 * 2 ** attempt, deadline - Date.now() - 50);
-    if (pause <= 0) break;
-    await sleep(pause);
-  }
+  const result = await fetchWithinBudget(fetchInstalled, { timeoutMs, sleep });
   const data = result?.data;
   if (!data) {
     if (!result || result.retry) retryLater();
@@ -211,8 +187,7 @@ export async function loadInstalledPackages({ timeoutMs = 3000 } = {}) {
   bootId = data.bootId || null;
   if (data.signedIn === false) watchSignIn();
   if (!data.modules?.length) return PACKAGES;
-  for (const pkg of data.modules) {
-    if (!pkg?.id || PACKAGES.some((item) => item.id === pkg.id)) continue;
+  for (const pkg of packagesToPrepare(data, PACKAGES)) {
     PACKAGES.push(pkg);
     if (Object.keys(pkg.locales || {}).length) addTranslationSource(translationsOf(pkg));
     // A switched-off package's styles stay out of the page.
@@ -226,7 +201,7 @@ export async function loadInstalledPackages({ timeoutMs = 3000 } = {}) {
         packageEntry(pkg)
           .then((entry) => {
             if (entry.tour) MODULE_UI[pkg.id] = { ...(MODULE_UI[pkg.id] || {}), tour: entry.tour };
-            return typeof entry.register === 'function' ? entry.register({ id: pkg.id, version: pkg.version, base: pkg.base || `/modules/${pkg.id}/${pkg.version}/` }) : null;
+            return typeof entry.register === 'function' ? entry.register({ id: pkg.id, version: pkg.version, base: packageBase(pkg) }) : null;
           })
           .catch((err) => console.warn(`Module package ${pkg.id} did not load:`, err?.message || err))
       )

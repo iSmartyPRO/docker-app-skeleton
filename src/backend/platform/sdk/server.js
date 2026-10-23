@@ -21,7 +21,8 @@ export { SDK_VERSION } from './version.js';
 export { query, withTransaction, getPool } from '../../config/database.js';
 
 // ── Configuration ──────────────────────────────────────────────────────────
-export { default as appConfig } from '../../config/app.js';
+// No appConfig (database password, JWT secret) and no seal / unseal (the key of stored secrets):
+// removed before SDK 1.0 shipped; config/app.js and services/crypto.js are refused on the core path too.
 export { APP_VERSION } from '../../config/version.js';
 export { uploadRoot } from '../../config/paths.js';
 
@@ -49,10 +50,9 @@ export { registerJob } from '../../services/scheduler.js';
 // ── Journal (Settings → Activity) ──────────────────────────────────────────
 export { recordSecurityEvent } from '../../services/security.js';
 
-// ── People, legal entities, secrets, documents, demo data ──────────────────
+// ── People, legal entities, documents, demo data ───────────────────────────
 export { createUser, updateUser, assertCanManage, isValidPhone, normalizePhone, findUserById } from '../../services/users.js';
 export { listLegalEntities, getLegalEntity, getDefaultLegalEntity } from '../../services/legalEntities.js';
-export { seal, unseal } from '../../services/crypto.js';
 export { convertToPdf } from '../../services/integrations.js';
 export { registerDemo } from '../../services/demo.js';
 export { decide, limitsByTable } from '../../api/scopes.js';

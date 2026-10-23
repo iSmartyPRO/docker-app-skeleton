@@ -108,7 +108,9 @@ export function tablePatternProblem(id, pattern) {
   if (core) return `table "${pattern}" matches the core table "${core}"`;
   for (const [other, entries] of Object.entries(MODULE_TABLES)) {
     if (other === id) continue;
-    const hit = entries.find((entry) => overlaps(entry, target));
+    // Another module's exact table under this module's own prefix (kb_item_files of Files under kb_%) is
+    // excluded at run time (mayOwnTable: exact entries win), so a prefix pattern may cover it; a name may not.
+    const hit = entries.find((entry) => overlaps(entry, target) && !(prefix != null && !isPrefix(entry)));
     if (hit) return `table "${pattern}" overlaps the tables of module "${other}" (${isPrefix(hit) ? `${hit}*` : hit})`;
   }
   return null;
@@ -118,9 +120,13 @@ export function tablePatternProblem(id, pattern) {
 export function mayOwnTable(id, table) {
   if (CORE_TABLES.includes(table)) return false;
   const own = MODULE_TABLES[id] || [];
+  const others = Object.entries(MODULE_TABLES).filter(([other]) => other !== id);
+  // Exact names first: another module's exact table wins over this module's prefix (Files' kb_item_files is not KB's).
+  if (own.includes(table)) return true;
+  if (others.some(([, entries]) => entries.includes(table))) return false;
   if (own.some((entry) => overlaps(entry, { name: table }))) return true;
-  for (const [other, entries] of Object.entries(MODULE_TABLES)) {
-    if (other !== id && entries.some((entry) => overlaps(entry, { name: table }))) return false;
+  for (const [, entries] of others) {
+    if (entries.some((entry) => overlaps(entry, { name: table }))) return false;
   }
   return true;
 }

@@ -6,6 +6,7 @@ import {
   SYSTEM_ROLES,
   hasPermission,
   isSubset,
+  keepUnknownPermissions,
   normalizePermissions,
 } from './permissions.js';
 import { invalidateSettings } from './settings.js';
@@ -613,7 +614,7 @@ export async function updateRole(id, patch, actor) {
     const description = cleanText(patch.description ?? role.description, 300);
     let perms = role.permissions;
     if (patch.permissions !== undefined) {
-      perms = normalizePermissions(patch.permissions);
+      perms = keepUnknownPermissions(role.permissions, normalizePermissions(patch.permissions));
       if (perms.includes(ALL)) throw httpError(400, 'Only the built-in super administrator role grants full access');
       const changed = [...new Set([...perms, ...role.permissions])].filter(
         (perm) => perms.includes(perm) !== role.permissions.includes(perm)

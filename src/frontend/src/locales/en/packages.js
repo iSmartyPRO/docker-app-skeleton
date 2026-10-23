@@ -46,6 +46,7 @@ export default {
   removed: {
     title: 'Removed modules',
     lead: 'Their code is deleted; the data is kept until you delete it.',
+    reinstall: 'To use the module again, install its package: “Install from file” above. Its data and settings come back.',
     deleteData: 'Delete data',
     version: 'Last version {version}',
   },

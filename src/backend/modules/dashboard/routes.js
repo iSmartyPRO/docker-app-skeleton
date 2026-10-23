@@ -3,7 +3,7 @@ import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { hasPermission } from '../../services/permissions.js';
 import { httpError, wrap } from '../shared/acl.js';
-import { DEFAULT_LAYOUT, availableTypes, cleanLayout } from './widgets.js';
+import { DEFAULT_LAYOUT, availableTypes, cleanLayout, mergeParked } from './widgets.js';
 import { widgetData, widgetOptions } from './data.js';
 
 const permissionsOf = (req) => req.access?.permissions || [];
@@ -46,13 +46,9 @@ export function privateRoutes() {
       throw httpError(403, 'Personal dashboards are turned off', 'FORBIDDEN');
     }
     const available = availableTypes(modules, permissionsOf(req));
-    const incoming = cleanLayout(req.body?.widgets);
     // Keep stored widgets of modules that are off (or not loaded) right now, so they come back with the module.
     const { rows } = await query(`SELECT widgets FROM dash_layouts WHERE user_id = $1`, [req.user.id]);
-    const parked = rows[0] ? cleanLayout(rows[0].widgets).filter((widget) => !available.includes(widget.type)) : [];
-    const kept = incoming.filter((widget) => available.includes(widget.type));
-    const ids = new Set(kept.map((widget) => widget.id));
-    const widgets = [...kept, ...parked.filter((widget) => !ids.has(widget.id))].slice(0, 40);
+    const widgets = mergeParked(req.body?.widgets, rows[0]?.widgets, available);
     await query(
       `INSERT INTO dash_layouts (user_id, widgets, updated_at) VALUES ($1, $2, NOW())
        ON CONFLICT (user_id) DO UPDATE SET widgets = EXCLUDED.widgets, updated_at = NOW()`,
@@ -69,8 +65,12 @@ export function privateRoutes() {
   // The starting layout for everyone without their own (dashboard.admin).
   router.put('/default', wrap(async (req, res) => {
     requireManage(req);
-    // As sent; types the server does not know right now are kept (cleanLayout), shown only when available.
-    const widgets = cleanLayout(req.body?.widgets);
+    // As in a personal layout: the editor only sees (and sends) the widgets available to it now; stored
+    // widgets of other types (a module off, a package not installed, no permission) are kept.
+    const modules = parseSettings(await getSettings()).modules;
+    const available = availableTypes(modules, permissionsOf(req));
+    const { rows } = await query(`SELECT widgets FROM dash_default WHERE id = 1`);
+    const widgets = mergeParked(req.body?.widgets, rows[0]?.widgets, available);
     await query(
       `INSERT INTO dash_default (id, widgets, updated_by, updated_at) VALUES (1, $1, $2, NOW())
        ON CONFLICT (id) DO UPDATE SET widgets = EXCLUDED.widgets, updated_by = EXCLUDED.updated_by, updated_at = NOW()`,

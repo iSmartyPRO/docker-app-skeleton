@@ -289,12 +289,26 @@ export function runHttpServerHooks(server) {
   for (const { fn, module } of httpServerHooks) runSafe(`http server hook of ${module || 'core'}`, () => fn(server));
 }
 
-export async function runShutdownHooks() {
+/*
+ * Each hook gets `timeoutMs` (SHUTDOWN_HOOK_TIMEOUT_MS, default 2 s): one that never resolves (a
+ * package's bug, a query on a stalled connection) is left behind and the next one runs, so the
+ * shutdown always goes on. server.js arms its force-exit timers before calling this.
+ */
+export async function runShutdownHooks({ timeoutMs = Number(process.env.SHUTDOWN_HOOK_TIMEOUT_MS) || 2000 } = {}) {
   for (const { fn, module } of shutdownHooks) {
+    let timer = null;
     try {
-      await fn();
+      await Promise.race([
+        Promise.resolve().then(fn),
+        new Promise((_, reject) => {
+          // Not unref'd: the shutdown waits for the hook (or its timeout), never for less.
+          timer = setTimeout(() => reject(new Error(`did not finish within ${timeoutMs} ms`)), timeoutMs);
+        }),
+      ]);
     } catch (err) {
       console.warn(`[modules] shutdown hook of ${module || 'core'} failed:`, err?.message || err);
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

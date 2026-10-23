@@ -90,9 +90,9 @@ A deploy that stops at step 2–4 leaves nothing published: the release commit a
 Schema changes are applied automatically on start, so back up first:
 
 ```bash
-set -a && . ./.env && set +a
-docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" postgres-18 \
-  pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > backup-$(date +%F-%H%M).dump
+# The database container's own POSTGRES_* variables: no password in the host's argv or shell history.
+docker exec postgres-18 sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
+  > backup-$(date +%F-%H%M).dump
 docker tag my-product-app:latest my-product-app:previous
 git pull && make rebuild && make health
 ```
@@ -102,9 +102,12 @@ Upgrading from 0.0.1 creates roles and groups once: former admins become super a
 Restore a dump (stop the app first):
 
 ```bash
-docker exec -i -e PGPASSWORD="$POSTGRES_PASSWORD" postgres-18 \
-  pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists < backup.dump
+docker exec -i postgres-18 sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_restore -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < backup.dump
 ```
+
+(The variables are expanded inside the container from its own environment — the single quotes matter. If your
+database container is not the one from `docker-compose` with `POSTGRES_*` set, pass them with `--env-file .env`
+instead of `-e NAME=value`, which would put the password on the command line.)
 
 ## Rollback
 
@@ -146,18 +149,44 @@ superadministrators only). Engineering details: [module-packages.md](module-pack
   `data/modules/.backups/<id>/…` (mode 0600, folders 0700): pg_dump format when `pg_dump` (postgresql18-client
   in the image) can reach the database, else — and whenever pg_dump fails — NDJSON. Kept: the newest
   `MODULE_BACKUP_KEEP` (5) per module and at most `MODULE_BACKUP_MAX_MB` (2048) in all, oldest removed first
-  (the newest of each module and the one a pending update would roll back to always stay). Restore a pg_dump backup:
-  `docker exec -i <container> pg_restore --clean --if-exists --single-transaction -d "$POSTGRES_DB" < file.dump`
-  (with the `PG*` variables of `.env`).
-- **Core updates**: `make deploy` runs `make check-core-upgrade` first — it reads `data/modules/*/current` and
-  refuses the deploy when an installed package was built for another core major (or a newer core / SDK) than the
-  one being deployed. Install versions made for the new core, or deploy with `MODULES_CHECK=skip`: such modules are
+  (the newest of each module and the one a pending update would roll back to always stay). The app restores them
+  itself when an update is rolled back. To restore one by hand (stop the app first, `make down` or
+  `docker compose stop app`), feed the `.dump` to the database container, whose own `POSTGRES_*` variables are used
+  (single quotes: nothing secret on the host's command line):
+
+  ```bash
+  docker exec -i postgres-18 sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_restore -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --single-transaction' \
+    < data/modules/.backups/<id>/<file>.dump
+  ```
+
+  A manual restore does not do the bookkeeping the app does: afterwards make the module's migration records match the
+  backup — the `migrations` list in the `<file>.json` next to the dump — and forget tables that no longer exist:
+
+  ```sql
+  DELETE FROM module_migrations WHERE module_id = '<id>' AND NOT (migration_id = ANY(ARRAY['001_init', …]));  -- the list from <file>.json
+  DELETE FROM module_tables t WHERE module_id = '<id>' AND to_regclass(t.table_name) IS NULL;
+  ```
+
+  Then put the matching package version back (`data/modules/<id>/current` naming a version folder that is there) and
+  start the app. NDJSON backups (`.ndjson.gz`) hold data only; they are restored by the app, not by hand.
+- **Core updates**: `make deploy` runs `make check-core-upgrade` first — before the release commit and tag are made,
+  against the version about to be released (`scripts/release.mjs --next-version`) — it reads `data/modules/*/current`
+  and refuses the deploy when an installed package was built for another core major (or a newer core / SDK) than the
+  one being deployed. `make deploy` then backs up the database and `data/modules` (`make backup-modules`: a
+  `modules-<timestamp>.tar.gz` in `/root/db-backups`). Install versions made for the new core, or deploy with `MODULES_CHECK=skip`: such modules are
   then marked «needs an update» (Settings → Modules lists them) and not loaded; the portal runs.
 - **Signing key**: `make module-keygen` (once, on the build host) creates `/root/.portal-keys/modules-ed25519.pem`
   (mode 600, outside the repository; `MODULE_SIGNING_KEY_FILE` overrides) and adds the public key to
   `src/backend/platform/trusted-keys.json` — commit it and release the core; only then do portals accept
   packages signed with it. `make module ID=<id>` builds and signs `dist/modules/<id>-<version>.zip`;
-  `make modules-verify FILE=…` checks a file.
+  `make modules-verify FILE=…` checks a file. Recommended: create and keep the key on an **offline build host**,
+  not on a production server (whoever has the file can sign packages that every portal trusting it installs), and
+  protect it with a passphrase: `MODULE_SIGNING_KEY_PASSPHRASE=… make module-keygen` writes an encrypted key, and
+  `make module` needs the same variable to sign. Without it keygen warns that the key is unprotected.
+- **Watchdog**: `start.sh` kills and restarts node when it is alive but hung — its heartbeat file
+  (`PORTAL_HEARTBEAT_FILE`, `/tmp/portal-heartbeat`, touched every 5 s while the event loop runs) is older than
+  `PORTAL_WATCHDOG_SECONDS` (180; `0` turns it off) **and** `/health` does not answer. A slow start (the database
+  late, a long migration) keeps beating and is never killed. See module-packages.md «Watchdog».
 - **Development**: `MODULES_DEV=1` accepts unsigned packages (never in production). `MODULE_TRUSTED_KEYS_FILE`
   points at another trusted-keys file (tests).
 - **A module that fails to start** is skipped (the portal runs on) and shown as «Не запустился» with the

@@ -21,7 +21,7 @@ import { BOOT_ID, restartPending } from './restart.js';
  *   DELETE /admin/modules/packages/:id              remove the code (data kept), then restart         (superadmin)
  *   POST   /admin/modules/packages/:id/backup       back up the module's tables now                   (superadmin)
  *   POST   /admin/modules/packages/:id/purge        { confirm: id } backup, then drop its data        (superadmin)
- *   GET    /admin/modules/inventory                 installed modules, core version, portal id (store, spec §6.6)
+ *   GET    /admin/modules/inventory[?challenge=…]   installed modules, core version, portal id (store, spec §6.6); the challenge is signed with it
  *
  * Refusals answer { success: false, code, error, problems: [{ code, params, message: { ru, en } }] }.
  */
@@ -111,7 +111,8 @@ export function packageRoutes() {
     res.json({ success: true, id: result.id, tables: result.tables, backup: { file: result.backup.file.split('/').pop(), format: result.backup.format, bytes: result.backup.bytes } });
   }));
   admin.get('/inventory', settingsAdmins, wrap(async (req, res) => {
-    res.json({ success: true, inventory: await inventory() });
+    const challenge = typeof req.query.challenge === 'string' && req.query.challenge ? req.query.challenge : null;
+    res.json({ success: true, inventory: await inventory({ challenge }) });
   }));
   router.use('/admin/modules', admin);
   return router;

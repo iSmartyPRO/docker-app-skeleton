@@ -261,6 +261,7 @@ Edited in *Settings → Modules → Masterplan* (console, `settings.modules`) or
 | GET / PUT | `/settings` | module settings (`masterplan.admin`) |
 | GET | `/users`, `/groups` | pickers |
 | POST | `/access-request` | `{ note }` → notifies administrators (at most once per person per 10 minutes; repeats answer OK silently) |
+| POST | `/contract-resync` | administrators: units follow their linked contracts' current state ([Catching up with Contracts](#catching-up-with-contracts)) → `{ summary }` |
 | GET / PUT | `/types` | object types / replace (admin) |
 | GET / PUT | `/stages`, `/stages/:set` | stage sets / replace one set (admin) |
 | GET / POST | `/projects` | visible projects (with counts by status) / create (admin) |
@@ -305,6 +306,33 @@ Error codes: `VERSION_CONFLICT, SAME_STATUS, INVALID_TRANSITION, FORBIDDEN, NOT_
 - **CRM**: see [Adaptation decisions](#adaptation-decisions). The deal block appears in the deal panel under the fields; «Подобрать объект» opens the plan with `?deal=` so the reserve / booking dialog already has the deal. When `syncDealAmount`, booking or contracting a unit writes its price / contract amount into the deal amount (a `field` event in the deal history).
 - **Contracts** ([contracts.md#masterplan](contracts.md#masterplan)): a contract linked to a sellable object moves it through this module's own sales service with the rights of the person acting in Contracts — deposit confirmed → «Задаток» (from «Резерв» / «Бронь»), contract signed → «Договор» (number, date, amount copied; a unit already in «Договор» gets them copied with `status.contract`), payments → `paid_amount` (payments + the held deposit, derived, written without a Masterplan right), paid in full → «Продано». Transition rules, zones, field hiding, notifications and the CRM deal line stay as described here. A move refused here (e.g. `INVALID_TRANSITION` from «Резерв») is not an error in Contracts: it is recorded as an `mp_events` entry of kind `contract` (`{ contractId, number, action, result, code, paid, contract }` — status-view only, amounts hidden without `amounts.*`) and as a note on the contract. The contract's payment schedule can be prefilled from the unit's price grid (`activeGrid` + `paymentOptions`), which answers open question 4 below for the client side: the per-client schedule plan / fact lives in Contracts.
 - **Counterparties**: clients come from the deal (person / company); a client name is stored for display only (spec §13.2).
+
+### Catching up with Contracts
+
+Contracts only announces events (`contract.deposit_received`, `contract.signed`, `contract.paid`); while Masterplan
+is not installed (a core deployed before its package, docs/module-packages.md) or switched off, nobody follows
+them. `resyncFromContracts` (`contractSync.js`) replays what they would have said from the contracts' current state,
+read through Contracts' public API (`linkedObjectStates()`: every contract with `mp_node_id`, not rejected or
+terminated, with its deposit held / signed / paid-in-full facts and the money received), in the natural order per
+contract through the same handlers — so transition rules, unit history, notifications and the CRM line are the
+usual ones:
+
+- deposit held, unit in «Резерв» / «Бронь» → «Задаток» (from «Резерв» the usual refusal note);
+- contract signed, unit in «Резерв» / «Бронь» / «Задаток» → «Договор» with number, date, amount; a unit in
+  «Договор» without a contract number gets them;
+- `paid_amount` = the money received; paid in full: «Договор» → «Продано».
+
+Nothing moves backwards; free, not-for-sale, sold and handed-over units are left alone without a note. The notes go
+into the contract's history too (`ctr_events` `mp_sync`, `resync: true`).
+
+- **Automatically, once per install**: about `MASTERPLAN_RESYNC_DELAY_MS` (20 s) after the first start after the
+  package was installed (`installed_modules.installed_at`, `ctx.installedAt`; not after an update or a restart), with
+  super-administrator rights and no person; recorded in `app_settings.masterplan_contract_resync`
+  (`{ at, installedAt, checked, applied, refused }`). While Masterplan or Contracts is off nothing is recorded and the
+  next start tries again.
+- **On demand**: Settings → Masterplan → «Договоры» → «Сверить сейчас» (`POST /api/app/masterplan/contract-resync`,
+  Masterplan administrators) with the rights of the person who presses it; answers
+  `{ summary: { checked, applied, refused, skipped, results } }`, 409 `CONTRACTS_UNAVAILABLE` while Contracts is off.
 
 ## Frontend
 

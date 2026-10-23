@@ -8,6 +8,8 @@
  *   node scripts/release.mjs minor        force the bump: major | minor | patch
  *   node scripts/release.mjs 1.0.0        set an exact version
  *   node scripts/release.mjs --dry-run    show what would happen, change nothing
+ *   node scripts/release.mjs --next-version   print only the version a release now would have
+ *                                             (the current one when there is nothing to release)
  *   node scripts/release.mjs --no-push    commit and tag locally only
  *   node scripts/release.mjs --push-only  only push what is not on origin yet (branch, release tags)
  *
@@ -33,6 +35,8 @@ const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const noPush = args.includes('--no-push');
 const pushOnly = args.includes('--push-only');
+// Machine-readable dry run (make deploy checks the module packages against this version before releasing).
+const nextOnly = args.includes('--next-version');
 const explicit = args.find((arg) => !arg.startsWith('--'));
 
 const git = (...params) => execFileSync('git', params, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -171,7 +175,7 @@ function main() {
     if (!pushed) console.log('Origin is up to date.');
     return;
   }
-  if (!dryRun && git('status', '--porcelain', '--untracked-files=no')) {
+  if (!dryRun && !nextOnly && git('status', '--porcelain', '--untracked-files=no')) {
     console.error('The working tree has uncommitted changes: commit them first.');
     process.exit(1);
   }
@@ -180,6 +184,10 @@ function main() {
   const tag = lastTag();
   const commits = commitsSince(tag);
   if (tag && !commits.length && !explicit) {
+    if (nextOnly) {
+      console.log(current);
+      return;
+    }
     console.log(`Nothing to release: no changes since ${tag}.`);
     // A release whose push failed earlier is pushed now (not with --no-push or --dry-run).
     if (!noPush && !dryRun) pushPending(tag);
@@ -201,6 +209,10 @@ function main() {
     version = tag ? bump(current, level) : current;
   }
 
+  if (nextOnly) {
+    console.log(version);
+    return;
+  }
   const date = new Date().toISOString().slice(0, 10);
   console.log(`Last tag: ${tag || '—'} · commits: ${commits.length} · bump: ${level || 'explicit'} · ${current} → ${version}`);
   for (const c of commits.slice(0, 50)) console.log(`  [${classifyCommit(c.subject, c.body)}] ${c.subject}`);

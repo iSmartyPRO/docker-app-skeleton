@@ -15,9 +15,16 @@ import { SDK_VERSION } from '../sdk/version.js';
  *     "core": { "version": "1.17.0", "sdk": "1.0.0" },
  *     "modules": [ { "id": "masterplan", "version": "1.2.0", "source": "package", "state": "enabled" }, … ],
  *     "generatedAt": "2026-10-23T10:00:00.000Z",
+ *     "challenge": "<the store's nonce, when it sent one>",
  *     "digest": "<sha256 hex of the JSON above without digest/signature>",
  *     "signature": "<base64 Ed25519 signature of digest by the portal key>"
  *   }
+ *
+ * Replay: a signed inventory without a challenge proves only that the portal
+ * produced it at some time (anyone with settings.view can fetch one and show it
+ * again later). The store sends a fresh random `challenge` (8–128 characters of
+ * [A-Za-z0-9_-]: GET /admin/modules/inventory?challenge=…); it is signed with
+ * the rest, so an answer is good for that one request only.
  *
  * The answer of the store («updates available») uses UPDATES_FORMAT (no
  * implementation yet: the shape is fixed so the store can be built against it).
@@ -33,7 +40,11 @@ export function canonicalJson(value) {
   return JSON.stringify(value ?? null);
 }
 
-export async function inventory() {
+export const CHALLENGE_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
+
+/** `challenge`: the store's nonce (signed with the inventory); anything else is refused (null → none). */
+export async function inventory({ challenge = null } = {}) {
+  if (challenge != null && !CHALLENGE_PATTERN.test(String(challenge))) throw Object.assign(new Error('challenge must be 8–128 characters of A–Z, a–z, 0–9, _ and -'), { statusCode: 400, code: 'BAD_CHALLENGE' });
   const identity = await portalIdentity();
   const modules = (await packageStates()).map((item) => ({ id: item.id, version: item.version, source: item.source, state: item.state }));
   const body = {
@@ -42,6 +53,7 @@ export async function inventory() {
     core: { version: APP_VERSION, sdk: SDK_VERSION },
     modules,
     generatedAt: new Date().toISOString(),
+    ...(challenge != null ? { challenge: String(challenge) } : {}),
   };
   const digest = createHash('sha256').update(canonicalJson(body)).digest('hex');
   try {

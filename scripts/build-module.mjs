@@ -11,7 +11,8 @@
  *   --keep            keep the current version   (default: Conventional Commits since the tag <id>/v<version>, see below)
  *   --source DIR      a module outside the core tree: DIR/module.json (manifest fields), DIR/server/index.js,
  *                     DIR/web/index.js(x), DIR/migrations, DIR/locales/<lang>/<ns>.js, DIR/docs
- *   --key FILE        Ed25519 private key (default $MODULE_SIGNING_KEY_FILE or /root/.portal-keys/modules-ed25519.pem)
+ *   --key FILE        Ed25519 private key (default $MODULE_SIGNING_KEY_FILE or /root/.portal-keys/modules-ed25519.pem);
+ *                     an encrypted one is opened with $MODULE_SIGNING_KEY_PASSPHRASE (keygen encrypts with it too)
  *   --unsigned        no SIGNATURE (installs only with MODULES_DEV=1)
  *   --out DIR         output folder (default dist/modules)
  *   --no-web          skip the browser part      --dry-run   show the plan, write nothing
@@ -73,7 +74,9 @@ async function keygen(args) {
   const file = resolve(args.key || DEFAULT_KEY);
   if (inside(ROOT, file)) throw new Error(`The private key must live outside the repository (${file})`);
   if (existsSync(file) && !args.force) throw new Error(`${file} exists — the key is kept (pass --force to replace it; packages signed with the old key will need the old public key)`);
-  const key = generateSigningKey();
+  // A passphrase (MODULE_SIGNING_KEY_PASSPHRASE) encrypts the key file: a stolen copy alone cannot sign.
+  const passphrase = process.env.MODULE_SIGNING_KEY_PASSPHRASE || null;
+  const key = generateSigningKey({ passphrase });
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   writeFileSync(file, key.privateKey, { mode: 0o600 });
   chmodSync(file, 0o600);
@@ -81,7 +84,8 @@ async function keygen(args) {
   trusted.keys = (trusted.keys || []).filter((item) => item.id !== key.keyId);
   trusted.keys.push({ id: key.keyId, publicKey: key.publicKey, comment: args.comment || `module signing key, ${new Date().toISOString().slice(0, 10)}` });
   writeFileSync(TRUSTED_KEYS, `${JSON.stringify(trusted, null, 2)}\n`);
-  say(`Private key: ${file} (mode 600 — back it up somewhere safe, never commit it)`);
+  say(`Private key: ${file} (mode 600${key.encrypted ? ', encrypted with MODULE_SIGNING_KEY_PASSPHRASE' : ''} — back it up somewhere safe, never commit it)`);
+  if (!key.encrypted) say('Warning: the key is NOT protected by a passphrase. Prefer creating it on an offline build host (not the production server) with MODULE_SIGNING_KEY_PASSPHRASE set: whoever has this file can sign packages every portal trusts.');
   say(`Public key ${key.keyId} added to ${relative(ROOT, TRUSTED_KEYS)} — commit it and release the core so portals trust it.`);
 }
 
@@ -565,7 +569,7 @@ export async function buildModule(id, args = {}) {
     if (!args.unsigned) {
       const keyFile = resolve(args.key || DEFAULT_KEY);
       if (!existsSync(keyFile)) throw new Error(`Signing key ${keyFile} not found: run make module-keygen (once), pass --key FILE, or build --unsigned for development (MODULES_DEV=1)`);
-      const signature = signFiles(files, readFileSync(keyFile, 'utf8'));
+      const signature = signFiles(files, readFileSync(keyFile, 'utf8'), { passphrase: process.env.MODULE_SIGNING_KEY_PASSPHRASE || null });
       keyId = JSON.parse(signature.toString()).keyId;
       files = [...files, { name: 'SIGNATURE', data: signature }].sort((a, b) => Buffer.compare(Buffer.from(a.name), Buffer.from(b.name)));
     }

@@ -5,7 +5,7 @@ import { getPool, query, withTransaction } from '../config/database.js';
 import { logoDir } from '../config/paths.js';
 import { APP_VERSION } from '../config/version.js';
 import { REGIONAL_DEFAULTS, resolveRegional, sanitizeRegional } from './datetime.js';
-import { ALWAYS_ON_IDS, CRM_DEFAULTS, MODULE_CATALOG, MODULE_IDS, crmStockLists, resolveModules, sanitizeModules } from '../modules/catalog.js';
+import { ALWAYS_ON_IDS, CRM_DEFAULTS, MODULE_CATALOG, MODULE_IDS, crmStockLists, keepUnknownModules, resolveModules, sanitizeModules } from '../modules/catalog.js';
 import { EDITING_DEFAULTS, sanitizeEditing } from './office/editing.js';
 import { sanitizeDefaultTheme, sanitizeThemePolicy } from './themeCatalog.js';
 import { planModuleChanges } from '../modules/dependencies.js';
@@ -905,7 +905,8 @@ async function withModulesLock(fn) {
 
 export async function updateAdminSettings(patch, { locked = false } = {}) {
   if (!locked && patch?.modules && typeof patch.modules === 'object') return withModulesLock(() => updateAdminSettings(patch, { locked: true }));
-  const parsed = parseSettings(await getSettings({ fresh: true }));
+  const raw = await getSettings({ fresh: true });
+  const parsed = parseSettings(raw);
   // Checked before anything is written, so a refused patch saves nothing.
   if (patch.integrations) assertSecretsStayWithEndpoint(parsed.integrations, patch.integrations);
   // Requirements between modules (modules/dependencies.js): refused with 409, or
@@ -992,7 +993,8 @@ export async function updateAdminSettings(patch, { locked = false } = {}) {
     if (patch.integrations.documents) (await import('./office/discovery.js')).forgetDiscovery();
   }
   if (modulesPatch) {
-    await setSetting('modules', JSON.stringify(sanitizeModules(parsed.modules, modulesPatch)));
+    // Entries of modules not in the catalog (a package not installed yet or removed) are kept as stored.
+    await setSetting('modules', JSON.stringify(keepUnknownModules(parseJson(raw.modules, {}), sanitizeModules(parsed.modules, modulesPatch))));
   }
   if (patch.auth) {
     await setSetting(

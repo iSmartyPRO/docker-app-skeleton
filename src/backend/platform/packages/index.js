@@ -48,9 +48,12 @@ export function moduleAssets() {
     if (!match || req.path.split('/').some((part) => part === '..')) return notFound(res);
     const [, id, version, digest, rest] = match;
     const record = loadedModule(id);
-    // A digest is served only for the bytes it names (a stale tab gets 404 and reloads), cached for a year;
-    // a URL without one (older shells) is revalidated every time.
-    if (digest && (!record || record.version !== version || assetDigest(record) !== digest)) return notFound(res);
+    // Only the version this process loaded (verified against its signed listing at boot) is served: never a
+    // previous, failed, blocked or unverified folder that happens to be on disk. A digest must name the
+    // loaded bytes (a stale tab gets 404 and reloads) and is cached for a year; a URL without one (older
+    // shells) is revalidated every time.
+    if (!record || record.source !== 'package' || record.version !== version) return notFound(res);
+    if (digest && assetDigest(record) !== digest) return notFound(res);
     const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     req.url = `/${id}/${version}${rest}${query}`;
     return (digest ? pinned : plain)(req, res, (err) => {

@@ -210,3 +210,93 @@ export function registerContractSync(events) {
   events.on('contract.signed', onSigned);
   events.on('contract.paid', onPaid);
 }
+
+// ── Catching up with Contracts ─────────────────────────────────────────────
+
+/*
+ * Events Contracts emitted while Masterplan was not installed (the core was deployed before the
+ * package) or switched off went to nobody. resyncFromContracts() replays what they would have said,
+ * from the contracts' current state (Contracts' public API: linkedObjectStates), in their natural
+ * order per contract — deposit received → signed → paid — through the same handlers, so the
+ * transition rules, notes and notifications are the usual ones:
+ *
+ *   - the deposit is held and the unit is in «Резерв» / «Бронь» → «Задаток»;
+ *   - the contract is signed and the unit is not yet «Договор» or later → «Договор» with its number,
+ *     date and amount (a unit in «Договор» without a contract number gets them);
+ *   - the paid amount follows the money received; paid in full moves «Договор» → «Продано».
+ *
+ * Nothing moves backwards and units in other states are left alone without a refusal note (a unit
+ * changed by hand on purpose stays as it is). `actor`: whose Masterplan rights the moves use — the
+ * administrator who asked (Settings → Masterplan → «Сверить с договорами»), or SYSTEM_ACTOR (super
+ * administrator rights, no person) for the automatic run after an install. Returns
+ * { checked, applied, refused, skipped, results: [{ contractId, unit, action, result, code }] }.
+ */
+export const SYSTEM_ACTOR = Object.freeze({ userId: null, req: { access: { permissions: ['*'], groupIds: [] }, user: null } });
+
+export async function resyncFromContracts(contractsApi, { actor = SYSTEM_ACTOR } = {}) {
+  const summary = { checked: 0, applied: 0, refused: 0, skipped: 0, results: [] };
+  if (!contractsApi?.linkedObjectStates) return { ...summary, unavailable: true };
+  const enabled = await modulesEnabled();
+  if (!enabled.masterplan || !enabled.contracts) return { ...summary, unavailable: true };
+  const states = await contractsApi.linkedObjectStates();
+  for (const state of states) {
+    const { contract, paid } = state;
+    const unit = await linkedUnit(contract.mpNodeId);
+    if (!unit) continue;
+    summary.checked += 1;
+    const answers = [];
+    if (state.depositHeld && ['reserve', 'booking'].includes(unit.status)) answers.push(['deposit', await onDeposit({ contract, paid, actor })]);
+    if (state.signed) {
+      const now = await linkedUnit(contract.mpNodeId);
+      // Held for a sale (reserve, booking, deposit) → «Договор»; «Договор» without the contract's data gets it.
+      if (now && (['reserve', 'booking', 'deposit'].includes(now.status) || (now.status === 'contract' && !now.contract_number))) answers.push(['signed', await onSigned({ contract, paid, actor })]);
+    }
+    answers.push(['paid', await onPaid({ contract, paid, full: state.full, actor })]);
+    for (const [action, answered] of answers) {
+      if (!answered?.result) continue;
+      const result = answered.result.result;
+      if (result === 'applied') summary.applied += 1;
+      else if (result === 'refused') summary.refused += 1;
+      else summary.skipped += 1;
+      summary.results.push({ contractId: contract.id, unit: answered.result.unit, action: answered.result.action || action, result, code: answered.result.code || undefined });
+      if (answered.logs?.length && contractsApi.recordSyncNotes) await contractsApi.recordSyncNotes(contract.id, answered.logs.map((log) => ({ ...log, resync: true })), actor?.userId || null);
+    }
+  }
+  return summary;
+}
+
+/*
+ * Automatic catch-up once per install of the package: the first start after an install (the
+ * installed_modules row's installed_at, ctx.installedAt — not an update, not a restart) runs
+ * resyncFromContracts with SYSTEM_ACTOR a little after the boot, and records it in app_settings
+ * (masterplan_contract_resync: { at, installedAt, checked, applied, refused }). While Masterplan or
+ * Contracts is off nothing is recorded, so the next start tries again (or an administrator runs it).
+ */
+const RESYNC_FLAG = 'masterplan_contract_resync';
+
+export async function autoResync(ctx) {
+  if (!ctx?.installedAt) return null;
+  const installedAt = new Date(ctx.installedAt).toISOString();
+  const { rows } = await query(`SELECT value FROM app_settings WHERE key = $1`, [RESYNC_FLAG]);
+  let flag = null;
+  try {
+    flag = rows[0] ? JSON.parse(rows[0].value) : null;
+  } catch {
+    flag = null;
+  }
+  if (flag?.installedAt === installedAt) return null;
+  const summary = await resyncFromContracts(ctx.modules?.loaded?.('contracts')?.api || null, { actor: SYSTEM_ACTOR });
+  if (summary.unavailable) return summary;
+  const record = { at: new Date().toISOString(), installedAt, checked: summary.checked, applied: summary.applied, refused: summary.refused };
+  await query(`INSERT INTO app_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`, [RESYNC_FLAG, JSON.stringify(record)]);
+  console.log(`[masterplan] caught up with Contracts after the install: ${summary.checked} linked units checked, ${summary.applied} changes, ${summary.refused} refused`);
+  return summary;
+}
+
+/** register(ctx): the automatic catch-up, MASTERPLAN_RESYNC_DELAY_MS (20 s) after the boot (outside the boot's settle window). */
+export function scheduleContractResync(ctx, { delayMs = Number(process.env.MASTERPLAN_RESYNC_DELAY_MS ?? 20_000) } = {}) {
+  if (!ctx?.installedAt) return null;
+  const timer = setTimeout(() => autoResync(ctx).catch((err) => console.warn('[masterplan] catching up with Contracts failed:', err.message)), Math.max(0, delayMs || 0));
+  timer.unref?.();
+  return timer;
+}

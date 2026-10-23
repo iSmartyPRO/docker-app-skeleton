@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Installable module packages**: modules can be installed, updated and removed as signed zip files (Settings → Modules → «Install from file», super administrators). Updates back up the module's tables first and roll back automatically when the new version does not start; removal keeps the data until «Delete data». Masterplan is the first module shipped as a package and is no longer built into the core — install its package right after this update (its data, settings and roles are kept; see [docs/module-packages.md](docs/module-packages.md#upgrading-a-portal-that-had-masterplan-built-in)).
+- **Masterplan — catch up with contracts**: after its package is installed, Masterplan once brings the units linked from contracts up to date with deposits, signatures and payments made in the meantime; Settings → Masterplan → «Check now» runs it on demand.
+
+### Changed
+
+- **Resilience**: a hung app process is restarted by a watchdog; a module that keeps crashing the portal is blocked instead of restarting it in a loop; an unclean stop (out of memory, power loss) no longer blocks an innocent module; shutdown can no longer hang on a module.
+- **Data of modules that are not installed** (settings, role permissions, API token scopes, dashboard widgets) is kept when other settings, roles, tokens or layouts are saved.
+- **Deploy**: `make deploy` checks the installed module packages before making the release commit, and also backs up `data/modules`.
+
 ## [1.19.0] - 2026-10-23
 
 ### Changed

@@ -21,6 +21,8 @@ import { migrateUnit, migrateUnits } from './migration.js';
 import { dealUnits } from './crmLink.js';
 import { openStream } from './realtime.js';
 import { mpMessage } from './messages.js';
+import { resyncFromContracts } from './contractSync.js';
+import { modules } from '../../platform/registry.js';
 import { userName } from './util.js';
 import { exportLocale } from '../../services/i18n/index.js';
 
@@ -110,6 +112,14 @@ export function privateRoutes() {
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) throw httpError(400, 'Settings object expected', 'INVALID_SETTINGS');
     await updateAdminSettings({ modules: { masterplan: { settings: req.body } } });
     ok(res, { settings: parseSettings(await getSettings({ fresh: true })).modules.masterplan.settings });
+  }));
+  // Catch up with Contracts (docs/masterplan.md): units follow the linked contracts' current state.
+  router.post('/contract-resync', wrap(async (req, res) => {
+    requireAdmin(req.mp);
+    const contracts = modules.loaded('contracts')?.api || null;
+    const summary = await resyncFromContracts(contracts, { actor: { userId: req.user?.id || null, req } });
+    if (summary.unavailable) throw httpError(409, 'Contracts is not installed or switched off', 'CONTRACTS_UNAVAILABLE');
+    ok(res, { summary });
   }));
   router.get('/users', wrap(async (req, res) => {
     const { rows } = await query(
