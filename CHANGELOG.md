@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.17.1] - 2026-10-23
+
 ### Changed
 
 - **Remote access — tidier «Add computer» dialog**: the protocol selector (RDP / VNC / Portal VNC) moved to its own full-width row so the address field no longer gets squeezed and its label no longer wraps; the owner and monitoring fields are grouped under a clear «Who sits here & monitoring» heading (distinct from the login block); and choosing Portal VNC now shows a short helper (and a warning when the portal client certificate is not configured yet).
@@ -690,7 +692,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.17.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.17.1...HEAD
+[1.17.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.17.1
 [1.17.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.17.0
 [1.16.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.16.0
 [1.15.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.15.0
