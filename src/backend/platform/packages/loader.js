@@ -243,6 +243,10 @@ async function loadPackage(pkg, row) {
   // The package's own settings sanitizer replaces the generic one (manifest settings.defaults).
   const catalogEntry = MODULE_CATALOG.find((entry) => entry.id === pkg.id);
   if (catalogEntry && typeof module.sanitizeSettings === 'function') catalogEntry.sanitize = module.sanitizeSettings;
+  // Unsaved defaults in the portal language (CRM: section titles) and stored settings brought up to date on
+  // read (Contracts: a stock type added later) — the catalog's `localizedDefaults` / `upgrade` of built-in modules.
+  if (catalogEntry && typeof module.localizedSettings === 'function') catalogEntry.localizedDefaults = module.localizedSettings;
+  if (catalogEntry && typeof module.upgradeSettings === 'function') catalogEntry.upgrade = module.upgradeSettings;
   const migrations = migrationsOf(pkg.dir, module);
   if (migrations.length) await runMigrations({ moduleId: pkg.id, version: pkg.version, migrations, transaction: withTransaction });
   else if (typeof module.schema === 'function') await module.schema();

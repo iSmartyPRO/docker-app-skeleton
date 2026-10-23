@@ -48,7 +48,13 @@ export async function sourcePackage(id) {
   if (problems.length) throw new Error(`${id}/module.json: ${problems.join('; ')}`);
   const module = (await import(`${dir}index.js`)).default;
   if (!MODULE_CATALOG.some((entry) => entry.id === id)) {
-    MODULE_CATALOG.push({ ...platformCatalogEntry(manifest), ...(module.sanitizeSettings ? { sanitize: module.sanitizeSettings } : {}) });
+    // As the loader does (platform/packages/loader.js): the package's sanitizer, localized defaults and settings upgrade.
+    MODULE_CATALOG.push({
+      ...platformCatalogEntry(manifest),
+      ...(module.sanitizeSettings ? { sanitize: module.sanitizeSettings } : {}),
+      ...(module.localizedSettings ? { localizedDefaults: module.localizedSettings } : {}),
+      ...(module.upgradeSettings ? { upgrade: module.upgradeSettings } : {}),
+    });
   }
   MODULE_MANIFEST[id] ||= platformManifestEntry(manifest);
   invalidateSettings();

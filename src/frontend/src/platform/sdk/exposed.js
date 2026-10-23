@@ -55,6 +55,7 @@ export const EXPOSED_CORE = [
   'components/icons/AdminIcons',
   'components/icons/menuIcons',
   'components/readme/ReadmeCard',
+  'components/documents/viewers/PdfViewer',
   'components/ui/BarcodeScanner',
   'components/ui/DateTimeField',
   'components/ui/Labels',
@@ -85,6 +86,11 @@ export const EXPOSED_CORE = [
   'modules/shared/ModuleHeader',
   'modules/shared/People',
   'modules/shared/SideRail',
+  // Approvals is a core service with a public UI (modules/approvals/public.js): the approval path and
+  // decision buttons of a document, urgency tags (Contracts).
+  'modules/approvals/public',
+  'modules/approvals/public/ApprovalPath',
+  'modules/approvals/public/ApprovalActions',
 ];
 
 /** File name of the shim of a shared name: 'react/jsx-runtime' → 'react__jsx-runtime', core path → 'core/<path>'. */

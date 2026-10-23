@@ -326,12 +326,18 @@ export async function installStaged(token, { actor = null, ip = null, restart = 
   });
 }
 
-/** settings.modules.<id> = { enabled: false } unless something is stored for the module already. */
+/**
+ * settings.modules.<id>.enabled = false unless an on/off state is stored for the module already. A block
+ * without one (settings a migration of this install wrote, e.g. the CRM's stock lists) keeps its settings.
+ */
 async function storeSwitchedOff(id) {
   await query(
     `INSERT INTO app_settings (key, value, updated_at) VALUES ('modules', $2, NOW())
-     ON CONFLICT (key) DO UPDATE SET value = jsonb_set(app_settings.value::jsonb, ARRAY[$1::text], '{"enabled": false}'::jsonb)::text, updated_at = NOW()
-      WHERE app_settings.value ~ '^\\s*\\{' AND NOT (app_settings.value::jsonb ? $1::text)`,
+     ON CONFLICT (key) DO UPDATE SET value = jsonb_set(
+         app_settings.value::jsonb, ARRAY[$1::text],
+         CASE WHEN jsonb_typeof(app_settings.value::jsonb -> $1::text) = 'object' THEN app_settings.value::jsonb -> $1::text ELSE '{}'::jsonb END || '{"enabled": false}'::jsonb
+       )::text, updated_at = NOW()
+      WHERE app_settings.value ~ '^\\s*\\{' AND jsonb_typeof(app_settings.value::jsonb -> $1::text -> 'enabled') IS DISTINCT FROM 'boolean'`,
     [id, JSON.stringify({ [id]: { enabled: false } })]
   );
   invalidateSettings();

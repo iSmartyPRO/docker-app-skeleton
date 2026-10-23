@@ -825,6 +825,12 @@ test('a first install comes up switched off whatever defaultEnabled says; a port
   await uninstallPackage('hellodep', { actor: ACTOR, restart: false });
   await purgeModuleData('hellodep', { actor: ACTOR, confirm: 'hellodep' });
   assert.equal(await stored(), undefined);
+  // A block with settings but no on/off state (what a migration of the install writes, e.g. the CRM's stock lists): switched off, settings kept.
+  await ctx.db.query(`UPDATE app_settings SET value = jsonb_set(value::jsonb, '{hellodep}', '{"settings": {"x": 1}}')::text WHERE key = 'modules'`);
+  await install();
+  assert.deepEqual(await stored(), { settings: { x: 1 }, enabled: false }, 'a first install with settings already stored is switched off too');
+  await uninstallPackage('hellodep', { actor: ACTOR, restart: false });
+  await purgeModuleData('hellodep', { actor: ACTOR, confirm: 'hellodep' });
   // A module that was built into an older core (a «removed» row with data, nothing stored: it ran by its default) keeps running.
   await ctx.db.query(`INSERT INTO installed_modules (id, version, state, source, manifest) VALUES ('hellodep', '0.9.0', 'removed', 'package', '{"id":"hellodep","version":"0.9.0"}')`);
   await install();
