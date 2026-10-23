@@ -16,4 +16,8 @@ export default {
   collapse: 'Свернуть',
   api: 'API и интеграции',
   apiDesc: 'Токены, шаблоны доступа, вебхуки и журнал запросов',
+  integrations: 'Интеграции',
+  integrationsDesc: 'Почта, мессенджеры, Google, Active Directory и уведомления',
+  modules: 'Модули',
+  modulesDesc: 'Приложения портала и их настройки',
 };

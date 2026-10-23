@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Alert, ConfigProvider, Select } from 'antd';
 import { MenuIcon } from '../components/icons/menuIcons';
-import { SETTINGS_GROUPS, SETTINGS_ROOT, findSettingsItem, visibleSettingsItems } from '../admin/navigation';
+import { SECTIONS, SETTINGS_GROUPS, SETTINGS_ROOT, findSettingsItem, sectionForPath, visibleSettingsItems } from '../admin/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
@@ -29,7 +29,11 @@ export default function SettingsLayout() {
   const isHub = location.pathname.replace(/\/$/, '') === SETTINGS_ROOT;
   const current = findSettingsItem(location.pathname);
   const { can } = useAuth();
-  const items = visibleSettingsItems(can);
+  // Scope the side-nav to the section (Settings / Integrations / Modules) that
+  // owns the current screen, so each top-level entry navigates within itself.
+  const section = sectionForPath(location.pathname);
+  const sectionMeta = SECTIONS[section] || SECTIONS.settings;
+  const items = visibleSettingsItems(can).filter((item) => item.section === section);
   // Viewing with settings.view only: every control on the screen is disabled.
   const readOnly = Boolean(current && !can(current.permission));
   const groups = SETTINGS_GROUPS.filter((group) => items.some((item) => item.group === group.id));
@@ -45,8 +49,8 @@ export default function SettingsLayout() {
   return (
     <div className="settings-shell">
       <aside className="settings-nav" aria-label={t('settings.title')}>
-        <NavLink to={SETTINGS_ROOT} end className="settings-nav__home">
-          <span aria-hidden="true">←</span> {t('settings.back')}
+        <NavLink to={sectionMeta.path} end className="settings-nav__home">
+          <span aria-hidden="true">←</span> {t(sectionMeta.backKey)}
         </NavLink>
         {groups.map((group) => (
           <div key={group.id} className="settings-nav__group">

@@ -5,7 +5,7 @@ import Chrome from '../components/Chrome';
 import AppFooter from '../components/AppFooter';
 import CommandPalette, { useCommandPaletteHotkey } from '../components/CommandPalette';
 import { MenuIcon } from '../components/icons/menuIcons';
-import { ADMIN_PAGES, visibleAdminPages } from '../admin/navigation';
+import { ADMIN_PAGES, SECTIONS, sectionForPath, visibleAdminPages } from '../admin/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useThemeMode } from '../context/ThemeContext';
@@ -25,8 +25,15 @@ function loadCollapsed() {
 
 /** The most specific sidebar entry that owns the current path. */
 function selectedKey(pathname) {
-  // Module docs (/admin/modules/<id>/docs) belong to Settings → Modules.
-  if (pathname.startsWith('/admin/modules')) return '/admin/settings';
+  // Settings screens and the Integrations / Modules hubs highlight their section
+  // entry — a screen at /admin/settings/<id> may belong to Integrations or Modules.
+  if (
+    pathname.startsWith('/admin/settings') ||
+    pathname.startsWith('/admin/integrations') ||
+    pathname.startsWith('/admin/modules')
+  ) {
+    return SECTIONS[sectionForPath(pathname)].path;
+  }
   const match = ADMIN_PAGES.filter(
     (page) => pathname === page.key || (page.key !== '/admin' && pathname.startsWith(`${page.key}/`))
   ).sort((a, b) => b.key.length - a.key.length)[0];

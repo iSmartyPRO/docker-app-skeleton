@@ -16,4 +16,8 @@ export default {
   collapse: 'Жыйноо',
   api: 'API жана интеграциялар',
   apiDesc: 'Токендер, кирүү үлгүлөрү, вебхуктар жана суроо-талаптар журналы',
+  integrations: 'Интеграциялар',
+  integrationsDesc: 'Почта, мессенджерлер, Google, Active Directory жана билдирүүлөр',
+  modules: 'Модулдер',
+  modulesDesc: 'Порталдын тиркемелери жана алардын жөндөөлөрү',
 };

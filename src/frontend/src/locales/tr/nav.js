@@ -16,4 +16,8 @@ export default {
   collapse: 'Daralt',
   api: 'API ve entegrasyonlar',
   apiDesc: 'Belirteçler, erişim şablonları, web kancaları ve istek günlüğü',
+  integrations: 'Entegrasyonlar',
+  integrationsDesc: 'E-posta, mesajlaşma, Google, Active Directory ve bildirimler',
+  modules: 'Modüller',
+  modulesDesc: 'Portal uygulamaları ve ayarları',
 };

@@ -16,4 +16,8 @@ export default {
   collapse: 'Collapse',
   api: 'API & integrations',
   apiDesc: 'Tokens, access templates, webhooks and the request log',
+  integrations: 'Integrations',
+  integrationsDesc: 'Email, messengers, Google, Active Directory and notifications',
+  modules: 'Modules',
+  modulesDesc: 'Portal applications and their settings',
 };

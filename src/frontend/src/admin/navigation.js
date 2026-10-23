@@ -69,6 +69,22 @@ export const ADMIN_PAGES = [
     permissions: SETTINGS_VIEW,
     keywords: 'settings preferences configuration настройки параметры',
   },
+  {
+    key: '/admin/integrations',
+    labelKey: 'nav.integrations',
+    descKey: 'nav.integrationsDesc',
+    defaultIcon: 'integrations',
+    permissions: ['settings.view', 'settings.integrations'],
+    keywords: 'integrations email telegram whatsapp wazzup mattermost google documents active directory sms интеграции почта телеграм ватсап гугл каталог смс',
+  },
+  {
+    key: '/admin/modules',
+    labelKey: 'nav.modules',
+    descKey: 'nav.modulesDesc',
+    defaultIcon: 'apps',
+    permissions: ['settings.view', 'settings.modules'],
+    keywords: 'modules apps applications enable dashboard chat files crm tasks remote модули приложения включить дашборд чат файлы задачи',
+  },
 ];
 
 export const SETTINGS_GROUPS = [
@@ -157,6 +173,7 @@ export const SETTINGS_GROUPS = [
     id: 'integrations',
     labelKey: 'settings.groups.integrations',
     permission: 'settings.integrations',
+    section: 'integrations',
     items: [
       {
         id: 'email',
@@ -223,6 +240,7 @@ export const SETTINGS_GROUPS = [
     id: 'modules',
     labelKey: 'settings.groups.modules',
     permission: 'settings.modules',
+    section: 'modules',
     items: [
       {
         id: 'modules',
@@ -355,6 +373,8 @@ export const SETTINGS_ITEMS = SETTINGS_GROUPS.flatMap((group) =>
     permission: item.permission || group.permission,
     group: group.id,
     groupLabelKey: group.labelKey,
+    // Which top-level console section owns this screen: Settings, Integrations or Modules.
+    section: group.section || 'settings',
     key: `${SETTINGS_ROOT}/${item.id}`,
     path: `${SETTINGS_ROOT}/${item.id}`,
     labelKey: `settings.${item.id}.title`,
@@ -375,6 +395,27 @@ export function findSettingsItem(pathname) {
   return SETTINGS_ITEMS.find(
     (item) => pathname === item.path || pathname.startsWith(`${item.path}/`)
   );
+}
+
+/**
+ * Top-level console sections. Integrations and Modules were promoted out of
+ * Settings into their own sidebar entries; their screens still live under
+ * /admin/settings/<id>, but navigation (sidebar highlight, hub, side-nav, back
+ * link) is scoped by the section an item belongs to.
+ */
+export const SECTIONS = {
+  settings: { path: SETTINGS_ROOT, labelKey: 'nav.settings', leadKey: 'nav.settingsDesc', titleKey: 'settings.title', hubLeadKey: 'settings.lead', backKey: 'settings.back' },
+  integrations: { path: '/admin/integrations', labelKey: 'nav.integrations', leadKey: 'nav.integrationsDesc', titleKey: 'nav.integrations', hubLeadKey: 'nav.integrationsDesc', backKey: 'nav.integrations' },
+  modules: { path: '/admin/modules', labelKey: 'nav.modules', leadKey: 'nav.modulesDesc', titleKey: 'nav.modules', hubLeadKey: 'nav.modulesDesc', backKey: 'nav.modules' },
+};
+
+/** The console section (settings | integrations | modules) that owns a path. */
+export function sectionForPath(pathname) {
+  const item = findSettingsItem(pathname);
+  if (item) return item.section;
+  if (pathname.startsWith('/admin/integrations')) return 'integrations';
+  if (pathname.startsWith('/admin/modules')) return 'modules';
+  return 'settings';
 }
 
 /** Old URLs from the first version of the skeleton → new locations. */

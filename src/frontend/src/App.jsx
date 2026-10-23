@@ -329,7 +329,8 @@ function ThemedRoutes() {
               <Route path="roles" element={<Allow any={['users.view']}><AdminRoles /></Allow>} />
               <Route path="activity" element={<Allow any={['activity.view']}><AdminActivity /></Allow>} />
               <Route path="api" element={<Allow any={['api.admin']}><ApiConsole /></Allow>} />
-              <Route path="modules" element={<Navigate to="/admin/settings/modules" replace />} />
+              <Route path="integrations" element={<Allow any={['settings.view', 'settings.integrations']}><SettingsHome section="integrations" /></Allow>} />
+              <Route path="modules" element={<Allow any={['settings.view', 'settings.modules']}><SettingsHome section="modules" /></Allow>} />
               <Route path="modules/:id/docs" element={<Allow any={SETTINGS_VIEW}><ModuleDocs /></Allow>} />
               <Route path="settings" element={<Allow any={SETTINGS_VIEW}><SettingsLayout /></Allow>}>
                 <Route index element={<SettingsHome />} />

@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **Admin console — Integrations and Modules are now top-level menu entries** next to Settings, instead of groups buried inside Settings (fewer clicks to reach an integration or a module's settings). Each has its own hub and a side-navigation scoped to that section; the Settings hub now shows only the core settings groups. Individual screens keep their existing URLs, so all links and bookmarks still work.
+
 ## [1.18.0] - 2026-10-23
 
 ### Added

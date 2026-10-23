@@ -16,4 +16,8 @@ export default {
   collapse: '收起',
   api: 'API 与集成',
   apiDesc: '令牌、访问模板、Webhook 和请求日志',
+  integrations: '集成',
+  integrationsDesc: '邮件、即时通讯、Google、Active Directory 和通知',
+  modules: '模块',
+  modulesDesc: '门户应用及其设置',
 };
