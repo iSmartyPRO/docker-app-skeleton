@@ -190,3 +190,23 @@ test('build: each builds into a package (server part; web with MODULE_BUILD_WEB=
     rmSync(out, { recursive: true, force: true });
   }
 });
+
+test('Settings → <package>: the settings item of a package belongs to the Modules section (the screen renders)', async () => {
+  // Browser sources import without extensions (vite): resolve them as .js for this import.
+  const { registerHooks } = await import('node:module');
+  registerHooks({
+    resolve(specifier, context, next) {
+      try {
+        return next(specifier, context);
+      } catch (err) {
+        if (specifier.startsWith('.') && context.parentURL?.includes('/frontend/src/')) return next(`${specifier}.js`, context);
+        throw err;
+      }
+    },
+  });
+  const navigation = await import('../../frontend/src/admin/navigation.js');
+  const item = navigation.addPackageSettingsItem({ id: 'remote', icon: 'remote' });
+  assert.equal(item.section, 'modules');
+  assert.equal(navigation.sectionForPath('/admin/settings/remote'), 'modules');
+  assert.equal(navigation.SECTIONS[navigation.sectionForPath('/admin/settings/remote')].path, '/admin/modules');
+});

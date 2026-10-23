@@ -1,5 +1,5 @@
 import { Navigate, useParams } from 'react-router-dom';
-import { MODULE_REGISTRY } from '../../modules/registry';
+import { FEATURE_MODULES, MODULE_REGISTRY } from '../../modules/registry';
 
 /**
  * Settings → <module> of an installed module package (/admin/settings/<id>):
@@ -8,7 +8,8 @@ import { MODULE_REGISTRY } from '../../modules/registry';
  */
 export default function PackageSettings() {
   const { moduleId } = useParams();
-  const entry = MODULE_REGISTRY.find((module) => module.id === moduleId && module.package);
+  // A page module, or one without a page of its own (the robot assistant: FEATURE_MODULES).
+  const entry = [...MODULE_REGISTRY, ...FEATURE_MODULES].find((module) => module.id === moduleId && module.package);
   if (!entry?.Settings) return <Navigate to="/admin/settings" replace />;
   const Settings = entry.Settings;
   return <Settings key={moduleId} itemId={moduleId} />;

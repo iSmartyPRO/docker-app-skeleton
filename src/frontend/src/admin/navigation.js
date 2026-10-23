@@ -377,6 +377,8 @@ export function addPackageSettingsItem({ id, icon, keywords = '', labelKey, desc
     permission: group.permission,
     group: group.id,
     groupLabelKey: group.labelKey,
+    // The console section that owns it (sidebar highlight, back link): without it the screen does not render.
+    section: group.section || 'settings',
     key: `${SETTINGS_ROOT}/${id}`,
     path: `${SETTINGS_ROOT}/${id}`,
     labelKey: labelKey || `settings.${id}.title`,
