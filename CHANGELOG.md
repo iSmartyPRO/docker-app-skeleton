@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-10-23
+
 ### Added
 
 - **Remote access — Portal VNC install centre**: a new admin page (the «Portal VNC» button in the Computers header) that brings you to the installer in a couple of clicks. It fetches the latest [Portal VNC](https://github.com/iSmartyPRO/portal-vnc) agent release and offers direct `.msi`/`.zip` download buttons, with a step-by-step install guide (service on port 7654, firewall rule, `allowedClients`, GPO deployment). If the portal cannot reach GitHub it falls back to the last known release; the links point at GitHub so the download runs in the administrator's browser regardless. See [docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md#portal-vnc--собственный-агент-и-центр-установки).
@@ -678,7 +680,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.16.0
 [1.15.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.15.0
 [1.14.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.14.1
 [1.14.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.14.0
