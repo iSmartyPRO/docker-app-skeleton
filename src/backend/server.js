@@ -14,6 +14,7 @@ import { trustProxy } from './services/security.js';
 import { getSettings, getSettingsView, parseSettings } from './services/settings.js';
 import { verifyToken } from './services/auth.js';
 import { initRemoteTunnel } from './modules/remote/tunnel.js';
+import { initPvncTunnel } from './modules/remote/pvncTunnel.js';
 import { bootstrapSchema, schemaBootstrapped } from './services/schema.js';
 import { APP_VERSION } from './config/version.js';
 import apiRoutes from './routes/index.js';
@@ -269,6 +270,8 @@ async function start() {
 
   // Remote access: the WebSocket bridge to guacd (docs/specs/remote-access.ru.md).
   initRemoteTunnel(server);
+  // Portal VNC: the mutual-TLS bridge to PortalVNC agents (bypasses guacd).
+  initPvncTunnel(server);
 
   const shutdown = async (signal) => {
     if (shuttingDown) return;

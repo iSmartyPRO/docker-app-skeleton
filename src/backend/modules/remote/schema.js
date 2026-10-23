@@ -174,6 +174,22 @@ export async function ensureRemoteSchema() {
   await query(`ALTER TABLE remote_apps ADD COLUMN IF NOT EXISTS cred_password TEXT`);
   await query(`ALTER TABLE remote_apps ALTER COLUMN host_id DROP NOT NULL`);
 
+  /*
+   * Portal VNC: the portal's own client identity for mutual-TLS to PortalVNC
+   * agents. A single row (id = 1). The CA and client certificate are public
+   * PEM; the client private key is sealed (services/crypto).
+   */
+  await query(`
+    CREATE TABLE IF NOT EXISTS remote_pvnc (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      ca_cert TEXT NOT NULL DEFAULT '',
+      client_cert TEXT NOT NULL DEFAULT '',
+      client_key TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT remote_pvnc_singleton CHECK (id = 1)
+    )
+  `);
+
   await migrateAppsToIndependent();
 }
 

@@ -6,7 +6,7 @@ import { remoteApi } from '../api';
 import { useRemote } from '../RemoteContext';
 import DefaultCredSelect from './DefaultCredSelect';
 
-const DEFAULT_PORT = { rdp: 3389, vnc: 5900 };
+const DEFAULT_PORT = { rdp: 3389, vnc: 5900, pvnc: 7654 };
 
 /** Add or edit a computer (remote.admin). */
 export default function HostDialog({ open, host, onClose }) {
@@ -100,7 +100,7 @@ export default function HostDialog({ open, host, onClose }) {
             <Input maxLength={255} placeholder="10.0.0.15" />
           </Form.Item>
           <Form.Item name="protocol" label={t('remote.host.protocol')}>
-            <Segmented options={[{ value: 'rdp', label: 'RDP' }, { value: 'vnc', label: 'VNC' }]} onChange={(v) => form.setFieldValue('port', DEFAULT_PORT[v])} />
+            <Segmented options={[{ value: 'rdp', label: 'RDP' }, { value: 'vnc', label: 'VNC' }, { value: 'pvnc', label: 'Portal VNC' }]} onChange={(v) => form.setFieldValue('port', DEFAULT_PORT[v])} />
           </Form.Item>
           <Form.Item name="port" label={t('remote.host.port')}>
             <InputNumber min={1} max={65535} style={{ width: 92 }} />
@@ -120,7 +120,7 @@ export default function HostDialog({ open, host, onClose }) {
 
         <div className="rm-creds-block">
           <div className="rm-creds-block__head">{t('remote.host.credentials')}</div>
-          <p className="rm-muted">{t(protocol === 'vnc' ? 'remote.host.credsVnc' : 'remote.host.credsHint')}</p>
+          <p className="rm-muted">{t(protocol === 'vnc' ? 'remote.host.credsVnc' : protocol === 'pvnc' ? 'remote.host.credsPvnc' : 'remote.host.credsHint')}</p>
           <Form.Item name="defaultCred" label={t('remote.connect.defaultSource')} help={t('remote.connect.defaultSourceHint')}>
             <DefaultCredSelect />
           </Form.Item>

@@ -5,6 +5,8 @@ import { notify } from '../../services/notifications.js';
 import { seal, unseal } from '../../services/crypto.js';
 import { contextFromRequest, httpError, intId } from '../shared/acl.js';
 import { buildToken, connectionFor, parseRdp, TUNNEL_PATH } from './tunnel.js';
+import { buildPvncToken, PVNC_PATH } from './pvncTunnel.js';
+import { pvncConfigured } from './pvnc.js';
 import { resolveVault } from './credentials.js';
 import { resolvePassbolt } from './passbolt.js';
 
@@ -14,7 +16,7 @@ import { resolvePassbolt } from './passbolt.js';
  * watched employee. There is no covert path and no setting to disable either.
  */
 
-const PROTOCOLS = { rdp: 3389, vnc: 5900 };
+const PROTOCOLS = { rdp: 3389, vnc: 5900, pvnc: 7654 };
 const MODES = ['assist', 'monitor'];
 
 /** A quick TCP reachability check from the portal (same network as guacd). */
@@ -437,6 +439,24 @@ export async function startSession(ctx, input = {}) {
     });
   }
 
+  // Portal VNC bypasses guacd: its own mTLS bridge (pvncTunnel.js). The browser
+  // runs noVNC, not guacamole-common-js.
+  if (target.protocol === 'pvnc') {
+    if (!(await pvncConfigured())) {
+      return { session: sessionShape(session), token: null, tunnel: 'PVNC_OFF', path: PVNC_PATH, viewer: 'pvnc', protocol: 'pvnc', readOnly: !wantsControl, app: appName };
+    }
+    const reach = await tcpProbe(target.address, target.port, 4000);
+    if (!reach.ok) {
+      await query(`UPDATE remote_sessions SET ended_at = NOW(), note = $2 WHERE id = $1`, [session.id, `unreachable: ${reach.reason}`]);
+      const error = httpError(409, 'The computer is not reachable on the network', 'HOST_UNREACHABLE');
+      error.details = { address: `${target.address}:${target.port}`, reason: reach.reason, ms: reach.ms };
+      throw error;
+    }
+    const creds = await resolveCredentials(ctx, target, input);
+    const token = buildPvncToken({ host: target.address, port: target.port, username: creds.username, domain: creds.domain, password: creds.password });
+    return { session: sessionShape(session), token, tunnel: 'READY', path: PVNC_PATH, viewer: 'pvnc', protocol: 'pvnc', readOnly: !wantsControl, app: appName };
+  }
+
   if (!settings.guacdHost) {
     return { session: sessionShape(session), token: null, tunnel: 'GUACD_OFF', path: TUNNEL_PATH, protocol: target.protocol, readOnly: !wantsControl, app: appName };
   }
@@ -537,6 +557,7 @@ export async function bootstrap(ctx) {
       recording: Boolean(settings.recording),
       monitoringReady: Boolean(settings.policyAckAt),
       passbolt: Boolean(settings.passbolt),
+      pvncReady: await pvncConfigured().catch(() => false),
     },
     can: { connect: ctx.canConnect, monitor: ctx.canMonitor, admin: ctx.isAdmin },
   };

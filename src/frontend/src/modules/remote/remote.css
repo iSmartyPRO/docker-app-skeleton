@@ -931,3 +931,43 @@
   .pvnc-hero { flex-direction: column; gap: 16px; padding: 20px; }
   .pvnc-steps { grid-template-columns: 1fr; }
 }
+
+/* ── Portal VNC: client identity + live viewer ─────────────────────────── */
+.pvnc-identity {
+  margin: 26px 0 20px;
+  padding: 20px 22px;
+  border: 1px solid var(--da-hairline);
+  border-radius: calc(var(--da-radius) * 1.2);
+  background: var(--da-surface-raised);
+}
+.pvnc-identity__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pvnc-identity .rm-field__label { display: block; margin: 14px 0 5px; font-weight: 600; font-size: 13px; color: var(--da-text); }
+.pvnc-identity textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.pvnc-identity__actions { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+
+.pvnc-ready {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--da-muted);
+  background: var(--da-tint);
+}
+.pvnc-ready.is-on { color: var(--da-success); background: color-mix(in srgb, var(--da-success) 14%, transparent); }
+
+.pvnc-howlist { margin: 4px 0 16px; padding-left: 20px; color: var(--da-muted); }
+.pvnc-howlist li { margin-bottom: 8px; line-height: 1.5; }
+.pvnc-howlist code,
+.pvnc-identity code { font-size: 12px; }
+
+.rm-proto--pvnc {
+  background: color-mix(in srgb, var(--da-primary) 18%, transparent);
+  color: #cdd8ff;
+}
+
+/* noVNC fills the stage; its own canvas centres the framebuffer. */
+.rm-viewer-novnc { position: absolute; inset: 0; display: flex; }
+.rm-viewer-novnc > div { width: 100%; height: 100%; }

@@ -22,6 +22,7 @@
     "@fullcalendar/luxon3": "^6.1.21",
     "@fullcalendar/react": "^6.1.21",
     "@fullcalendar/timegrid": "^6.1.21",
+    "@novnc/novnc": "^1.5.0",
     "@tiptap/extension-highlight": "2.27.2",
     "@tiptap/extension-image": "2.27.2",
     "@tiptap/extension-link": "2.27.2",

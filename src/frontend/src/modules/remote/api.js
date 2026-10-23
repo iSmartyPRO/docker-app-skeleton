@@ -13,6 +13,8 @@ export const remoteApi = {
   end: (id, payload = {}) => api.post(`${base}/sessions/${id}/end`, payload),
   sessions: (scope = 'mine') => api.get(`${base}/sessions`, { params: { scope } }),
   portalVnc: () => api.get(`${base}/portal-vnc`),
+  pvncConfig: () => api.get(`${base}/pvnc-config`),
+  savePvncConfig: (payload) => api.put(`${base}/pvnc-config`, payload),
 
   // RemoteApp (published applications)
   apps: () => api.get(`${base}/apps`),

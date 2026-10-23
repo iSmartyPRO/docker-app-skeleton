@@ -4,6 +4,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { remoteApi } from '../api';
 import RemoteViewer from './RemoteViewer';
+import PvncViewer from './PvncViewer';
 import ConnectDialog from './ConnectDialog';
 
 /**
@@ -38,7 +39,7 @@ export default function Launcher({ request, onClose }) {
       if (res.data.tunnel === 'READY') {
         setSession({ ...res.data, hostName: req.app ? `${req.app.name} · ${req.app.address}` : req.host.name });
       } else {
-        message.info(t('remote.connect.pilotTitle'));
+        message.info(res.data.tunnel === 'PVNC_OFF' ? t('remote.pvnc.offNotice') : t('remote.connect.pilotTitle'));
         if (res.data.session?.id) remoteApi.end(res.data.session.id).catch(() => {});
         onClose();
       }
@@ -68,8 +69,9 @@ export default function Launcher({ request, onClose }) {
     return <ConnectDialog open onClose={onClose} host={request.host} app={request.app} mode={mode} />;
   }
   if (session?.tunnel === 'READY') {
+    const Viewer = session.viewer === 'pvnc' ? PvncViewer : RemoteViewer;
     return (
-      <RemoteViewer
+      <Viewer
         token={session.token}
         path={session.path}
         hostName={session.hostName}

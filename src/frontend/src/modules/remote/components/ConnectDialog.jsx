@@ -6,6 +6,7 @@ import { errorMessage } from '../../../lib/errors';
 import { remoteApi } from '../api';
 import { useRemote } from '../RemoteContext';
 import RemoteViewer from './RemoteViewer';
+import PvncViewer from './PvncViewer';
 import CredentialPicker, { defaultCredentialValue } from './CredentialPicker';
 
 /**
@@ -33,7 +34,7 @@ export default function ConnectDialog({ open, host, app, mode, onClose }) {
   if (!host) return null;
   const isServer = host.kind === 'server' || host.kind === 'app' || Boolean(app);
   const isMonitor = mode === 'monitor' && !isServer;
-  const needsCreds = host.protocol === 'rdp' || host.protocol === 'vnc';
+  const needsCreds = host.protocol === 'rdp' || host.protocol === 'vnc' || host.protocol === 'pvnc';
 
   const start = async () => {
     if (auth.source === 'passbolt' && !auth.id) { message.warning(t('remote.creds.passboltChoose')); return; }
@@ -50,7 +51,7 @@ export default function ConnectDialog({ open, host, app, mode, onClose }) {
         ...(auth.source === 'manual' ? { username: auth.username, domain: auth.domain, password: auth.password } : {}),
       });
       setSession(res.data);
-      if (res.data.tunnel !== 'READY') message.info(t('remote.connect.pilotTitle'));
+      if (res.data.tunnel !== 'READY') message.info(res.data.tunnel === 'PVNC_OFF' ? t('remote.pvnc.offNotice') : t('remote.connect.pilotTitle'));
     } catch (err) {
       message.error(errorMessage(err));
     } finally {
@@ -65,7 +66,8 @@ export default function ConnectDialog({ open, host, app, mode, onClose }) {
   };
 
   if (session?.tunnel === 'READY') {
-    return <RemoteViewer token={session.token} path={session.path} hostName={app ? `${app.name} · ${host.name}` : host.name} readOnly={session.readOnly} onClose={finish} onRetry={async () => { if (session.session?.id) await remoteApi.end(session.session.id).catch(() => {}); setSession(null); start(); }} />;
+    const Viewer = session.viewer === 'pvnc' ? PvncViewer : RemoteViewer;
+    return <Viewer token={session.token} path={session.path} hostName={app ? `${app.name} · ${host.name}` : host.name} readOnly={session.readOnly} onClose={finish} onRetry={async () => { if (session.session?.id) await remoteApi.end(session.session.id).catch(() => {}); setSession(null); start(); }} />;
   }
 
   const title = app

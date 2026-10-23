@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Remote access — connect to Portal VNC agents from the browser**: a new WebSocket bridge (`/api/app/remote/pvnc`) opens a mutual-TLS connection to a [Portal VNC](https://github.com/iSmartyPRO/portal-vnc) agent, performs its handshake and relays raw RFB to **noVNC** in the browser (guacd is not involved). Add a computer with the new **Portal VNC** protocol and connect in one click. The portal's client identity (CA + client certificate/key, the key stored sealed) is set by an administrator on the Portal VNC page («Connect from the portal»); the target address and Windows credentials never reach the browser (encrypted, short-lived token) and come from the usual credential sources. Every connection stays transparent — it is still recorded and the employee is notified. The reverse proxy gained the upgrade headers for the new route. See [docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md#подключение-из-браузера-портала).
+
 ## [1.16.0] - 2026-10-23
 
 ### Added

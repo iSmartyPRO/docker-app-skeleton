@@ -23,6 +23,7 @@ import {
   startSession,
 } from './service.js';
 import { portalVncRelease } from './portalVnc.js';
+import { getPvnc, savePvnc } from './pvnc.js';
 import { deleteCredential, listCredentials, saveCredential } from './credentials.js';
 import { deletePassbolt, getPassbolt, listResources, passboltEnabled, savePassbolt, testPassbolt } from './passbolt.js';
 
@@ -80,6 +81,10 @@ export function privateRoutes() {
     await handler(req, res);
   });
   router.get('/subjects', admin(async (req, res) => res.json({ success: true, ...(await listSubjects()) })));
+
+  // Portal VNC client identity (CA + client certificate/key for mTLS to agents).
+  router.get('/pvnc-config', admin(async (req, res) => res.json({ success: true, pvnc: await getPvnc(req.remote_ctx) })));
+  router.put('/pvnc-config', admin(async (req, res) => res.json({ success: true, pvnc: await savePvnc(req.remote_ctx, req.body || {}) })));
   router.post('/hosts', admin(async (req, res) => res.json({ success: true, host: await saveHost(req.remote_ctx, req.body || {}) })));
   router.put('/hosts/:id', admin(async (req, res) => res.json({ success: true, host: await saveHost(req.remote_ctx, req.body || {}, req.params.id) })));
   router.delete('/hosts/:id', admin(async (req, res) => {
