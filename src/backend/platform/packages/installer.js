@@ -19,6 +19,7 @@ import { installedIndex } from './loader.js';
 import { normalizeManifest } from './manifestFile.js';
 import { IntegrityError, verifyPackageDir } from './integrity.js';
 import { cleanStaging } from './staging.js';
+import { archiveIncoming } from './incoming.js';
 import { devMode, moduleRoot, stagingDir, versionDir, ID_PATTERN } from './paths.js';
 import { BOOT_ID, requestRestart, restartPending } from './restart.js';
 
@@ -120,7 +121,8 @@ const stagedDir = (token) => join(stagingDir(), token);
 const stagedMeta = (token) => join(stagingDir(), `${token}.json`);
 
 /**
- * Step 1: an uploaded file. Returns { token, preview, problems } — problems
+ * Step 1: an uploaded file, or a file of incoming/ («Пакеты на сервере»:
+ * `incoming` = { file, sha256 }, incoming.js read it) — the same checks. Returns { token, preview, problems } — problems
  * empty means «Установить» may be pressed. A damaged / foreign file throws
  * PackageError (422, «Файл повреждён или выпущен не нами»). The archive is
  * inflated once, here; install works from the unpacked folder.
@@ -130,12 +132,12 @@ export function stagePackage(buffer, options = {}) {
   return exclusive(() => stageNow(buffer, options));
 }
 
-async function stageNow(buffer, { actor = null, ip = null } = {}) {
+async function stageNow(buffer, { actor = null, ip = null, incoming = null } = {}) {
   let opened;
   try {
     opened = openPackage(buffer, openOptions());
   } catch (err) {
-    if (err instanceof PackageError) journal({ actor, ip, code: 'module_rejected', detail: `package rejected: ${err.problem.params?.reason || err.message}`.slice(0, 200), params: { reason: err.problem.params?.reason || '' } });
+    if (err instanceof PackageError) journal({ actor, ip, code: 'module_rejected', detail: `package rejected${incoming ? ` (server file ${incoming.file})` : ''}: ${err.problem.params?.reason || err.message}`.slice(0, 200), params: { reason: err.problem.params?.reason || '', ...(incoming ? { file: incoming.file } : {}) } });
     throw err;
   }
   const check = await checkFor(opened.manifest);
@@ -145,7 +147,7 @@ async function stageNow(buffer, { actor = null, ip = null } = {}) {
   writePackageFiles(opened.files, stagedDir(token));
   // The listing as signed: install checks that the folder still holds exactly these files.
   const { listingSha256 } = verifyPackageDir(stagedDir(token), { devMode: devMode() });
-  writeFileSync(stagedMeta(token), `${JSON.stringify({ id: opened.manifest.id, version: opened.manifest.version, checksum: opened.checksum, keyId: opened.keyId, signed: opened.signed, listingSha256, at: new Date().toISOString() })}\n`, { mode: 0o600 });
+  writeFileSync(stagedMeta(token), `${JSON.stringify({ id: opened.manifest.id, version: opened.manifest.version, checksum: opened.checksum, keyId: opened.keyId, signed: opened.signed, listingSha256, ...(incoming ? { incoming: { file: incoming.file, sha256: incoming.sha256 } } : {}), at: new Date().toISOString() })}\n`, { mode: 0o600 });
   return { token, preview: previewOf(opened, check), problems: check.problems, unsigned: !opened.signed };
 }
 
@@ -304,15 +306,18 @@ export async function installStaged(token, { actor = null, ip = null, restart = 
     writePointer(manifest.id, 'previous', current?.version || null);
     writePointer(manifest.id, 'current', manifest.version);
     pruneVersions(manifest.id);
+    // From «Пакеты на сервере»: the file goes to incoming/installed/ (incoming.js).
+    const moved = meta.incoming ? archiveIncoming(meta.incoming.file, meta.incoming.sha256) : null;
+    const from = meta.incoming ? ` from server file ${meta.incoming.file}${moved ? '' : ' (file not moved)'}` : '';
     journal({
       actor,
       ip,
       code: current ? 'module_updated' : 'module_installed',
-      detail: current ? `${manifest.id} updated ${current.version} → ${manifest.version}` : `${manifest.id} ${manifest.version} installed${meta.signed ? '' : ' (unsigned, development mode)'}`,
-      params: { module: manifest.id, version: manifest.version, from: current?.version || '' },
+      detail: (current ? `${manifest.id} updated ${current.version} → ${manifest.version}${from}` : `${manifest.id} ${manifest.version} installed${meta.signed ? '' : ' (unsigned, development mode)'}${from}`).slice(0, 200),
+      params: { module: manifest.id, version: manifest.version, from: current?.version || '', ...(meta.incoming ? { file: meta.incoming.file } : {}) },
     });
     if (restart) requestRestart(`${current ? 'update' : 'install'} ${manifest.id} ${manifest.version}`);
-    return { id: manifest.id, version: manifest.version, action: current ? 'update' : 'install', applied: prepared.applied, tables: prepared.tables, backup: backup ? { file: backup.file, format: backup.format } : null, restart, bootId: BOOT_ID };
+    return { id: manifest.id, version: manifest.version, action: current ? 'update' : 'install', ...(meta.incoming ? { incomingFile: meta.incoming.file, incomingMoved: Boolean(moved) } : {}), applied: prepared.applied, tables: prepared.tables, backup: backup ? { file: backup.file, format: backup.format } : null, restart, bootId: BOOT_ID };
   });
 }
 

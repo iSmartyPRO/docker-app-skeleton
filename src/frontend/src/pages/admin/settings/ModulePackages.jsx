@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, App, Button, Descriptions, Input, Modal, Progress, Space, Spin, Tag, Tooltip, Upload } from 'antd';
-import { CloudUploadOutlined, DeleteOutlined, InboxOutlined, SafetyCertificateOutlined, SaveOutlined, SyncOutlined, WarningOutlined } from '@ant-design/icons';
+import { CloudUploadOutlined, DeleteOutlined, InboxOutlined, ReloadOutlined, SafetyCertificateOutlined, SaveOutlined, SyncOutlined, WarningOutlined } from '@ant-design/icons';
 import api from '../../../services/api';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
@@ -10,6 +10,9 @@ import { pickText } from '../../../modules/platformUi';
  * Settings → Modules: module packages (docs/module-packages.md «Settings → Modules»).
  *   - «Установить из файла»: upload → checks (spec §5, server messages) → the
  *     module card → «Установить» / «Обновить» → restart screen;
+ *   - «Пакеты на сервере»: the same dialog, the file picked from the zips the
+ *     host operator put into data/modules/incoming (staged by the server
+ *     exactly like an upload);
  *   - on a package's card: its state (failed with the error), «Обновить»,
  *     «Резервная копия», «Удалить» (code removed, data kept);
  *   - removed modules: «Удалить данные» (a fresh backup is made first).
@@ -150,13 +153,77 @@ function ModuleCardPreview({ preview, t, locale }) {
   );
 }
 
-/** «Установить из файла» dialog: upload, checks, module card, install. */
-export function InstallDialog({ open, onClose, devMode, maxUploadMb, onRestart }) {
+const formatBytes = (bytes, locale) => {
+  const mb = bytes / 1024 / 1024;
+  const format = (value, digits) => value.toLocaleString(locale, { maximumFractionDigits: digits });
+  return mb >= 1 ? `${format(mb, 1)} MB` : `${format(Math.max(bytes / 1024, 0.1), 1)} KB`;
+};
+
+/** «Пакеты на сервере»: GET /api/admin/modules/incoming, a row per zip with «Установить». */
+function ServerFiles({ busyFile, onPick, onError }) {
+  const { t, locale } = useLocale();
+  const [files, setFiles] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/admin/modules/incoming');
+      setFiles(res.data.files || []);
+    } catch (err) {
+      setFiles([]);
+      onError(problemTexts(err, locale));
+    } finally {
+      setLoading(false);
+    }
+  }, [locale, onError]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  return (
+    <div className="pf-server-files">
+      <div className="pf-server-files__head">
+        <p className="pf-muted">{t('packages.server.lead')}</p>
+        <Button size="small" icon={<ReloadOutlined />} onClick={load} loading={loading} disabled={Boolean(busyFile)}>
+          {t('packages.server.refresh')}
+        </Button>
+      </div>
+      {files === null ? (
+        <Spin />
+      ) : files.length === 0 ? (
+        <p className="pf-empty">{t('packages.server.empty')}</p>
+      ) : (
+        <ul className="pf-server-files__list">
+          {files.map((item) => (
+            <li key={item.file} className="pf-server-files__item">
+              <div className="pf-server-files__info">
+                <strong>{pickText(item.name, locale) || item.id || item.file}</strong>
+                {item.version && <Tag bordered={false}>{item.version}</Tag>}
+                <div className="pf-muted">
+                  {item.file} · {formatBytes(item.bytes, locale)} · {new Date(item.modifiedAt).toLocaleString(locale)}
+                </div>
+              </div>
+              <Button type="primary" size="small" loading={busyFile === item.file} disabled={Boolean(busyFile) && busyFile !== item.file} onClick={() => onPick(item.file)}>
+                {t('packages.server.install')}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * «Установить из файла» (source 'upload') and «Пакеты на сервере» (source
+ * 'server') dialog: the file, checks, module card, install.
+ */
+export function InstallDialog({ open, onClose, devMode, maxUploadMb, onRestart, source = 'upload' }) {
   const { t, locale } = useLocale();
   const [phase, setPhase] = useState('pick'); // pick | uploading | card | installing
   const [progress, setProgress] = useState(0);
   const [staged, setStaged] = useState(null);
   const [problems, setProblems] = useState([]);
+  const [serverFile, setServerFile] = useState(null);
 
   useEffect(() => {
     if (open) {
@@ -164,8 +231,31 @@ export function InstallDialog({ open, onClose, devMode, maxUploadMb, onRestart }
       setProgress(0);
       setStaged(null);
       setProblems([]);
+      setServerFile(null);
     }
   }, [open]);
+
+  const showStaged = (data) => {
+    setStaged(data);
+    setProblems((data.problems || []).map((item) => pickText(item.message, locale) || item.message?.en));
+    setPhase('card');
+  };
+
+  // A file of data/modules/incoming: the server reads it and checks it exactly like an upload.
+  const stageServerFile = async (file) => {
+    setServerFile(file);
+    setPhase('uploading');
+    setProblems([]);
+    try {
+      const res = await api.post('/admin/modules/incoming/stage', { file });
+      showStaged(res.data);
+    } catch (err) {
+      setProblems(problemTexts(err, locale));
+      setPhase('pick');
+    } finally {
+      setServerFile(null);
+    }
+  };
 
   const upload = async (file) => {
     setPhase('uploading');
@@ -177,9 +267,7 @@ export function InstallDialog({ open, onClose, devMode, maxUploadMb, onRestart }
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (event) => setProgress(event.total ? Math.round((event.loaded / event.total) * 100) : 0),
       });
-      setStaged(res.data);
-      setProblems((res.data.problems || []).map((item) => pickText(item.message, locale) || item.message?.en));
-      setPhase('card');
+      showStaged(res.data);
     } catch (err) {
       setProblems(problemTexts(err, locale));
       setPhase('pick');
@@ -203,7 +291,7 @@ export function InstallDialog({ open, onClose, devMode, maxUploadMb, onRestart }
   return (
     <Modal
       open={open}
-      title={t('packages.installTitle')}
+      title={source === 'server' ? t('packages.server.title') : t('packages.installTitle')}
       onCancel={phase === 'installing' ? undefined : onClose}
       closable={phase !== 'installing'}
       maskClosable={false}
@@ -239,7 +327,8 @@ export function InstallDialog({ open, onClose, devMode, maxUploadMb, onRestart }
           }
         />
       )}
-      {(phase === 'pick' || phase === 'uploading') && (
+      {source === 'server' && (phase === 'pick' || phase === 'uploading') && <ServerFiles busyFile={serverFile} onPick={stageServerFile} onError={setProblems} />}
+      {source !== 'server' && (phase === 'pick' || phase === 'uploading') && (
         <Upload.Dragger accept=".zip,application/zip" multiple={false} showUploadList={false} beforeUpload={upload} disabled={phase === 'uploading'}>
           <p className="ant-upload-drag-icon">
             <InboxOutlined />

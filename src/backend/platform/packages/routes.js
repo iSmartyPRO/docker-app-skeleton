@@ -7,6 +7,7 @@ import { PACKAGE_LIMITS, PackageError } from './archive.js';
 import { backupNow, installStaged, purgeModuleData, stagePackage, uninstallPackage } from './installer.js';
 import { packageStates, shellPackages } from './loader.js';
 import { listBackups } from './backup.js';
+import { IncomingError, listIncoming, readIncoming } from './incoming.js';
 import { devMode } from './paths.js';
 import { inventory } from './inventory.js';
 import { BOOT_ID, restartPending } from './restart.js';
@@ -17,6 +18,8 @@ import { BOOT_ID, restartPending } from './restart.js';
  *   GET    /modules/installed                       packages for the browser shell (signed in; anonymous: bootId only)
  *   GET    /admin/modules/packages                  rows of installed_modules + backups (settings admins)
  *   POST   /admin/modules/packages/upload           multipart `file` → { token, preview, problems }   (superadmin)
+ *   GET    /admin/modules/incoming                  zips in $MODULES_DIR/incoming («Пакеты на сервере»)  (superadmin)
+ *   POST   /admin/modules/incoming/stage            { file } → same as upload: { token, preview, problems } (superadmin)
  *   POST   /admin/modules/packages/install          { token } → install / update, then restart       (superadmin)
  *   DELETE /admin/modules/packages/:id              remove the code (data kept), then restart         (superadmin)
  *   POST   /admin/modules/packages/:id/backup       back up the module's tables now                   (superadmin)
@@ -50,6 +53,7 @@ const wrap = (handler) => async (req, res) => {
   try {
     await handler(req, res);
   } catch (err) {
+    if (err instanceof IncomingError) return res.status(err.statusCode).json({ success: false, code: err.code, error: err.message, problems: err.problems });
     if (err instanceof PackageError) return res.status(422).json({ success: false, code: 'BAD_PACKAGE', error: err.problem.message.en, problems: [{ code: err.problem.code, params: {}, message: err.problem.message }] });
     if (Array.isArray(err.problems)) return res.status(err.statusCode || 409).json({ success: false, code: err.code, error: err.message, problems: err.problems });
     console.error(`[module packages] ${req.method} ${req.originalUrl}:`, err);
@@ -94,6 +98,17 @@ export function packageRoutes() {
     if (!req.file?.buffer) return refuse(res, 400, 'NO_FILE', 'Выберите zip-файл модуля', 'Choose the module zip file');
     const staged = await stagePackage(req.file.buffer, { actor: who(req), ip: req.ip });
     return res.json({ success: true, ...staged });
+  }));
+  // «Пакеты на сервере»: files the host operator put into incoming/ — staged exactly like an upload.
+  admin.get('/incoming', superadminOnly, wrap(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, files: listIncoming(), maxUploadMb: Math.round(PACKAGE_LIMITS.maxUploadBytes / 1024 / 1024) });
+  }));
+  admin.post('/incoming/stage', superadminOnly, wrap(async (req, res) => {
+    const file = req.body?.file;
+    const { buffer, sha256 } = readIncoming(file);
+    const staged = await stagePackage(buffer, { actor: who(req), ip: req.ip, incoming: { file, sha256 } });
+    return res.json({ success: true, ...staged, file });
   }));
   admin.post('/packages/install', superadminOnly, wrap(async (req, res) => {
     const result = await installStaged(req.body?.token, { actor: who(req), ip: req.ip });

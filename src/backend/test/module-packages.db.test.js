@@ -6,7 +6,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statS
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { createPublicKey, verify } from 'node:crypto';
+import { createHash, createPublicKey, verify } from 'node:crypto';
 
 /*
  * Module packages end to end against a database (docs/module-packages.md):
@@ -661,6 +661,54 @@ test('a broken package is skipped at boot and marked failed; the rest loads', { 
     delete process.env.MODULES_DEV;
   }
   rmSync(join(ctx.modulesDir, 'broken'), { recursive: true, force: true });
+});
+
+test('«Пакеты на сервере»: a signed zip in incoming/ is listed, staged like an upload, installed and moved to incoming/installed/', { skip, timeout: 240_000 }, async () => {
+  const { installStaged, uninstallPackage, purgeModuleData } = await import('../platform/packages/installer.js');
+  const incoming = join(ctx.modulesDir, 'incoming');
+  mkdirSync(incoming, { recursive: true });
+  const zip = await ctx.build('2.0.0', withLang());
+  writeFileSync(join(incoming, 'hello-2.0.0.zip'), zip);
+  const express = (await import('express')).default;
+  const { packageRoutes } = await import('../platform/packages/routes.js');
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.userRow = { id: 1, username: ACTOR, is_active: true };
+    req.access = { permissions: new Set(['*']) };
+    next();
+  });
+  app.use('/api', packageRoutes());
+  const server = createServer(app);
+  await new Promise((done) => server.listen(0, '127.0.0.1', done));
+  const base = `http://127.0.0.1:${server.address().port}/api/admin/modules`;
+  let staged;
+  try {
+    const list = await (await fetch(`${base}/incoming`)).json();
+    assert.deepEqual(list.files.map(({ file, id, version, bytes }) => ({ file, id, version, bytes })), [{ file: 'hello-2.0.0.zip', id: 'hello', version: '2.0.0', bytes: zip.length }]);
+    const res = await fetch(`${base}/incoming/stage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ file: 'hello-2.0.0.zip' }) });
+    staged = await res.json();
+    assert.equal(res.status, 200);
+  } finally {
+    server.close();
+  }
+  // The upload's answer: token, module card, §5 problems; the file is still in incoming/ until the install.
+  assert.match(staged.token, /^[a-f0-9]{32}$/);
+  assert.equal(staged.preview.id, 'hello');
+  assert.equal(staged.preview.version, '2.0.0');
+  assert.equal(staged.preview.signed, true);
+  assert.equal(staged.preview.checksum, createHash('sha256').update(zip).digest('hex'));
+  assert.deepEqual(staged.problems, []);
+  assert.ok(existsSync(join(incoming, 'hello-2.0.0.zip')));
+  const result = await installStaged(staged.token, { actor: ACTOR });
+  assert.equal(result.version, '2.0.0');
+  assert.equal(result.incomingMoved, true);
+  assert.ok(!existsSync(join(incoming, 'hello-2.0.0.zip')));
+  assert.deepEqual(readFileSync(join(incoming, 'installed', 'hello-2.0.0.zip')), zip);
+  const row = (await ctx.db.query(`SELECT detail FROM security_events WHERE kind = 'module_package' AND username = $1 AND detail_code = 'module_installed' ORDER BY id DESC LIMIT 1`, [ACTOR])).rows[0];
+  assert.match(row.detail, /hello 2\.0\.0 installed from server file hello-2\.0\.0\.zip/);
+  await uninstallPackage('hello', { actor: ACTOR, restart: false });
+  await purgeModuleData('hello', { actor: ACTOR, confirm: 'hello' });
 });
 
 test('portal identity: one UUID and key; the inventory is signed and holds no private key', { skip }, async () => {

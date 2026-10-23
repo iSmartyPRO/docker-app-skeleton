@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - **Installable module packages**: modules can be installed, updated and removed as signed zip files (Settings → Modules → «Install from file», super administrators). Updates back up the module's tables first and roll back automatically when the new version does not start; removal keeps the data until «Delete data». Masterplan is the first module shipped as a package and is no longer built into the core — install its package right after this update (its data, settings and roles are kept; see [docs/module-packages.md](docs/module-packages.md#upgrading-a-portal-that-had-masterplan-built-in)).
+- **Packages on the server**: when the administrator's browser cannot receive a module zip, the server operator copies it into `data/modules/incoming/` and the super administrator installs it from Settings → Modules → «Packages on the server» — with the same checks, module card and restart as an uploaded file; after the install the file moves to `incoming/installed/`.
 - **Masterplan — catch up with contracts**: after its package is installed, Masterplan once brings the units linked from contracts up to date with deposits, signatures and payments made in the meantime; Settings → Masterplan → «Check now» runs it on demand.
 
 ### Changed

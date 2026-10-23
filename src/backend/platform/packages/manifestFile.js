@@ -1,4 +1,4 @@
-import { ID_PATTERN } from './paths.js';
+import { ID_PATTERN, RESERVED_IDS } from './paths.js';
 import { isVersion } from './version.js';
 import { tablePatternProblem } from './tableOwnership.js';
 
@@ -45,6 +45,7 @@ export function normalizeManifest(raw, { categories = null, integrations = null 
   if (!isObject(raw)) return { manifest: null, problems: ['manifest.json must be an object'] };
   const id = raw.id;
   if (typeof id !== 'string' || !ID_PATTERN.test(id)) problems.push(`id "${id}" must be 2–32 lowercase letters, digits or _ (starting with a letter)`);
+  else if (RESERVED_IDS.has(id)) problems.push(`id "${id}" is reserved (a folder of the package platform)`);
   if (!isVersion(raw.version)) problems.push(`version "${raw.version}" must be x.y.z`);
   if (!isVersion(raw.core)) problems.push(`core "${raw.core}" must be x.y.z`);
   if (!isText(raw.name)) problems.push('name needs en and ru');

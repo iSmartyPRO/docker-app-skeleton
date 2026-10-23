@@ -63,6 +63,7 @@ function findEocd(buf) {
 /**
  * Reads a whole archive held in memory. Returns [{ name, data }] for files
  * (folder entries are checked and left out), in archive order.
+ * `limits.only(name)` → false skips inflating that file (it is left out).
  */
 export function readZip(buffer, limits = {}) {
   const lim = { ...DEFAULT_LIMITS, ...limits };
@@ -130,6 +131,8 @@ export function readZip(buffer, limits = {}) {
     if (size > lim.maxEntryBytes) throw new ZipError(`entry too large: ${name}`, 'ZIP_TOO_LARGE');
     total += size;
     if (total > lim.maxTotalBytes) throw new ZipError('archive too large when unpacked', 'ZIP_TOO_LARGE');
+    // `only(name)`: inflate just these files (a peek at manifest.json); the rest is checked in the directory only.
+    if (lim.only && !lim.only(name)) continue;
 
     if (localOffset + 30 > cdOffset || buffer.readUInt32LE(localOffset) !== SIG_LOCAL) throw new ZipError(`broken local header: ${name}`);
     const localNameLen = buffer.readUInt16LE(localOffset + 26);

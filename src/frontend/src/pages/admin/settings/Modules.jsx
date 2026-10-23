@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Badge, Button, Input, Switch, Tag, Tooltip } from 'antd';
 import Segmented from '../../../components/ui/Segmented';
-import { BookOutlined, CloudUploadOutlined, ExperimentOutlined, ExportOutlined, PlayCircleOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
+import { BookOutlined, CloudServerOutlined, CloudUploadOutlined, ExperimentOutlined, ExportOutlined, PlayCircleOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import LoadState from '../../../components/ui/LoadState';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useAdminSettings } from '../../../hooks/useAdminSettings';
@@ -168,6 +168,11 @@ export default function ModulesSettings() {
   const packages = usePackages();
   const canManagePackages = Boolean(packages.data?.canManage);
   const [installOpen, setInstallOpen] = useState(false);
+  const [installSource, setInstallSource] = useState('upload'); // upload | server («Пакеты на сервере»)
+  const openInstall = (source) => {
+    setInstallSource(source);
+    setInstallOpen(true);
+  };
   const [restartBoot, setRestartBoot] = useState(null);
   const onRestart = (bootId) => {
     setInstallOpen(false);
@@ -208,8 +213,13 @@ export default function ModulesSettings() {
           (canDemo || canManagePackages) && (
             <>
               {canManagePackages && (
-                <Button icon={<CloudUploadOutlined />} onClick={() => setInstallOpen(true)}>
+                <Button icon={<CloudUploadOutlined />} onClick={() => openInstall('upload')}>
                   {t('packages.install')}
+                </Button>
+              )}
+              {canManagePackages && (
+                <Button icon={<CloudServerOutlined />} onClick={() => openInstall('server')}>
+                  {t('packages.server.button')}
                 </Button>
               )}
               {canDemo && (
@@ -284,7 +294,7 @@ export default function ModulesSettings() {
                       coreVersion={catalog.data.coreVersion}
                       pkg={packages.byId.get(module.id)}
                       canManagePackages={canManagePackages}
-                      onUpdatePackage={() => setInstallOpen(true)}
+                      onUpdatePackage={() => openInstall('upload')}
                       onRestart={onRestart}
                     />
                   ))}
@@ -297,7 +307,7 @@ export default function ModulesSettings() {
           </div>
         )}
       </LoadState>
-      {canManagePackages && <InstallDialog open={installOpen} onClose={() => setInstallOpen(false)} devMode={packages.data?.devMode} maxUploadMb={packages.data?.maxUploadMb} onRestart={onRestart} />}
+      {canManagePackages && <InstallDialog open={installOpen} source={installSource} onClose={() => setInstallOpen(false)} devMode={packages.data?.devMode} maxUploadMb={packages.data?.maxUploadMb} onRestart={onRestart} />}
       {restartBoot && <RestartOverlay bootId={restartBoot} />}
       {canDemo && (
         <DemoDrawer open={Boolean(demo)} focus={demo === 'all' ? null : demo} modules={all} users={catalog.data?.demo?.users || 0} onClose={() => setDemo(null)} onChanged={changed} locale={locale} />

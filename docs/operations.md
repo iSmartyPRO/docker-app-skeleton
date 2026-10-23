@@ -137,12 +137,24 @@ The module **signing key** (`/root/.portal-keys/modules-ed25519.pem`, see below)
 
 ## Module packages
 
-Modules can be installed, updated and removed as signed zip files (Settings → Modules → «Установить из файла»,
-superadministrators only). Engineering details: [module-packages.md](module-packages.md).
+Modules can be installed, updated and removed as signed zip files (Settings → Modules → «Установить из файла»
+or «Пакеты на сервере», superadministrators only). Engineering details: [module-packages.md](module-packages.md).
 
 - **Volume**: `./data/modules` → `/app/data/modules` (`MODULES_DIR`). Layout: `<id>/<version>/`, `<id>/current`,
   `<id>/previous`, `.staging/` (uploads waiting for «Установить», removed after an hour), `.backups/<id>/`.
   Create it writable before the first deploy with this version: `mkdir -p data/modules`.
+- **Packages on the server** (when the administrator's browser cannot receive the zip): put the file on the host
+  yourself and let them install it from Settings → Modules → «Пакеты на сервере» → «Установить» — the same checks as
+  an upload (signature, versions, module card, restart):
+
+  ```sh
+  cd /dockers/portal
+  mkdir -p data/modules/incoming && cp masterplan-x.zip data/modules/incoming/
+  ```
+
+  Only plain `*.zip` files directly in `incoming/` are listed (no links, no sub-folders, at most the upload limit).
+  After a successful install the file is moved to `data/modules/incoming/installed/`; delete it there when no
+  longer needed. A refused file stays in `incoming/` — remove or replace it.
 - **Restart**: installing, updating or removing restarts the app process inside the container (5–10 s;
   `start.sh` restarts node on exit code 75, nginx stays up). No `make restart` needed.
 - **Backups of module tables**: before every update and before «Удалить данные» the app writes

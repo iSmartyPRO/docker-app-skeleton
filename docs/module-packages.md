@@ -7,7 +7,8 @@ Operations (volume, keys, backups): [operations.md](operations.md#module-package
 The portal is a **core** plus **modules**. Until a module is converted it stays *built in*
 (`src/backend/modules/<id>`, listed in `modules/index.js` `MODULES`, source `bundled`). A
 converted module is a **package**: a zip that a superadministrator installs in
-Settings → Modules → «Установить из файла»; its code lives in the data volume and is loaded at boot.
+Settings → Modules → «Установить из файла» (or «Пакеты на сервере», a zip the host operator put into
+`data/modules/incoming/`); its code lives in the data volume and is loaded at boot.
 Both kinds use the same module contract, catalog, manifest, on/off switch and registry.
 
 ## Package format
@@ -341,6 +342,8 @@ Superadministrators in their own session (not an API token, not «sign in as»).
 | Shell list (signed in) | `GET /modules/installed` → `{ bootId, signedIn, modules: [{ id, version, enabled, name, base, web: { entry, css, icon, permission, page }, locales }] }`; anonymous: `{ bootId, signedIn: false, modules: [] }` |
 | State | `GET /admin/modules/packages` → rows with state, error, `incompatible`, `blocked`, `lastRollback`, `pendingCheck`, backups; `canManage`, `devMode`, `maxUploadMb`, `restartPending` |
 | Upload | `POST /admin/modules/packages/upload` (multipart `file`) → `{ token, preview, problems, unsigned }` |
+| Packages on the server | `GET /admin/modules/incoming` → `{ files: [{ file, bytes, modifiedAt, id, name, version }], maxUploadMb }` |
+| Stage a server file | `POST /admin/modules/incoming/stage { file }` → the upload's answer `{ token, preview, problems, unsigned }` (+ `file`) |
 | Install / update | `POST /admin/modules/packages/install { token }` → `{ id, version, action, applied, backup, restart, bootId }` |
 | Remove code | `DELETE /admin/modules/packages/:id` |
 | Backup now | `POST /admin/modules/packages/:id/backup` |
@@ -348,6 +351,30 @@ Superadministrators in their own session (not an API token, not «sign in as»).
 | Inventory | `GET /admin/modules/inventory[?challenge=<8–128 of A-Za-z0-9_->]` (the challenge is signed with it) |
 
 Refusals: `{ success: false, code, error, problems: [{ code, params, message: { ru, en } }] }`.
+
+### Packages on the server (`platform/packages/incoming.js`)
+
+For a superadministrator whose browser cannot receive the zip (the file is handed to the server operator instead):
+the operator copies it into `$MODULES_DIR/incoming/` (production: `./data/modules/incoming` on the host,
+`mkdir -p data/modules/incoming && cp masterplan-x.zip data/modules/incoming/`), and Settings → Modules →
+«Пакеты на сервере» lists it with the module's name, version, size and date. «Установить» reads the file on the
+server and hands its bytes to the same `stagePackage()` as an upload: the same size cap (`maxUploadBytes`),
+signature verification, §5 checks, module card, `POST /admin/modules/packages/install`, restart, superadmin-only
+own session, `exclusive()` (`MODULES_BUSY`) and `RESTART_PENDING` refusals.
+
+- **What is listed / accepted**: plain regular files named `*.zip` directly in `incoming/` — no symbolic links
+  (`lstat`; the file is opened with `O_NOFOLLOW` and re-checked on the descriptor), no folders or files in
+  sub-folders, no hidden names, no empty files, nothing above the upload cap (a file that grows past it while being
+  read is refused, `FILE_TOO_LARGE`). `incoming/` must be a real folder, not a link. The name / version on the list
+  come from `manifest.json` without the signature check (display only; the full check runs at «Установить»).
+  A file that is not there (any more) or not a plain file: 404 `INCOMING_NOT_FOUND`.
+- **After a successful install the file is moved** to `incoming/installed/<name>` (an older file of that name
+  there is replaced) — chosen over deleting it so the operator keeps the exact file that went in; delete it by hand
+  when no longer needed. It is moved only if it still holds the checked bytes (sha256 recorded at staging); a
+  failed move is logged and does not undo the install. A failed or refused install leaves it in `incoming/`.
+- **Journal**: like uploads — `module_rejected` (a refused file, with `server file <name>`), `module_installed` /
+  `module_updated` with «from server file <name>» (and «file not moved» when the move failed); `params.file`.
+- The id `incoming` is reserved (no package may take the folder's name).
 
 ### Checks (spec §5, `platform/packages/checks.js`)
 
@@ -477,6 +504,10 @@ start-up and listed on Settings → Modules («These modules need an update for 
 - `test/module-packages-review3.test.js` (no database): shutdown hooks with their own timeout, crash attribution
   (also in a real child process), unfinished-boot decisions, the restart before listen clearing markers, table
   ownership (exact entries win), own prefixes, the inventory challenge, the SDK surface, passphrase keys.
+- `test/module-packages-incoming.test.js` (no database): «Пакеты на сервере» — the list (links, folders,
+  sub-folders, hidden, empty and oversize files left out; `incoming/` as a link), reading, the move to
+  `installed/`, superadmin-only / own session, the same refusal as an upload of the same bytes, `RESTART_PENDING`.
+  `module-packages.db.test.js` installs a signed zip from `incoming/` end to end.
 - `test/start-watchdog.test.js`: runs `start.sh` (dash and busybox sh) with a hung and a slow fake node.
 - `test/unknown-module-ids.test.js`: stored settings, role permissions, API scopes and dashboard widgets of modules
   this core does not know survive an edit.
@@ -556,7 +587,9 @@ The core of this version no longer contains Masterplan; its tables (`mp_*`), fil
 1. Build the package with the release core: `make module ID=masterplan` (signed; the public key must be in the
    released `trusted-keys.json`) → `dist/modules/masterplan-1.1.0.zip`; `make modules-verify FILE=…`.
 2. Usual deploy routine of the core (backup of the database first; `mkdir -p data/modules` once).
-3. **Right after the deploy**: Settings → Modules → «Установить из файла» → the zip → «Установить». Migration
+3. **Right after the deploy**: Settings → Modules → «Установить из файла» → the zip → «Установить» (or, when the
+   administrator's browser cannot get the file: `mkdir -p data/modules/incoming && cp dist/modules/masterplan-1.1.0.zip data/modules/incoming/`
+   on the host, then «Пакеты на сервере» → «Установить»). Migration
    `001_init` creates nothing on this database (everything exists) and records itself; the portal restarts (5–10 s).
 4. The module comes back in the state it had (switched on, with its settings and data — saves of other settings in
    the meantime keep them, «Data of modules this core does not know» above); its settings item, tour and demo data

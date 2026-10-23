@@ -14,6 +14,14 @@ export default {
   cannotInstall: 'The module cannot be installed',
   unsigned: 'Unsigned (development mode)',
   signed: 'Signed · key {key}',
+  server: {
+    button: 'Packages on the server',
+    title: 'Install a module from a package on the server',
+    lead: 'Module zip files the server administrator put into data/modules/incoming. The file is checked exactly like an uploaded one. After the install it is moved to incoming/installed.',
+    empty: 'There are no packages in data/modules/incoming on the server.',
+    refresh: 'Refresh the list',
+    install: 'Install',
+  },
   card: {
     version: 'Version',
     core: 'Needs core',
@@ -46,7 +54,7 @@ export default {
   removed: {
     title: 'Removed modules',
     lead: 'Their code is deleted; the data is kept until you delete it.',
-    reinstall: 'To use the module again, install its package: “Install from file” above. Its data and settings come back.',
+    reinstall: 'To use the module again, install its package: “Install from file” or “Packages on the server” above. Its data and settings come back.',
     deleteData: 'Delete data',
     version: 'Last version {version}',
   },

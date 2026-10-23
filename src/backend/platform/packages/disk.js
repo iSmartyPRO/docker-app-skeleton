@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ID_PATTERN, VERSION_PATTERN, modulesDir, moduleRoot, versionDir } from './paths.js';
+import { ID_PATTERN, RESERVED_IDS, VERSION_PATTERN, modulesDir, moduleRoot, versionDir } from './paths.js';
 import { normalizeManifest, platformCatalogEntry, platformManifestEntry } from './manifestFile.js';
 
 /*
@@ -66,7 +66,7 @@ export function scanDisk({ fresh = false } = {}) {
     console.warn(`Module packages: cannot read ${root}: ${err.message}`);
   }
   for (const id of names.sort()) {
-    if (!ID_PATTERN.test(id)) continue;
+    if (!ID_PATTERN.test(id) || RESERVED_IDS.has(id)) continue;
     try {
       if (!statSync(join(root, id)).isDirectory()) continue;
       const version = readPointer(id);

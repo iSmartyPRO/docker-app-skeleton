@@ -8,6 +8,8 @@ import { resolve } from 'node:path';
  *   $MODULES_DIR/<id>/previous      the version before the last update (rollback)
  *   $MODULES_DIR/.staging/          uploaded files waiting for «Установить»
  *   $MODULES_DIR/.backups/<id>/     table backups made before updates and data removal
+ *   $MODULES_DIR/incoming/          zips the host operator put there («Пакеты на сервере», incoming.js)
+ *   $MODULES_DIR/incoming/installed/  those files after a successful install
  *
  * MODULES_DIR defaults to /app/data/modules (docker-compose maps ./data/modules there).
  * Read on every call so tests can point it at a temporary folder.
@@ -16,6 +18,7 @@ import { resolve } from 'node:path';
 export const modulesDir = () => resolve(process.env.MODULES_DIR || '/app/data/modules');
 export const stagingDir = () => resolve(modulesDir(), '.staging');
 export const backupsDir = () => resolve(process.env.MODULE_BACKUP_DIR || resolve(modulesDir(), '.backups'));
+export const incomingDir = () => resolve(modulesDir(), 'incoming');
 export const moduleRoot = (id) => resolve(modulesDir(), id);
 export const versionDir = (id, version) => resolve(modulesDir(), id, version);
 
@@ -23,4 +26,6 @@ export const versionDir = (id, version) => resolve(modulesDir(), id, version);
 export const devMode = () => process.env.MODULES_DEV === '1';
 
 export const ID_PATTERN = /^[a-z][a-z0-9_]{1,31}$/;
+/** Folder names in $MODULES_DIR that are not modules: no package may take these ids. */
+export const RESERVED_IDS = new Set(['incoming']);
 export const VERSION_PATTERN = /^\d{1,6}\.\d{1,6}\.\d{1,6}$/;
