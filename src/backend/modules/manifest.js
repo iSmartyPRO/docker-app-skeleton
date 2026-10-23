@@ -153,22 +153,6 @@ export const MODULE_MANIFEST = {
     docs: { user: 'kb', guide: 'docs/knowledge-base.md' },
     changelog: first(['Folders, articles and files with access rules and public links.'], ['Папки, статьи и файлы с правами доступа и публичными ссылками.'], { ky: ['Кирүү укуктары жана ачык шилтемелери бар папкалар, макалалар жана файлдар.'], tr: ['Erişim kuralları ve herkese açık bağlantılarla klasörler, makaleler ve dosyalar.'], zh: ['带访问规则和公开链接的文件夹、文章和文件。'] }),
   },
-  contracts: {
-    name: { en: 'Contracts', ky: 'Келишимдер', tr: 'Sözleşmeler', zh: '合同', ru: 'Договоры' },
-    version: '1.0.0',
-    category: 'documents',
-    minCore: '1.4.0',
-    requires: [APPROVALS],
-    enhances: [
-      { id: 'companies', what: { en: 'Pick the counterparty from the directory', ky: 'Контрагентти маалымдамадан тандоо', tr: 'Cari hesabı rehberden seçme', zh: '从名录中选择往来单位', ru: 'Выбор контрагента из справочника' } },
-      { id: 'chat', what: { en: 'A conversation in every contract', ky: 'Ар бир келишимде чат', tr: 'Her sözleşmede bir sohbet', zh: '每份合同都有聊天', ru: 'Чат у каждого договора' } },
-      { id: 'crm', what: { en: 'Link contracts to deals', ky: 'Келишимдерди бүтүмдөр менен байланыштыруу', tr: 'Sözleşmeleri fırsatlara bağlama', zh: '将合同关联到交易', ru: 'Связь договоров со сделками' } },
-      { id: 'masterplan', what: { en: 'Sales contracts update units', ky: 'Сатуу келишимдери объекттерди жаңылайт', tr: 'Satış sözleşmeleri bağımsız bölümleri günceller', zh: '销售合同会更新房源单元', ru: 'Договоры продажи обновляют юниты' } },
-      { id: 'procurement', what: { en: 'Purchase requests of the contract', ky: 'Келишим боюнча сатып алууга өтүнмөлөр', tr: 'Sözleşmeye ait satın alma talepleri', zh: '合同项下的采购申请', ru: 'Заявки на закупку по договору' } },
-    ],
-    docs: { user: 'contracts', guide: 'docs/contracts.md' },
-    changelog: first(['Registry with versions, lawyer’s risks, approval, expiry reminders, payments.'], ['Реестр с версиями, риски юриста, согласование, напоминания об окончании, оплаты.'], { ky: ['Версиялары бар реестр, юристтин тобокелдиктери, макулдашуу, мөөнөтү бүтөөрү тууралуу эскертүүлөр, төлөмдөр.'], tr: ['Sürümlü kayıt listesi, hukukçu riskleri, onay, bitiş hatırlatıcıları, ödemeler.'], zh: ['带版本的台账、律师风险提示、审批、到期提醒、付款。'] }),
-  },
   companies: {
     name: { en: 'Counterparties', ky: 'Контрагенттер', tr: 'Cari hesaplar', zh: '往来单位', ru: 'Контрагенты' },
     version: '1.0.0',
@@ -283,7 +267,7 @@ export const BUILTIN_MANIFEST_IDS = Object.keys(MODULE_MANIFEST);
  * Modules distributed as packages (no longer built into the core) that built-in
  * modules may name in `enhances`: the link is active once the package is installed.
  */
-export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant', 'remote', 'crm'];
+export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant', 'remote', 'crm', 'contracts'];
 Object.assign(MODULE_MANIFEST, packageManifestEntries(BUILTIN_MANIFEST_IDS));
 
 /**

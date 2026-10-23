@@ -1,4 +1,4 @@
-import { query } from '../../config/database.js';
+import { withTransaction } from '../../config/database.js';
 import { registerJob } from '../../services/scheduler.js';
 import { runDaily, runPaymentReminders } from './jobs.js';
 import { registerContractChat } from './chat.js';
@@ -15,7 +15,14 @@ import { registerContractChat } from './chat.js';
  *
  * Calendar days are DATE columns read as text ('YYYY-MM-DD'), never as Date.
  */
-export async function ensureContractsSchema() {
+/**
+ * Migration 001 (index.js `migrations`, docs/module-packages.md «Migrations»): the schema Contracts had
+ * while built into the core — CREATE … IF NOT EXISTS / ADD COLUMN IF NOT EXISTS, all idempotent — so on
+ * a portal that already has the ctr_* tables it changes nothing. Everything goes through `db` (the
+ * migration's transaction).
+ */
+export async function createContractsSchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS ctr_contracts (
       id SERIAL PRIMARY KEY,
@@ -118,8 +125,20 @@ export async function ensureContractsSchema() {
     )
   `);
 
-  await ensurePaymentsSchema();
+  await ensurePaymentsSchema(db);
+}
 
+/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+export async function ensureContractsSchema() {
+  await withTransaction(async (client) => {
+    // The lock the package migrations take (platform/packages/migrations.js): one at a time.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:contracts'))`);
+    await createContractsSchema({ query: (text, params) => client.query(text, params) });
+  });
+}
+
+/** Background jobs and the contract conversations (register(ctx); no database access). */
+export function startContracts() {
   registerJob({ name: 'contracts:daily', everyMs: 10 * 60 * 1000, run: runDaily });
   registerJob({ name: 'contracts:payments', everyMs: 15 * 60 * 1000, run: runPaymentReminders });
   registerContractChat();
@@ -139,7 +158,8 @@ export async function ensureContractsSchema() {
  * ctr_contracts keeps the totals for the registry chips: pay_tracked (has a
  * deposit / schedule / payments), pay_total, pay_paid, deposit_status, pay_plan.
  */
-export async function ensurePaymentsSchema() {
+export async function ensurePaymentsSchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`ALTER TABLE ctr_contracts
     ADD COLUMN IF NOT EXISTS pay_tracked BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS pay_total NUMERIC(18,2),

@@ -69,8 +69,8 @@ test('database: contracts end to end', { skip }, async () => {
   await ensureApprovalsSchema();
   await ensureLegalEntitiesTable();
   await import('../modules/approvals/index.js');
-  const contractsModule = (await import('../modules/contracts/index.js')).default;
-  await contractsModule.schema();
+  // Contracts is a module package: its schema is migration 001 (activateAll registered it from its source).
+  await (await import('../modules/contracts/schema.js')).ensureContractsSchema();
   const api = await import('../modules/approvals/api.js');
   const engine = await import('../modules/approvals/engine.js');
   const service = await import('../modules/contracts/service.js');

@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **CRM and Contracts are installable module packages** and no longer built into the core — install their packages right after this update (CRM first, then Contracts), and update Masterplan to 1.2.0; their data, settings, roles and approval routes are kept (see [docs/module-packages.md](docs/module-packages.md#upgrading-a-portal-that-had-the-crm-or-contracts-built-in)).
+- **Masterplan 1.2.0 works without the CRM**: units and bookings keep their deal without a database link into the CRM's tables, so the CRM can be installed, updated and removed on its own.
+
 ### Fixed
 
 - **API reference — installed module packages**: the developer reference and `openapi.json` now list the routes of installed module packages too (they listed only the modules built into the core).

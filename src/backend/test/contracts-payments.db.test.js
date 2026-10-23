@@ -33,7 +33,8 @@ async function setup() {
   await ensureApprovalsSchema();
   await ensureLegalEntitiesTable();
   await import('../modules/approvals/index.js');
-  await (await import('../modules/contracts/index.js')).default.schema();
+  // Contracts is a module package: its schema is migration 001 (activateAll registered it from its source).
+  await (await import('../modules/contracts/schema.js')).ensureContractsSchema();
   const settings = await import('../services/settings.js');
   const before = settings.parseSettings(await settings.getSettings({ fresh: true })).modules;
   await settings.updateAdminSettings({ modules: { contracts: { enabled: true } } });

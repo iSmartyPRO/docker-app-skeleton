@@ -11,8 +11,8 @@ import { lazyPage } from '../lib/lazyPage';
  * module files itself. This file is the composition root.
  */
 // Folders of modules distributed as packages (their web/index.js is loaded by
-// platform/packages/loader.js when installed) are left out: masterplan, qr, assistant, remote, crm.
-import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js', '!./assistant/register.js', '!./remote/register.js', '!./crm/register.js'], { eager: true });
+// platform/packages/loader.js when installed) are left out: masterplan, qr, assistant, remote, crm, contracts.
+import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js', '!./assistant/register.js', '!./remote/register.js', '!./crm/register.js', '!./contracts/register.js'], { eager: true });
 
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
@@ -116,15 +116,6 @@ export const MODULE_REGISTRY = [
     descKey: 'apps.warehouse.desc',
     App: lazyPage(() => import('./warehouse/WarehouseApp')),
     Settings: lazy(() => import('./warehouse/WarehouseSettings')),
-  },
-  {
-    id: 'contracts',
-    path: '/app/contracts',
-    icon: 'clipboard',
-    labelKey: 'apps.contracts.name',
-    descKey: 'apps.contracts.desc',
-    App: lazyPage(() => import('./contracts/ContractsApp')),
-    Settings: lazy(() => import('./contracts/ContractsSettings')),
   },
   {
     id: 'calendar',

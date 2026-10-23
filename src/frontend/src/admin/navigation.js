@@ -308,11 +308,6 @@ export const SETTINGS_GROUPS = [
         keywords: 'employees staff people hr personnel clearances positions org chart birthdays сотрудники персонал кадры допуски должности оргсхема дни рождения табельный',
       },
       {
-        id: 'contracts',
-        defaultIcon: 'clipboard',
-        keywords: 'contracts agreements legal lawyer risks expiry prolongation numbering договоры юрист риски пролонгация окончание нумерация',
-      },
-      {
         id: 'calendar',
         defaultIcon: 'calendar',
         keywords: 'calendar events meetings reminders календарь события встречи напоминания',

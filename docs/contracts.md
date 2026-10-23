@@ -4,6 +4,8 @@ A [module](modules.md) with the company's **contracts registry** (spec: [specs/b
 
 The module is **off by default** (Settings → Modules → Contracts).
 
+**A module package** (since 1.1.0, [module-packages.md](module-packages.md)): not built into the core; `make module ID=contracts` builds `dist/modules/contracts-<version>.zip`. It **requires Approvals** (a core service); the CRM, Masterplan, Counterparties, Chat and Procurement are optional links reached at call time (packages load in any order). Sources stay in the tree (`src/backend/modules/contracts`, `src/frontend/src/modules/contracts`, texts in its `locales`); `module.json`, `settings.js` (defaults, sanitizer and `upgradeSettings` — «Продажа объекта» added to type lists saved before it existed), migration `001_init` (`schema.js` `createContractsSchema`). The approval type, «Ждёт меня» items, jobs and contract chats are registered in `register(ctx)`. Upgrading a portal where it was built in: [module-packages.md](module-packages.md#upgrading-a-portal-that-had-the-crm-or-contracts-built-in).
+
 - [Screens](#screens)
 - [The card](#the-card)
 - [Statuses](#statuses)

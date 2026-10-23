@@ -536,7 +536,7 @@ start-up and listed on Settings → Modules («These modules need an update for 
 - `test/frontend-package-loader.test.js`: the browser loader's decisions (`loaderLogic.js`).
 - Fixture: `test-fixtures/module-hello` (route, table, SQL + JS migration, page, translations, docs).
 
-## Converting a module (checklist; done for Masterplan, QR codes, Robot assistant, Remote access)
+## Converting a module (checklist; done for Masterplan, QR codes, Robot assistant, Remote access, CRM, Contracts)
 
 Masterplan was the pilot (`src/backend/modules/masterplan`, `src/frontend/src/modules/masterplan`); copy what it does.
 QR codes (anonymous routes), the robot assistant (no page: `web.page: false`, contributions only) and Remote access
@@ -545,9 +545,13 @@ QR codes (anonymous routes), the robot assistant (no page: `web.page: false`, co
 **Server** (`src/backend/modules/<id>/`)
 
 1. **Boundaries**: `npm run check:modules` is 0 — no imports of other modules' internals; other modules reach it only
-   through the registry (`ctx.modules.get(id)?.api`, events, object sources, link providers), never by import.
-   Raw SQL of other modules on its tables is a smell (today: warehouse / procurement demo and stock read `mp_*`
-   with a `.catch` fallback) — move it behind its `api` when converting the next consumer.
+   through the registry (`ctx.modules.get(id)?.api`, events, object sources, link providers), never by import, and
+   **at call time** (packages load in any order: no `modules.loaded(…)` at import). Raw SQL of other modules on its
+   tables is a smell (today: warehouse / procurement demo and stock read `mp_*`, demos read `crm_deals` /
+   `ctr_contracts`, guarded) — move it behind its `api` or guard it (`to_regclass`, the module on). **No foreign keys
+   from other modules' tables into its tables**: the platform refuses an update and «Удалить данные» of a package
+   that other tables reference (`FOREIGN_KEYS`), and the other module could not be installed without it
+   (Masterplan dropped its keys into `crm_deals`, migration 002).
 2. **`module.json`** (the manifest facts that lived in `modules/manifest.js` + `modules/catalog.js`): `name`,
    `nameForms.ru.ins`, `description`, `version` (first package: a minor bump, Masterplan 1.0.0 → 1.1.0), `category`,
    `requires` / `enhances` (copy them), `permissions` (the catalog list), `tables` (prefix of its existing tables,
@@ -555,7 +559,13 @@ QR codes (anonymous routes), the robot assistant (no page: `web.page: false`, co
    core `VERSION` it is built with — build release packages after the core release they need.
 3. **`settings.js`**: move its defaults and sanitizer out of `catalog.js`; export `defaults`, `defaultEnabled`,
    `publicSettings` (optional) and `sanitizeSettings`. Plain data, no imports (the build imports it). `index.js`
-   exports `sanitizeSettings` (the loader puts it in place of the generic one).
+   exports `sanitizeSettings` (the loader puts it in place of the generic one), and — when the catalog entry had
+   them — `localizedSettings(locale)` (unsaved defaults in the portal language: the CRM's section titles; catalog
+   `localizedDefaults`) and `upgradeSettings(settings, saved)` (stored settings brought up to date on read: a
+   Contracts stock type added later; catalog `upgrade`). Settings logic the core ran for the module (the CRM's
+   stock lists at setup and start-up) moves into its migration 001. A migration that writes the module's
+   `settings.modules.<id>` block keeps it switched off on a first install (the installer adds `enabled: false`
+   to a block without an on/off state).
 4. **Migrations**: the current `schema()` becomes migration `001_init` — `index.js`
    `migrations: [{ id: '001_init', up: createSchema }]` where `createSchema(db)` runs **every** statement through
    `db.query` (the migration's transaction; a query on another connection can deadlock on the locks the
@@ -676,6 +686,33 @@ in: 001 changes no table, column, index, constraint, row count or checksum; the 
 of other settings keeps theirs; the signed zips install (001 recorded, data untouched), load at the next boot with their
 settings, their own sanitizers; QR's anonymous redirect works through the package router; both Remote tunnels upgrade;
 a password sealed while built in opens; Remote's link to Directory is active only while Directory is on.
+
+## Upgrading a portal that had the CRM or Contracts built in
+
+The core after 1.20.0 no longer contains the CRM (last built-in 1.0.0) or Contracts (1.0.0). Their tables (`crm_*`,
+`ctr_*`), files (`uploads/contracts` — contract versions and payment documents), settings (`settings.modules.crm|contracts`,
+the CRM's stock lists, the `crm_seeded` flag), roles, the approval routes of `contracts.contract`, approval processes and
+API token scopes stay untouched. Until the packages are installed they are listed under «Удалённые модули» (data kept):
+`/app/crm` and `/app/contracts` are not there, Masterplan answers deal links with `CRM_DISABLED` (units keep their deal ids,
+the deal titles still show), the Counterparties timeline hides deal lines, Procurement keeps contract labels, contract
+reminders and payment jobs do not run and the contracts of an open approval wait (a decision on one fails until Contracts is
+back — install it right away).
+
+1. Build the packages with the release core: `make module ID=crm`, `make module ID=contracts`, `make module ID=masterplan`
+   (signed) → `crm-1.1.0.zip`, `contracts-1.1.0.zip`, `masterplan-1.2.0.zip`; `make modules-verify FILE=…` each.
+2. Usual deploy routine of the core (database backup first).
+3. **Right after the deploy**, install: **CRM** first, then **Contracts** (it requires only Approvals — any order works,
+   but the CRM first gives contracts their deal links at once), then **update Masterplan** to 1.2.0 (its migration 002 drops
+   the foreign keys into `crm_deals`; while Masterplan 1.1.0 runs, the CRM package cannot be updated or its data deleted —
+   `FOREIGN_KEYS`). Each restart takes 5–10 s. Migrations `001_init` create nothing on this database and record themselves.
+4. They come back as they were (switched on where they were on — the CRM by default, Contracts where an administrator turned
+   it on). Check `/app/crm` (a deal with linked units, its history), `/app/contracts` (a contract with a deal and an object,
+   «Платежи», its approval), the «Поступления по договорам» widget, Settings → CRM / Contracts.
+
+Rehearsed by `make package-check ID=crm|contracts MODE=all SOURCE_REF=main` (docs/package-testing.md) with Masterplan as a
+linked package (main: Masterplan 1.1.0 package, CRM and Contracts built in): the snapshot of the module's tables, settings,
+roles and dashboards is identical before the deploy, with the core alone, after the install, after Masterplan's update and
+after a restart.
 
 ## Limitations
 

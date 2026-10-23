@@ -413,6 +413,7 @@ export const CONVERTED_MODULES = Object.freeze({
   assistant: { version: '1.0.0', name: { en: 'Robot assistant', ru: 'Робот-помощник', ky: 'Робот-жардамчы', tr: 'Robot asistan', zh: '机器人助手' } },
   remote: { version: '1.3.0', name: { en: 'Remote access', ru: 'Удалённый доступ', ky: 'Алыстан кирүү', tr: 'Uzak erişim', zh: '远程访问' } },
   crm: { version: '1.0.0', name: { en: 'CRM', ru: 'CRM', ky: 'CRM', tr: 'CRM', zh: 'CRM' } },
+  contracts: { version: '1.0.0', name: { en: 'Contracts', ru: 'Договоры', ky: 'Келишимдер', tr: 'Sözleşmeler', zh: '合同' } },
 });
 
 async function hasModuleData(id) {

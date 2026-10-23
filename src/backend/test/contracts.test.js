@@ -22,6 +22,10 @@ const both = (build, params) => ({ ru: build(translator('ru'), params), en: buil
 import { MODULE_CATALOG, resolveModules } from '../modules/catalog.js';
 import { EVENT_CATALOG } from '../api/events.js';
 import { NOTIFICATION_EVENTS } from '../services/notificationCatalog.js';
+import { sourcePackage } from './helpers/modules.js';
+
+// Contracts is a module package: its catalog entry as an installed package adds it (module.json + settings.js).
+await sourcePackage('contracts');
 
 /* Pure rules of the Contracts module (docs/contracts.md). Database tests: contracts.db.test.js. */
 

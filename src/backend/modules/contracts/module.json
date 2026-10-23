@@ -1,0 +1,57 @@
+{
+  "id": "contracts",
+  "name": { "en": "Contracts", "ru": "Договоры", "ky": "Келишимдер", "tr": "Sözleşmeler", "zh": "合同" },
+  "nameForms": { "ru": { "ins": "Договорами" } },
+  "description": {
+    "en": "Contracts registry: versions, lawyer’s risks, approval, expiry calendar and reminders",
+    "ru": "Реестр договоров: версии, риски юриста, согласование, календарь окончаний и напоминания",
+    "ky": "Келишимдер реестри: версиялар, юристтин тобокелдиктери, макулдашуу, мөөнөттөрдүн бүтүү календары жана эскертүүлөр",
+    "tr": "Sözleşme kaydı: sürümler, hukukçunun riskleri, onay, bitiş takvimi ve hatırlatıcılar",
+    "zh": "合同台账：版本、法务风险、审批、到期日历和提醒"
+  },
+  "version": "1.1.0",
+  "category": "documents",
+  "requires": [
+    { "id": "approvals", "reason": { "en": "Documents go through approval routes", "ky": "Документтер макулдашуу маршруттарынан өтөт", "tr": "Belgeler onay akışlarından geçer", "zh": "单据按审批流程流转", "ru": "Документы проходят маршруты согласования" } }
+  ],
+  "enhances": [
+    { "id": "companies", "what": { "en": "Pick the counterparty from the directory", "ky": "Контрагентти маалымдамадан тандоо", "tr": "Cari hesabı rehberden seçme", "zh": "从名录中选择往来单位", "ru": "Выбор контрагента из справочника" } },
+    { "id": "chat", "what": { "en": "A conversation in every contract", "ky": "Ар бир келишимде чат", "tr": "Her sözleşmede bir sohbet", "zh": "每份合同都有聊天", "ru": "Чат у каждого договора" } },
+    { "id": "crm", "what": { "en": "Link contracts to deals", "ky": "Келишимдерди бүтүмдөр менен байланыштыруу", "tr": "Sözleşmeleri fırsatlara bağlama", "zh": "将合同关联到交易", "ru": "Связь договоров со сделками" } },
+    { "id": "masterplan", "what": { "en": "Sales contracts update units", "ky": "Сатуу келишимдери объекттерди жаңылайт", "tr": "Satış sözleşmeleri bağımsız bölümleri günceller", "zh": "销售合同会更新房源单元", "ru": "Договоры продажи обновляют юниты" } },
+    { "id": "procurement", "what": { "en": "Purchase requests of the contract", "ky": "Келишим боюнча сатып алууга өтүнмөлөр", "tr": "Sözleşmeye ait satın alma talepleri", "zh": "合同项下的采购申请", "ru": "Заявки на закупку по договору" } }
+  ],
+  "permissions": ["contracts.create", "contracts.view_all", "contracts.legal", "contracts.finance", "contracts.admin"],
+  "tables": ["ctr_%"],
+  "icon": "clipboard",
+  "docsInfo": { "user": "contracts", "guide": "docs/contracts.md" },
+  "localeKeys": {
+    "apps": ["contracts"],
+    "settings": ["contracts"],
+    "permissions": ["groups.module_contracts", "contracts_*"],
+    "notifyPrefs": ["groups.contracts", "events.contracts_*"],
+    "tour": ["contracts"],
+    "dashboard": ["widgets.contractsPayments"]
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-23",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); contracts, file versions, risks, history, payments, reminders and settings are kept."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); договоры, версии файлов, риски, история, платежи, напоминания и настройки сохраняются."]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-16",
+      "changes": {
+        "en": ["Registry with versions, lawyer’s risks, approval, expiry reminders, payments."],
+        "ru": ["Реестр с версиями, риски юриста, согласование, напоминания об окончании, оплаты."],
+        "ky": ["Версиялары бар реестр, юристтин тобокелдиктери, макулдашуу, мөөнөтү бүтөөрү тууралуу эскертүүлөр, төлөмдөр."],
+        "tr": ["Sürümlü kayıt listesi, hukukçu riskleri, onay, bitiş hatırlatıcıları, ödemeler."],
+        "zh": ["带版本的台账、律师风险提示、审批、到期提醒、付款。"]
+      }
+    }
+  ]
+}

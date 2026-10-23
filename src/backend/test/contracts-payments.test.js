@@ -18,6 +18,10 @@ import { NOTIFICATION_EVENTS } from '../services/notificationCatalog.js';
 import { availableTypes } from '../modules/dashboard/widgets.js';
 import contractsModule from '../modules/contracts/index.js';
 import { activateModules } from '../platform/registry.js';
+import { sourcePackage } from './helpers/modules.js';
+
+// Contracts is a module package: its catalog entry as an installed package adds it (module.json + settings.js).
+await sourcePackage('contracts');
 
 // Contracts registers its dashboard widget through the core registry (register(ctx)).
 await activateModules([contractsModule]);

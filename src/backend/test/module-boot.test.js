@@ -115,7 +115,7 @@ test('boot: everything', () => {
   const report = check([...CORE, ...OPTIONAL]);
   assert.equal(report.loaded.length, MODULE_CATALOG.length);
   // Widgets of every module that has some are registered.
-  for (const id of ['tasks', 'calendar', 'files', 'drive', 'kb', 'resources', 'companies', 'procurement', 'contracts', 'warehouse', 'employees']) {
+  for (const id of ['tasks', 'calendar', 'files', 'drive', 'kb', 'resources', 'companies', 'procurement', 'warehouse', 'employees']) {
     assert.ok(report.widgets.includes(id), `${id} widgets`);
   }
 });
@@ -130,6 +130,7 @@ for (const id of PACKAGE_MODULE_IDS) {
     const extra = report.folders.filter((folder) => ![...CORE, id, 'shared'].includes(folder));
     assert.deepEqual(extra, [], `${id} imported files of ${extra.join(', ')}`);
     if (id === 'masterplan') assert.equal(report.objects, 'present');
+    if (id === 'contracts') assert.ok(report.widgets.includes('contracts'), 'contracts widgets');
   });
 }
 

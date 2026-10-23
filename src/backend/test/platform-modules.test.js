@@ -23,14 +23,18 @@ test('every module has a valid manifest and every manifest a module', () => {
 });
 
 test('real dependencies: business documents need Approvals, links are optional', () => {
-  for (const id of ['contracts', 'procurement', 'warehouse']) assert.ok(MODULE_MANIFEST[id].requires.some((link) => link.id === 'approvals'), id);
-  const enhances = (id) => MODULE_MANIFEST[id].enhances.map((link) => link.id || link.integration);
+  // Masterplan, CRM and Contracts are packages: their manifests are module.json.
+  const pkg = (id) => JSON.parse(readFileSync(new URL(`../modules/${id}/module.json`, import.meta.url), 'utf8'));
+  for (const id of ['procurement', 'warehouse']) assert.ok(MODULE_MANIFEST[id].requires.some((link) => link.id === 'approvals'), id);
+  assert.ok(pkg('contracts').requires.some((link) => link.id === 'approvals'), 'contracts');
+  const enhances = (id) => (MODULE_MANIFEST[id] || pkg(id)).enhances.map((link) => link.id || link.integration);
   for (const id of ['companies', 'masterplan', 'crm', 'contracts']) assert.ok(enhances('procurement').includes(id), `procurement → ${id}`);
   assert.ok(enhances('warehouse').includes('procurement') && enhances('warehouse').includes('masterplan'));
-  // Masterplan is a package: its manifest is module.json.
-  const masterplan = JSON.parse(readFileSync(new URL('../modules/masterplan/module.json', import.meta.url), 'utf8'));
-  assert.ok(masterplan.enhances.some((link) => link.id === 'crm'));
+  assert.ok(pkg('masterplan').enhances.some((link) => link.id === 'crm'));
   assert.ok(enhances('crm').includes('companies'));
+  // Contracts reaches the CRM and Masterplan as optional links only (packages in any order).
+  for (const id of ['crm', 'masterplan']) assert.ok(enhances('contracts').includes(id), `contracts → ${id}`);
+  for (const id of ['crm', 'masterplan', 'contracts']) assert.ok(!pkg(id).requires.some((link) => ['crm', 'masterplan', 'contracts'].includes(link.id)), `${id} requires no other package`);
   assert.ok(enhances('drive').includes('activeDirectory'));
   assert.ok(enhances('dashboard').length >= 8);
   // Only core modules are required (nothing optional can block switching a module on today).
@@ -140,8 +144,8 @@ test('unchanged modules, settings-only patches and core modules are never blocke
 
 test('the real catalog: Approvals is always on, so business modules switch freely', () => {
   const state = Object.fromEntries(MODULE_CATALOG.map((module) => [module.id, false]));
-  const plan = planModuleChanges(state, { contracts: { enabled: true }, warehouse: { enabled: true } }, { core: coreIds });
-  assert.equal(plan.enabled.contracts && plan.enabled.warehouse && plan.enabled.approvals, true);
+  const plan = planModuleChanges(state, { procurement: { enabled: true }, warehouse: { enabled: true } }, { core: coreIds });
+  assert.equal(plan.enabled.procurement && plan.enabled.warehouse && plan.enabled.approvals, true);
 });
 
 // ── System report (no secrets) ─────────────────────────────────────────────

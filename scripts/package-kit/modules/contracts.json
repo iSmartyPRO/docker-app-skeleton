@@ -1,0 +1,167 @@
+{
+  "comment": "Package kit hints for Contracts (docs/package-testing.md «Module kit file»). Contracts requires Approvals (a core service) and links to the CRM (a contract's deal, the deal picker), Masterplan (sales contracts update units; the object picker), Counterparties, Chat and Procurement. The CRM and Masterplan are installed as linked packages; on the upgrade source (main) Masterplan is already a package and the CRM is built in. The seed links one contract to a CRM deal through the API (the demo contracts link Masterplan units, not deals).",
+  "enableAlso": [
+    "companies",
+    "chat",
+    "procurement"
+  ],
+  "packages": [
+    "crm",
+    "masterplan"
+  ],
+  "seed": [
+    "companies",
+    "crm",
+    "masterplan",
+    "contracts",
+    "procurement"
+  ],
+  "seedRequests": [
+    {
+      "method": "GET",
+      "path": "/api/app/crm/deals?pageSize=1",
+      "save": "deals"
+    },
+    {
+      "path": "/api/app/contracts/contracts",
+      "body": {
+        "title": "Kit contract with a deal",
+        "direction": "client",
+        "counterparty": "Kit buyer",
+        "amount": 1000,
+        "currency": "USD",
+        "dealId": "@deals.items.0.id"
+      },
+      "save": "contract"
+    }
+  ],
+  "apiParams": {
+    "id": "SELECT id FROM ctr_contracts ORDER BY id LIMIT 1",
+    "kind": "deposit",
+    "dealContract": "SELECT id FROM ctr_contracts WHERE deal_id IS NOT NULL ORDER BY id LIMIT 1",
+    "unitContract": "SELECT id FROM ctr_contracts WHERE mp_node_id IS NOT NULL ORDER BY id LIMIT 1",
+    "approvalContract": "SELECT doc_id FROM approval_processes WHERE type = 'contracts.contract' ORDER BY id LIMIT 1",
+    "procContract": "SELECT contract_id FROM proc_requests WHERE contract_id IS NOT NULL ORDER BY id LIMIT 1"
+  },
+  "pageParams": {
+    "id": "SELECT id FROM ctr_contracts ORDER BY id LIMIT 1"
+  },
+  "links": [
+    {
+      "name": "Contracts → the CRM deal picker",
+      "path": "/api/app/contracts/link-options/deals",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404
+      },
+      "alone": {
+        "status": 200,
+        "empty": "items"
+      }
+    },
+    {
+      "name": "Contracts → the Masterplan object picker",
+      "path": "/api/app/contracts/link-options/masterplan",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404
+      },
+      "alone": {
+        "status": 200,
+        "empty": "items"
+      }
+    },
+    {
+      "name": "a contract's CRM deal (card links)",
+      "path": "/api/app/contracts/contracts/:dealContract",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Masterplan ← a sale contract: the unit it sells and its status (deposit / sign / pay events move it)",
+      "path": "/api/app/contracts/contracts/:unitContract/payments",
+      "present": {
+        "status": 200,
+        "has": "masterplan.status"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Approvals → the route of the document type contracts.contract",
+      "path": "/api/app/approvals/routes/contracts.contract",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "status": 404
+      }
+    },
+    {
+      "name": "Approvals → the approval of a demo contract",
+      "path": "/api/app/approvals/process/contracts.contract/:approvalContract",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Masterplan → units sold by contracts follow them (catch-up summary)",
+      "path": "/api/app/masterplan/units?pageSize=5",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "status": 200
+      }
+    },
+    {
+      "name": "Procurement → requests under a contract",
+      "path": "/api/app/procurement/requests?contract=:procContract",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "dashboard widget «Contract payments»",
+      "path": "/api/app/contracts/payments-widget",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "status": 404
+      }
+    }
+  ],
+  "openToUsers": [
+    "GET /api/app/contracts/meta",
+    "GET /api/app/contracts/users",
+    "GET /api/app/contracts/counters",
+    "GET /api/app/contracts/link-options/deals"
+  ],
+  "needsOtherScopes": [],
+  "skipApi": [],
+  "openToUsersWhy": {
+    "meta": "module settings, the person's own rights, legal entities (no contracts)",
+    "users": "people picker (names and avatars of active users, as elsewhere in the portal)",
+    "counters": "chip counters of the contracts the person may see (numbers only; 0 for the plain user)",
+    "link-options/deals": "the CRM's deal picker with the CRM's own visibility — «all» by default: everyone signed in sees every deal in the CRM itself"
+  }
+}

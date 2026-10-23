@@ -36,7 +36,6 @@ export const MODULE_UI = {
   resources: { tour: null },
   files: { tour: null },
   kb: { tour: null },
-  contracts: { tour: 'contracts' }, // registered in modules/<id>/register.js
   companies: { tour: null },
   procurement: { tour: 'procurement' }, // registered in modules/<id>/register.js
   warehouse: { tour: 'warehouse' }, // registered in modules/<id>/register.js
