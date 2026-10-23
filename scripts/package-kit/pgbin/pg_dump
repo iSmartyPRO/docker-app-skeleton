@@ -1,0 +1,17 @@
+#!/bin/bash
+# Package kit: pg_dump run inside the wh-test-pg container (the host has no PostgreSQL 18 client).
+# Refuses anything but the test server 127.0.0.1:55432. The platform passes credentials as PG* variables.
+[ "$1" = "--version" ] && exec docker exec wh-test-pg pg_dump --version
+case "$PGHOST" in 127.0.0.1|localhost|"") ;; *) echo "pg_dump (package kit): only the test database 127.0.0.1:55432" >&2; exit 2;; esac
+[ "$PGPORT" = "55432" ] || { echo "pg_dump (package kit): only the test database 127.0.0.1:55432" >&2; exit 2; }
+out=""; args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -f) out="$2"; shift 2; continue;;
+    --file=*) out="${1#--file=}"; shift; continue;;
+    -h|-p|-U|-d) shift 2; continue;;
+  esac
+  args+=("$1"); shift
+done
+[ -n "$out" ] || { echo "pg_dump (package kit): -f FILE is required" >&2; exit 2; }
+exec docker exec -e PGPASSWORD="$PGPASSWORD" wh-test-pg pg_dump -h localhost -U "$PGUSER" -d "$PGDATABASE" "${args[@]}" > "$out"

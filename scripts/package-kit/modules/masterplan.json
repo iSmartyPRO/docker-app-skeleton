@@ -1,0 +1,89 @@
+{
+  "comment": "Package kit hints for Masterplan (docs/package-testing.md «Module kit file»). Masterplan is open to everyone signed in and checks rights per project (access.js): lists come back filtered, so the kit compares them with the superadmin's; the reference lists below carry no project data.",
+  "enableAlso": [
+    "crm",
+    "contracts",
+    "procurement",
+    "warehouse"
+  ],
+  "seed": [
+    "crm",
+    "masterplan"
+  ],
+  "apiParams": {
+    "projectId": "SELECT id FROM mp_projects ORDER BY id LIMIT 1",
+    "id": "SELECT id FROM mp_projects ORDER BY id LIMIT 1",
+    "dealId": "SELECT deal_id FROM mp_units WHERE deal_id IS NOT NULL ORDER BY node_id LIMIT 1"
+  },
+  "pageParams": {
+    "projectId": "SELECT id FROM mp_projects ORDER BY id LIMIT 1"
+  },
+  "links": [
+    {
+      "name": "CRM deal → its Masterplan units",
+      "path": "/api/app/masterplan/deals/:dealId/units",
+      "present": {
+        "status": 200,
+        "nonEmpty": "units"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Contracts → Masterplan objects",
+      "path": "/api/app/contracts/link-options/masterplan",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404,
+        "empty": "items"
+      }
+    },
+    {
+      "name": "Procurement → projects picker",
+      "path": "/api/app/procurement/lookup/projects",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404,
+        "empty": "items"
+      }
+    },
+    {
+      "name": "Warehouse → projects picker",
+      "path": "/api/app/warehouse/lookup/projects",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404,
+        "empty": "items"
+      }
+    }
+  ],
+  "openToUsers": [
+    "GET /api/app/masterplan/meta",
+    "GET /api/app/masterplan/users",
+    "GET /api/app/masterplan/groups",
+    "GET /api/app/masterplan/types",
+    "GET /api/app/masterplan/stages"
+  ],
+  "skipApi": [],
+  "openToUsersWhy": {
+    "meta": "statuses, types, stages, the person's own access (projects inside are filtered)",
+    "users": "people picker (names and avatars of active users, as elsewhere in the portal)",
+    "groups": "group picker for project teams",
+    "types": "object type directory",
+    "stages": "construction stage directory"
+  },
+  "needsOtherScopes": [
+    "GET /api/app/masterplan/deals/:dealId/units"
+  ],
+  "needsOtherScopesWhy": "a deal's units: the CRM deal is checked with the CRM area too (crmLink.js dealForLink)"
+}

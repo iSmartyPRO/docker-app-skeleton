@@ -11,7 +11,7 @@
 .PHONY: db-setup db-create db-drop user-create user-drop
 .PHONY: psql sql dbs users
 .PHONY: install build-local test seed-demo clean clean-image
-.PHONY: module module-keygen modules-verify check-core-upgrade backup-modules
+.PHONY: module module-keygen modules-verify check-core-upgrade backup-modules package-check
 
 # ── Configuration ───────────────────────────────────────────────────────────
 COMPOSE      ?= docker compose
@@ -462,6 +462,15 @@ check-core-upgrade: ## Before a core update: can the installed module packages (
 modules-verify: ## Check a module package's signature and manifest: make modules-verify FILE=dist/modules/masterplan-1.2.0.zip
 	@test -n "$(FILE)" || { echo "Usage: make modules-verify FILE=<package.zip>"; exit 1; }
 	@node "$(PROJECT_ROOT)scripts/build-module.mjs" verify "$(FILE)"
+
+# Package conversion test kit (docs/package-testing.md): build + sign + verify, fresh-database flow,
+# upgrade from SOURCE_REF (module built in) — on the test PostgreSQL wh-test-pg (127.0.0.1:55432) only.
+KIT_MODE ?= $(or $(MODE),all)
+KIT_SOURCE_REF ?= $(or $(SOURCE_REF),main)
+package-check: ## Test a module package end to end: make package-check ID=<id> [MODE=fresh|upgrade|all] [SOURCE_REF=<git ref, default main>] KIT_ENV=<test env> [KIT_OUT=dir] [KEEP=1] [NO_BROWSER=1]
+	@test -n "$(ID)" || { echo "Usage: make package-check ID=<module id> [MODE=fresh|upgrade|all] [SOURCE_REF=main] KIT_ENV=<env file of wh-test-pg>"; exit 1; }
+	@node "$(PROJECT_ROOT)scripts/package-kit/run.mjs" --id "$(ID)" --mode "$(KIT_MODE)" --source-ref "$(KIT_SOURCE_REF)" \
+		$(if $(KIT_ENV),--env "$(KIT_ENV)") $(if $(KIT_OUT),--out "$(KIT_OUT)") $(if $(KEEP),--keep) $(if $(NO_BROWSER),--no-browser)
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────
 clean: ## Stop production and development containers

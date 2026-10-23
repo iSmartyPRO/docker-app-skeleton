@@ -1,0 +1,14 @@
+#!/bin/bash
+# Package kit: pg_restore run inside the wh-test-pg container; the dump file (last argument) goes in on stdin.
+# Refuses anything but the test server 127.0.0.1:55432.
+[ "$1" = "--version" ] && exec docker exec wh-test-pg pg_restore --version
+case "$PGHOST" in 127.0.0.1|localhost|"") ;; *) echo "pg_restore (package kit): only the test database 127.0.0.1:55432" >&2; exit 2;; esac
+[ "$PGPORT" = "55432" ] || { echo "pg_restore (package kit): only the test database 127.0.0.1:55432" >&2; exit 2; }
+args=("$@"); file="${args[-1]}"; unset 'args[-1]'
+clean=(); skip=0
+for a in "${args[@]}"; do
+  if [ $skip = 1 ]; then skip=0; continue; fi
+  case "$a" in -d|-h|-p|-U) skip=1; continue;; --dbname=*) continue;; esac
+  clean+=("$a")
+done
+exec docker exec -i -e PGPASSWORD="$PGPASSWORD" wh-test-pg pg_restore -h localhost -U "$PGUSER" -d "$PGDATABASE" "${clean[@]}" < "$file"
