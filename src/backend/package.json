@@ -1,6 +1,6 @@
 {
   "name": "docker-app-skeleton-backend",
-  "version": "1.18.0",
+  "version": "1.19.0",
   "description": "docker-app-skeleton Backend API",
   "main": "server.js",
   "type": "module",

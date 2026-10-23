@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-10-23
+
 ### Changed
 
 - **Admin console — Integrations and Modules are now top-level menu entries** next to Settings, instead of groups buried inside Settings (fewer clicks to reach an integration or a module's settings). Each has its own hub and a side-navigation scoped to that section; the Settings hub now shows only the core settings groups. Individual screens keep their existing URLs, so all links and bookmarks still work.
@@ -702,7 +704,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.18.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.19.0...HEAD
+[1.19.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.19.0
 [1.18.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.18.0
 [1.17.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.17.1
 [1.17.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.17.0
