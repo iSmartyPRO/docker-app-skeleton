@@ -33,6 +33,14 @@ import { installShared } from './shared';
  *   }
  *
  * A package that fails to load is left out (logged); the portal keeps working.
+ *
+ * The list is fetched with short retries within the start-up budget (a 503
+ * while the portal restarts, a lost connection). If it still fails, it is
+ * retried in the background with backoff; when the packages arrive late the
+ * page reloads once to draw them. Anonymous visitors get no list (the server
+ * does not tell who runs what); after signing in the list is fetched again
+ * and the page reloads once when there are packages. Stylesheets are linked
+ * only for packages that are switched on.
  */
 
 export const PACKAGES = [];
@@ -40,6 +48,62 @@ const entries = new Map();
 let bootId = null;
 
 const withTimeout = (promise, ms) => Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const RELOAD_KEY = 'portal.packages.reloadedFor';
+
+/** One GET /api/modules/installed: { data } or { retry: true } (no answer, timeout, 5xx). */
+async function fetchInstalled(timeoutMs) {
+  try {
+    const res = await withTimeout(fetch('/api/modules/installed', { credentials: 'same-origin', headers: { Accept: 'application/json' }, cache: 'no-store' }), timeoutMs);
+    if (!res) return { retry: true };
+    if (res.ok) return { data: await res.json() };
+    return { retry: res.status >= 500 || res.status === 429 };
+  } catch {
+    return { retry: true };
+  }
+}
+
+/** Reloads the page once per boot of the server (never in a loop). */
+function reloadOnce(reason, id) {
+  try {
+    const key = `${id || 'unknown'}:${reason}`;
+    if (window.sessionStorage.getItem(RELOAD_KEY) === key) return;
+    window.sessionStorage.setItem(RELOAD_KEY, key);
+  } catch {
+    return; // without storage a reload could repeat: keep the page as it is
+  }
+  window.location.reload();
+}
+
+let retrying = false;
+/** The list could not be read before the first render: keep trying in the background (2 s, 4 s … 60 s). */
+async function retryLater() {
+  if (retrying) return;
+  retrying = true;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await sleep(Math.min(2000 * 2 ** attempt, 60000));
+    const result = await fetchInstalled(5000);
+    if (result.retry) continue;
+    const data = result.data;
+    if (data?.signedIn === false) watchSignIn();
+    if (data?.modules?.some((pkg) => !PACKAGES.some((item) => item.id === pkg.id))) reloadOnce('late', data.bootId);
+    break;
+  }
+  retrying = false;
+}
+
+let watching = false;
+/** Signed out now: after signing in (AuthContext fires `auth:signed-in`), read the list again. */
+function watchSignIn() {
+  if (watching) return;
+  watching = true;
+  window.addEventListener('auth:signed-in', async () => {
+    watching = false;
+    const result = await fetchInstalled(5000);
+    if (result.data?.modules?.length) reloadOnce('signin', result.data.bootId);
+    else if (result.retry) retryLater();
+  }, { once: true });
+}
 
 function linkCss(url) {
   if (document.querySelector(`link[data-module-css="${url}"]`)) return;
@@ -128,20 +192,31 @@ export const packagesBootId = () => bootId;
  */
 export async function loadInstalledPackages({ timeoutMs = 3000 } = {}) {
   installShared();
-  let data = null;
-  try {
-    const res = await withTimeout(fetch('/api/modules/installed', { credentials: 'same-origin', headers: { Accept: 'application/json' } }), timeoutMs);
-    if (res?.ok) data = await res.json();
-  } catch {
-    data = null;
+  const deadline = Date.now() + timeoutMs;
+  let result = null;
+  for (let attempt = 0; ; attempt += 1) {
+    const left = deadline - Date.now();
+    if (left <= 50) break;
+    result = await fetchInstalled(left);
+    if (!result.retry) break;
+    const pause = Math.min(250 * 2 ** attempt, deadline - Date.now() - 50);
+    if (pause <= 0) break;
+    await sleep(pause);
   }
-  if (!data?.modules?.length) return PACKAGES;
+  const data = result?.data;
+  if (!data) {
+    if (!result || result.retry) retryLater();
+    return PACKAGES;
+  }
   bootId = data.bootId || null;
+  if (data.signedIn === false) watchSignIn();
+  if (!data.modules?.length) return PACKAGES;
   for (const pkg of data.modules) {
     if (!pkg?.id || PACKAGES.some((item) => item.id === pkg.id)) continue;
     PACKAGES.push(pkg);
     if (Object.keys(pkg.locales || {}).length) addTranslationSource(translationsOf(pkg));
-    for (const url of pkg.web?.css || []) linkCss(url);
+    // A switched-off package's styles stay out of the page.
+    if (pkg.enabled !== false) for (const url of pkg.web?.css || []) linkCss(url);
     addToRegistry(pkg);
     addSettingsItem(pkg);
   }
@@ -151,12 +226,12 @@ export async function loadInstalledPackages({ timeoutMs = 3000 } = {}) {
         packageEntry(pkg)
           .then((entry) => {
             if (entry.tour) MODULE_UI[pkg.id] = { ...(MODULE_UI[pkg.id] || {}), tour: entry.tour };
-            return typeof entry.register === 'function' ? entry.register({ id: pkg.id, version: pkg.version, base: `/modules/${pkg.id}/${pkg.version}/` }) : null;
+            return typeof entry.register === 'function' ? entry.register({ id: pkg.id, version: pkg.version, base: pkg.base || `/modules/${pkg.id}/${pkg.version}/` }) : null;
           })
           .catch((err) => console.warn(`Module package ${pkg.id} did not load:`, err?.message || err))
       )
     ),
-    timeoutMs
+    Math.max(200, deadline - Date.now())
   );
   return PACKAGES;
 }

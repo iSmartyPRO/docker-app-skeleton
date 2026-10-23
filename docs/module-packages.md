@@ -39,7 +39,7 @@ Anything else at the top level (except `README.md`, `CHANGELOG.md`, `LICENSE`) i
 | `permissions` | `["<id>.<right>"]` — added to the roles editor |
 | `description`, `changelog`, `docs` | the card before install, the Modules page |
 | `settings` | `{ defaultEnabled (false), defaults {…}, public [keys] }` — the module's `settings.modules.<id>`; sanitized by the server export `sanitizeSettings(current, incoming)`, else by type against `defaults` |
-| `tables` | table names or prefixes (`"mp_%"`) owned by the module, in addition to the tables its migrations create (backups, «Удалить данные») |
+| `tables` | table names or prefixes (`"hello_%"`) owned by the module, in addition to the tables its migrations create (backups, rollback restore, «Удалить данные»). Each must start with `<id>_` — or a legacy prefix the core declares for that module (`platform/packages/tableOwnership.js`: masterplan → `mp_`) — and may not match a core table or overlap another module's tables; the same rules filter the tables at run time |
 | `server` `{ entry }`, `web` `{ entry, css, icon, permission, page }` | entry points (written by the build) |
 | `locales` `{ <lang>: [ns…] }`, `builtAt`, `sdk` | written by the build |
 
@@ -53,13 +53,25 @@ The signed text is the canonical listing of all files but `SIGNATURE`, sorted by
 `src/backend/platform/trusted-keys.json` (released with the core). A package without `SIGNATURE` is
 accepted only with `MODULES_DEV=1`; a present but wrong signature is refused always.
 
+**The signature is the whole trust model.** A signed package runs inside the portal process with full
+privileges: it can read `/app/.env`, use `node:fs`, open any core file by a relative or `file:` import. The
+`@portal/sdk` import rules (below) are a build-time convention that keeps honest code on the SDK, not a sandbox.
+Sign and install only code you would put into the core.
+
+**Checked again at every boot** (`platform/packages/integrity.js`): the files of `$MODULES_DIR/<id>/<version>`
+are hashed, the listing must verify against `SIGNATURE` with a trusted key and equal the listing recorded at
+install (`installed_modules.listing_sha256`, plus `signature`). Code written into the folder by anything but the
+installer (a file-write bug, host access to `./data/modules`, an older signed version copied over a newer one) is
+not imported. A package installed unsigned in development mode is refused once `MODULES_DEV` is off.
+
 ### Archive safety (`platform/packages/zip.js`, `archive.js`)
 
 Own reader/writer on `node:zlib` (stored + deflate). Refused: ZIP64, multi-disk, encryption,
 symlinks and special files, absolute paths / drive letters / backslashes / `..` / empty segments /
-control characters, duplicates (also by case, file vs folder), > 3000 entries, entry > 50 MB,
-> 300 MB unpacked, inflation beyond the declared size, CRC or header mismatches. Upload cap 100 MB.
-Unpacking writes to a temporary folder and renames it to `$MODULES_DIR/<id>/<version>`.
+control characters, duplicates (also by case, file vs folder), > 3000 entries, entry > 32 MB,
+> 128 MB unpacked, inflation beyond the declared size, CRC or header mismatches. Upload cap 50 MB.
+The archive is inflated once, at upload: its files go to `.staging/<token>/` (verified listing in
+`<token>.json`); «Установить» re-verifies that folder from disk and renames it to `$MODULES_DIR/<id>/<version>`.
 
 ## Building: `make module`
 
@@ -142,9 +154,12 @@ resolves bare names imported from package code against the core's `node_modules`
 | Extension points | `modules`, `events`, `registerWidget`, `registerWidgetSection`, `registerLinkProvider`, `linkProvider`, `registerObjectSource`, `objectSource`, `registerSearchProvider`, `searchAll`, `registerPreviewProvider`, `registerFollowable`, `canFollow`, `registerTokenResources`, `onHttpServer`, `onShutdown`, namespaces `widgets`, `pickers` (prefer the same functions on `ctx` inside `register()`: they are tagged with the module) |
 | Other | `createUser`, `updateUser`, `assertCanManage`, `isValidPhone`, `normalizePhone`, `findUserById`, `listLegalEntities`, `getLegalEntity`, `getDefaultLegalEntity`, `seal`, `unseal`, `convertToPdf`, `registerDemo`, `decide`, `limitsByTable`, `httpError(status, message, code)`, `logger(id)`, `SDK_VERSION` |
 
-Adding a name is a minor SDK change; removing or renaming one is a major core change.
-`@portal/sdk/core/<path>` (any core file except module internals, tests and scripts) is the
-transitional escape hatch the build uses for converted modules — prefer the stable names.
+Adding a name is a minor SDK change; removing or renaming one is a major core change (bump `SDK_VERSION` in
+`platform/sdk/version.js` and the browser's `src/platform/sdk/version.js` together; packages record it as `sdk`).
+`@portal/sdk/core/<path>` (any core file except module internals, tests, scripts and the sensitive files —
+`config/app.js`, `services/crypto.js`, `platform/identity.js`, `platform/packages/*`, `platform/sdkLoader.mjs`) is the
+transitional escape hatch the build uses for converted modules — prefer the stable names. Not a security
+boundary (see «SIGNATURE»).
 
 ### Boot (`modules/index.js` → `platform/packages/loader.js`)
 
@@ -154,18 +169,34 @@ transitional escape hatch the build uses for converted modules — prefer the st
    A package with the id of a built-in module is ignored.
 2. Schema bootstrap: built-in modules run `schema()` (or versioned `migrations`), then
    `activateModules(MODULES)` (registry + `register(ctx)`).
-3. Packages, in requirement order: import `server/index.js` → check the contract and requirements →
-   pending migrations → mount routes → join the registry. Then every package's `register(ctx)`.
+3. Packages, in requirement order: core / SDK compatibility (`manifest.core` same major and not newer than the
+   core, `manifest.sdk` same major and not newer than `SDK_VERSION`; otherwise failed with the §5 message, not
+   imported, listed in the start-up log and on Settings → Modules as «needs an update») → files re-verified
+   (above) → import `server/index.js` → check the contract and requirements → pending migrations → mount routes →
+   join the registry. Then every package's `register(ctx)`. Import + migrations and `register()` each have
+   `MODULE_BOOT_TIMEOUT_MS` (120 s).
    `ctx.onHttpServer` hooks run once both the HTTP server is up (`startModuleServer(server)` in server.js) and the modules registered; `ctx.onShutdown` hooks run on SIGTERM (`runShutdownHooks()`).
-4. A package that fails is skipped; `installed_modules.state = 'failed'` with the error; the portal runs on.
+4. A package that fails is skipped; `installed_modules.state = 'failed'` with the error (journaled
+   `module_failed` when it is news); the portal runs on.
    If that is the first boot after an update (`pending_check`), the previous version is put back
    (`current` ← `previous`; tables restored when the pre-update backup is a pg_dump) and the app restarts once more;
-   the journal records `module_rolled_back`.
-5. A `bundled` row of a module this core no longer contains (Masterplan after the upgrade) becomes `removed`
+   the journal records `module_rolled_back` and `installed_modules.last_rollback` keeps `{ at, from, to, reason,
+   tables, ok, backup }` — a later good boot does not clear it (the next install does); the module card shows it.
+5. **Crashes and hangs.** Before a package is imported, `$MODULES_DIR/<id>/.boot-attempt` is written
+   (`disk.js`); it is removed once the package loaded and registered. A start that finds it never finished with
+   that package (node died — e.g. an uncaught exception from the package's timer — or hung): an update is rolled
+   back **before** its code is imported again; a version that was already running is skipped («blocked», the card
+   says so) until a new version is installed or it is removed and installed again. A timeout writes the marker as
+   `timeout` and, for an update, asks for a restart: the rollback runs in the fresh process, not next to the hung
+   work. The first boot after an update stays on probation for `MODULE_BOOT_SETTLE_MS` (30 s) after `register()`:
+   marker and `pending_check` stay, so a crash shortly after the start rolls back too; a graceful shutdown (SIGTERM)
+   confirms it early. So a broken package cannot crash the portal in a loop.
+6. A `bundled` row of a module this core no longer contains (Masterplan after the upgrade) becomes `removed`
    (source `package`): data kept, shown under «Удалённые модули» until its package is installed.
 
 Tables: `installed_modules (id, version, state installed|enabled|disabled|failed|removed, source bundled|package,
-installed_at, updated_at, installed_by, error, checksum, signed_by, previous_version, pending_check, backup_file, manifest)`,
+installed_at, updated_at, installed_by, error, checksum, signed_by, previous_version, pending_check, backup_file, manifest,
+listing_sha256, signature, last_rollback)`,
 `module_migrations (module_id, migration_id, version, checksum, applied_at)`,
 `module_tables (module_id, table_name, migration_id)`. The on/off switch stays in `settings.modules.<id>.enabled`;
 the API reports `enabled` / `disabled` from it. Built-in modules get rows with `source = 'bundled'`.
@@ -175,7 +206,13 @@ the API reports `enabled` / `disabled` from it. Built-in modules get rows with `
 `NNN_name.sql` or `NNN_name.js` (`export async function up(db)`), sorted by number, each once per
 module. **All pending migrations of one install / update / boot run in one transaction** with an
 advisory lock: a failure leaves the database untouched. Tables created during a migration are recorded
-in `module_tables`. For a module converted from `schema()`, migration `001` is its current schema with
+in `module_tables` — the tables whose catalog row this transaction wrote (`pg_class.xmin` = its transaction id) and
+that did not exist when it began, so a table the live portal commits meanwhile is never attributed to the module.
+A migration that cannot be loaded, has no `up` or fails is `MIGRATION_FAILED`. At install / update (the prepare
+child, `strict`) a package is refused when the database has applied migrations it does not contain
+(`SCHEMA_NEWER`: older than the schema, even under a higher version number) or when the text of an applied SQL
+migration changed (`MIGRATION_CHANGED`; JS migrations are bundled, so their checksum is recorded but not compared).
+At boot both are only logged (a rollback runs the previous code on purpose). For a module converted from `schema()`, migration `001` is its current schema with
 `CREATE … IF NOT EXISTS` (safe on existing databases) and `tables` in module.json names its existing tables.
 Not possible inside a transaction: `CREATE INDEX CONCURRENTLY`, `ALTER TYPE … ADD VALUE` used in the same batch.
 
@@ -194,9 +231,12 @@ export default {
 };
 ```
 
-`main.jsx` awaits `loadInstalledPackages()` (`src/platform/packages/loader.js`, ≤ 1.5 s) before the
-first render: `GET /api/modules/installed` → translations added (`i18n/translations.js`
-`addTranslationSource`, English laid under each language), CSS linked, entries of switched-on packages
+`main.jsx` awaits `loadInstalledPackages()` (`src/platform/packages/loader.js`, ≤ 1.5 s, short retries on a
+lost connection or a 5xx within that time; afterwards retried in the background with backoff and the page reloads
+once when packages arrive late) before the first render: `GET /api/modules/installed` (signed in; anonymous
+visitors get no list — after a sign-in, `auth:signed-in` from AuthContext fetches it again and reloads once when
+there are packages) → translations added (`i18n/translations.js`
+`addTranslationSource`, English laid under each language), CSS of switched-on packages linked, entries of switched-on packages
 imported and `register(ctx)` run, page modules pushed into `MODULE_REGISTRY` (`/app/<id>`, `icon`,
 `apps.<id>.name`) with lazy `App` / `Settings`. `/admin/settings/:moduleId` renders a package's Settings
 (`platform/packages/PackageSettings.jsx`); a package with `web.settings` gets its item in the settings navigation
@@ -233,8 +273,11 @@ build memory): a package bundles the icons it uses, tree-shaken.
 inline script (browsers do not load it from a URL). The package build therefore writes the shim URLs
 (`/sdk/antd.js`) directly into the package's imports; the effect is the same.
 
-Package files are served by the app at `/modules/<id>/<version>/web/…` and `…/locales/…` from
-`$MODULES_DIR` (immutable, a year; `text/javascript`; nothing else under `$MODULES_DIR` is reachable).
+Package files are served by the app at `/modules/<id>/<version>-<digest>/web/…` and `…/locales/…` from
+`$MODULES_DIR`; `<digest>` is the first 12 hex of the files' listing digest, so a package reinstalled with other
+bytes under the same version gets new URLs (immutable, a year; a digest other than the loaded package's is 404;
+the old `/modules/<id>/<version>/…` form is served with `no-cache`; `text/javascript`; nothing else under
+`$MODULES_DIR` is reachable).
 nginx proxies `/modules/`; the dev server proxies it and answers `/sdk/*` itself.
 
 ## Install, update, remove
@@ -243,8 +286,8 @@ Superadministrators in their own session (not an API token, not «sign in as»).
 
 | | API (under `/api`) |
 |---|---|
-| Shell list (public) | `GET /modules/installed` → `{ bootId, modules: [{ id, version, enabled, name, web: { entry, css, icon, permission, page }, locales }] }` |
-| State | `GET /admin/modules/packages` → rows with state, error, backups; `canManage`, `devMode`, `maxUploadMb` |
+| Shell list (signed in) | `GET /modules/installed` → `{ bootId, signedIn, modules: [{ id, version, enabled, name, base, web: { entry, css, icon, permission, page }, locales }] }`; anonymous: `{ bootId, signedIn: false, modules: [] }` |
+| State | `GET /admin/modules/packages` → rows with state, error, `incompatible`, `blocked`, `lastRollback`, `pendingCheck`, backups; `canManage`, `devMode`, `maxUploadMb`, `restartPending` |
 | Upload | `POST /admin/modules/packages/upload` (multipart `file`) → `{ token, preview, problems, unsigned }` |
 | Install / update | `POST /admin/modules/packages/install { token }` → `{ id, version, action, applied, backup, restart, bootId }` |
 | Remove code | `DELETE /admin/modules/packages/:id` |
@@ -264,15 +307,20 @@ Refusals: `{ success: false, code, error, problems: [{ code, params, message: { 
 | `REQUIRES_MISSING` | Нужен модуль „CRM“ версии 1.1.0 или новее — он не установлен |
 | `REQUIRES_VERSION` | Нужен модуль „CRM“ 1.1.0 или новее, у вас 1.0.0 |
 | `REQUIRES_MAJOR` | Нужен модуль „CRM“ 1.x (1.1.0 или новее), у вас 2.0.0 |
-| `DOWNGRADE` | Установлена 1.3.0, в файле 1.2.0 — понижение запрещено |
+| `DOWNGRADE` | Установлена 1.3.0, в файле 1.2.0 — понижение запрещено (removed, data kept: «Была установлена 1.3.0 (её данные сохранены), в файле 1.2.0 — понижение запрещено») |
 | `SAME_VERSION` | Версия 1.2.0 уже установлена |
 | `BREAKS_DEPENDENT` | „Склад“ 1.4 работает с „Закупками“ 1.x, а в файле 2.0 — сначала обновите „Склад“ |
 | `HAS_DEPENDENTS` (remove) | Сначала удалите „Склад“ — он использует „Закупки“ |
 | `BUILTIN` / `BUILTIN_REMOVE` | the module is built into this core version |
 | `MIGRATION_FAILED` / `MODULE_DOES_NOT_START` | the new code was checked in a child process and nothing changed |
+| `SDK_MAJOR` / `SDK_TOO_OLD` | built for another SDK major / a newer SDK than this core's |
+| `SCHEMA_NEWER` / `MIGRATION_CHANGED` | the database has migrations the file lacks / an applied SQL migration was edited |
+| `FOREIGN_KEYS` | other tables reference the module's tables: a restore (update) or «Удалить данные» could not run without CASCADE |
+| `RESTART_PENDING` | install / remove / delete data while the portal restarts |
 
 English texts come with each problem. `installed` for the checks = built-in modules (manifest
-versions) + packages on disk now (including ones waiting for the restart or failed).
+versions) + packages on disk now (including ones waiting for the restart or failed) + removed packages whose data
+is kept (they count only for downgrades).
 
 ### Flows (`platform/packages/installer.js`)
 
@@ -280,8 +328,12 @@ versions) + packages on disk now (including ones waiting for the restart or fail
   imports the new code (contract check, side effects stay out of the running portal) and applies its
   migrations in one transaction → `installed_modules` row → `current` pointer → journal → restart.
   The module comes up **installed, switched off**.
-- **Update**: the same, preceded by a backup of the module's tables; `previous` keeps the old version
-  folder (older ones are pruned); the first boot confirms the new version (`pending_check`) or rolls back.
+- **Update**: the same, preceded by a refusal when other tables have foreign keys into the module's tables and a
+  backup of the module's tables; `previous` keeps the old version folder (older ones are pruned); the first boot
+  confirms the new version (`pending_check`, after the probation above) or rolls back. Writes the old version made
+  between the backup and the restart are lost when a pg_dump rollback restores the tables.
+- **While a restart is pending** install, remove and «Удалить данные» answer 409 `RESTART_PENDING`; at shutdown a
+  running prepare child is killed (its transaction rolls back with its connection).
 - **Remove**: refused while modules require it; the code folder and pointers are deleted, tables and
   settings stay, the row becomes `removed`. Built-in modules can only be switched off.
 - **Delete data** (removed modules only, confirm by id): a fresh backup, then `DROP TABLE` of the module's
@@ -292,7 +344,9 @@ versions) + packages on disk now (including ones waiting for the restart or fail
 
 ### Restart
 
-The answer is sent, then `SIGTERM` → graceful shutdown → exit code **75**. `start.sh` runs node in a
+The answer is sent, then `SIGTERM` → graceful shutdown → exit code **75**. A restart asked for during the boot
+(a rollback) waits until `server.js` installed its SIGTERM handler (`restartReady()`), or exits 75 directly when
+the server has not started after 30 s. `start.sh` runs node in a
 loop and starts it again at once on 75 while nginx keeps serving (API calls get the maintenance JSON);
 any other exit ends the container (`restart: unless-stopped`). The Modules page shows a restart screen
 and polls `GET /api/modules/installed` until `bootId` changes, then reloads. In development (no
@@ -300,12 +354,25 @@ start.sh) the process just exits: start it again.
 
 ### Backups (`platform/packages/backup.js`)
 
-`$MODULES_DIR/.backups/<id>/<id>-<version>-<UTC>-<reason>.{dump|ndjson.gz}` + `.json` description.
-With `pg_dump` in the image: custom format, restores structure and data (`pg_restore --clean`); a restore also
-drops the tables created by migrations the backup did not have and puts `module_migrations` / `module_tables` back.
-Without it (or `MODULE_BACKUP_PGDUMP=0`): gzip NDJSON of `row_to_json` rows — restores data into tables
-of the same structure (same applied migrations). Taken before every update, before «Удалить данные» and
-on «Резервная копия».
+`$MODULES_DIR/.backups/<id>/<id>-<version>-<UTC>-<reason>.{dump|ndjson.gz}` + `.json` description (files 0600,
+folders 0700). With `pg_dump` able to dump this database (probed once with a real connection — a client older
+than the server counts as missing; the image installs `postgresql18-client`): custom format, restores structure and
+data. A restore first drops the tables created by migrations the backup did not have (they may reference the
+restored tables), then `pg_restore --clean --single-transaction`, then puts `module_migrations` back.
+Without it, when a dump fails, or with `MODULE_BACKUP_PGDUMP=0`: gzip NDJSON of `row_to_json` rows — restores data
+into tables of the same structure (same applied migrations); a rollback does not restore it automatically
+(`last_rollback.ok = false`). Taken before every update, before «Удалить данные» and on «Резервная копия».
+Retention after each backup: `MODULE_BACKUP_KEEP` (5) per module, `MODULE_BACKUP_MAX_MB` (2048) in all; the newest
+of each module and the ones `installed_modules.backup_file` points at stay. Staging uploads expire after an hour
+(cleaned at boot and every 15 minutes).
+
+## Core updates
+
+`make check-core-upgrade [CORE=x.y.z]` (`scripts/check-core-upgrade.mjs`) reads the active packages in
+`./data/modules` and checks each `core` / `sdk` against this checkout's `VERSION` and `SDK_VERSION`; exit 1 lists
+the modules that would not load. `make deploy` runs it after the release step (`MODULES_CHECK=skip` deploys
+anyway). On the portal the same check runs at every boot: such packages are failed with the §5 message, logged at
+start-up and listed on Settings → Modules («These modules need an update for core …»).
 
 ## Store preparation (stage 6)
 
@@ -327,10 +394,19 @@ on «Резервная копия».
   web with `MODULE_BUILD_WEB=1`).
 - `test/module-boot.test.js`: the core alone, with each built-in module, and with each package module from source.
 - `test/masterplan.db.test.js` (`MASTERPLAN_DB_TEST=1`): migration 001 on an existing schema changes nothing.
+- `test/module-packages-hardening.test.js` (no database): table ownership (and that its lists cover every
+  `CREATE TABLE` of the tree), migration attribution and conflicts, downgrade after removal, core / SDK checks,
+  `check-core-upgrade`, files re-verified, boot markers, limits, staging cleanup, backup retention, the deferred
+  restart, refusals while a restart is pending, SDK resolver refusals.
 - `test/module-packages.db.test.js` (`MODULES_DB_TEST=1` + a test database): install → boot → off → on →
-  route; update with backup; failing update; downgrade / unsigned refused; rollback of a version that does
-  not start; removal refused by a dependent; data deletion after a backup; broken package skipped; identity
-  and signed inventory.
+  route (anonymous shell list empty, digest URLs); update with backup; failing update; downgrade / unsigned refused;
+  rollback of a version that does not start (`last_rollback` kept after a good boot); a crash during boot (marker →
+  rollback before import), the probation window, a running package blocked after a crash, a hang (timeout →
+  rollback at the next start); files changed on disk refused; foreign keys / `SCHEMA_NEWER` / `MIGRATION_CHANGED`
+  refused; the prepare child killed; private backups and the NDJSON fallback when pg_dump fails; with
+  `MODULES_PGDUMP_TEST=1` a pg_dump rollback that drops the failed version's tables first; removal refused by a
+  dependent, downgrade after removal; data deletion after a backup; broken package skipped; identity and signed
+  inventory.
 - Fixture: `test-fixtures/module-hello` (route, table, SQL + JS migration, page, translations, docs).
 
 ## Converting a module (checklist; done for Masterplan)
@@ -428,3 +504,5 @@ at once, nothing is lost — only the module is unavailable until it is.
   removed by «Удалить данные».
 - No automatic preinstall of base modules from zips in the image yet (spec stage 5).
 - One install / update / remove at a time per process; the restart makes concurrent work moot.
+- A package that crashes the process later than the probation window after its first boot is not rolled back
+  automatically (the container restarts it); a synchronous endless loop in its import cannot be timed out.

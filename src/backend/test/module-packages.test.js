@@ -323,14 +323,17 @@ test('package: unpacking writes into MODULES_DIR/<id>/<version> only', () => {
 
 /** A fake transaction: records queries, keeps module_migrations and a list of tables. */
 function fakeDb() {
-  const state = { applied: new Map(), tables: new Set(['users']), recorded: [], queries: [], commits: 0, rollbacks: 0 };
+  const state = { applied: new Map(), checksums: new Map(), tables: new Set(['users']), xact: new Set(), recorded: [], queries: [], commits: 0, rollbacks: 0 };
   const client = {
     async query(text, params = []) {
       state.queries.push(text);
-      if (/FROM module_migrations/.test(text)) return { rows: [...(state.applied.get(params[0]) || [])].map((id) => ({ migration_id: id })) };
+      if (/FROM module_migrations/.test(text)) return { rows: [...(state.applied.get(params[0]) || [])].map((id) => ({ migration_id: id, checksum: state.checksums.get(`${params[0]}/${id}`) || null })) };
       if (/FROM pg_tables/.test(text)) return { rows: [...state.tables].map((tablename) => ({ tablename })) };
+      // Tables whose catalog row this transaction wrote (created or altered): pg_class.xmin = our xid.
+      if (/FROM pg_class/.test(text)) return { rows: [...state.xact].map((relname) => ({ relname })) };
       if (/INSERT INTO module_migrations/.test(text)) {
         state.pendingApplied.push([params[0], params[1]]);
+        state.checksums.set(`${params[0]}/${params[1]}`, params[3]);
         return { rows: [] };
       }
       if (/INSERT INTO module_tables/.test(text)) {
@@ -338,13 +341,21 @@ function fakeDb() {
         return { rows: [] };
       }
       const created = text.match(/CREATE TABLE (\w+)/);
-      if (created) state.tables.add(created[1]);
+      if (created) {
+        state.tables.add(created[1]);
+        state.xact.add(created[1]);
+      }
+      const altered = text.match(/ALTER TABLE (\w+)/);
+      if (altered) state.xact.add(altered[1]);
+      // Another connection commits a table meanwhile: visible in pg_tables, not written by this transaction.
+      if (/CONCURRENT (\w+)/.test(text)) state.tables.add(text.match(/CONCURRENT (\w+)/)[1]);
       if (/FAIL/.test(text)) throw new Error('syntax error');
       return { rows: [] };
     },
   };
   const transaction = async (fn) => {
     state.pendingApplied = [];
+    state.xact = new Set();
     const before = new Set(state.tables);
     try {
       const result = await fn(client);
@@ -503,7 +514,7 @@ test('loader: a package whose code does not load is refused with the reason; req
 
 // ── static serving ──────────────────────────────────────────────────────────
 
-test('static: /modules/<id>/<version>/web/* with immutable caching, JS MIME, nothing else', async () => {
+test('static: /modules/<id>/<version>-<digest>/web/* immutable, without a digest revalidated, JS MIME, nothing else', async () => {
   const root = temp();
   process.env.MODULES_DIR = root;
   const app = express();
@@ -518,12 +529,23 @@ test('static: /modules/<id>/<version>/web/* with immutable caching, JS MIME, not
     writeFileSync(join(root, 'hello/1.0.0/manifest.json'), '{}');
     mkdirSync(join(root, '.backups/hello'), { recursive: true });
     writeFileSync(join(root, '.backups/hello/x.json'), '{"secret":1}');
-    const ok = await fetch(`${base}/modules/hello/1.0.0/web/index.js`);
+    const { setLoadedForTests, resetLoader, assetBase } = await import('../platform/packages/loader.js');
+    setLoadedForTests({ id: 'hello', version: '1.0.0', manifest: {}, listingSha256: 'ab12'.repeat(16) });
+    assert.equal(assetBase({ id: 'hello', version: '1.0.0', listingSha256: 'ab12'.repeat(16) }), '/modules/hello/1.0.0-ab12ab12ab12/');
+    const ok = await fetch(`${base}/modules/hello/1.0.0-ab12ab12ab12/web/index.js`);
     assert.equal(ok.status, 200);
     assert.match(ok.headers.get('content-type'), /^text\/javascript/);
     assert.match(ok.headers.get('cache-control'), /immutable/);
     assert.equal(ok.headers.get('x-content-type-options'), 'nosniff');
-    assert.match((await fetch(`${base}/modules/hello/1.0.0/web/chunks/a.mjs`)).headers.get('content-type'), /^text\/javascript/);
+    assert.match((await fetch(`${base}/modules/hello/1.0.0-ab12ab12ab12/web/chunks/a.mjs`)).headers.get('content-type'), /^text\/javascript/);
+    // Without the digest (an older shell): served, but never cached as immutable.
+    const plain = await fetch(`${base}/modules/hello/1.0.0/web/index.js`);
+    assert.equal(plain.status, 200);
+    assert.doesNotMatch(plain.headers.get('cache-control'), /immutable/);
+    // Another digest (the package was reinstalled with other bytes): not these files.
+    assert.equal((await fetch(`${base}/modules/hello/1.0.0-ffffffffffff/web/index.js`)).status, 404);
+    resetLoader();
+    assert.equal((await fetch(`${base}/modules/hello/1.0.0-ab12ab12ab12/web/index.js`)).status, 404, 'not loaded');
     for (const path of ['/modules/hello/1.0.0/manifest.json', '/modules/.backups/hello/x.json', '/modules/hello/1.0.0/web/../manifest.json', '/modules/hello/1.0.0/web/%2e%2e/manifest.json', '/modules/hello/1.0.0/web/missing.js', '/modules/hello/latest/web/index.js']) {
       assert.equal((await fetch(`${base}${path}`)).status, 404, path);
     }

@@ -283,7 +283,7 @@ async function bundleServer(entry, outfile, moduleDir, report) {
         if (moduleDir && inside(moduleDir, abs)) return undefined;
         if (!inside(BACKEND, abs)) return undefined;
         const rel = toPosix(relative(BACKEND, abs));
-        if (!corePathAllowed(rel)) return { errors: [{ text: `${toPosix(relative(ROOT, args.importer))} imports ${rel}: another module's internals (or a tool) cannot be part of a package — use ctx.modules.get(id)?.api or that module's api.js` }] };
+        if (!corePathAllowed(rel)) return { errors: [{ text: `${toPosix(relative(ROOT, args.importer))} imports ${rel}: not available to packages (another module's internals, a tool, or core secrets / key handling / the package platform) — use the SDK, ctx.modules.get(id)?.api or that module's api.js` }] };
         coreImports.add(rel);
         return { path: `@portal/sdk/core/${rel}`, external: true };
       });

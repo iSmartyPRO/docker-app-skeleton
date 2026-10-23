@@ -54,6 +54,17 @@ export default {
   purgeConfirm: 'Type {id} to confirm',
   purgeOk: 'Back up and delete',
   purged: 'Data deleted. Backup: {file}',
+  needUpdate: {
+    title: 'These modules need an update for core {core}',
+  },
+  blocked: 'The portal stopped while loading this version, so it is not loaded any more. Install a fixed version, or remove the module and install it again.',
+  rollback: {
+    title: 'Update to {from} did not start ({at}): version {to} was put back',
+    titleFailed: 'Update to {from} did not start ({at}): version {to} was put back, but its tables were not restored',
+    reason: 'Reason: {reason}',
+    tables: 'Tables: {tables}',
+    restoreByHand: 'The tables may not match version {to}: restore them from the backup made before the update (see docs/module-packages.md, «Backups»).',
+  },
   restart: {
     title: 'The portal is restarting',
     text: 'The modules are being loaded. This takes 5–10 seconds; the page reloads by itself.',

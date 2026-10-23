@@ -24,15 +24,23 @@ export const DEFAULT_TRUSTED_KEYS_FILE = resolve(here, '../trusted-keys.json');
 
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 
-/** The canonical text that is signed: files = [{ name, data }]. */
-export function canonicalListing(files) {
-  return files
-    .filter((file) => file.name !== SIGNATURE_FILE)
-    .map((file) => [Buffer.from(file.name, 'utf8'), `${sha256(file.data)}  ${file.name}\n`])
+/** The canonical text that is signed, from [{ name, sha256 }] (SIGNATURE itself left out). */
+export function listingOf(entries) {
+  return entries
+    .filter((entry) => entry.name !== SIGNATURE_FILE)
+    .map((entry) => [Buffer.from(entry.name, 'utf8'), `${entry.sha256}  ${entry.name}\n`])
     .sort((a, b) => Buffer.compare(a[0], b[0]))
     .map(([, line]) => line)
     .join('');
 }
+
+/** The canonical text that is signed: files = [{ name, data }]. */
+export function canonicalListing(files) {
+  return listingOf(files.filter((file) => file.name !== SIGNATURE_FILE).map((file) => ({ name: file.name, sha256: sha256(file.data) })));
+}
+
+/** SHA-256 of a canonical listing: what installed_modules.listing_sha256 keeps. */
+export const listingDigest = (listing) => sha256(Buffer.from(listing, 'utf8'));
 
 /** Raw 32-byte Ed25519 public key of a KeyObject / PEM. */
 function rawPublicKey(key) {
@@ -81,10 +89,15 @@ export function loadTrustedKeys(file = process.env.MODULE_TRUSTED_KEYS_FILE || D
  */
 export function verifyFiles(files, { trustedKeys = loadTrustedKeys(), allowUnsigned = false } = {}) {
   const entry = files.find((file) => file.name === SIGNATURE_FILE);
-  if (!entry) return allowUnsigned ? { ok: true, signed: false } : { ok: false, reason: 'unsigned' };
+  return verifyListing(canonicalListing(files), entry ? entry.data : null, { trustedKeys, allowUnsigned });
+}
+
+/** verifyFiles for a listing already computed (the files on disk, platform/packages/integrity.js). `signatureData`: the SIGNATURE file or null. */
+export function verifyListing(listing, signatureData, { trustedKeys = loadTrustedKeys(), allowUnsigned = false } = {}) {
+  if (!signatureData) return allowUnsigned ? { ok: true, signed: false } : { ok: false, reason: 'unsigned' };
   let parsed;
   try {
-    parsed = JSON.parse(entry.data.toString('utf8'));
+    parsed = JSON.parse(Buffer.from(signatureData).toString('utf8'));
   } catch {
     return { ok: false, reason: 'signature file is not valid JSON' };
   }
@@ -93,7 +106,7 @@ export function verifyFiles(files, { trustedKeys = loadTrustedKeys(), allowUnsig
   if (!key) return { ok: false, reason: `unknown signing key ${parsed.keyId}` };
   let good = false;
   try {
-    good = verify(null, Buffer.from(canonicalListing(files), 'utf8'), createPublicKey(key.publicKey), Buffer.from(parsed.signature, 'base64'));
+    good = verify(null, Buffer.from(listing, 'utf8'), createPublicKey(key.publicKey), Buffer.from(parsed.signature, 'base64'));
   } catch {
     good = false;
   }

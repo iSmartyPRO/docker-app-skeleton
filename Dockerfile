@@ -44,9 +44,12 @@ RUN apk add --no-cache nginx python3 py3-cryptography py3-pillow py3-pip \
  && apk del py3-pip
 
 # pg_dump / pg_restore: backups of a module's tables before updates and data removal
-# (docs/module-packages.md). The client must not be older than the server (PostgreSQL 18);
-# without it the app falls back to a data-only backup format.
-RUN apk add --no-cache postgresql18-client || apk add --no-cache postgresql-client
+# (docs/module-packages.md). The client must not be older than the server (PostgreSQL 18):
+# node:22-alpine is Alpine 3.24, which has postgresql16/17/18-client and no unversioned
+# package. No fallback — a missing package fails the build instead of silently installing
+# an older client (the app also probes pg_dump with a real connection and falls back to the
+# data-only NDJSON format when it cannot dump).
+RUN apk add --no-cache postgresql18-client
 
 # dwg2dxf and its library
 COPY --from=libredwg /opt/libredwg/bin/dwg2dxf /usr/local/bin/dwg2dxf

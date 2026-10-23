@@ -4,7 +4,10 @@ import { query } from '../../config/database.js';
  * Database side of installed modules (docs/module-packages.md «Tables»):
  *
  *   installed_modules  one row per module: version, state, where it came from,
- *                      who installed it, the last error, the package checksum
+ *                      who installed it, the last error, the package checksum,
+ *                      the signed file listing (re-checked at every boot) and
+ *                      the outcome of the last automatic rollback (last_rollback:
+ *                      kept until the next install, a good boot does not clear it)
  *   module_migrations  every migration applied, once per module
  *   module_tables      tables a module's migrations created (backups, data removal)
  *
@@ -32,6 +35,9 @@ export async function ensurePackageTables(db = { query }) {
       backup_file TEXT,
       manifest JSONB
     );
+    ALTER TABLE installed_modules ADD COLUMN IF NOT EXISTS listing_sha256 TEXT;
+    ALTER TABLE installed_modules ADD COLUMN IF NOT EXISTS signature TEXT;
+    ALTER TABLE installed_modules ADD COLUMN IF NOT EXISTS last_rollback JSONB;
     CREATE TABLE IF NOT EXISTS module_migrations (
       module_id TEXT NOT NULL,
       migration_id TEXT NOT NULL,
@@ -60,9 +66,10 @@ export async function listModuleRows(db = { query }) {
 
 /** Inserts or updates a row; only the given fields change on update. */
 export async function saveModuleRow(row, db = { query }) {
-  const fields = ['version', 'state', 'source', 'installed_by', 'error', 'checksum', 'signed_by', 'previous_version', 'pending_check', 'backup_file', 'manifest'];
+  const fields = ['version', 'state', 'source', 'installed_by', 'error', 'checksum', 'signed_by', 'previous_version', 'pending_check', 'backup_file', 'manifest', 'listing_sha256', 'signature', 'last_rollback'];
+  const json = new Set(['manifest', 'last_rollback']);
   const given = fields.filter((field) => row[field] !== undefined);
-  const values = given.map((field) => (field === 'manifest' && row[field] != null ? JSON.stringify(row[field]) : row[field]));
+  const values = given.map((field) => (json.has(field) && row[field] != null ? JSON.stringify(row[field]) : row[field]));
   const insertCols = ['id', ...given];
   const placeholders = insertCols.map((_, index) => `$${index + 1}`);
   const updates = given.map((field) => `${field} = EXCLUDED.${field}`);

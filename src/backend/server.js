@@ -24,6 +24,7 @@ import { shellMiddleware } from './services/linkPreview/index.js';
 import { maskToken } from './services/office/tokens.js';
 import { readyHandler } from './services/readiness.js';
 import { mountModulePackages, startModuleServer } from './platform/packages/index.js';
+import { restartReady } from './platform/packages/restart.js';
 import { runShutdownHooks } from './platform/registry.js';
 
 const app = express();
@@ -298,6 +299,8 @@ async function start() {
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
+  // A restart a module rollback asked for during the boot runs now (platform/packages/restart.js).
+  restartReady();
 }
 
 installProcessGuards();

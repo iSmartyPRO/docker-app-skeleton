@@ -6,6 +6,11 @@ import { outageOf, reportFailure } from '../lib/outage';
 
 const AuthContext = createContext(null);
 
+// Module packages read their list again after a sign-in (platform/packages/loader.js).
+const announceSignIn = (user) => {
+  if (user) window.dispatchEvent(new Event('auth:signed-in'));
+};
+
 export function AuthProvider({ children }) {
   const [user, setUserState] = useState(null);
   const [ready, setReady] = useState(false);
@@ -21,6 +26,7 @@ export function AuthProvider({ children }) {
     pending.current = false;
     setUserState(next);
     setReady(true);
+    announceSignIn(next);
   }, []);
 
   // An expired or revoked session surfaces as 401 on any request: drop the
@@ -48,6 +54,7 @@ export function AuthProvider({ children }) {
         pending.current = false;
         setUserState(res.data?.user || null);
         setReady(true);
+        announceSignIn(res.data?.user);
       })
       .catch((error) => {
         if (seq.current !== started) return;

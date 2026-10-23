@@ -143,10 +143,16 @@ superadministrators only). Engineering details: [module-packages.md](module-pack
 - **Restart**: installing, updating or removing restarts the app process inside the container (5–10 s;
   `start.sh` restarts node on exit code 75, nginx stays up). No `make restart` needed.
 - **Backups of module tables**: before every update and before «Удалить данные» the app writes
-  `data/modules/.backups/<id>/…` (pg_dump format when the image has `pg_dump`, else NDJSON). They are
-  not rotated: delete old ones by hand when space matters. Restore a pg_dump backup:
+  `data/modules/.backups/<id>/…` (mode 0600, folders 0700): pg_dump format when `pg_dump` (postgresql18-client
+  in the image) can reach the database, else — and whenever pg_dump fails — NDJSON. Kept: the newest
+  `MODULE_BACKUP_KEEP` (5) per module and at most `MODULE_BACKUP_MAX_MB` (2048) in all, oldest removed first
+  (the newest of each module and the one a pending update would roll back to always stay). Restore a pg_dump backup:
   `docker exec -i <container> pg_restore --clean --if-exists --single-transaction -d "$POSTGRES_DB" < file.dump`
   (with the `PG*` variables of `.env`).
+- **Core updates**: `make deploy` runs `make check-core-upgrade` first — it reads `data/modules/*/current` and
+  refuses the deploy when an installed package was built for another core major (or a newer core / SDK) than the
+  one being deployed. Install versions made for the new core, or deploy with `MODULES_CHECK=skip`: such modules are
+  then marked «needs an update» (Settings → Modules lists them) and not loaded; the portal runs.
 - **Signing key**: `make module-keygen` (once, on the build host) creates `/root/.portal-keys/modules-ed25519.pem`
   (mode 600, outside the repository; `MODULE_SIGNING_KEY_FILE` overrides) and adds the public key to
   `src/backend/platform/trusted-keys.json` — commit it and release the core; only then do portals accept
@@ -155,7 +161,15 @@ superadministrators only). Engineering details: [module-packages.md](module-pack
 - **Development**: `MODULES_DEV=1` accepts unsigned packages (never in production). `MODULE_TRUSTED_KEYS_FILE`
   points at another trusted-keys file (tests).
 - **A module that fails to start** is skipped (the portal runs on) and shown as «Не запустился» with the
-  error on its card; after an update the previous version is restored automatically.
+  error on its card; after an update the previous version is restored automatically, and the card keeps the
+  outcome of that rollback (tables restored or not) until the next install. A package whose files on disk no
+  longer match the signed package it was installed from is not loaded either.
+- **A module that crashes or hangs the start** (node exits, or its import / migrations / `register()` exceed
+  `MODULE_BOOT_TIMEOUT_MS`, 120 s): the next start finds its boot marker (`data/modules/<id>/.boot-attempt`) and
+  rolls an update back before importing it — or, for a version that was already running, skips it («blocked»)
+  until a fixed version is installed or it is removed and installed again. Deleting the marker by hand retries it.
+- **A signed package is fully trusted**: its code runs inside the portal process with all its privileges (database,
+  `.env`, files). The signature is the only gate; install packages signed with your key only.
 - **Inventory** for the future store: `GET /api/admin/modules/inventory` (portal id, core and module versions, signed).
 - **Masterplan is a package** from this core on: after deploying the core, install `masterplan-<version>.zip`
   at once (its data and settings stay in the database meanwhile) —

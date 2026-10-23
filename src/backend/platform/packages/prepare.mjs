@@ -4,7 +4,8 @@
  * --migrate) applies its pending migrations — all in one transaction, so a
  * failed migration changes nothing. Running this outside the portal process
  * keeps import side effects of the new code (jobs, hooks) out of the running
- * portal. Prints one JSON line: { ok, applied, tables, migrations } or { ok: false, error }.
+ * portal. Prints one JSON line: { ok, applied, tables, migrations } or
+ * { ok: false, error, migration (the failing one), code (SCHEMA_NEWER | MIGRATION_CHANGED) }.
  *
  *   node platform/packages/prepare.mjs <id> <version> [--migrate]
  */
@@ -28,13 +29,14 @@ try {
   const migrations = migrationsOf(dir, module);
   let result = { applied: [], tables: [] };
   if (mode === '--migrate') {
-    if (migrations.length) result = await runMigrations({ moduleId: id, version, migrations, transaction: withTransaction });
+    // strict: a version older than the database, or an edited applied migration, is refused.
+    if (migrations.length) result = await runMigrations({ moduleId: id, version, migrations, transaction: withTransaction, strict: true });
     else if (typeof module.schema === 'function') await module.schema();
   }
   await closePool();
   out({ ok: true, ...result, migrations: migrations.map((item) => item.id), exports: Object.keys(module) });
   process.exit(0);
 } catch (err) {
-  out({ ok: false, error: err.message, migration: err.migration || null });
+  out({ ok: false, error: err.message, migration: err.migration || null, code: ['SCHEMA_NEWER', 'MIGRATION_CHANGED'].includes(err.code) ? err.code : null });
   process.exit(1);
 }

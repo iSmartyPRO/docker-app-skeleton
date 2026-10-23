@@ -15,7 +15,7 @@
  * @portal/sdk/core/<path>, which the loader maps to the core file itself.
  */
 
-export const SDK_VERSION = '1.0.0';
+export { SDK_VERSION } from './version.js';
 
 // ── Database ────────────────────────────────────────────────────────────────
 export { query, withTransaction, getPool } from '../../config/database.js';

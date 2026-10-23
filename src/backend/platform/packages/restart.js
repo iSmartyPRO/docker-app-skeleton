@@ -14,6 +14,13 @@ import { modulesDir } from './paths.js';
  *
  * BOOT_ID changes with every start: the restart screen polls
  * GET /api/modules/installed until it sees a new one.
+ *
+ * A restart asked for while the app is still starting (a rollback during the
+ * module boot) waits until server.js has installed its SIGTERM handler
+ * (restartReady()): before that, SIGTERM would kill node with 143 and start.sh
+ * would end the container instead of restarting the app. If the app never
+ * gets there (the HTTP server is not started yet after STARTUP_WAIT_MS), it
+ * exits with 75 directly: nothing is being served, so there is nothing to drain.
  */
 
 export const RESTART_EXIT_CODE = 75;
@@ -21,6 +28,9 @@ export const BOOT_ID = `${Date.now().toString(36)}-${randomBytes(4).toString('he
 
 let handler = null;
 let pending = null;
+let ready = false;
+let deferred = false;
+const STARTUP_WAIT_MS = 30_000;
 
 /** Tests replace the restart with their own function (null restores the default). */
 export function setRestartHandler(fn) {
@@ -29,7 +39,29 @@ export function setRestartHandler(fn) {
 
 export const restartPending = () => pending;
 
+/** server.js: the SIGTERM handler is installed — a restart asked for before now runs. */
+export function restartReady() {
+  ready = true;
+  if (deferred) {
+    deferred = false;
+    defaultRestart();
+  }
+}
+
+function exitForRestart() {
+  console.log('Restarting before the HTTP server started: exit 75');
+  process.exit(RESTART_EXIT_CODE);
+}
+
 function defaultRestart() {
+  if (!ready) {
+    if (deferred) return;
+    deferred = true;
+    setTimeout(() => {
+      if (deferred && !ready) exitForRestart();
+    }, STARTUP_WAIT_MS).unref?.();
+    return;
+  }
   try {
     mkdirSync(modulesDir(), { recursive: true });
     writeFileSync(join(modulesDir(), '.restart-requested'), `${new Date().toISOString()} ${pending?.reason || ''}\n`);
@@ -63,7 +95,11 @@ export function requestRestart(reason = 'modules changed', { delayMs = 600 } = {
   return pending;
 }
 
+/** Tests: { pending, ready, deferred }. */
+export const restartState = () => ({ pending, ready, deferred });
+
 /** Tests: forget a requested restart. */
 export function resetRestart() {
   pending = null;
+  deferred = false;
 }

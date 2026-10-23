@@ -1,5 +1,6 @@
 import { ID_PATTERN } from './paths.js';
 import { isVersion } from './version.js';
+import { tablePatternProblem } from './tableOwnership.js';
 
 /*
  * manifest.json of a package (spec §4, docs/module-packages.md «manifest.json»):
@@ -11,7 +12,8 @@ import { isVersion } from './version.js';
  * plus optional fields the portal uses:
  *   description {..}, changelog [{ version, date, changes {en:[..], ru:[..]} }],
  *   docs { user, guide }, nameForms { ru: { ins } } (declined name for messages),
- *   settings { defaultEnabled, defaults {..}, public [..] }, tables ["mp_units", "mp_%"],
+ *   settings { defaultEnabled, defaults {..}, public [..] }, tables ["hello_items", "hello_%"]
+ *   (only the module's own tables, tableOwnership.js),
  *   server { entry }, web { entry, css [..], icon, permission [..], page, settings (has a Settings screen) },
  *   locales { <lang>: [<namespace>, …] }, builtAt, sdk (SDK version it was built against).
  *
@@ -88,7 +90,14 @@ export function normalizeManifest(raw, { categories = null, integrations = null 
   }
 
   const tables = Array.isArray(raw.tables) ? raw.tables : [];
-  for (const table of tables) if (typeof table !== 'string' || !TABLE.test(table)) problems.push(`table "${table}" is not a valid table name or prefix pattern`);
+  for (const table of tables) {
+    if (typeof table !== 'string' || !TABLE.test(table)) problems.push(`table "${table}" is not a valid table name or prefix pattern`);
+    else if (typeof id === 'string' && ID_PATTERN.test(id)) {
+      // Only the module's own tables: "<id>_…" (or its legacy prefix), never the core's or another module's.
+      const problem = tablePatternProblem(id, table);
+      if (problem) problems.push(problem);
+    }
+  }
 
   let changelog = Array.isArray(raw.changelog) ? raw.changelog.filter((item) => isObject(item) && isVersion(item.version)) : [];
   if (!changelog.length || changelog[0].version !== raw.version) changelog = [{ version: raw.version, date: raw.builtAt ? String(raw.builtAt).slice(0, 10) : undefined, changes: { en: [], ru: [] } }, ...changelog];

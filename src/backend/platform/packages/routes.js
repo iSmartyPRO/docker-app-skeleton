@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { APP_VERSION } from '../../config/version.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { optionalAuth, requireAuth } from '../../middleware/auth.js';
 import { hasPermission } from '../../services/permissions.js';
 import { PACKAGE_LIMITS, PackageError } from './archive.js';
 import { backupNow, installStaged, purgeModuleData, stagePackage, uninstallPackage } from './installer.js';
@@ -14,7 +14,7 @@ import { BOOT_ID, restartPending } from './restart.js';
 /*
  * HTTP side of module packages (mounted under /api by modules/index.js):
  *
- *   GET    /modules/installed                       switched-on packages for the browser shell (public)
+ *   GET    /modules/installed                       packages for the browser shell (signed in; anonymous: bootId only)
  *   GET    /admin/modules/packages                  rows of installed_modules + backups (settings admins)
  *   POST   /admin/modules/packages/upload           multipart `file` → { token, preview, problems }   (superadmin)
  *   POST   /admin/modules/packages/install          { token } → install / update, then restart       (superadmin)
@@ -62,9 +62,11 @@ const who = (req) => req.user?.username || req.userRow?.username || null;
 export function packageRoutes() {
   const router = Router();
 
-  router.get('/modules/installed', wrap(async (req, res) => {
+  // Anonymous visitors (the sign-in page, public links) get the boot id only: which modules run is not public.
+  router.get('/modules/installed', optionalAuth, wrap(async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    res.json({ success: true, ...(await shellPackages()), restarting: Boolean(restartPending()) });
+    const signedIn = Boolean(req.userRow && req.userRow.is_active !== false && req.userRow.is_blocked !== true);
+    res.json({ success: true, ...(await shellPackages({ signedIn })), restarting: Boolean(restartPending()) });
   }));
 
   const admin = Router();
@@ -73,6 +75,7 @@ export function packageRoutes() {
     const packages = await packageStates();
     res.json({
       success: true,
+      restartPending: Boolean(restartPending()),
       packages: packages.map((item) => (item.source === 'package' ? { ...item, backups: listBackups(item.id).slice(0, 5).map(({ file, format, createdAt, reason, bytes, version }) => ({ file: file.split('/').pop(), format, createdAt, reason, bytes, version })) } : item)),
       canManage: isSuperadmin(req),
       devMode: devMode(),

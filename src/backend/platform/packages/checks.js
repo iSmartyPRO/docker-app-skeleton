@@ -5,7 +5,11 @@ import { compare, major, satisfies, short } from './version.js';
  * Russian and English. Pure functions: the installer passes what is
  * installed now.
  *
- *   installed: Map(id → { id, version, name {ru,en}, requires [{ id, version }], source: 'bundled'|'package', nameForms? })
+ *   installed: Map(id → { id, version, name {ru,en}, requires [{ id, version }], source: 'bundled'|'package', nameForms?, removed? })
+ *
+ * `removed`: a package whose code was removed but whose data (tables, applied
+ * migrations) is kept — it does not count as installed, but a file older than
+ * the version that left that data behind is still a downgrade.
  *
  * Every problem is { code, params, message: { ru, en } }.
  */
@@ -57,10 +61,22 @@ export function checkCore(need, have) {
   return null;
 }
 
+/** SDK the package was built against (manifest `sdk`): same first number, not newer than the core's. */
+export function checkSdk(need, have) {
+  if (!need) return null;
+  if (major(have) !== major(need)) return problem('SDK_MAJOR', { need, have }, `Модуль собран для SDK ${major(need)}.x, ядро предоставляет SDK ${have} — нужна версия модуля для этого ядра`, `The module was built for SDK ${major(need)}.x, this core provides SDK ${have} — a version of the module for this core is needed`);
+  if (compare(have, need) < 0) return problem('SDK_TOO_OLD', { need, have }, `Модуль собран для SDK ${need}, ядро предоставляет ${have} — обновите ядро`, `The module was built for SDK ${need}, this core provides ${have} — update the core`);
+  return null;
+}
+
+/** Can a package with this manifest run on this core? The first problem (core version, then SDK), or null. */
+export const compatibilityProblem = (manifest, { coreVersion, sdkVersion }) => checkCore(manifest.core, coreVersion) || (sdkVersion ? checkSdk(manifest.sdk, sdkVersion) : null);
+
 function checkRequirement(link, installed) {
   if (!link.id) return null; // integrations are switched on in Settings → Integrations (modules/dependencies.js)
-  const current = installed.get(link.id);
-  const label = current || link;
+  const found = installed.get(link.id);
+  const current = found && !found.removed ? found : null;
+  const label = found || link;
   if (!current) {
     return link.version
       ? problem('REQUIRES_MISSING', { id: link.id, need: link.version }, `Нужен модуль „${ru(label, link.id)}“ версии ${link.version} или новее — он не установлен`, `Module “${en(label, link.id)}” version ${link.version} or newer is required — it is not installed`)
@@ -78,7 +94,7 @@ function checkRequirement(link, installed) {
 export function dependentsOf(id, installed) {
   const out = [];
   for (const entry of installed.values()) {
-    if (entry.id === id) continue;
+    if (entry.id === id || entry.removed) continue;
     const link = (entry.requires || []).find((item) => item.id === id);
     if (link) out.push({ entry, link });
   }
@@ -89,12 +105,20 @@ export function dependentsOf(id, installed) {
  * Everything that stops installing or updating `manifest`. Returns
  * { action: 'install'|'update', current, problems: [...] }.
  */
-export function checkInstall(manifest, { installed, coreVersion }) {
+export function checkInstall(manifest, { installed, coreVersion, sdkVersion = null }) {
   const problems = [];
   const id = manifest.id;
-  const current = installed.get(id) || null;
+  const known = installed.get(id) || null;
+  const removed = known?.removed ? known : null;
+  const current = removed ? null : known;
   const core = checkCore(manifest.core, coreVersion);
   if (core) problems.push(core);
+  const sdk = sdkVersion ? checkSdk(manifest.sdk, sdkVersion) : null;
+  if (sdk) problems.push(sdk);
+  // Removed, data kept: its tables are at that version's schema, so an older file would run on a newer schema.
+  if (removed && compare(manifest.version, removed.version) < 0) {
+    problems.push(problem('DOWNGRADE', { have: removed.version, file: manifest.version, removed: true }, `Была установлена ${removed.version} (её данные сохранены), в файле ${manifest.version} — понижение запрещено`, `Version ${removed.version} was installed (its data is kept), the file has ${manifest.version} — downgrading is not allowed`));
+  }
   if (current?.source === 'bundled') {
     problems.push(problem('BUILTIN', { id }, `Модуль „${ru(current, id)}“ встроен в эту версию портала — его нельзя установить из файла`, `“${en(current, id)}” is built into this portal version and cannot be installed from a file`));
   } else if (current) {
@@ -120,13 +144,13 @@ export function checkInstall(manifest, { installed, coreVersion }) {
       );
     }
   }
-  return { action: current && current.source !== 'bundled' ? 'update' : 'install', current, problems };
+  return { action: current && current.source !== 'bundled' ? 'update' : 'install', current, removed, problems };
 }
 
 /** What stops removing `id`: other installed modules that require it. */
 export function checkUninstall(id, { installed }) {
   const current = installed.get(id);
-  if (!current) return [problem('NOT_INSTALLED', { id }, 'Модуль не установлен', 'The module is not installed')];
+  if (!current || current.removed) return [problem('NOT_INSTALLED', { id }, 'Модуль не установлен', 'The module is not installed')];
   if (current.source === 'bundled') return [problem('BUILTIN_REMOVE', { id }, `Модуль „${ru(current, id)}“ встроен в портал — его можно только выключить`, `“${en(current, id)}” is built into the portal — it can only be switched off`)];
   const dependents = dependentsOf(id, installed).map(({ entry }) => entry);
   if (!dependents.length) return [];

@@ -109,3 +109,37 @@ export function packageCatalogEntries(builtinIds) {
 export function packageManifestEntries(builtinIds) {
   return Object.fromEntries(activePackages(builtinIds).map((pkg) => [pkg.id, platformManifestEntry(pkg.manifest)]));
 }
+
+/*
+ * Boot attempt marker: $MODULES_DIR/<id>/.boot-attempt (JSON { version, status, bootId, at, reason? }).
+ * Written before a package's code is imported and removed once it loaded (for
+ * the first boot after an update: once it ran for a while, or at a graceful
+ * shutdown). Found at the next boot it means that boot never finished with the
+ * package (node crashed or hung in its import, migrations or register): the
+ * loader rolls an update back, or skips the package, before importing anything
+ * (loader.js). status: loading | timeout | blocked.
+ */
+const markerFile = (id) => join(moduleRoot(id), '.boot-attempt');
+
+export function readBootMarker(id) {
+  const file = markerFile(id);
+  if (!existsSync(file)) return null;
+  try {
+    const value = JSON.parse(readFileSync(file, 'utf8'));
+    return value && typeof value === 'object' && typeof value.version === 'string' ? value : { version: '', status: 'loading' };
+  } catch {
+    return { version: '', status: 'loading' };
+  }
+}
+
+export function writeBootMarker(id, value) {
+  if (!existsSync(moduleRoot(id))) return;
+  const file = markerFile(id);
+  const temp = `${file}.tmp`;
+  writeFileSync(temp, `${JSON.stringify({ ...value, at: new Date().toISOString() })}\n`);
+  renameSync(temp, file);
+}
+
+export function clearBootMarker(id) {
+  rmSync(markerFile(id), { force: true });
+}

@@ -69,33 +69,71 @@ async function upOf(migration) {
   return up;
 }
 
+// Tables whose catalog row this transaction wrote: created (or altered) by it. A table another
+// connection committed meanwhile has a different xmin, so it is never taken for the module's.
+const XACT_TABLES = `SELECT c.relname FROM pg_class c
+  WHERE c.relnamespace = current_schema()::regnamespace AND c.relkind IN ('r', 'p')
+    AND c.xmin::text = (pg_current_xact_id()::text::bigint % 4294967296)::text`;
 const tablesIn = async (client) => new Set((await client.query(`SELECT tablename FROM pg_tables WHERE schemaname = current_schema()`)).rows.map((row) => row.tablename));
+const tablesOfThisTransaction = async (client) => (await client.query(XACT_TABLES)).rows.map((row) => row.relname);
+
+const migrationError = (code, message, extra = {}) => Object.assign(new Error(message), { code, ...extra });
+
+/**
+ * Applied migrations of the module that this set of migrations contradicts:
+ * ones it does not have (the database is newer than this version: SCHEMA_NEWER)
+ * and SQL migrations whose text changed since they ran (MIGRATION_CHANGED).
+ * JS migrations are bundled by the build, so their text may change between
+ * builds without a change of meaning: their checksum is recorded, not compared.
+ */
+export function migrationConflicts(moduleId, migrations, applied) {
+  const known = new Set(migrations.map((item) => item.id));
+  const newer = [...applied.keys()].filter((id) => !known.has(id)).sort();
+  if (newer.length) {
+    return migrationError('SCHEMA_NEWER', `the database of ${moduleId} already has migrations ${newer.join(', ')} that this version does not have (it is older than the database)`, { migrations: newer });
+  }
+  for (const migration of migrations) {
+    const was = applied.get(migration.id);
+    if (migration.sql != null && was && migration.checksum && was !== migration.checksum) {
+      return migrationError('MIGRATION_CHANGED', `migration ${moduleId}/${migration.id} was changed after it ran (an applied migration must never be edited)`, { migration: migration.id });
+    }
+  }
+  return null;
+}
 
 /**
  * Applies the pending migrations of `moduleId`. `transaction(fn)` runs fn(client)
  * in a transaction (config/database.js withTransaction). Returns { applied: [ids], tables: [names] }.
+ * `strict` (install / update): a version older than the database, or an applied
+ * SQL migration whose text changed, is refused (migrationConflicts); at boot it is
+ * only reported (a rollback deliberately runs the previous code).
+ * A migration that cannot be loaded or fails throws with err.migration set (MIGRATION_FAILED).
  */
-export async function runMigrations({ moduleId, version, migrations, transaction }) {
+export async function runMigrations({ moduleId, version, migrations, transaction, strict = false }) {
   if (!migrations.length) return { applied: [], tables: [] };
   return transaction(async (client) => {
     await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`module-migrations:${moduleId}`]);
-    const done = new Set((await client.query(`SELECT migration_id FROM module_migrations WHERE module_id = $1`, [moduleId])).rows.map((row) => row.migration_id));
+    const done = new Map((await client.query(`SELECT migration_id, checksum FROM module_migrations WHERE module_id = $1`, [moduleId])).rows.map((row) => [row.migration_id, row.checksum]));
+    const conflict = migrationConflicts(moduleId, migrations, done);
+    if (conflict && strict) throw conflict;
+    if (conflict) console.warn(`Module ${moduleId}: ${conflict.message}`);
+    if (migrations.every((migration) => done.has(migration.id))) return { applied: [], tables: [] };
+    // Tables that existed when the transaction began (an ALTER makes them «written by» it too).
+    const existing = await tablesIn(client);
     const applied = [];
     const created = [];
     for (const migration of migrations) {
       if (done.has(migration.id)) continue;
-      const before = await tablesIn(client);
-      const up = await upOf(migration);
       try {
+        const up = await upOf(migration);
         await up({ query: (text, params) => client.query(text, params), client, moduleId, version });
       } catch (err) {
         err.message = `migration ${moduleId}/${migration.id} failed: ${err.message}`;
         err.migration = migration.id;
         throw err;
       }
-      const after = await tablesIn(client);
-      for (const table of after) {
-        if (before.has(table)) continue;
+      for (const table of await tablesOfThisTransaction(client)) {
+        if (existing.has(table) || created.includes(table)) continue;
         created.push(table);
         await client.query(`INSERT INTO module_tables (module_id, table_name, migration_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [moduleId, table, migration.id]);
       }

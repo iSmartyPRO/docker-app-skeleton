@@ -276,6 +276,52 @@ export function PackageTags({ pkg }) {
   );
 }
 
+/** Above the module cards: packages this core cannot run (they need an update). */
+export function PackageWarnings({ packages, coreVersion }) {
+  const { t, locale } = useLocale();
+  const behind = (packages || []).filter((item) => item.source === 'package' && item.incompatible);
+  if (!behind.length) return null;
+  return (
+    <Alert
+      type="warning"
+      showIcon
+      className="pf-package-alert"
+      message={t('packages.needUpdate.title', { core: coreVersion || '' })}
+      description={
+        <ul className="pf-package-problems">
+          {behind.map((item) => (
+            <li key={item.id}>
+              <strong>{pickText(item.name, locale) || item.id}</strong> {item.version}: {pickText(item.incompatible.message, locale) || item.incompatible.message?.en}
+            </li>
+          ))}
+        </ul>
+      }
+    />
+  );
+}
+
+/** The outcome of the last automatic rollback of a package (kept until the next install). */
+function RollbackNote({ rollback }) {
+  const { t, locale } = useLocale();
+  if (!rollback) return null;
+  const at = rollback.at ? new Date(rollback.at).toLocaleString(locale) : '';
+  return (
+    <Alert
+      type={rollback.ok ? 'warning' : 'error'}
+      showIcon
+      className="pf-package-error"
+      message={t(rollback.ok ? 'packages.rollback.title' : 'packages.rollback.titleFailed', { from: rollback.from, to: rollback.to, at })}
+      description={
+        <>
+          <div>{t('packages.rollback.reason', { reason: rollback.reason || '' })}</div>
+          <div>{t('packages.rollback.tables', { tables: rollback.tables || '' })}</div>
+          {!rollback.ok && <div>{t('packages.rollback.restoreByHand', { to: rollback.to })}</div>}
+        </>
+      }
+    />
+  );
+}
+
 /** «Обновить», «Резервная копия», «Удалить» of an installed package. */
 export function PackageActions({ module, pkg, canManage, onUpdate, onRestart, name }) {
   const { t, locale } = useLocale();
@@ -312,7 +358,10 @@ export function PackageActions({ module, pkg, canManage, onUpdate, onRestart, na
 
   return (
     <>
-      {pkg.state === 'failed' && pkg.error && <Alert type="error" showIcon className="pf-package-error" message={pkg.error} />}
+      {pkg.state === 'failed' && (pkg.incompatible || pkg.error) && (
+        <Alert type="error" showIcon className="pf-package-error" message={pkg.incompatible ? pickText(pkg.incompatible.message, locale) || pkg.incompatible.message?.en : pkg.error} description={pkg.blocked ? t('packages.blocked') : undefined} />
+      )}
+      <RollbackNote rollback={pkg.lastRollback} />
       <button type="button" className="pf-action" onClick={onUpdate}>
         <SyncOutlined /> {t('packages.update')}
       </button>

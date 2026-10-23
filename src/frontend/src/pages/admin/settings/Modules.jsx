@@ -14,7 +14,7 @@ import { CATEGORY_ICONS, hasAdminDocs, moduleUi, useModulesCatalog, useModuleTou
 import { linkName, moduleName, pickText, useModuleSwitch } from '../../../modules/platformUi';
 import SettingsPageHeader from './SettingsPageHeader';
 import DemoDrawer from './DemoDrawer';
-import { InstallDialog, PackageActions, PackageTags, RemovedPackages, RestartOverlay, usePackages } from './ModulePackages';
+import { InstallDialog, PackageActions, PackageTags, PackageWarnings, RemovedPackages, RestartOverlay, usePackages } from './ModulePackages';
 import './platform.css';
 
 const MAX_LINKS = 4;
@@ -263,6 +263,7 @@ export default function ModulesSettings() {
               </section>
             )}
 
+            {!query && <PackageWarnings packages={packages.data?.packages} coreVersion={packages.data?.coreVersion} />}
             {categories.map((group) => (
               <section key={group.id} className="pf-group">
                 <h3 className="pf-group__title">

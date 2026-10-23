@@ -14,11 +14,13 @@ import { moduleRoot, versionDir } from './paths.js';
  * «Файл повреждён или выпущен не нами» (the technical reason goes to the log).
  */
 
+// A package is held in memory once while it is checked (the upload plus its
+// inflated files), so the caps are modest: Masterplan is 0.6 MB zipped, 2.6 MB unpacked.
 export const PACKAGE_LIMITS = Object.freeze({
-  maxUploadBytes: 100 * 1024 * 1024,
+  maxUploadBytes: 50 * 1024 * 1024,
   maxFiles: 3000,
-  maxEntryBytes: 50 * 1024 * 1024,
-  maxTotalBytes: 300 * 1024 * 1024,
+  maxEntryBytes: 32 * 1024 * 1024,
+  maxTotalBytes: 128 * 1024 * 1024,
 });
 
 const TOP_LEVEL = new Set(['manifest.json', SIGNATURE_FILE, 'README.md', 'CHANGELOG.md', 'LICENSE']);
@@ -80,12 +82,14 @@ export function openPackage(buffer, { allowUnsigned = false, trustedKeys, catego
   return { manifest, files, signed: signature.signed, keyId: signature.keyId || null, checksum: createHash('sha256').update(buffer).digest('hex') };
 }
 
-/** Writes the files of a package into $MODULES_DIR/<id>/<version> (atomically: a temporary folder renamed into place). */
-export function unpackPackage({ manifest, files }) {
-  const root = moduleRoot(manifest.id);
-  const target = versionDir(manifest.id, manifest.version);
-  mkdirSync(root, { recursive: true });
-  const temp = resolve(root, `.${manifest.version}.tmp-${randomBytes(4).toString('hex')}`);
+/**
+ * Writes files [{ name, data }] into the folder `target` atomically: a
+ * temporary sibling folder renamed into place (a folder already there is replaced).
+ */
+export function writePackageFiles(files, target) {
+  const parent = dirname(target);
+  mkdirSync(parent, { recursive: true });
+  const temp = resolve(parent, `.${target.split(sep).pop()}.tmp-${randomBytes(4).toString('hex')}`);
   try {
     for (const file of files) {
       const path = resolve(temp, file.name);
@@ -100,4 +104,10 @@ export function unpackPackage({ manifest, files }) {
     throw err;
   }
   return target;
+}
+
+/** Writes the files of a package into $MODULES_DIR/<id>/<version>. */
+export function unpackPackage({ manifest, files }) {
+  mkdirSync(moduleRoot(manifest.id), { recursive: true });
+  return writePackageFiles(files, versionDir(manifest.id, manifest.version));
 }

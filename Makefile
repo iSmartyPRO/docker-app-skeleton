@@ -11,7 +11,7 @@
 .PHONY: db-setup db-create db-drop user-create user-drop
 .PHONY: psql sql dbs users
 .PHONY: install build-local test seed-demo clean clean-image
-.PHONY: module module-keygen modules-verify
+.PHONY: module module-keygen modules-verify check-core-upgrade
 
 # ── Configuration ───────────────────────────────────────────────────────────
 COMPOSE      ?= docker compose
@@ -185,6 +185,8 @@ backup: ## Dump the app database to $(BACKUP_DIR)/<db>-<timestamp>.dump (skipped
 # the deploy with the release unpublished — see docs/operations.md, "Failed deploy".
 deploy: ## Release locally (if anything changed) → backup (required; BACKUP=skip to skip) → tag previous image → rebuild → wait until healthy → push branch and tag
 	@node "$(PROJECT_ROOT)scripts/release.mjs" $(BUMP) --no-push
+	@# Installed module packages must fit the new core (MODULES_CHECK=skip deploys anyway; they are marked «needs an update»).
+	@[ "$(MODULES_CHECK)" = "skip" ] || $(MAKE) --no-print-directory check-core-upgrade
 	@$(MAKE) --no-print-directory backup BACKUP_REQUIRED=1
 	@docker image inspect $(APP_IMAGE) >/dev/null 2>&1 && docker tag $(APP_IMAGE) $(APP_IMAGE):previous && echo "Tagged $(APP_IMAGE):previous" || true
 	@$(MAKE) --no-print-directory rebuild
@@ -441,6 +443,9 @@ module: ## Build a signed module package into dist/modules: make module ID=maste
 
 module-keygen: ## Create the module signing key (outside the repo, once) and trust its public key (platform/trusted-keys.json)
 	@node "$(PROJECT_ROOT)scripts/build-module.mjs" keygen --key "$(MODULE_SIGNING_KEY_FILE)"
+
+check-core-upgrade: ## Before a core update: can the installed module packages (./data/modules) run on this checkout's core? [CORE=x.y.z]
+	@node "$(PROJECT_ROOT)scripts/check-core-upgrade.mjs" --modules-dir "$(PROJECT_ROOT)data/modules" $(if $(CORE),--core $(CORE))
 
 modules-verify: ## Check a module package's signature and manifest: make modules-verify FILE=dist/modules/masterplan-1.2.0.zip
 	@test -n "$(FILE)" || { echo "Usage: make modules-verify FILE=<package.zip>"; exit 1; }

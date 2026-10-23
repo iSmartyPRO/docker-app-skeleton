@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { APP_VERSION } from '../../config/version.js';
 import { portalIdentity, signWithPortalKey } from '../identity.js';
 import { packageStates } from './loader.js';
-import { SDK_VERSION } from '../sdk/server.js';
+import { SDK_VERSION } from '../sdk/version.js';
 
 /*
  * «Which modules and versions are installed» (spec §6 stage 6). The store is a
