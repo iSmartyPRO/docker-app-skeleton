@@ -1,5 +1,5 @@
 {
-  "comment": "Package kit hints for Remote access (docs/package-testing.md «Module kit file»). No demo data: the seed makes a folder, two computers, a gateway, an application, a shared credential and one journal entry through the module's own API. Every address is 127.0.0.1:9 (nothing listens there): guacd is not configured (guacdHost empty), so the session the seed starts is written to the journal and answered GUACD_OFF without any connection, then ended — no real host, guacd or VNC agent is contacted. The links are the WebSocket tunnels the package attaches to the HTTP server (ctx.onHttpServer), probed at the HTTP level with a forged token only. `enhances: directory` (AD import) has no API link to probe.",
+  "comment": "Package kit hints for Remote access (docs/package-testing.md «Module kit file»). No demo data: the seed makes a folder, two computers, a gateway, an application, a shared credential and one journal entry through the module's own API. Every address is 127.0.0.1 on ports 9–12 (nothing listens there; a computer's address + port is unique): guacd is not configured (guacdHost empty), so the session the seed starts is written to the journal and answered GUACD_OFF without any connection, then ended — no real host, guacd or VNC agent is contacted. The links are the WebSocket tunnels the package attaches to the HTTP server (ctx.onHttpServer), probed at the HTTP level with a forged token only. `enhances: directory` (AD import) has no API link to probe.",
   "enableAlso": [],
   "seed": [],
   "seedRequests": [
@@ -46,7 +46,7 @@
       "body": {
         "name": "kit-srv-01",
         "address": "127.0.0.1",
-        "port": 9,
+        "port": 10,
         "protocol": "vnc",
         "kind": "server"
       }
@@ -56,7 +56,7 @@
       "body": {
         "name": "Kit gateway",
         "host": "127.0.0.1",
-        "port": 9,
+        "port": 12,
         "domain": "KIT"
       },
       "save": "gateway"
@@ -67,7 +67,7 @@
         "name": "Kit app",
         "alias": "||kitapp",
         "address": "127.0.0.1",
-        "port": 9,
+        "port": 11,
         "gatewayId": "@gateway.gateway.id",
         "folderId": "@folder.folder.id"
       }
@@ -129,5 +129,6 @@
     "sessions": "the person's own sessions and the ones on their own computer (transparency: everyone sees who connected to them)"
   },
   "needsOtherScopes": [],
-  "skipApi": []
+  "skipApi": [],
+  "plainUserWhy": "The plain user (no remote.* right) opening /app/remote directly sees the module's own «no access» state: its bootstrap GET /api/app/remote answers 403 and the page handles it (the launcher does not list the module for them). The kit lists that API 403 as a warning."
 }

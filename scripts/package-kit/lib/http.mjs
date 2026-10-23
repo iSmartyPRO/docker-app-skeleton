@@ -111,6 +111,7 @@ export function expectOk(res, what) {
 export async function upgradeStatus(base, path, { timeoutMs = 10_000, headers = {} } = {}) {
   const { connect } = await import('node:net');
   const url = new URL(path, base);
+  // The key must be 16 bytes (RFC 6455; ws answers 400 to anything else).
   return new Promise((resolvePromise) => {
     const socket = connect(Number(url.port || 80), url.hostname);
     let data = '';
@@ -125,7 +126,7 @@ export async function upgradeStatus(base, path, { timeoutMs = 10_000, headers = 
     const timer = setTimeout(() => finish(-1), timeoutMs);
     socket.on('connect', () => {
       const extra = Object.entries(headers).map(([k, v]) => `${k}: ${v}\r\n`).join('');
-      socket.write(`GET ${url.pathname}${url.search} HTTP/1.1\r\nHost: ${url.host}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: ${Buffer.from('package-kit-probe').toString('base64')}\r\n${extra}\r\n`);
+      socket.write(`GET ${url.pathname}${url.search} HTTP/1.1\r\nHost: ${url.host}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: ${Buffer.from('package-kit-probe'.slice(0, 16)).toString('base64')}\r\n${extra}\r\n`);
     });
     socket.on('data', (chunk) => {
       data += chunk;
