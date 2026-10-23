@@ -1,4 +1,10 @@
 {
   "_comment": "Ed25519 public keys whose module packages this portal accepts (docs/module-packages.md). Added by `make module-keygen`; the private key stays outside the repository.",
-  "keys": []
+  "keys": [
+    {
+      "id": "c1952530428cc1fe",
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA9hN8UZQ+U4ThfpVWYFBPevGugOOXAvaQDt083Dt2mNg=\n-----END PUBLIC KEY-----\n",
+      "comment": "module signing key, 2026-10-23"
+    }
+  ]
 }
