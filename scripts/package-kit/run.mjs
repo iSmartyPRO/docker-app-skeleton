@@ -31,7 +31,7 @@ import {
   pageList, parseArgs, parseEnvText, routeMatcher, routePathsFromSource, tablePatterns,
 } from './lib/pure.mjs';
 import { baseEnv, freePort, run, sleep, stopAll, stop, ownPids } from './lib/proc.mjs';
-import { Client, expectOk } from './lib/http.mjs';
+import { Client, expectOk, upgradeStatus } from './lib/http.mjs';
 import { Backend } from './lib/backend.mjs';
 import { Db, allTables, filesDigest, appliedMigrations, moduleTableNames, packageRow, snapshot } from './lib/db.mjs';
 import { buildPackage, makeKeys, readPackage, tampered, untrusted, variant, verifyPackage } from './lib/package.mjs';
@@ -248,8 +248,41 @@ async function seedDemo(ctx, admin, phase) {
     const body = expectOk(res, `${phase}: demo data of ${module}`);
     results.push(`${module}: ${body.result?.already ? 'already' : Object.entries(body.result?.counts || {}).map(([k, v]) => `${k} ${v}`).join(', ') || 'seeded'}`);
   }
-  if (!known.has(id)) return warn(`the module has no demo data (${results.join('; ')}) — data checks cover what the migrations create`);
+  // Records made through the module's own API (kit file `seedRequests`), for modules without demo data.
+  const saved = {};
+  const requests = ctx.config.seedRequests || [];
+  for (const request of requests) {
+    const body = fillRefs(request.body ?? {}, saved);
+    const path = String(request.path).replace(/@([\w.]+)/g, (ref) => encodeURIComponent(String(fillRefs(ref, saved))));
+    const method = String(request.method || 'POST').toUpperCase();
+    const res = request.upload
+      ? await admin.upload(path, Buffer.from(request.upload.base64, 'base64'), request.upload.name, request.upload.type)
+      : await admin.request(method, path, { timeoutMs: 60_000, ...(['GET', 'DELETE'].includes(method) ? {} : { json: body }) });
+    const what = `${phase}: seed ${request.upload ? 'upload to' : method} ${path}`;
+    // `expectStatus`: a refusal the seed wants (the call is still made for its side effects, e.g. a journal entry).
+    if (request.expectStatus != null) {
+      if (res.status !== request.expectStatus) throw new Error(`${what}: HTTP ${res.status}, expected ${request.expectStatus} ${res.body?.code || ''}`);
+    } else {
+      const answer = expectOk(res, what);
+      if (request.save) saved[request.save] = answer;
+    }
+  }
+  if (requests.length) results.push(`${requests.length} records through the API`);
+  if (!known.has(id) && !requests.length) return warn(`the module has no demo data (${results.join('; ')}) — data checks cover what the migrations create`);
   return results.join('; ');
+}
+
+/** "@name.path.to.value" strings in a seed body → that value of an earlier saved answer. */
+function fillRefs(value, saved) {
+  if (typeof value === 'string' && value.startsWith('@')) {
+    const [name, ...path] = value.slice(1).split('.');
+    const found = path.reduce((v, k) => v?.[k], saved[name]);
+    if (found === undefined) throw new Error(`seed: ${value} has no value`);
+    return found;
+  }
+  if (Array.isArray(value)) return value.map((item) => fillRefs(item, saved));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, fillRefs(v, saved)]));
+  return value;
 }
 
 /** SQL-valued parameters of the module's kit file, read from the portal's database. */
@@ -390,8 +423,17 @@ async function linkProbes(ctx, phase, admin, which, label, database) {
     await ctx.report.step(phase, `link ${probe.name} (${label})`, async () => {
       const { url, missing } = fillPath(probe.path, params, null);
       if (missing.length) return { status: 'skip', note: `no value for :${missing.join(', :')}` };
-      const res = await admin.get(url, { timeoutMs: 25_000 });
       const expect = probe[which] || {};
+      if (probe.websocket) {
+        // A WebSocket upgrade (e.g. Remote's tunnels, served by the package's ctx.onHttpServer hook): only the status line.
+        const status = await upgradeStatus(admin.base, url, { timeoutMs: 25_000 });
+        if (status === -1) return fail(`${probe.path} upgrade → no answer within 25 s`);
+        if (status >= 500) return fail(`${probe.path} upgrade → ${status}`);
+        if (expect.status != null && status !== expect.status) return fail(`${probe.path} upgrade → ${status || 'connection closed'}, expected ${expect.status}`);
+        if (expect.not != null && status === expect.not) return fail(`${probe.path} upgrade → ${status}, expected anything else`);
+        return `upgrade → ${status || 'connection closed without an answer'}`;
+      }
+      const res = await admin.get(url, { timeoutMs: 25_000 });
       if (res.status >= 500 || res.timeout) return fail(`${probe.path} → ${res.timeout ? 'timeout' : res.status}`);
       if (expect.status && res.status !== expect.status) return fail(`${probe.path} → ${res.status}, expected ${expect.status} ${res.body?.code || ''}`);
       if (expect.maxStatus && res.status > expect.maxStatus) return fail(`${probe.path} → ${res.status}, expected ≤ ${expect.maxStatus}`);

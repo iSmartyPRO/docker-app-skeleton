@@ -1,0 +1,23 @@
+{
+  "comment": "Package kit hints for the robot assistant (docs/package-testing.md «Module kit file»). It has no page of its own (web.page false): it draws an overlay over every page and adds a section to Account → Appearance, so the kit opens those pages instead. No demo data: the seed saves module settings and the superadmin's personal preferences through the module's own API. No other module links to it.",
+  "enableAlso": [],
+  "seed": [],
+  "seedRequests": [
+    { "method": "PUT", "path": "/api/admin/settings", "body": { "modules": { "assistant": { "enabled": true, "settings": { "avatar": "orbi", "choice": "some", "allowed": ["orbi", "pixel", "nova"], "proactive": false } } } } },
+    { "method": "PUT", "path": "/api/app/assistant/prefs", "body": { "enabled": true, "avatar": "nova", "size": "L", "greeted": ["tasks", "chat"], "colors": { "nova": "#3366cc" } } }
+  ],
+  "pages": [
+    { "path": "/", "expectPrefix": "/" },
+    "/account/appearance",
+    "/app/tasks"
+  ],
+  "replacePages": true,
+  "openToUsers": [
+    "GET /api/app/assistant/prefs"
+  ],
+  "openToUsersWhy": {
+    "prefs": "the signed-in person's own robot settings (one row per person; the plain user gets their own defaults)"
+  },
+  "needsOtherScopes": [],
+  "skipApi": []
+}

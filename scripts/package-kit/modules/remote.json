@@ -1,0 +1,133 @@
+{
+  "comment": "Package kit hints for Remote access (docs/package-testing.md «Module kit file»). No demo data: the seed makes a folder, two computers, a gateway, an application, a shared credential and one journal entry through the module's own API. Every address is 127.0.0.1:9 (nothing listens there): guacd is not configured (guacdHost empty), so the session the seed starts is written to the journal and answered GUACD_OFF without any connection, then ended — no real host, guacd or VNC agent is contacted. The links are the WebSocket tunnels the package attaches to the HTTP server (ctx.onHttpServer), probed at the HTTP level with a forged token only. `enhances: directory` (AD import) has no API link to probe.",
+  "enableAlso": [],
+  "seed": [],
+  "seedRequests": [
+    {
+      "method": "PUT",
+      "path": "/api/admin/settings",
+      "body": {
+        "modules": {
+          "remote": {
+            "enabled": true,
+            "settings": {
+              "retentionDays": 14,
+              "requireConsentForControl": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "/api/app/remote/admin/folders",
+      "body": {
+        "name": "Kit office"
+      },
+      "save": "folder"
+    },
+    {
+      "path": "/api/app/remote/hosts",
+      "body": {
+        "name": "kit-ws-01",
+        "address": "127.0.0.1",
+        "port": 9,
+        "protocol": "rdp",
+        "kind": "workstation",
+        "folderId": "@folder.folder.id",
+        "credUsername": "kit",
+        "credDomain": "KIT",
+        "credPassword": "kit-secret-1",
+        "note": "package kit"
+      },
+      "save": "host"
+    },
+    {
+      "path": "/api/app/remote/hosts",
+      "body": {
+        "name": "kit-srv-01",
+        "address": "127.0.0.1",
+        "port": 9,
+        "protocol": "vnc",
+        "kind": "server"
+      }
+    },
+    {
+      "path": "/api/app/remote/admin/gateways",
+      "body": {
+        "name": "Kit gateway",
+        "host": "127.0.0.1",
+        "port": 9,
+        "domain": "KIT"
+      },
+      "save": "gateway"
+    },
+    {
+      "path": "/api/app/remote/admin/apps",
+      "body": {
+        "name": "Kit app",
+        "alias": "||kitapp",
+        "address": "127.0.0.1",
+        "port": 9,
+        "gatewayId": "@gateway.gateway.id",
+        "folderId": "@folder.folder.id"
+      }
+    },
+    {
+      "path": "/api/app/remote/credentials",
+      "body": {
+        "name": "Kit shared",
+        "scope": "shared",
+        "username": "kit",
+        "domain": "KIT",
+        "password": "kit-secret-2"
+      }
+    },
+    {
+      "path": "/api/app/remote/sessions",
+      "body": {
+        "hostId": "@host.host.id",
+        "mode": "assist"
+      },
+      "save": "session"
+    },
+    {
+      "path": "/api/app/remote/sessions/@session.session.id/end",
+      "body": {}
+    }
+  ],
+  "apiParams": {
+    "id": "SELECT id FROM remote_hosts ORDER BY id LIMIT 1"
+  },
+  "links": [
+    {
+      "name": "guacd tunnel answers its upgrades (forged token → 401)",
+      "path": "/api/app/remote/tunnel?token=kit-forged",
+      "websocket": true,
+      "present": {
+        "status": 401
+      },
+      "absent": {
+        "not": 401
+      }
+    },
+    {
+      "name": "Portal VNC tunnel answers its upgrades (101, closed on the forged token)",
+      "path": "/api/app/remote/pvnc?token=kit-forged",
+      "websocket": true,
+      "present": {
+        "status": 101
+      },
+      "absent": {
+        "not": 101
+      }
+    }
+  ],
+  "openToUsers": [
+    "GET /api/app/remote/sessions"
+  ],
+  "openToUsersWhy": {
+    "sessions": "the person's own sessions and the ones on their own computer (transparency: everyone sees who connected to them)"
+  },
+  "needsOtherScopes": [],
+  "skipApi": []
+}

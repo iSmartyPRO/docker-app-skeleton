@@ -79,9 +79,9 @@ export class Client {
   }
 
   /** Multipart upload of one file (field `file`). */
-  async upload(path, buffer, filename) {
+  async upload(path, buffer, filename, type = 'application/zip') {
     const form = new FormData();
-    form.append('file', new Blob([buffer], { type: 'application/zip' }), filename);
+    form.append('file', new Blob([buffer], { type }), filename);
     return this.request('POST', path, { form, timeoutMs: 180_000 });
   }
 
@@ -99,4 +99,38 @@ export function expectOk(res, what) {
   if (res.status >= 200 && res.status < 300 && res.body?.success !== false) return res.body;
   const detail = res.body ? `${res.body.code || ''} ${res.body.error || ''} ${JSON.stringify(res.body.problems || '').slice(0, 300)}` : res.text.slice(0, 300);
   throw new Error(`${what}: HTTP ${res.status}${res.timeout ? ' (timeout)' : ''} ${detail}`.trim());
+}
+
+/**
+ * A WebSocket upgrade request to `path` of `base` (the kit backend, plain HTTP): the status line of the answer
+ * (101 = upgraded, then the socket is closed at once), 0 when the server closed the connection without one.
+ * Never sends WebSocket frames: it only shows who answers the upgrade (e.g. a package's ctx.onHttpServer hook).
+ */
+export async function upgradeStatus(base, path, { timeoutMs = 10_000, headers = {} } = {}) {
+  const { connect } = await import('node:net');
+  const url = new URL(path, base);
+  return new Promise((resolvePromise) => {
+    const socket = connect(Number(url.port || 80), url.hostname);
+    let data = '';
+    let done = false;
+    const finish = (status) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      socket.destroy();
+      resolvePromise(status);
+    };
+    const timer = setTimeout(() => finish(-1), timeoutMs);
+    socket.on('connect', () => {
+      const extra = Object.entries(headers).map(([k, v]) => `${k}: ${v}\r\n`).join('');
+      socket.write(`GET ${url.pathname}${url.search} HTTP/1.1\r\nHost: ${url.host}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: ${Buffer.from('package-kit-probe').toString('base64')}\r\n${extra}\r\n`);
+    });
+    socket.on('data', (chunk) => {
+      data += chunk;
+      const m = /^HTTP\/1\.[01] (\d{3})/.exec(data);
+      if (m) finish(Number(m[1]));
+    });
+    socket.on('error', () => finish(0));
+    socket.on('close', () => finish(0));
+  });
 }

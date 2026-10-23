@@ -1,0 +1,90 @@
+{
+  "comment": "Package kit hints for QR codes (docs/package-testing.md «Module kit file»). QR is open to everyone signed in: each person sees their own codes (lists come back filtered, compared with the superadmin's), templates are shared. No other module links to QR; the probes below cover its public side (the redirect of a dynamic code), which printed codes depend on.",
+  "enableAlso": [],
+  "seed": [
+    "qr"
+  ],
+  "seedRequests": [
+    {
+      "path": "/api/app/qr/assets",
+      "upload": {
+        "name": "kit-logo.png",
+        "type": "image/png",
+        "base64": "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGOQizqBFTEMLQkAGBlQATpZBa0AAAAASUVORK5CYII="
+      },
+      "save": "logo"
+    },
+    {
+      "path": "/api/app/qr/codes",
+      "body": {
+        "name": "Kit code with a logo",
+        "type": "url",
+        "content": {
+          "url": "https://www.example.com/kit"
+        },
+        "dynamic": true,
+        "design": {
+          "logo": {
+            "source": "upload",
+            "file": "@logo.file"
+          }
+        }
+      },
+      "save": "code"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/settings",
+      "body": {
+        "modules": {
+          "qr": {
+            "enabled": true,
+            "settings": {
+              "maxCodes": 300,
+              "allowUploads": true
+            }
+          }
+        }
+      }
+    }
+  ],
+  "apiParams": {
+    "id": "SELECT id FROM qr_codes ORDER BY id LIMIT 1",
+    "slug": "SELECT slug FROM qr_codes WHERE dynamic AND slug IS NOT NULL ORDER BY id LIMIT 1",
+    "file": "SELECT design->'logo'->>'file' FROM qr_codes WHERE design->'logo'->>'file' IS NOT NULL ORDER BY id LIMIT 1"
+  },
+  "pageParams": {
+    "id": "SELECT id FROM qr_codes ORDER BY id LIMIT 1"
+  },
+  "links": [
+    {
+      "name": "printed dynamic code → its target (public /api/qr/go/:slug)",
+      "path": "/api/qr/go/:slug",
+      "present": {
+        "status": 302
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "uploaded logo (public /api/qr/assets/:file)",
+      "path": "/api/qr/assets/:file",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    }
+  ],
+  "openToUsers": [
+    "GET /api/app/qr"
+  ],
+  "openToUsersWhy": {
+    "": "bootstrap: the shared templates, the module settings and the person's own counters (codes inside are the person's own)"
+  },
+  "needsOtherScopes": [],
+  "skipApi": [],
+  "pageParamsWhy": "`:id` is a code id for /app/qr/:id and a template id for /app/qr/templates/:id (one name in both routes): the first code and the template with the same number (the ready-made templates are ids 1…8)"
+}

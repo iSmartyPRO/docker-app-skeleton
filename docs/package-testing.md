@@ -70,8 +70,9 @@ build when `src/frontend` changed since the last run.
 3. Uploads refused while dev mode is off: unsigned, tampered, untrusted.
 4. Install over HTTP: upload → card (`install`, signed) → install → restart → **installed, switched off** →
    switched on (with `enableAlso` of the kit file).
-5. The module's own demo data (`POST /api/admin/demo/<id>/seed`, after the `seed` list of the kit file); a module
-   without demo data is a warning — the data checks then cover what its migrations create.
+5. The module's own demo data (`POST /api/admin/demo/<id>/seed`, after the `seed` list of the kit file), then the
+   `seedRequests` of the kit file; a module with neither is a warning — the data checks then cover what its
+   migrations create.
 6. Two API tokens: one with `account: read` only, one with `<id>: read`.
 7. **Every GET route the package mounts**, read from its own router stack (`lib/introspect.mjs` imports the
    installed `server/index.js` as the loader does and walks `routes(ctx)`). The API reference
@@ -177,11 +178,12 @@ Package check masterplan (all) — PASS: 73 passed, 0 failed, 2 warnings, 0 skip
 |---|---|
 | `enableAlso` | built-in modules to switch on with it (the ones its links need) |
 | `seed` | demo data order (`["crm", "masterplan"]`: CRM deals first, Masterplan links its units to them) |
+| `seedRequests` | records made through the module's own API after the demo data, as the superadministrator (both phases; a module without demo data then needs no warning): `[{ method (POST), path, body, save, upload: { name, type, base64 }, expectStatus }]` — `save` keeps the answer, `"@name.key.path"` in a later body or path uses a value of it (`"@folder.folder.id"`) |
 | `apiParams` / `pageParams` | `{ name: "SELECT …" | value }` for `:name` in API routes / page routes |
 | `openToUsers` | `["GET /api/app/<id>/meta", …]` readable by everyone signed in (reference lists); give reasons next to it |
 | `needsOtherScopes` | routes that also need another area's token scope |
 | `skipApi` | routes the sweep must not call (`*` one segment, `**` the rest) |
-| `links` | `[{ name, path, present: { status, nonEmpty }, absent: { maxStatus, empty } }]` — probes of the links with other modules, called with both installed and with this module missing |
+| `links` | `[{ name, path, present: { status, nonEmpty }, absent: { maxStatus, empty } }]` — probes of the links with other modules (or of the module's public side), called with both installed and with this module missing. `websocket: true` sends a WebSocket upgrade instead (raw HTTP, no frames) and compares the status line: `{ status }` or `{ not }` (Remote's tunnels) |
 | `pages`, `replacePages` | extra pages (`"/app/crm"` or `{ path, expectPrefix }`); `replacePages: true` uses only these |
 | `ignoreBrowser` | regular expressions of browser messages to ignore |
 | `uploadFolders` | folders under `uploads/` that hold the module's files (default `[<id>]`) |
