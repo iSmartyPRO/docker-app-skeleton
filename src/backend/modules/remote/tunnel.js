@@ -1,6 +1,7 @@
-import { createCipheriv, createHash, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import GuacamoleLite from 'guacamole-lite';
 import { getSettings, parseSettings } from '../../services/settings.js';
+import { routeUpgrade } from './upgrade.js';
 
 /*
  * The WebSocket bridge between the browser and guacd (docs/specs/remote-access.ru.md).
@@ -36,6 +37,25 @@ export function buildToken(connection) {
   };
   return Buffer.from(JSON.stringify(data)).toString('base64');
 }
+
+/**
+ * Opens a token of buildToken (guacamole-lite's format) → its settings, or null when it is not one
+ * of ours. Checked before the upgrade: guacamole-lite itself fails on a forged token with an
+ * unhandled rejection instead of a refusal.
+ */
+export function openToken(token) {
+  try {
+    const data = JSON.parse(Buffer.from(String(token || ''), 'base64').toString('utf8'));
+    const decipher = createDecipheriv(CYPHER, tunnelKey(), Buffer.from(data.iv, 'base64'));
+    const text = decipher.update(Buffer.from(data.value, 'base64'), undefined, 'utf8') + decipher.final('utf8');
+    const settings = JSON.parse(text);
+    return settings?.connection?.type ? settings : null;
+  } catch {
+    return null;
+  }
+}
+
+const tokenOf = (req) => new URL(req.url || '/', 'http://localhost').searchParams.get('token');
 
 /** Builds the RDP/VNC/SSH settings guacd understands for a host + resolved credentials. */
 export function connectionFor(host, creds = {}, { width, height, dpi, app } = {}) {
@@ -147,9 +167,9 @@ export async function initRemoteTunnel(server) {
       /* settings not ready — use env/defaults */
     }
 
-    // eslint-disable-next-line no-new
-    new GuacamoleLite(
-      { server, path: TUNNEL_PATH },
+    const guac = new GuacamoleLite(
+      // noServer: upgrades of TUNNEL_PATH come through routeUpgrade (one listener for both tunnels, upgrade.js).
+      { server: undefined, noServer: true },
       { host, port },
       {
         crypt: { cypher: CYPHER, key: tunnelKey() },
@@ -158,6 +178,7 @@ export async function initRemoteTunnel(server) {
         allowedUnencryptedConnectionSettings: { rdp: ['width', 'height', 'dpi'], vnc: ['width', 'height', 'dpi'] },
       }
     );
+    routeUpgrade(server, TUNNEL_PATH, guac.webSocketServer, { accept: (req) => Boolean(openToken(tokenOf(req))) });
     console.log(`Remote tunnel ready on ${TUNNEL_PATH} → guacd ${host}:${port}`);
   } catch (error) {
     console.warn('Remote tunnel not started:', error.message);

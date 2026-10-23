@@ -1,4 +1,4 @@
-import { query } from '../../config/database.js';
+import { withTransaction } from '../../config/database.js';
 import { ensureAclTable } from '../shared/acl.js';
 
 /*
@@ -14,7 +14,15 @@ import { ensureAclTable } from '../shared/acl.js';
  *                     it lasted. Written for EVERY connection — transparency.
  */
 
-export async function ensureRemoteSchema() {
+/**
+ * Migration 001 (index.js `migrations`, docs/module-packages.md «Migrations»): the schema Remote access
+ * had while built into the core — CREATE … IF NOT EXISTS / ADD COLUMN IF NOT EXISTS and the one-time
+ * apps move, all idempotent — so on a portal that already has the remote_* tables it changes nothing
+ * (hosts, journal, credentials, gateways and the Portal VNC identity stay). Everything goes through
+ * `db` (the migration's transaction).
+ */
+export async function createRemoteSchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS remote_hosts (
       id SERIAL PRIMARY KEY,
@@ -40,7 +48,7 @@ export async function ensureRemoteSchema() {
   await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS cred_username VARCHAR(120)`);
   await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS cred_domain VARCHAR(120)`);
   await query(`ALTER TABLE remote_hosts ADD COLUMN IF NOT EXISTS cred_password TEXT`);
-  await ensureAclTable('remote_host_acl', 'remote_hosts');
+  await ensureAclTable('remote_host_acl', 'remote_hosts', db);
   await query(`
     CREATE TABLE IF NOT EXISTS remote_sessions (
       id SERIAL PRIMARY KEY,
@@ -190,7 +198,15 @@ export async function ensureRemoteSchema() {
     )
   `);
 
-  await migrateAppsToIndependent();
+  await migrateAppsToIndependent(db);
+}
+
+/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+export async function ensureRemoteSchema() {
+  await withTransaction(async (client) => {
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:remote'))`);
+    await createRemoteSchema({ query: (text, params) => client.query(text, params) });
+  });
 }
 
 /*
@@ -199,7 +215,8 @@ export async function ensureRemoteSchema() {
  * source into the app, and turn the host's RD Gateway into a named gateway the
  * app points at. Runs only for apps that have no own address yet.
  */
-async function migrateAppsToIndependent() {
+async function migrateAppsToIndependent(db) {
+  const query = (text, params) => db.query(text, params);
   const { rows } = await query(
     `SELECT a.id AS app_id, h.address, h.port, h.gateway_host, h.gateway_port, h.gateway_domain,
             h.cred_username, h.cred_domain, h.cred_password, h.default_cred, h.folder_id, h.name AS host_name

@@ -2,7 +2,7 @@ import net from 'net';
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { notify } from '../../services/notifications.js';
-import { seal, unseal } from '../../services/crypto.js';
+import { seal, unseal } from '../../services/secrets.js';
 import { contextFromRequest, httpError, intId } from '../shared/acl.js';
 import { buildToken, connectionFor, parseRdp, TUNNEL_PATH } from './tunnel.js';
 import { buildPvncToken, PVNC_PATH } from './pvncTunnel.js';

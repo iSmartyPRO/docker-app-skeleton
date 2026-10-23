@@ -1,5 +1,5 @@
 import { query } from '../../config/database.js';
-import { seal, unseal } from '../../services/crypto.js';
+import { seal, unseal } from '../../services/secrets.js';
 import { httpError } from '../shared/acl.js';
 import { requireAdmin } from './service.js';
 

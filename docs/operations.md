@@ -215,6 +215,10 @@ or «Пакеты на сервере», superadministrators only). Engineering 
 - **Masterplan is a package** from this core on: after deploying the core, install `masterplan-<version>.zip`
   at once (its data and settings stay in the database meanwhile) —
   [module-packages.md → upgrading a portal that had Masterplan built in](module-packages.md#upgrading-a-portal-that-had-masterplan-built-in).
+- **QR codes, the robot assistant and Remote access are packages** from the next core on (after 1.20.0): after deploying
+  that core, install `qr-1.1.0.zip`, `assistant-1.1.0.zip` and `remote-1.4.0.zip` at once — until then dynamic QR links
+  (`/q/<slug>`) answer 404, the robot is gone and remote sessions cannot start (data, settings and stored secrets stay) —
+  [module-packages.md → upgrading a portal that had QR codes, the assistant or Remote access built in](module-packages.md#upgrading-a-portal-that-had-qr-codes-the-assistant-or-remote-access-built-in).
 
 ## Updates from upstream skeleton
 

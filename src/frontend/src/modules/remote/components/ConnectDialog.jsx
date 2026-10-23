@@ -5,8 +5,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { remoteApi } from '../api';
 import { useRemote } from '../RemoteContext';
-import RemoteViewer from './RemoteViewer';
-import PvncViewer from './PvncViewer';
+import SessionViewer from './SessionViewer';
 import CredentialPicker, { defaultCredentialValue } from './CredentialPicker';
 
 /**
@@ -66,8 +65,7 @@ export default function ConnectDialog({ open, host, app, mode, onClose }) {
   };
 
   if (session?.tunnel === 'READY') {
-    const Viewer = session.viewer === 'pvnc' ? PvncViewer : RemoteViewer;
-    return <Viewer token={session.token} path={session.path} hostName={app ? `${app.name} · ${host.name}` : host.name} readOnly={session.readOnly} onClose={finish} onRetry={async () => { if (session.session?.id) await remoteApi.end(session.session.id).catch(() => {}); setSession(null); start(); }} />;
+    return <SessionViewer viewer={session.viewer} token={session.token} path={session.path} hostName={app ? `${app.name} · ${host.name}` : host.name} readOnly={session.readOnly} onClose={finish} onRetry={async () => { if (session.session?.id) await remoteApi.end(session.session.id).catch(() => {}); setSession(null); start(); }} />;
   }
 
   const title = app

@@ -3,8 +3,7 @@ import { App } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { remoteApi } from '../api';
-import RemoteViewer from './RemoteViewer';
-import PvncViewer from './PvncViewer';
+import SessionViewer from './SessionViewer';
 import ConnectDialog from './ConnectDialog';
 
 /**
@@ -69,9 +68,9 @@ export default function Launcher({ request, onClose }) {
     return <ConnectDialog open onClose={onClose} host={request.host} app={request.app} mode={mode} />;
   }
   if (session?.tunnel === 'READY') {
-    const Viewer = session.viewer === 'pvnc' ? PvncViewer : RemoteViewer;
     return (
-      <Viewer
+      <SessionViewer
+        viewer={session.viewer}
         token={session.token}
         path={session.path}
         hostName={session.hostName}

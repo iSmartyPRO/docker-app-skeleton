@@ -278,11 +278,6 @@ export const SETTINGS_GROUPS = [
         keywords: 'online resources links home page bookmarks icons онлайн ресурсы ссылки главная страница закладки иконки',
       },
       {
-        id: 'remote',
-        defaultIcon: 'remote',
-        keywords: 'remote access desktop rdp vnc guacamole assistance monitoring support удалённый доступ рабочий стол помощь наблюдение поддержка rdp vnc гуакамоле',
-      },
-      {
         id: 'drive',
         defaultIcon: 'server',
         keywords: 'drive file server smb share dfs network windows active directory сетевой диск файловый сервер шара папки access security groups ntfs permissions sg доступ к папкам группы безопасности права ntfs',

@@ -288,63 +288,6 @@ export const MODULE_MANIFEST = {
       ['Дерево OU внутри корня управления, пользователи, группы и компьютеры, действия с учётными записями от AD-учётки администратора, сброс пароля по LDAPS / StartTLS, журнал, демо-каталог.'], { ky: ['Башкаруу тамырынын ичиндеги OU дарагы, колдонуучулар, топтор жана компьютерлер, администратордун өз AD эсептик жазуусу аркылуу аракеттер, LDAPS / StartTLS аркылуу сырсөздү калыбына келтирүү, журнал, демо каталог.'], tr: ['Yönetilen kök içinde OU ağacı, kullanıcılar, gruplar ve bilgisayarlar, yöneticinin kendi AD hesabıyla hesap işlemleri, LDAPS / StartTLS üzerinden parola sıfırlama, günlük, demo dizini.'], zh: ['受管根节点下的 OU 树、用户、组和计算机，以管理员本人 AD 账户执行账户操作，通过 LDAPS / StartTLS 重置密码，日志，演示目录。'] }
     ),
   },
-  remote: {
-    name: { en: 'Remote access', ky: 'Алыстан кирүү', tr: 'Uzak erişim', zh: '远程访问', ru: 'Удалённый доступ' },
-    version: '1.3.0',
-    category: 'infrastructure',
-    minCore: '1.7.0',
-    requires: [],
-    enhances: [
-      { id: 'directory', what: { en: 'Import computers from Active Directory', ky: 'Компьютерлерди Active Directory\'den импорттоо', tr: 'Bilgisayarları Active Directory\'den içe aktarma', zh: '从 Active Directory 导入计算机', ru: 'Импорт компьютеров из Active Directory' } },
-    ],
-    docs: { user: 'remote', guide: 'docs/specs/remote-access.ru.md' },
-    changelog: [
-      {
-        version: '1.3.0',
-        date: '2026-10-22',
-        changes: {
-          en: ['Reorganised: computers and applications are now separate pages. Folders group connections by site/office/role. Applications are self-contained (own RDS address, gateway and credentials) and pick a named RD Gateway. Computers are direct RDP/VNC.'],
-          ru: ['Реорганизация: компьютеры и приложения — на отдельных страницах. Папки группируют подключения по площадке/офису/роли. Приложения самостоятельны (свой адрес RDS, шлюз и учётные данные) и выбирают именованный шлюз RD Gateway. Компьютеры — прямой RDP/VNC.'],
-          ky: ['Кайра уюштуруу: компьютерлер жана колдонмолор өзүнчө барактарда. Папкалар байланыштарды топтойт.'],
-          tr: ['Yeniden düzenleme: bilgisayarlar ve uygulamalar ayrı sayfalarda. Klasörler bağlantıları gruplar.'],
-          zh: ['重组：计算机和应用程序现在分属不同页面。文件夹按站点/办公室/角色分组连接。'],
-        },
-      },
-      {
-        version: '1.2.0',
-        date: '2026-10-22',
-        changes: {
-          en: ['RDWeb / RD Gateway: import a RemoteApp .rdp file to set up the RDS server, its RD Gateway and the application automatically (gateway, load-balance-info and the app alias). Connect to published apps behind a gateway.'],
-          ru: ['RDWeb / RD Gateway: импорт .rdp-файла RemoteApp автоматически создаёт сервер RDS, его шлюз RD Gateway и приложение (шлюз, load-balance-info и алиас). Подключение к опубликованным приложениям за шлюзом.'],
-          ky: ['RDWeb / RD Gateway: RemoteApp .rdp файлын импорттоо RDS серверин, анын шлюзун жана колдонмону автоматтык түрдө түзөт.'],
-          tr: ['RDWeb / RD Gateway: RemoteApp .rdp dosyasını içe aktarma RDS sunucusunu, RD Gateway\'ini ve uygulamayı otomatik kurar.'],
-          zh: ['RDWeb / RD Gateway：导入 RemoteApp 的 .rdp 文件可自动配置 RDS 服务器、RD 网关和应用程序。'],
-        },
-      },
-      {
-        version: '1.1.0',
-        date: '2026-10-22',
-        changes: {
-          en: ['RemoteApp: launch a single published application (RDS alias or an executable path) instead of the whole desktop. Password manager: save personal or shared credentials and reuse them when connecting. Passbolt integration: each person connects their own Passbolt (GPGAuth) and uses its entries. Three credential sources at connect: manual, portal password manager, Passbolt.'],
-          ru: ['RemoteApp: запуск одного опубликованного приложения (алиас RDS или путь к exe) вместо всего рабочего стола. Менеджер паролей: сохранение личных и общих учётных данных и их переиспользование при подключении. Интеграция с Passbolt: каждый подключает свой Passbolt (GPGAuth) и использует его записи. Три источника при подключении: вручную, менеджер паролей портала, Passbolt.'],
-          ky: ['RemoteApp: бүт рабочий столдун ордуна бир жарыяланган колдонмону иштетүү. Сырсөз менеджери: жеке жана жалпы эсептик жазууларды сактоо жана кайра колдонуу. Passbolt интеграциясы: ар бир колдонуучу өз Passbolt\'ун туташтырат.'],
-          tr: ['RemoteApp: tüm masaüstü yerine tek bir yayımlanmış uygulamayı başlatma. Parola yöneticisi: kişisel veya paylaşılan kimlik bilgilerini kaydetme ve yeniden kullanma. Passbolt entegrasyonu: herkes kendi Passbolt\'unu bağlar.'],
-          zh: ['RemoteApp：启动单个已发布的应用程序而非整个桌面。密码管理器：保存个人或共享凭据并在连接时重用。Passbolt 集成：每个人连接自己的 Passbolt。'],
-        },
-      },
-      {
-        version: '1.0.0',
-        date: '2026-10-22',
-        changes: {
-          en: ['Computers catalogue, access by portal and AD groups, attended support and announced monitoring with a built-in audit journal the watched employee can see, and a consent prompt for taking control. Transparency is enforced by the server; there is no covert mode. The live guacd tunnel, in-browser viewer and GPO package follow a pilot.'],
-          ru: ['Каталог компьютеров, доступ по группам портала и AD, помощь по запросу и наблюдение с уведомлением, встроенный журнал подключений (виден и самому сотруднику) и запрос согласия на управление. Прозрачность обеспечивается сервером; скрытого режима нет. Живой туннель guacd, просмотрщик в браузере и пакет GPO — после пилота.'],
-          ky: ['Компьютерлер каталогу, портал жана AD топтору боюнча кирүү, суроо боюнча жардам жана эскертүү менен байкоо, кызматкер көрө алган камтылган журнал жана башкарууга макулдук суроо. Ачык режим жок. guacd туннели, браузердеги көрсөткүч жана GPO пакети — пилоттон кийин.'],
-          tr: ['Bilgisayar kataloğu, portal ve AD gruplarına göre erişim, talep üzerine destek ve bildirimli izleme, çalışanın görebildiği yerleşik günlük ve kontrolü devralmak için onay istemi. Gizli mod yoktur. Canlı guacd tüneli, tarayıcı görüntüleyici ve GPO paketi pilottan sonra gelir.'],
-          zh: ['计算机目录、按门户和 AD 组的访问、应请求的协助与告知式监看、员工可查看的内置审计日志，以及接管控制前的同意提示。不提供隐蔽模式。实时 guacd 隧道、浏览器查看器和 GPO 包在试点后推出。'],
-        },
-      },
-    ],
-  },
 };
 
 /** Modules built into this core version; installed packages (docs/module-packages.md) are merged in from the disk. */
@@ -353,7 +296,7 @@ export const BUILTIN_MANIFEST_IDS = Object.keys(MODULE_MANIFEST);
  * Modules distributed as packages (no longer built into the core) that built-in
  * modules may name in `enhances`: the link is active once the package is installed.
  */
-export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant'];
+export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant', 'remote'];
 Object.assign(MODULE_MANIFEST, packageManifestEntries(BUILTIN_MANIFEST_IDS));
 
 /**

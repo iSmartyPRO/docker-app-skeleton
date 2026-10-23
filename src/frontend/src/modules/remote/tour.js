@@ -1,3 +1,4 @@
+/** Guided tour of Remote access (texts: tour.remote.* in the core tour namespace, copied into the package by module.json localeKeys). */
 export default {
   id: 'remote',
   module: 'remote',

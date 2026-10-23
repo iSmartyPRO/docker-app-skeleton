@@ -1,0 +1,85 @@
+{
+  "id": "remote",
+  "name": { "en": "Remote access", "ru": "Удалённый доступ", "ky": "Алыстан кирүү", "tr": "Uzak erişim", "zh": "远程访问" },
+  "nameForms": { "ru": { "ins": "Удалённым доступом" } },
+  "description": {
+    "en": "Computers and published applications in the browser (RDP / VNC through guacd, Portal VNC agents), help on request and announced monitoring with an audit journal the employee sees",
+    "ru": "Компьютеры и опубликованные приложения в браузере (RDP / VNC через guacd, агенты Portal VNC), помощь по запросу и наблюдение с уведомлением, журнал подключений виден и самому сотруднику",
+    "ky": "Браузердеги компьютерлер жана жарыяланган колдонмолор (guacd аркылуу RDP / VNC, Portal VNC агенттери), суроо боюнча жардам жана эскертүү менен байкоо, кызматкер көрө алган журнал",
+    "tr": "Tarayıcıda bilgisayarlar ve yayımlanmış uygulamalar (guacd üzerinden RDP / VNC, Portal VNC ajanları), talep üzerine destek ve bildirimli izleme, çalışanın gördüğü bağlantı günlüğü",
+    "zh": "在浏览器中访问计算机和已发布的应用（经 guacd 的 RDP / VNC、Portal VNC 代理），应请求协助和告知式监看，员工可查看的连接日志"
+  },
+  "version": "1.4.0",
+  "category": "infrastructure",
+  "requires": [],
+  "enhances": [
+    { "id": "directory", "what": { "en": "Import computers from Active Directory", "ky": "Компьютерлерди Active Directory'den импорттоо", "tr": "Bilgisayarları Active Directory'den içe aktarma", "zh": "从 Active Directory 导入计算机", "ru": "Импорт компьютеров из Active Directory" } }
+  ],
+  "permissions": ["remote.view", "remote.connect", "remote.monitor", "remote.admin"],
+  "webPermission": ["remote.view", "remote.connect", "remote.monitor", "remote.admin"],
+  "tables": ["remote_%"],
+  "icon": "remote",
+  "docsInfo": { "user": "remote", "guide": "docs/specs/remote-access.ru.md" },
+  "docFiles": ["docs/specs/remote-access.ru.md"],
+  "localeKeys": {
+    "apps": ["remote"],
+    "settings": ["remote"],
+    "permissions": ["groups.module_remote", "remote_*"],
+    "notifyPrefs": ["groups.remote", "events.remote_*"],
+    "tour": ["remote"]
+  },
+  "changelog": [
+    {
+      "version": "1.4.0",
+      "date": "2026-10-23",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); computers, applications, folders, gateways, saved credentials, the Portal VNC identity, the journal and settings are kept."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); компьютеры, приложения, папки, шлюзы, сохранённые учётные данные, сертификаты Portal VNC, журнал и настройки сохраняются."]
+      }
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-10-22",
+      "changes": {
+        "en": ["Reorganised: computers and applications are now separate pages. Folders group connections by site/office/role. Applications are self-contained (own RDS address, gateway and credentials) and pick a named RD Gateway. Computers are direct RDP/VNC."],
+        "ru": ["Реорганизация: компьютеры и приложения — на отдельных страницах. Папки группируют подключения по площадке/офису/роли. Приложения самостоятельны (свой адрес RDS, шлюз и учётные данные) и выбирают именованный шлюз RD Gateway. Компьютеры — прямой RDP/VNC."],
+        "ky": ["Кайра уюштуруу: компьютерлер жана колдонмолор өзүнчө барактарда. Папкалар байланыштарды топтойт."],
+        "tr": ["Yeniden düzenleme: bilgisayarlar ve uygulamalar ayrı sayfalarda. Klasörler bağlantıları gruplar."],
+        "zh": ["重组：计算机和应用程序现在分属不同页面。文件夹按站点/办公室/角色分组连接。"]
+      }
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-10-22",
+      "changes": {
+        "en": ["RDWeb / RD Gateway: import a RemoteApp .rdp file to set up the RDS server, its RD Gateway and the application automatically (gateway, load-balance-info and the app alias). Connect to published apps behind a gateway."],
+        "ru": ["RDWeb / RD Gateway: импорт .rdp-файла RemoteApp автоматически создаёт сервер RDS, его шлюз RD Gateway и приложение (шлюз, load-balance-info и алиас). Подключение к опубликованным приложениям за шлюзом."],
+        "ky": ["RDWeb / RD Gateway: RemoteApp .rdp файлын импорттоо RDS серверин, анын шлюзун жана колдонмону автоматтык түрдө түзөт."],
+        "tr": ["RDWeb / RD Gateway: RemoteApp .rdp dosyasını içe aktarma RDS sunucusunu, RD Gateway'ini ve uygulamayı otomatik kurar."],
+        "zh": ["RDWeb / RD Gateway：导入 RemoteApp 的 .rdp 文件可自动配置 RDS 服务器、RD 网关和应用程序。"]
+      }
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-10-22",
+      "changes": {
+        "en": ["RemoteApp: launch a single published application (RDS alias or an executable path) instead of the whole desktop. Password manager: save personal or shared credentials and reuse them when connecting. Passbolt integration: each person connects their own Passbolt (GPGAuth) and uses its entries. Three credential sources at connect: manual, portal password manager, Passbolt."],
+        "ru": ["RemoteApp: запуск одного опубликованного приложения (алиас RDS или путь к exe) вместо всего рабочего стола. Менеджер паролей: сохранение личных и общих учётных данных и их переиспользование при подключении. Интеграция с Passbolt: каждый подключает свой Passbolt (GPGAuth) и использует его записи. Три источника при подключении: вручную, менеджер паролей портала, Passbolt."],
+        "ky": ["RemoteApp: бүт рабочий столдун ордуна бир жарыяланган колдонмону иштетүү. Сырсөз менеджери: жеке жана жалпы эсептик жазууларды сактоо жана кайра колдонуу. Passbolt интеграциясы: ар бир колдонуучу өз Passbolt'ун туташтырат."],
+        "tr": ["RemoteApp: tüm masaüstü yerine tek bir yayımlanmış uygulamayı başlatma. Parola yöneticisi: kişisel veya paylaşılan kimlik bilgilerini kaydetme ve yeniden kullanma. Passbolt entegrasyonu: herkes kendi Passbolt'unu bağlar."],
+        "zh": ["RemoteApp：启动单个已发布的应用程序而非整个桌面。密码管理器：保存个人或共享凭据并在连接时重用。Passbolt 集成：每个人连接自己的 Passbolt。"]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-22",
+      "changes": {
+        "en": ["Computers catalogue, access by portal and AD groups, attended support and announced monitoring with a built-in audit journal the watched employee can see, and a consent prompt for taking control. Transparency is enforced by the server; there is no covert mode. The live guacd tunnel, in-browser viewer and GPO package follow a pilot."],
+        "ru": ["Каталог компьютеров, доступ по группам портала и AD, помощь по запросу и наблюдение с уведомлением, встроенный журнал подключений (виден и самому сотруднику) и запрос согласия на управление. Прозрачность обеспечивается сервером; скрытого режима нет. Живой туннель guacd, просмотрщик в браузере и пакет GPO — после пилота."],
+        "ky": ["Компьютерлер каталогу, портал жана AD топтору боюнча кирүү, суроо боюнча жардам жана эскертүү менен байкоо, кызматкер көрө алган камтылган журнал жана башкарууга макулдук суроо. Ачык режим жок. guacd туннели, браузердеги көрсөткүч жана GPO пакети — пилоттон кийин."],
+        "tr": ["Bilgisayar kataloğu, portal ve AD gruplarına göre erişim, talep üzerine destek ve bildirimli izleme, çalışanın görebildiği yerleşik günlük ve kontrolü devralmak için onay istemi. Gizli mod yoktur. Canlı guacd tüneli, tarayıcı görüntüleyici ve GPO paketi pilottan sonra gelir."],
+        "zh": ["计算机目录、按门户和 AD 组的访问、应请求的协助与告知式监看、员工可查看的内置审计日志，以及接管控制前的同意提示。不提供隐蔽模式。实时 guacd 隧道、浏览器查看器和 GPO 包在试点后推出。"]
+      }
+    }
+  ]
+}

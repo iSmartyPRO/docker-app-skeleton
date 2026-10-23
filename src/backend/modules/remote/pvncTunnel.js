@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import { WebSocketServer } from 'ws';
+import { routeUpgrade } from './upgrade.js';
 import { connectAgent } from './pvncClient.js';
 import { pvncIdentity } from './pvnc.js';
 
@@ -56,7 +57,8 @@ let started = false;
 export function initPvncTunnel(server) {
   if (started) return;
   started = true;
-  const wss = new WebSocketServer({ server, path: PVNC_PATH });
+  const wss = new WebSocketServer({ noServer: true });
+  routeUpgrade(server, PVNC_PATH, wss);
 
   wss.on('connection', async (ws, req) => {
     const token = new URL(req.url, 'http://localhost').searchParams.get('token');

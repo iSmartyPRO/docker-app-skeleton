@@ -1,7 +1,7 @@
 import * as openpgp from 'openpgp';
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
-import { seal, unseal } from '../../services/crypto.js';
+import { seal, unseal } from '../../services/secrets.js';
 import { httpError } from '../shared/acl.js';
 
 /*

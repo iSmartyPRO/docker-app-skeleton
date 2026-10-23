@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { MODULE_CATALOG } from '../modules/catalog.js';
-import { MODULE_MANIFEST } from '../modules/manifest.js';
+import { defaultEnabled, defaults, sanitizeSettings } from '../modules/remote/settings.js';
 
 /*
  * Remote access (docs/specs/remote-access.ru.md). The module's transparency is
@@ -10,14 +11,16 @@ import { MODULE_MANIFEST } from '../modules/manifest.js';
  * the client can forge.
  */
 
-const remote = MODULE_CATALOG.find((m) => m.id === 'remote');
+// A module package (docs/module-packages.md): its manifest facts are module.json, its settings settings.js.
+const manifest = JSON.parse(readFileSync(new URL('../modules/remote/module.json', import.meta.url), 'utf8'));
+const remote = { defaultEnabled, defaults, sanitize: sanitizeSettings, permissions: manifest.permissions };
 
-test('remote: the module is installable and off by default', () => {
-  assert.ok(remote, 'remote is in the catalog');
+test('remote: the module is an installable package and off by default', () => {
+  assert.ok(!MODULE_CATALOG.some((m) => m.id === 'remote'), 'not built into the core');
   assert.equal(remote.defaultEnabled, false);
-  assert.ok(!remote.core, 'not a core service');
   assert.deepEqual(remote.permissions, ['remote.view', 'remote.connect', 'remote.monitor', 'remote.admin']);
-  assert.equal(MODULE_MANIFEST.remote.category, 'infrastructure');
+  assert.equal(manifest.category, 'infrastructure');
+  assert.deepEqual(manifest.tables, ['remote_%']);
 });
 
 test('remote: settings cannot be made covert — no hidden / silent switch', () => {

@@ -1,5 +1,7 @@
 # Удалённый доступ и помощь — спецификация
 
+**Пакет модуля** (с 1.4.0, [module-packages.md](../module-packages.md)): не встроен в ядро; `make module ID=remote` собирает `dist/modules/remote-<version>.zip`, суперадминистратор устанавливает его в *Настройки → Модули → «Установить из файла»*. Исходники остаются в дереве (`src/backend/modules/remote`, `src/frontend/src/modules/remote`, тексты — `src/frontend/src/modules/remote/locales`); манифест — `module.json`, настройки и их санитайзер — `settings.js`, схема — миграция `001_init` (`schema.js` `createRemoteSchema`). `ws`, `guacamole-lite`, `openpgp` берутся из ядра (зависимости backend), noVNC и guacamole-common-js собраны в сам пакет (чанки просмотрщиков грузятся при открытии сеанса). Сохранённые пароли запечатаны как прежде — через `seal` / `unseal` SDK 1.1.0. Оба WebSocket-туннеля (`/api/app/remote/tunnel` — guacd, `/api/app/remote/pvnc` — Portal VNC) подключаются к HTTP-серверу при регистрации пакета через один обработчик upgrade (`upgrade.js`); поддельный токен guacd отклоняется (401) до guacamole-lite. Обновление портала, где модуль был встроен: [module-packages.md](../module-packages.md#upgrading-a-portal-that-had-qr-codes-the-assistant-or-remote-access-built-in).
+
 Модуль портала для подключения к рабочим столам сотрудников: помощь по запросу и
 наблюдение за работой. Главное свойство модуля — **прозрачность**: любое подключение
 видно сотруднику и остаётся в журнале, к которому у сотрудника есть доступ. Скрытого

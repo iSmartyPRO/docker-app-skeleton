@@ -24,3 +24,5 @@ src/backend/modules/qr
 src/frontend/src/modules/qr
 src/backend/modules/assistant
 src/frontend/src/modules/assistant
+src/backend/modules/remote
+src/frontend/src/modules/remote

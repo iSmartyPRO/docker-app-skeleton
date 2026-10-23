@@ -150,7 +150,7 @@ resolves bare names imported from package code against the core's `node_modules`
 | Group | Names |
 |---|---|
 | Database | `query`, `withTransaction`, `getPool` |
-| Config | `APP_VERSION`, `uploadRoot` |
+| Config, secrets | `APP_VERSION`, `uploadRoot`, `seal`, `unseal` (SDK 1.1.0: the core's sealing of stored secrets, `services/secrets.js`, no key material) |
 | Access | `requireAuth`, `optionalAuth`, `requirePermission`, `refuseImpersonation`, `hasPermission`, `getUserAccess`, `getAccessMap` |
 | Settings, regional | `getSettings`, `getSettingsView`, `parseSettings`, `getSetting`, `setSetting`, `invalidateSettings`, `updateAdminSettings`, `localeFor`, `recipientLocale`, `regionalFor`, `portalRegional`, `regionalOfUser`, `requestRegional`, `requestZone`, `REGIONAL_DEFAULTS`, `formatDate`, `formatDateTime`, `formatTime`, `isValidTimeZone`, `isoDay`, `startOfDay`, `startOfWeek`, `wallToInstant`, `zoneLabel`, `zoneOffsetMinutes`, `zonedParts` |
 | Languages | `tr`, `translator`, `plural`, `pick`, `localeOrDefault`, `localeTag`, `SUPPORTED`, `formatNumber`, `moneyText`, `decimalSeparator`, `exportLocale` |
@@ -159,8 +159,12 @@ resolves bare names imported from package code against the core's `node_modules`
 | Extension points | `modules`, `events`, `registerWidget`, `registerWidgetSection`, `registerLinkProvider`, `linkProvider`, `registerObjectSource`, `objectSource`, `registerSearchProvider`, `searchAll`, `registerPreviewProvider`, `registerFollowable`, `canFollow`, `registerTokenResources`, `onHttpServer`, `onShutdown`, namespaces `widgets`, `pickers` (prefer the same functions on `ctx` inside `register()`: they are tagged with the module) |
 | Other | `createUser`, `updateUser`, `assertCanManage`, `isValidPhone`, `normalizePhone`, `findUserById`, `listLegalEntities`, `getLegalEntity`, `getDefaultLegalEntity`, `convertToPdf`, `registerDemo`, `decide`, `limitsByTable`, `httpError(status, message, code)`, `logger(id)`, `SDK_VERSION` |
 
-`appConfig` (database password, JWT secret) and `seal` / `unseal` were dropped before SDK 1.0 shipped (no released
-package used them; Masterplan does not), so `SDK_VERSION` stays 1.0.0.
+`appConfig` (database password, JWT secret) was dropped before SDK 1.0 shipped. `seal` / `unseal` came back in **SDK 1.1.0**
+(`services/secrets.js`, the same AES-256-GCM sealing as the core's, without `decryptionKeys` or other key material): Remote
+access keeps the passwords of computers, Passbolt keys and the Portal VNC client key sealed, and values sealed while it was
+built in must open unchanged from the package (a package can read `.env` anyway, see «SIGNATURE» — this keeps honest code
+off the keys). Packages built against 1.1.0 record `sdk: 1.1.0` and are refused by a core with SDK 1.0.0 (`SDK_TOO_OLD`);
+Masterplan 1.1.0 (`sdk: 1.0.0`) keeps loading.
 Adding a name is a minor SDK change; removing or renaming one is a major core change (bump `SDK_VERSION` in
 `platform/sdk/version.js` and the browser's `src/platform/sdk/version.js` together; packages record it as `sdk`).
 `@portal/sdk/core/<path>` (any core file except module internals, tests, scripts and the sensitive files —
@@ -182,7 +186,9 @@ boundary (see «SIGNATURE»).
    (above) → import `server/index.js` → check the contract and requirements → pending migrations → mount routes →
    join the registry. Then every package's `register(ctx)`. Import + migrations and `register()` each have
    `MODULE_BOOT_TIMEOUT_MS` (120 s).
-   `ctx.onHttpServer` hooks run once both the HTTP server is up (`startModuleServer(server)` in server.js) and the modules registered; `ctx.onShutdown` hooks run on SIGTERM (`runShutdownHooks()`).
+   `ctx.onHttpServer` hooks run once both the HTTP server is up (`startModuleServer(server)` in server.js) and the modules registered; a hook registered after that runs at once on the running server. `ctx.onShutdown` hooks run on SIGTERM (`runShutdownHooks()`).
+   Several WebSocket servers on the one HTTP server must not each take `{ server, path }` (`ws` answers 400 to every
+   upgrade of another path and ends its socket): use `noServer` and one `upgrade` listener that dispatches by path (Remote: `modules/remote/upgrade.js`).
 4. A package that fails is skipped; `installed_modules.state = 'failed'` with the error (journaled
    `module_failed` when it is news); the portal runs on.
    If that is the first boot after an update (`pending_check`), the previous version is put back
@@ -287,7 +293,9 @@ visitors get no list — after a sign-in, `auth:signed-in` from AuthContext fetc
 there are packages) → translations added (`i18n/translations.js`
 `addTranslationSource`, English laid under each language), CSS of switched-on packages linked, entries of switched-on packages
 imported and `register(ctx)` run, page modules pushed into `MODULE_REGISTRY` (`/app/<id>`, `icon`,
-`apps.<id>.name`) with lazy `App` / `Settings`. `/admin/settings/:moduleId` renders a package's Settings
+`apps.<id>.name`) with lazy `App` / `Settings`; a package without a page (manifest `web.page: false`, module.json
+`"web": { "page": false }` — the robot assistant) goes into `FEATURE_MODULES` instead and is an `overlay` in the server
+catalog (not in `/api/apps`). `/admin/settings/:moduleId` renders a package's Settings
 (`platform/packages/PackageSettings.jsx`); a package with `web.settings` gets its item in the settings navigation
 (`admin/navigation.js` `addPackageSettingsItem`, icon slot `menuIcons.jsx` `addMenuSlot`; label `settings.<id>.title`
 when the package ships a `settings` namespace, else `apps.<id>.name`). A `tour` goes into `MODULE_UI`.
@@ -488,6 +496,9 @@ start-up and listed on Settings → Modules («These modules need an update for 
   web with `MODULE_BUILD_WEB=1`).
 - `test/module-boot.test.js`: the core alone, with each built-in module, and with each package module from source.
 - `test/masterplan.db.test.js` (`MASTERPLAN_DB_TEST=1`): migration 001 on an existing schema changes nothing.
+- `test/packages-qr-assistant-remote.test.js` (no database): QR codes, the assistant and Remote access are out of every
+  core list, their module.json / settings.js, overlay packages, `seal` / `unseal`, late `onHttpServer` hooks, their builds
+  (web with `MODULE_BUILD_WEB=1`). `test/packages-qr-assistant-remote.db.test.js` (`PACKAGES2_DB_TEST=1`): the upgrade above.
 - `test/module-packages-hardening.test.js` (no database): table ownership (and that its lists cover every
   `CREATE TABLE` of the tree), migration attribution and conflicts, downgrade after removal, core / SDK checks,
   `check-core-upgrade`, files re-verified, boot markers, limits, staging cleanup, backup retention, the deferred
@@ -514,9 +525,11 @@ start-up and listed on Settings → Modules («These modules need an update for 
 - `test/frontend-package-loader.test.js`: the browser loader's decisions (`loaderLogic.js`).
 - Fixture: `test-fixtures/module-hello` (route, table, SQL + JS migration, page, translations, docs).
 
-## Converting a module (checklist; done for Masterplan)
+## Converting a module (checklist; done for Masterplan, QR codes, Robot assistant, Remote access)
 
 Masterplan was the pilot (`src/backend/modules/masterplan`, `src/frontend/src/modules/masterplan`); copy what it does.
+QR codes (anonymous routes), the robot assistant (no page: `web.page: false`, contributions only) and Remote access
+(HTTP upgrade hooks, sealed secrets, npm libraries of its own) followed — see their module.json / index.js.
 
 **Server** (`src/backend/modules/<id>/`)
 
@@ -545,15 +558,20 @@ Masterplan was the pilot (`src/backend/modules/masterplan`, `src/frontend/src/mo
    built-in modules' demo files).
 7. **Remove it from the core**: `modules/index.js` `MODULES`, its `modules/manifest.js` entry, its
    `modules/catalog.js` entry and settings; add its id to `PACKAGE_MODULE_IDS` (`modules/manifest.js`: built-in
-   modules may keep it in `enhances`; tests and the absence check use the list); `.dockerignore` its folders.
+   modules may keep it in `enhances`; tests and the absence check use the list) and to `CONVERTED_MODULES`
+   (`platform/packages/loader.js`, with its last built-in version); `.dockerignore` its folders. Backend npm
+   dependencies only it uses stay in the core's `package.json` (the bundle keeps them external: Remote's `ws`,
+   `guacamole-lite`, `openpgp`); browser libraries only it uses are bundled into its `web/` (Remote's noVNC and
+   guacamole-common-js, in lazy chunks).
 
 **Browser** (`src/frontend/src/modules/<id>/`)
 
 8. **`index.js`** (web entry): `import './register'` and `export default { id, App: () => import('./XApp'),
    Settings: () => import('./XSettings'), tour: '<tour id>' }`. A `Settings` gets an item in
    Settings → Modules (manifest `web.settings`), `tour` the «Тур» buttons.
-9. **Remove it from the core**: its `modules/registry.js` entry, `'!./<id>/register.js'` in the registry's
-   `import.meta.glob`, its `admin/navigation.js` item, its `MODULE_UI` entry.
+9. **Remove it from the core**: its `modules/registry.js` entry (or `FEATURE_MODULES` entry), `'!./<id>/register.js'` in the registry's
+   `import.meta.glob`, its `admin/navigation.js` item, its `MODULE_UI` entry; a tour of `tour/content` moves to
+   `modules/<id>/tour.js`, registered by its `register.js`.
 10. **Texts**: namespaces only it uses move to `src/frontend/src/modules/<id>/locales/<lang>/<ns>.js` (out of the
     core dictionaries; `i18n:check` still checks them). Its keys in shared namespaces (`apps.<id>`,
     `settings.<id>`, `permissions.<id>_*`, `notifyPrefs.events.<id>_*`, `tour.<id>`) stay in the core files for
@@ -572,6 +590,12 @@ Masterplan was the pilot (`src/backend/modules/masterplan`, `src/frontend/src/mo
     the core `vite build`, `make module ID=<id> UNSIGNED=1`, then on a test portal: install, switch on, pages,
     links with other modules, update (`BUMP=patch` with a new migration), a failing update, remove, reinstall,
     «Удалить данные». Also on a copy of a database where the module was built in (the upgrade below).
+
+What is left in the core for QR codes, the assistant and Remote access (all work while they are absent): their help
+articles and `HELP_ORDER` entries, the API reference sections and area icons (`api/reference.js`, `developer/components.jsx`),
+Remote's notification kind `remote.connected` (`services/notificationCatalog.js`), nginx's `/q/<slug>` → `/api/qr/go/<slug>`
+(404 while QR is absent), menu icons, their texts in shared namespaces (`apps`, `settings`, `permissions`, `notifyPrefs`,
+`tour`; copied into the packages by `localeKeys`), name forms in `checks.js`, `ensureAclTable(…, db)` in `modules/shared/acl.js`.
 
 What is left in the core for Masterplan (works when it is absent, fine to keep until the store): help articles
 (`help/content|admin/<lang>/masterplan.js`, `help/registry.jsx` order), its notification kinds
@@ -607,6 +631,40 @@ has `001_init`, the automatic catch-up runs once (and not again at the next rest
 `mp_*` table, of the Masterplan settings and roles are identical before the deploy, with the core alone, after the
 install and after another restart; the plan, chessboard, registry, dashboard and settings pages show the data.
 If the package cannot be installed at once, nothing is lost — only the module is unavailable until it is.
+
+## Upgrading a portal that had QR codes, the assistant or Remote access built in
+
+The core after 1.20.0 no longer contains QR codes (last built-in 1.0.0), the robot assistant (1.0.0) or Remote access
+(1.3.0). Their tables (`qr_*`, `assistant_prefs`, `remote_*`), files (`uploads/qr` — logos), settings
+(`settings.modules.qr|assistant|remote`, including the guacd address and the monitoring policy acknowledgement), roles
+and the sealed secrets (computer passwords, saved credentials, Passbolt keys, the Portal VNC CA / client certificate /
+key) stay untouched. Until the packages are installed they are listed under «Удалённые модули» (data kept):
+`/app/qr` and `/app/remote` are not there, dynamic QR links `/q/<slug>` answer 404 (printed codes stop redirecting for
+that window), the robot is not drawn, and no remote session can start (both WebSocket tunnels belong to the package).
+
+1. Build the packages with the release core: `make module ID=qr`, `make module ID=assistant`, `make module ID=remote`
+   (signed) → `qr-1.1.0.zip`, `assistant-1.1.0.zip`, `remote-1.4.0.zip`; `make modules-verify FILE=…` each. They need a
+   core with SDK 1.1.0 (`seal` / `unseal`), i.e. the core they are built with or newer.
+2. Usual deploy routine of the core (database backup first).
+3. **Right after the deploy**, install all three (Settings → Modules → «Установить из файла», or «Пакеты на сервере»
+   with the zips in `data/modules/incoming/`); each restart takes 5–10 s, QR first (printed codes). Migration `001_init`
+   creates nothing on this database and records itself.
+4. They come back as they were: QR switched on with its templates, codes, scan counts and logos; the robot on where it
+   was on (it stays on by default, as before), with each person's character, colours and greetings and the
+   organisation's rules; Remote with its computers, applications, folders, gateways, saved credentials, journal, guacd
+   address, policy acknowledgement and Portal VNC identity. Check `/q/<slug>` of a dynamic code (302), `/app/qr`,
+   the robot on any page and in Account → Appearance, `/app/remote` (catalogue, a session through guacd and one
+   through Portal VNC), Settings → Remote access.
+5. Remote's tunnels (`/api/app/remote/tunnel`, `/api/app/remote/pvnc`) are attached through one upgrade listener now
+   (`modules/remote/upgrade.js`): with the built-in module of 1.20.0 and older, the server attached second (guacd)
+   answered every upgrade 400 — sessions through guacd (and Portal VNC ones, whose sockets the other server ended)
+   could fail. A guacd token that is not the portal's is refused with 401 before guacamole-lite.
+
+Tested by `test/packages-qr-assistant-remote.db.test.js` on a copy of a database created by 1.20.0 with the three built
+in: 001 changes no table, column, index, constraint, row count or checksum; the «bundled» rows become «removed»; a save
+of other settings keeps theirs; the signed zips install (001 recorded, data untouched), load at the next boot with their
+settings, their own sanitizers; QR's anonymous redirect works through the package router; both Remote tunnels upgrade;
+a password sealed while built in opens; Remote's link to Directory is active only while Directory is on.
 
 ## Limitations
 

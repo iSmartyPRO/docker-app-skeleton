@@ -11,8 +11,8 @@ import { lazyPage } from '../lib/lazyPage';
  * module files itself. This file is the composition root.
  */
 // Folders of modules distributed as packages (their web/index.js is loaded by
-// platform/packages/loader.js when installed) are left out: masterplan, qr, assistant.
-import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js', '!./assistant/register.js'], { eager: true });
+// platform/packages/loader.js when installed) are left out: masterplan, qr, assistant, remote.
+import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js', '!./assistant/register.js', '!./remote/register.js'], { eager: true });
 
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
@@ -164,17 +164,6 @@ export const MODULE_REGISTRY = [
     descKey: 'apps.directory.desc',
     App: lazyPage(() => import('./directory/DirectoryApp')),
     Settings: lazy(() => import('./directory/DirectorySettings')),
-  },
-  {
-    // Remote access & assistance (docs/specs/remote-access.ru.md). Listed only for people with a remote.* permission.
-    id: 'remote',
-    path: '/app/remote',
-    icon: 'remote',
-    permission: ['remote.view', 'remote.connect', 'remote.monitor', 'remote.admin'],
-    labelKey: 'apps.remote.name',
-    descKey: 'apps.remote.desc',
-    App: lazyPage(() => import('./remote/RemoteApp')),
-    Settings: lazy(() => import('./remote/RemoteSettings')),
   },
   {
     id: 'drive',
