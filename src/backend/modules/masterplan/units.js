@@ -3,7 +3,7 @@ import { httpError } from '../shared/acl.js';
 import { DEFAULT_TYPES, FINISHINGS, HELD, MAX_DEPTH, STATUSES, TIMED } from './constants.js';
 import { requireConfigure, requireProject, visibleProjectIds } from './access.js';
 import { capsOf, has, readCaps } from './rules.js';
-import { NODE_SELECT, visibleNode } from './shapes.js';
+import { nodeSelect, visibleNode } from './shapes.js';
 import { treeChanged } from './realtime.js';
 import { unitCharacteristics, unitCommercial } from './nodes.js';
 import { Params, csvCell, idList, intOr, likePattern, logEvent, parseNumber, text } from './util.js';
@@ -133,7 +133,7 @@ export async function listUnits(ctx, input = {}) {
   const order = input.order === 'desc' ? 'DESC' : 'ASC';
   const pageSize = Math.min(5000, Math.max(1, intOr(input.pageSize, 50)));
   const page = Math.max(1, intOr(input.page, 1));
-  const select = NODE_SELECT.replace(/\n\s*FROM mp_nodes n\b/, `, ${READINESS} AS effective_readiness\n  FROM mp_nodes n`);
+  const select = (await nodeSelect()).replace(/\n\s*FROM mp_nodes n\b/, `, ${READINESS} AS effective_readiness\n  FROM mp_nodes n`);
   const sql = `${select} WHERE ${where.join(' AND ')} ORDER BY ${sortSql} ${order} NULLS LAST, n.sort, n.id LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
   const [{ rows }, count] = await Promise.all([
     query(sql, p.values),

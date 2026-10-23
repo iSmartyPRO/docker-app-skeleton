@@ -11,6 +11,29 @@ import { dayString, iso, money } from './util.js';
  * projectUnit() removes what the viewer may not see.
  */
 
+/*
+ * The deal's title comes from the CRM's table when it is there. The CRM is an optional package: on a
+ * portal that never had it (or deleted its data) crm_deals does not exist, and the same SELECT joins
+ * an empty row instead (deal id kept, no title). Checked per query: the CRM's data can be deleted
+ * while Masterplan runs.
+ */
+const CRM_DEAL_JOIN = 'LEFT JOIN crm_deals d ON d.id = u.deal_id';
+const NO_CRM_DEAL_JOIN = 'LEFT JOIN (SELECT NULL::int AS id, NULL::text AS title, NULL::timestamptz AS deleted_at) d ON FALSE';
+
+/** True when the CRM's deals table exists (the CRM installed now or its data kept). */
+export async function hasCrmDeals(client = { query }) {
+  const { rows } = await client.query(`SELECT to_regclass('crm_deals') IS NOT NULL AS ok`);
+  return Boolean(rows[0]?.ok);
+}
+
+/** SQL with the CRM deal join replaced by an empty one while crm_deals does not exist. */
+export async function withCrmJoin(sql, client = { query }) {
+  return (await hasCrmDeals(client)) ? sql : sql.replace(/LEFT JOIN crm_deals d ON d\.id = \w+\.deal_id/g, NO_CRM_DEAL_JOIN);
+}
+
+/** NODE_SELECT for this database (see withCrmJoin). */
+export const nodeSelect = (client = { query }) => withCrmJoin(NODE_SELECT, client);
+
 export const NODE_SELECT = `
   SELECT n.*, t.key AS type_key, t.name AS type_name, t.category AS type_category, t.icon AS type_icon, t.color AS type_color,
          t.sellable AS type_sellable, t.stage_set AS type_stage_set,
@@ -28,7 +51,7 @@ export const NODE_SELECT = `
   LEFT JOIN mp_units u ON u.node_id = n.id
   LEFT JOIN users mu ON mu.id = u.manager_id
   LEFT JOIN mp_bookings b ON b.id = u.booking_id AND b.status = 'active'
-  LEFT JOIN crm_deals d ON d.id = u.deal_id
+  ${CRM_DEAL_JOIN}
   LEFT JOIN cmp_people pp ON pp.id = u.person_id
   LEFT JOIN cmp_companies c ON c.id = u.company_id
   LEFT JOIN mp_stages st ON st.id = n.current_stage_id`;
@@ -130,7 +153,7 @@ export function visibleNode(ctx, row, { presentation = false, caps } = {}) {
 /** Fresh rows of these nodes (any project). */
 export async function loadNodes(ids, client = { query }) {
   if (!ids.length) return [];
-  const { rows } = await client.query(`${NODE_SELECT} WHERE n.id = ANY($1::int[])`, [ids]);
+  const { rows } = await client.query(`${await nodeSelect(client)} WHERE n.id = ANY($1::int[])`, [ids]);
   return rows;
 }
 

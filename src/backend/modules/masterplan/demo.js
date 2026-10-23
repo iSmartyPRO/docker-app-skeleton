@@ -28,6 +28,7 @@ import { randomBytes } from 'crypto';
  */
 
 export { DEMO_CONTRACT_UNITS } from './demoData.js';
+import { DEMO_SELLERS_FALLBACK } from './demoData.js';
 
 // Prefix of the demo sale contract numbers.
 const SALE_CONTRACT = { ru: 'ДКП', en: 'SPA', ky: 'СК', tr: 'GSS', zh: 'SPA' };
@@ -128,10 +129,11 @@ registerDemo({
     const currency = (settings.currency || 'USD').trim();
     const money = (usd) => demoMoney(usd, currency);
     const people = { me: ctx.userId };
-    // Sellers and deals of the CRM demo (an optional link: without the CRM, units get no managers or deals).
+    // Sellers and deals of the CRM demo (an optional package: without the CRM, units get no deals; the same
+    // demo sales people manage them).
     const crmDemo = modules.loaded('crm')?.api || {};
     const DEMO_DEALS = crmDemo.DEMO_DEALS || [];
-    for (const [key, person] of Object.entries(crmDemo.DEMO_SELLERS || {})) people[key] = await ctx.demoUser(person.key, { displayName: ctx.t(person.name) });
+    for (const [key, person] of Object.entries(crmDemo.DEMO_SELLERS || DEMO_SELLERS_FALLBACK)) people[key] = await ctx.demoUser(person.key, { displayName: ctx.t(person.name) });
     const foreman = await ctx.demoUser('org.foreman', { displayName: ctx.t({ ru: 'Пётр Прорабов', en: 'Peter Foreman', ky: 'Пётр Прорабов' }) });
 
     const { rows: typeRows } = await ctx.query(`SELECT id, key FROM mp_types WHERE key = ANY($1::text[])`, [['cottage', 'apartment_building', 'apartment', 'playground']]);
@@ -280,7 +282,9 @@ registerDemo({
 
     // ── Sales statuses (written directly) ──────────────────────────────────
     const dealIds = await ctx.records('crm_deals', 'crm');
-    const { rows: liveDeals } = await ctx.query(`SELECT id FROM crm_deals WHERE id = ANY($1::int[])`, [dealIds]);
+    // The CRM is an optional package: no demo deals (or no crm_deals at all) — units without deals.
+    const crmDeals = dealIds.length > 0 && Boolean((await ctx.query(`SELECT to_regclass('crm_deals') AS t`)).rows[0]?.t);
+    const { rows: liveDeals } = crmDeals ? await ctx.query(`SELECT id FROM crm_deals WHERE id = ANY($1::int[])`, [dealIds]) : { rows: [] };
     const live = new Set(liveDeals.map((row) => row.id));
     const dealOf = (code) => {
       const index = DEMO_DEALS.findIndex((deal) => deal.unit === code);

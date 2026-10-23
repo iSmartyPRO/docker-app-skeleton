@@ -5,7 +5,7 @@ import { httpError } from '../shared/acl.js';
 import { FORWARD_MOVES, HELD, STATUSES, TIMED } from './constants.js';
 import { crmScopeAllows, forbidden, modulesEnabled, notFound, requireCrmScope, requireNode, usersWithRole, visibleProjectIds } from './access.js';
 import { actCaps, applyPriceChange, checkExtend, checkTransition, conflictMessage, dealLinkAllowed, has, priceCutAllowed, readCaps } from './rules.js';
-import { loadNodeRow, visibleNode } from './shapes.js';
+import { loadNodeRow, visibleNode, withCrmJoin } from './shapes.js';
 import { unitsChanged } from './realtime.js';
 import { afterUnitStatus, dealForLink, dealLineAfterExpiry } from './crmLink.js';
 import { mpMessage } from './messages.js';
@@ -320,7 +320,7 @@ export async function listBookings(ctx, input = {}) {
     where.push(`b.kind = $${params.length}`);
   }
   const { rows } = await query(
-    `SELECT b.*, n.code, n.name, n.path, n.project_id AS node_project, p.name AS project_name,
+    await withCrmJoin(`SELECT b.*, n.code, n.name, n.path, n.project_id AS node_project, p.name AS project_name,
             COALESCE(m.display_name, m.username) AS manager_name, u.status AS unit_status, u.version, u.price AS unit_price, u.currency AS unit_currency,
             d.title AS deal_title
      FROM mp_bookings b
@@ -329,7 +329,7 @@ export async function listBookings(ctx, input = {}) {
      JOIN mp_units u ON u.node_id = b.unit_id
      LEFT JOIN users m ON m.id = b.manager_id
      LEFT JOIN crm_deals d ON d.id = b.deal_id
-     WHERE ${where.join(' AND ')} ORDER BY b.ends_at LIMIT 1000`,
+     WHERE ${where.join(' AND ')} ORDER BY b.ends_at LIMIT 1000`),
     params
   );
   const out = [];

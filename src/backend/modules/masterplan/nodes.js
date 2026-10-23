@@ -3,7 +3,7 @@ import { httpError } from '../shared/acl.js';
 import { FINISHINGS, HELD, MAX_DEPTH, NODE_KINDS, PAYMENT_FORMS } from './constants.js';
 import { canConfigure, forbidden, notFound, requireConfigure, requireNode, requireProject } from './access.js';
 import { actCaps, apartmentGrid, bulkCodes, checkExtend, has, nextStatuses, priceCutAllowed, readCaps, REPORT_EVENTS, reportEventVisible, rolesAt } from './rules.js';
-import { inheritReadiness, loadNodeRow, loadNodes, NODE_SELECT, visibleNode } from './shapes.js';
+import { inheritReadiness, loadNodeRow, loadNodes, nodeSelect, visibleNode } from './shapes.js';
 import { projectSettings } from './projects.js';
 import { treeChanged, unitsChanged } from './realtime.js';
 import { nodeStages, recentReports } from './construction.js';
@@ -498,7 +498,7 @@ export async function nodeCard(ctx, id, { presentation = false } = {}) {
   // A building with units below (an apartment building): one aggregate of its units, after field hiding.
   let building = null;
   if (!node.unit && node.kind === 'object') {
-    const { rows: below } = await query(`${NODE_SELECT} WHERE n.path @> ARRAY[$1]::int[] AND n.id <> $1 AND u.node_id IS NOT NULL`, [base.id]);
+    const { rows: below } = await query(`${await nodeSelect()} WHERE n.path @> ARRAY[$1]::int[] AND n.id <> $1 AND u.node_id IS NOT NULL`, [base.id]);
     if (below.length) building = buildingAggregate(below.map((row) => visibleNode(ctx, row, { presentation, caps })), caps);
   }
   // Plans and renders shared by every object of the same series (house project, apartment type).

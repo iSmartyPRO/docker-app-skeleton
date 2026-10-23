@@ -4,7 +4,7 @@ import { avatarOf, httpError } from '../shared/acl.js';
 import { DEFAULT_LEVELS, PROJECT_CLASSES, PROJECT_STATUSES, ROLES, defaultLevels } from './constants.js';
 import { canConfigure, forbidden, notFound, requireAdmin, requireConfigure, requireProject, visibleProjectIds } from './access.js';
 import { has, readCaps, rolesIn } from './rules.js';
-import { NODE_SELECT, inheritReadiness, visibleNode } from './shapes.js';
+import { inheritReadiness, nodeSelect, visibleNode } from './shapes.js';
 import { treeChanged } from './realtime.js';
 import { projectPricing } from './pricing.js';
 import { dayString, intOr, iso, logEvent, parseDay, parseNumber, text } from './util.js';
@@ -179,8 +179,9 @@ export async function deleteProject(ctx, id) {
 export async function projectMap(ctx, id, { presentation = false } = {}) {
   const project = await getProject(ctx, id);
   const caps = readCaps(ctx, project.id);
+  const select = await nodeSelect();
   const [nodes, plans, contours, markers] = await Promise.all([
-    query(`${NODE_SELECT} WHERE n.project_id = $1 ORDER BY n.depth, n.sort, n.id`, [project.id]),
+    query(`${select} WHERE n.project_id = $1 ORDER BY n.depth, n.sort, n.id`, [project.id]),
     query(`SELECT p.*, m.thumb_key FROM mp_plans p LEFT JOIN mp_media m ON m.id = p.media_id WHERE p.project_id = $1 ORDER BY p.sort, p.id`, [project.id]),
     query(`SELECT c.plan_id, c.node_id, c.points FROM mp_contours c JOIN mp_plans p ON p.id = c.plan_id WHERE p.project_id = $1`, [project.id]),
     // Point markers (markers.js): an object placed as a numbered circle instead of a polygon.

@@ -1,7 +1,7 @@
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { getAccessMap } from '../../services/rbac.js';
-import { decide } from '../../api/scopes.js';
+import { AREA_KEYS, decide } from '../../api/scopes.js';
 import { httpError } from '../shared/acl.js';
 import { actCaps, globalRoles, has, readCaps, seesProject } from './rules.js';
 
@@ -107,6 +107,13 @@ export function requireRead(ctx, projectId, cap) {
 export function crmScopeAllows(ctx, level = 'read') {
   const policy = ctx?.request?.apiToken?.policy;
   if (!policy) return true;
+  // The CRM is a package: while it is not installed '/app/crm' is no API area of the core and decide() would
+  // let it through as a public path — the deal titles Masterplan still shows (crm_deals kept) need the token's
+  // stored crm scope all the same.
+  if (!AREA_KEYS.includes('crm')) {
+    const have = policy.scopes?.crm || 'none';
+    return have === 'write' || (have === 'read' && level !== 'write');
+  }
   return decide(policy, level === 'write' ? 'POST' : 'GET', '/app/crm/deals').ok;
 }
 

@@ -154,7 +154,8 @@ export async function createMasterplanSchema(db) {
       payment_forms TEXT[] NOT NULL DEFAULT '{}',
       no_publish BOOLEAN NOT NULL DEFAULT FALSE,
       manager_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      deal_id INTEGER REFERENCES crm_deals(id) ON DELETE SET NULL,
+      -- a CRM deal (crm_deals.id; no foreign key: the CRM is an optional package, migration 002)
+      deal_id INTEGER,
       person_id INTEGER REFERENCES cmp_people(id) ON DELETE SET NULL,
       company_id INTEGER REFERENCES cmp_companies(id) ON DELETE SET NULL,
       client_name VARCHAR(200),
@@ -180,7 +181,8 @@ export async function createMasterplanSchema(db) {
       project_id INTEGER NOT NULL REFERENCES mp_projects(id) ON DELETE CASCADE,
       kind VARCHAR(8) NOT NULL CHECK (kind IN ('reserve', 'booking')),
       manager_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      deal_id INTEGER REFERENCES crm_deals(id) ON DELETE SET NULL,
+      -- a CRM deal (crm_deals.id; no foreign key: the CRM is an optional package, migration 002)
+      deal_id INTEGER,
       person_id INTEGER REFERENCES cmp_people(id) ON DELETE SET NULL,
       company_id INTEGER REFERENCES cmp_companies(id) ON DELETE SET NULL,
       client_name VARCHAR(200),
@@ -352,12 +354,41 @@ export async function createMasterplanSchema(db) {
   await seedDirectories(db);
 }
 
-/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+/**
+ * Migration 002: units and bookings point at CRM deals without a foreign key. The CRM is a module
+ * package of its own now (optional for Masterplan): with keys into crm_deals the CRM could not be
+ * updated (a failed update could not restore its tables) nor its data deleted, and Masterplan could
+ * not be installed on a portal without the CRM. 001 creates the columns without the key on a new
+ * database; this drops the keys a portal got from older versions (whatever their names). A deal
+ * that is gone reads as a deal without a title (shapes.js); deals are only ever moved to the trash.
+ */
+export async function dropCrmForeignKeys(db) {
+  const { rows } = await db.query(
+    `SELECT c.conname, rel.relname AS table_name
+     FROM pg_constraint c
+     JOIN pg_class rel ON rel.oid = c.conrelid
+     JOIN pg_namespace ns ON ns.oid = rel.relnamespace
+     JOIN pg_class ref ON ref.oid = c.confrelid
+     WHERE c.contype = 'f' AND ns.nspname = current_schema() AND rel.relname LIKE 'mp\\_%' AND ref.relname LIKE 'crm\\_%'`
+  );
+  const ident = (name) => `"${String(name).replace(/"/g, '""')}"`;
+  for (const row of rows) await db.query(`ALTER TABLE ${ident(row.table_name)} DROP CONSTRAINT IF EXISTS ${ident(row.conname)}`);
+  return rows.length;
+}
+
+/** Inline migrations of the package (index.js `migrations`). */
+export const MASTERPLAN_MIGRATIONS = [
+  { id: '001_init', up: createMasterplanSchema },
+  { id: '002_crm_link_without_fk', up: dropCrmForeignKeys },
+];
+
+/** The schema outside a package install (tests, scripts): the migrations in their own transaction. */
 export async function ensureMasterplanSchema() {
   await withTransaction(async (client) => {
     // The lock the package migrations take (platform/packages/migrations.js): one at a time.
     await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:masterplan'))`);
-    await createMasterplanSchema({ query: (text, params) => client.query(text, params) });
+    const db = { query: (text, params) => client.query(text, params) };
+    for (const migration of MASTERPLAN_MIGRATIONS) await migration.up(db);
   });
 }
 

@@ -192,4 +192,13 @@ test('package: migration 001 adopts an existing schema and changes nothing the s
   await db.withTransaction((client) => createMasterplanSchema({ query: (text, params) => client.query(text, params) }));
   assert.deepEqual(await snapshot(), before);
   assert.ok(before.tables.includes('mp_units') && before.directories.types > 0);
+  // Migration 002: no foreign keys into the CRM's tables are left (the CRM is a package of its own), data untouched.
+  const { dropCrmForeignKeys } = await import('../modules/masterplan/schema.js');
+  await db.withTransaction((client) => dropCrmForeignKeys({ query: (text, params) => client.query(text, params) }));
+  const keys = await db.query(
+    `SELECT COUNT(*)::int AS n FROM pg_constraint c JOIN pg_class rel ON rel.oid = c.conrelid JOIN pg_class ref ON ref.oid = c.confrelid
+     WHERE c.contype = 'f' AND rel.relname LIKE 'mp\\_%' AND ref.relname LIKE 'crm\\_%'`
+  );
+  assert.equal(keys.rows[0].n, 0);
+  assert.deepEqual(await snapshot(), before);
 });

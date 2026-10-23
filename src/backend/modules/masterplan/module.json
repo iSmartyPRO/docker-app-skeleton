@@ -9,7 +9,7 @@
     "tr": "Vaziyet planı, daire tablosu ve bağımsız bölüm kaydı: satış durumları, rezervasyonlar, fiyatlar ve inşaat ilerlemesi",
     "zh": "总平面图、房源表和房源单元登记：销售状态、预订、价格和施工进度"
   },
-  "version": "1.1.0",
+  "version": "1.2.0",
   "category": "construction",
   "requires": [],
   "enhances": [
@@ -38,6 +38,14 @@
     "tour": ["masterplan"]
   },
   "changelog": [
+    {
+      "version": "1.2.0",
+      "date": "2026-10-23",
+      "changes": {
+        "en": ["Works without the CRM (now a package of its own): units and bookings keep the deal id without a database key into the CRM's tables, so the CRM can be installed, updated and removed on its own; deal titles show while the CRM's data is there."],
+        "ru": ["Работает без CRM (теперь отдельный пакет): юниты и брони хранят номер сделки без ключа на таблицы CRM, поэтому CRM устанавливается, обновляется и удаляется независимо; названия сделок видны, пока есть данные CRM."]
+      }
+    },
     {
       "version": "1.1.0",
       "date": "2026-10-23",

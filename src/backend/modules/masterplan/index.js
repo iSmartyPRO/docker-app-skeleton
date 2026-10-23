@@ -1,4 +1,4 @@
-import { createMasterplanSchema, startMasterplan } from './schema.js';
+import { MASTERPLAN_MIGRATIONS, startMasterplan } from './schema.js';
 import { privateRoutes } from './routes.js';
 import * as api from './api.js';
 import { registerContractSync, scheduleContractResync } from './contractSync.js';
@@ -17,8 +17,9 @@ export default {
   id: 'masterplan',
   // 001 is the schema Masterplan had while it was built into the core: CREATE … IF NOT EXISTS,
   // so on a portal that already has the mp_* tables it changes nothing (and keeps the data).
-  // Later changes: migrations/NNN_name.sql|js files (never edit 001).
-  migrations: [{ id: '001_init', up: createMasterplanSchema }],
+  // 002 drops its foreign keys into the CRM's tables (the CRM became a package; 001 no longer creates
+  // them on a new database, so both end the same). Later changes: new numbers, never edit applied ones.
+  migrations: MASTERPLAN_MIGRATIONS,
   routes: privateRoutes,
   api,
   sanitizeSettings,
