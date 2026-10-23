@@ -35,7 +35,6 @@ export const MODULE_UI = {
   chat: { tour: null },
   resources: { tour: null },
   remote: { tour: null },
-  assistant: { tour: null },
   files: { tour: null },
   kb: { tour: null },
   contracts: { tour: 'contracts' }, // registered in modules/<id>/register.js

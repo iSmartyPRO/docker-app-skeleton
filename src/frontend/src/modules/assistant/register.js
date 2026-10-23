@@ -1,6 +1,6 @@
 /*
- * Frontend entry of the Assistant module (loaded by modules/registry.js; in a
- * package this is web/index.js): what the module adds outside its own pages.
+ * Frontend entry of the Assistant module (imported by its web/index.js): what the
+ * module adds to the shell.
  * Keep it small — anything heavy is lazy.
  */
 import { lazy } from 'react';

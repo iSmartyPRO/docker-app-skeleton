@@ -25,7 +25,6 @@ import companies from './companies/index.js';
 import crm from './crm/index.js';
 import dashboard from './dashboard/index.js';
 import chat from './chat/index.js';
-import assistant from './assistant/index.js';
 import approvals from './approvals/index.js';
 import contracts from './contracts/index.js';
 import procurement from './procurement/index.js';
@@ -60,7 +59,7 @@ import remote from './remote/index.js';
 // Approvals first: modules register their document types against it at import time and its tables must exist for theirs.
 // Org structure before everything: approvals resolve «руководитель подразделения» through it, Employees point at its units.
 // Directory after Employees and Drive: it adds a section to employee cards and reuses the File server's AD credentials.
-export const MODULES = [org, approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, procurement, warehouse, dashboard, assistant, contracts, employees, directory, remote];
+export const MODULES = [org, approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, procurement, warehouse, dashboard, contracts, employees, directory, remote];
 // Built-in modules are in the core registry from the start: one module's schema() or demo may look up another
 // (modules.loaded('files') from the knowledge base); register(ctx) runs later, in bootModules().
 for (const module of MODULES) registerInCore({ ...module, version: module.version || MODULE_MANIFEST[module.id]?.version });

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { allowedAvatars, cleanPrefs, resolvePrefs } from '../modules/assistant/service.js';
-import { MODULE_CATALOG } from '../modules/catalog.js';
+import { sanitizeSettings } from '../modules/assistant/settings.js';
 
 test('assistant prefs keep only known values', () => {
   const next = cleanPrefs({ enabled: false, avatar: 'evil', size: 'XL', greeted: ['tasks', 'tasks', '../x', 'calendar'] }, { avatar: 'orbi' });
@@ -39,7 +39,8 @@ test('administrators decide which characters people may choose', () => {
   assert.equal(resolvePrefs({ avatar: 'boy' }, { choice: 'one', avatar: 'pro' }).avatar, null);
   assert.deepEqual(resolvePrefs({ colors: { pro: '#111111' } }, { allowColors: false }).colors, {});
   // The default always belongs to the allowed set; an empty set means everyone.
-  const sanitize = MODULE_CATALOG.find((module) => module.id === 'assistant').sanitize;
+  // The package's settings sanitizer (modules/assistant/settings.js; the portal uses it for settings.modules.assistant).
+  const sanitize = sanitizeSettings;
   assert.equal(sanitize({ avatar: 'pixel', choice: 'all', allowed: [] }, { choice: 'some', allowed: ['boy', 'girl'] }).avatar, 'boy');
   assert.equal(sanitize({ avatar: 'pixel', choice: 'all', allowed: [] }, { choice: 'some', allowed: [] }).choice, 'all');
 });
@@ -54,7 +55,8 @@ test('the second cast of characters can be picked, coloured and allowed', () => 
     assert.equal(cleanPrefs({ avatar: id }).avatar, id);
   }
   assert.deepEqual(cleanPrefs({ colors: { pingo: '#0EA5E9' } }, {}).colors, { pingo: '#0ea5e9' });
-  const sanitize = MODULE_CATALOG.find((module) => module.id === 'assistant').sanitize;
+  // The package's settings sanitizer (modules/assistant/settings.js; the portal uses it for settings.modules.assistant).
+  const sanitize = sanitizeSettings;
   const next = sanitize({ avatar: 'pixel', choice: 'all', allowed: [] }, { avatar: 'aurora', choice: 'some', allowed: ['shadow', 'aurora', 'evil'] });
   assert.equal(next.avatar, 'aurora');
   assert.deepEqual(next.allowed, ['shadow', 'aurora']);

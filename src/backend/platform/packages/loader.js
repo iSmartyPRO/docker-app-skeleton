@@ -395,6 +395,7 @@ export function loadPackages({ builtinIds = [], manifestEntries = {} } = {}) {
 export const CONVERTED_MODULES = Object.freeze({
   masterplan: { version: '1.0.0', name: { en: 'Masterplan', ru: 'Мастерплан', ky: 'Мастерплан', tr: 'Master plan', zh: '总体规划' } },
   qr: { version: '1.0.0', name: { en: 'QR codes', ru: 'QR-коды', ky: 'QR-коддор', tr: 'QR kodları', zh: '二维码' } },
+  assistant: { version: '1.0.0', name: { en: 'Robot assistant', ru: 'Робот-помощник', ky: 'Робот-жардамчы', tr: 'Robot asistan', zh: '机器人助手' } },
 });
 
 async function hasModuleData(id) {

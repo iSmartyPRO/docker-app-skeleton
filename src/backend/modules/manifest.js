@@ -130,16 +130,6 @@ export const MODULE_MANIFEST = {
     docs: { user: 'resources', guide: 'docs/resources.md' },
     changelog: first(['Tiles of company services with access by role and group.'], ['Плитки сервисов компании с доступом по ролям и группам.'], { ky: ['Компания сервистеринин плиткалары, кирүү укугу ролдор жана топтор боюнча.'], tr: ['Role ve gruba göre erişimli şirket hizmeti kutucukları.'], zh: ['公司服务磁贴，按角色和组控制访问。'] }),
   },
-  assistant: {
-    name: { en: 'Robot assistant', ky: 'Робот-жардамчы', tr: 'Robot asistan', zh: '机器人助手', ru: 'Робот-помощник' },
-    version: '1.0.0',
-    category: 'work',
-    minCore: '1.4.0',
-    requires: [],
-    enhances: [],
-    docs: { user: 'assistant', guide: 'docs/assistant.md' },
-    changelog: first(['Characters, tips on first visit, quick help.'], ['Персонажи, подсказки при первом входе, быстрая справка.'], { ky: ['Каармандар, биринчи киргенде кеңештер, ыкчам жардам.'], tr: ['Karakterler, ilk ziyarette ipuçları, hızlı yardım.'], zh: ['角色形象、首次访问提示、快速帮助。'] }),
-  },
   files: {
     name: { en: 'Files', ky: 'Файлдар', tr: 'Dosyalar', zh: '文件', ru: 'Файлы' },
     version: '1.0.0',
@@ -363,7 +353,7 @@ export const BUILTIN_MANIFEST_IDS = Object.keys(MODULE_MANIFEST);
  * Modules distributed as packages (no longer built into the core) that built-in
  * modules may name in `enhances`: the link is active once the package is installed.
  */
-export const PACKAGE_MODULE_IDS = ['masterplan', 'qr'];
+export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant'];
 Object.assign(MODULE_MANIFEST, packageManifestEntries(BUILTIN_MANIFEST_IDS));
 
 /**

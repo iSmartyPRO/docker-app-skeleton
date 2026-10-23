@@ -323,11 +323,6 @@ export const SETTINGS_GROUPS = [
         keywords: 'contracts agreements legal lawyer risks expiry prolongation numbering договоры юрист риски пролонгация окончание нумерация',
       },
       {
-        id: 'assistant',
-        defaultIcon: 'robot',
-        keywords: 'assistant robot helper avatar tips помощник робот подсказки аватар',
-      },
-      {
         id: 'calendar',
         defaultIcon: 'calendar',
         keywords: 'calendar events meetings reminders календарь события встречи напоминания',

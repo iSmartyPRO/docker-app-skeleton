@@ -1,5 +1,7 @@
 # Robot assistant
 
+**A module package** (since 1.1.0, [module-packages.md](module-packages.md)): not built into the core; `make module ID=assistant` builds `dist/modules/assistant-<version>.zip`. It has no page (`module.json` `web.page: false`: an overlay, listed in Settings → Modules, not in the app launcher); its browser entry adds the overlay (`app.overlays`), the Account → Appearance section (`account.appearance`) and the maintenance picture (`maintenance.art`) as contributions, so the shell works without it and shows them once it is installed and on. It stays on by default (`settings.js` `defaultEnabled`), as while it was built in. Upgrading a portal where it was built in: [module-packages.md](module-packages.md#upgrading-a-portal-that-had-qr-codes-the-assistant-or-remote-access-built-in).
+
 An animated helper drawn over every signed-in page (module `assistant`, an *overlay* module: no page of its own, listed in Settings → Modules, not in the app launcher).
 
 - **Characters (28):** robots Pixel, Orbi, Kiko, Classic (retro), Pro (business suit), Boltik (chatty), Nexus (chrome, holographic halo), Bubbles (round, spinning propeller); professions Builder, Asel the builder, Architect, Doctor (white coat, stethoscope, head mirror); kids Girl, Boy, Toddler (curl, dungarees, a bobbing balloon) and Bunny (a girl in a bunny-ear hood); Kyrgyz style Ermek (ak-kalpak, chapan), Aichurok (topu with an owl feather, braids), Berkutchi (fur tebetey, a golden eagle that flaps its wing) and Jibek (white elechek, velvet kemsel); superheroes Superbot and Supergirl (athletic bodies, the “S” shield, fluttering capes), Shadow (cowl with ears, gold bat, scalloped cape) and Aurora (star tiara, silver bracers, glowing lasso); animals Barsik (snow-leopard cub), Ryzhik (a lively fox cub), Bao (panda cub with bamboo) and Pingo (a waddling penguin chick). Robots are whole figures — a head at 80 % over a shared body with arms, legs and feet. SVG drawings (`modules/assistant/robots.jsx`) animated with CSS (`assistant.css`). Moods: idle (blinks, hovers, eyes follow the pointer), happy, wave, think, surprised (dragged), sleepy (after two minutes without activity). `prefers-reduced-motion` stops the motion; nothing is printed.
@@ -12,7 +14,7 @@ An animated helper drawn over every signed-in page (module `assistant`, an *over
 |--------|------|---------|
 | GET / PUT | `/api/app/assistant/prefs` | `{ enabled, avatar: <character id>\|null, size: S\|M\|L, colors: { <id>: '#rrggbb'\|null }, greeted: [section…], resetGreetings }` → resolved prefs with `defaultAvatar`, `proactive` |
 
-Storage: `assistant_prefs (user_id, prefs jsonb)`. The module's `avatar` and `proactive` settings are public (`publicSettings` in the catalog).
+Storage: `assistant_prefs (user_id, prefs jsonb)`. The module's `avatar` and `proactive` settings are public (`publicSettings` in `settings.js`).
 
 - **Colour:** each character has one main colour (clothes, shell, cape…). A person may pick another from ten swatches per character (`colors`), shown everywhere at once: the colour is the CSS variable `--rb-tint` and the drawings derive their shades with `color-mix()`.
 - **Changing:** the avatar in the panel header opens the cast (grouped, with the colour row); Account → Appearance shows the same.

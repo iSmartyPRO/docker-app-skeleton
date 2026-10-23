@@ -23,9 +23,6 @@ export const KB_FILE_GROUPS = {
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
-// Characters of the robot assistant (modules/assistant/service.js keeps the same list).
-const ASSISTANT_AVATARS = ['pixel', 'orbi', 'kiko', 'classic', 'pro', 'boltik', 'nexus', 'bubbles', 'builder', 'builder2', 'architect', 'doctor', 'girl', 'boy', 'toddler', 'zayka', 'ermek', 'aichurok', 'berkut', 'jibek', 'volt', 'nova', 'shadow', 'aurora', 'barsik', 'ryzhik', 'bao', 'pingo'];
-
 // ── CRM settings (docs/crm.md) ──────────────────────────────────────────────
 
 export const CRM_FIELD_TYPES = ['text', 'textarea', 'number', 'money', 'date', 'select', 'multiselect', 'bool', 'url', 'user'];
@@ -1096,40 +1093,6 @@ export const MODULE_CATALOG = [
       if (incoming.defaultReminder !== undefined) next.defaultReminder = clampInt(incoming.defaultReminder, -1, 10080, 15);
       for (const flag of ['showTasks', 'reminders']) {
         if (typeof incoming[flag] === 'boolean') next[flag] = incoming[flag];
-      }
-      return next;
-    },
-  },
-  {
-    id: 'assistant',
-    // Not an app with its own page: a helper drawn over every page.
-    overlay: true,
-    defaultEnabled: true,
-    permissions: [],
-    // Shown to every signed-in person (public settings), not only administrators.
-    publicSettings: ['avatar', 'proactive', 'choice', 'allowed', 'allowColors'],
-    defaults: {
-      // Robot shown until a person picks their own (one of ASSISTANT_AVATARS).
-      avatar: 'pixel',
-      // Offer help once when a person opens a section for the first time.
-      proactive: true,
-      // Who chooses the character: 'all' (any), 'some' (only `allowed`), 'one' (everyone gets `avatar`).
-      choice: 'all',
-      allowed: [],
-      // People may recolour their character.
-      allowColors: true,
-    },
-    sanitize(current, incoming = {}) {
-      const next = { ...current };
-      if (ASSISTANT_AVATARS.includes(incoming.avatar)) next.avatar = incoming.avatar;
-      if (typeof incoming.proactive === 'boolean') next.proactive = incoming.proactive;
-      if (typeof incoming.allowColors === 'boolean') next.allowColors = incoming.allowColors;
-      if (['all', 'some', 'one'].includes(incoming.choice)) next.choice = incoming.choice;
-      if (Array.isArray(incoming.allowed)) next.allowed = [...new Set(incoming.allowed.filter((id) => ASSISTANT_AVATARS.includes(id)))];
-      // The default must be one people may have; an empty selection means everyone.
-      if (next.choice === 'some') {
-        if (!next.allowed.length) next.choice = 'all';
-        else if (!next.allowed.includes(next.avatar)) next.avatar = next.allowed[0];
       }
       return next;
     },

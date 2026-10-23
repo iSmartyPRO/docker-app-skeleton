@@ -11,8 +11,8 @@ import { lazyPage } from '../lib/lazyPage';
  * module files itself. This file is the composition root.
  */
 // Folders of modules distributed as packages (their web/index.js is loaded by
-// platform/packages/loader.js when installed) are left out: masterplan, qr.
-import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js'], { eager: true });
+// platform/packages/loader.js when installed) are left out: masterplan, qr, assistant.
+import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js', '!./assistant/register.js'], { eager: true });
 
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
@@ -189,16 +189,11 @@ export const MODULE_REGISTRY = [
 
 /**
  * Modules without a page of their own (drawn over every page). They appear in
- * Settings → Modules with an on/off switch and their own settings screen.
+ * Settings → Modules with an on/off switch and their own settings screen. An
+ * installed package without a page (the robot assistant) is added here by
+ * platform/packages/loader.js.
  */
 export const FEATURE_MODULES = [
-  {
-    id: 'assistant',
-    icon: 'robot',
-    labelKey: 'apps.assistant.name',
-    descKey: 'apps.assistant.desc',
-    Settings: lazy(() => import('./assistant/AssistantSettings')),
-  },
   {
     // Org structure: a core service without a page of its own (edited in Settings → Org structure).
     id: 'org',

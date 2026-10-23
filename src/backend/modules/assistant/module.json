@@ -1,0 +1,46 @@
+{
+  "id": "assistant",
+  "name": { "en": "Robot assistant", "ru": "Робот-помощник", "ky": "Робот-жардамчы", "tr": "Robot asistan", "zh": "机器人助手" },
+  "nameForms": { "ru": { "ins": "Роботом-помощником" } },
+  "description": {
+    "en": "An animated helper over every page: tips for the section a person is in, quick help and search over the guides",
+    "ru": "Анимированный помощник поверх каждой страницы: подсказки по разделу, быстрая справка и поиск по руководствам",
+    "ky": "Ар бир барактын үстүндөгү анимацияланган жардамчы: бөлүм боюнча кеңештер, ыкчам жардам жана колдонмолор боюнча издөө",
+    "tr": "Her sayfanın üzerinde animasyonlu bir yardımcı: bulunulan bölüm için ipuçları, hızlı yardım ve kılavuzlarda arama",
+    "zh": "每个页面上的动画助手：当前版块的提示、快速帮助和指南搜索"
+  },
+  "version": "1.1.0",
+  "category": "work",
+  "requires": [],
+  "enhances": [],
+  "permissions": [],
+  "tables": ["assistant_%"],
+  "icon": "robot",
+  "web": { "page": false },
+  "docsInfo": { "user": "assistant", "guide": "docs/assistant.md" },
+  "localeKeys": {
+    "apps": ["assistant"],
+    "settings": ["assistant"]
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-23",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); each person's robot, colours and greetings and the organisation's rules are kept."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); робот, цвета и приветствия каждого сотрудника и правила организации сохраняются."]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-16",
+      "changes": {
+        "en": ["Characters, tips on first visit, quick help."],
+        "ru": ["Персонажи, подсказки при первом входе, быстрая справка."],
+        "ky": ["Каармандар, биринчи киргенде кеңештер, ыкчам жардам."],
+        "tr": ["Karakterler, ilk ziyarette ipuçları, hızlı yardım."],
+        "zh": ["角色形象、首次访问提示、快速帮助。"]
+      }
+    }
+  ]
+}

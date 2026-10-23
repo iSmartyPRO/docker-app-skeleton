@@ -22,3 +22,5 @@ src/backend/modules/masterplan
 src/frontend/src/modules/masterplan
 src/backend/modules/qr
 src/frontend/src/modules/qr
+src/backend/modules/assistant
+src/frontend/src/modules/assistant
