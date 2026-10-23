@@ -108,7 +108,9 @@
       },
       "absent": {
         "not": 401
-      }
+      },
+      "oldCore": {},
+      "oldCoreWhy": "Built-in Remote of v1.20.0 attaches both ws servers with { server, path }; the Portal VNC one answers 400 to every upgrade not on its path, so the guacd tunnel never gets its upgrades there (fixed in the package: upgrade.js routes one listener). The old core is only checked for an answer below 500."
     },
     {
       "name": "Portal VNC tunnel answers its upgrades (101, closed on the forged token)",

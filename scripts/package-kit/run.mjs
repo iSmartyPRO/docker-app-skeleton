@@ -411,7 +411,10 @@ async function browserStep(ctx, phase, name, ui, pages, { username = ADMIN.usern
   }, { critical: false });
 }
 
-/** Cross-module link probes of the kit file: `present` (both modules on) or `absent` (this module missing). */
+/**
+ * Cross-module link probes of the kit file: `present` (both modules on), `absent` (this module missing) or
+ * `oldCore` (the SOURCE_REF core with the module built in; falls back to `present`).
+ */
 async function linkProbes(ctx, phase, admin, which, label, database) {
   const probes = ctx.config.links || [];
   const params = await resolveParams(ctx, database, ctx.config.apiParams);
@@ -423,7 +426,7 @@ async function linkProbes(ctx, phase, admin, which, label, database) {
     await ctx.report.step(phase, `link ${probe.name} (${label})`, async () => {
       const { url, missing } = fillPath(probe.path, params, null);
       if (missing.length) return { status: 'skip', note: `no value for :${missing.join(', :')}` };
-      const expect = probe[which] || {};
+      const expect = probe[which] || (which === 'oldCore' ? probe.present : null) || {};
       if (probe.websocket) {
         // A WebSocket upgrade (e.g. Remote's tunnels, served by the package's ctx.onHttpServer hook): only the status line.
         const status = await upgradeStatus(admin.base, url, { timeoutMs: 25_000 });
@@ -827,7 +830,7 @@ async function phaseUpgrade(ctx) {
     ctx.widgetsBefore = dash.available || [];
     return `role ${role.role?.key || '?'} (${ctx.manifest.permissions.length} permissions) → ${USER.username}; dashboards with ${widgets.length} widget types`;
   });
-  await linkProbes(ctx, P, admin, 'present', `old core ${old.version}`, before.database);
+  await linkProbes(ctx, P, admin, 'oldCore', `old core ${old.version}`, before.database);
   const snapA = await ctx.report.step(P, 'snapshot: tables (counts + checksums), settings block, roles, dashboards', async () => {
     const s = await snap(ctx, before);
     if (!Object.keys(s.tables).length) return fail('the module has no tables on the old core');

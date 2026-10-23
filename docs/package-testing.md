@@ -183,7 +183,7 @@ Package check masterplan (all) — PASS: 73 passed, 0 failed, 2 warnings, 0 skip
 | `openToUsers` | `["GET /api/app/<id>/meta", …]` readable by everyone signed in (reference lists); give reasons next to it |
 | `needsOtherScopes` | routes that also need another area's token scope |
 | `skipApi` | routes the sweep must not call (`*` one segment, `**` the rest) |
-| `links` | `[{ name, path, present: { status, nonEmpty }, absent: { maxStatus, empty } }]` — probes of the links with other modules (or of the module's public side), called with both installed and with this module missing. `websocket: true` sends a WebSocket upgrade instead (raw HTTP, no frames) and compares the status line: `{ status }` or `{ not }` (Remote's tunnels) |
+| `links` | `[{ name, path, present: { status, nonEmpty }, absent: { maxStatus, empty } }]` — probes of the links with other modules (or of the module's public side), called with both installed and with this module missing; `oldCore` (same keys) replaces `present` on the `SOURCE_REF` core when the built-in module answered differently there (give the reason in `oldCoreWhy`). `websocket: true` sends a WebSocket upgrade instead (raw HTTP, no frames) and compares the status line: `{ status }` or `{ not }` (Remote's tunnels) |
 | `pages`, `replacePages` | extra pages (`"/app/crm"` or `{ path, expectPrefix }`); `replacePages: true` uses only these |
 | `ignoreBrowser` | regular expressions of browser messages to ignore |
 | `uploadFolders` | folders under `uploads/` that hold the module's files (default `[<id>]`) |
@@ -218,3 +218,4 @@ Package check masterplan (all) — PASS: 73 passed, 0 failed, 2 warnings, 0 skip
   archives `uploads/<id>` (`<file>.uploads.tar.gz`) and the folder is removed (module-packages.md «Backups»); the
   `app_settings` keys the module writes itself still stay (documented).
 - Masterplan's own settings page (`/app/masterplan/settings`) asks `/api/app/crm/pipelines` with CRM switched off (404, handled by the page — a warning).
+- Remote on v1.20.0 (built in): the guacd tunnel never gets its WebSocket upgrades — the Portal VNC `ws` server, attached with `{ server, path }` too, answers 400 to every upgrade outside its path. The package routes both tunnels through one `upgrade` listener (`remote/upgrade.js`); the kit's old-core probe expects only an answer below 500 (`oldCore`).
