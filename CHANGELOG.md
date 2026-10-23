@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Remote access — upload the Portal VNC certificates from a file**: each field on «Connect from the portal» (CA, client certificate, client key) now has an «Upload file» button that reads a `.crt`/`.pem`/`.key` and fills the field, so you no longer have to open each file in a text editor and paste it. The file is read in the browser; only the final value is saved (the key still sealed).
+
 ## [1.17.1] - 2026-10-23
 
 ### Changed

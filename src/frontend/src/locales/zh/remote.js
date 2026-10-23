@@ -43,6 +43,8 @@ export default {
     keyKept: '密钥已保存 —— 留空以保持不变',
     saved: '门户客户端证书已保存',
     savedAt: '更新于 {date}',
+    upload: '上传文件',
+    uploadFailed: '无法读取文件',
   },
   catalogue: {
     lead: '连接到员工的计算机以提供支持，或在员工知情的情况下查看其工作。',

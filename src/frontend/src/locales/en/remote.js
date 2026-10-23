@@ -43,6 +43,8 @@ export default {
     keyKept: 'Key stored — leave blank to keep it',
     saved: 'Portal client certificate saved',
     savedAt: 'Updated {date}',
+    upload: 'Upload file',
+    uploadFailed: 'Could not read the file',
   },
   catalogue: {
     lead: 'Connect to employees’ computers for support, or watch work with the employee’s knowledge.',

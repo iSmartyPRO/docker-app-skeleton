@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, App, Button, Input, Skeleton, Tag } from 'antd';
+import { Alert, App, Button, Input, Skeleton, Tag, Upload } from 'antd';
 import {
   ArrowLeftOutlined,
   CheckCircleFilled,
@@ -10,6 +10,7 @@ import {
   GithubOutlined,
   LinkOutlined,
   SafetyCertificateOutlined,
+  UploadOutlined,
   WindowsOutlined,
 } from '@ant-design/icons';
 import { MenuIcon } from '../../../components/icons/menuIcons';
@@ -43,6 +44,15 @@ export default function PortalVnc() {
       .catch(() => { if (alive) setCfg(null); });
     return () => { alive = false; };
   }, []);
+
+  // Read a picked .crt/.pem/.key file as text into a field (no upload to server).
+  const readInto = (key) => (file) => {
+    const reader = new FileReader();
+    reader.onload = () => setForm((f) => ({ ...f, [key]: String(reader.result || '').trim() }));
+    reader.onerror = () => message.error(t('remote.pvnc.uploadFailed'));
+    reader.readAsText(file);
+    return Upload.LIST_IGNORE; // never add to antd's list / never upload
+  };
 
   const saveIdentity = async () => {
     setSaving(true);
@@ -152,11 +162,28 @@ export default function PortalVnc() {
               <li>{t('remote.pvnc.how3')}</li>
             </ol>
 
-            <label className="rm-field__label">{t('remote.pvnc.caLabel')}</label>
+            <div className="pvnc-field-head">
+              <label className="rm-field__label">{t('remote.pvnc.caLabel')}</label>
+              <Upload accept=".pem,.crt,.cer,.crt.pem,.ca,.txt" showUploadList={false} beforeUpload={readInto('caCert')}>
+                <Button size="small" type="text" icon={<UploadOutlined />}>{t('remote.pvnc.upload')}</Button>
+              </Upload>
+            </div>
             <Input.TextArea value={form.caCert} onChange={(e) => setForm((f) => ({ ...f, caCert: e.target.value }))} rows={3} autoSize={{ minRows: 3, maxRows: 6 }} placeholder="-----BEGIN CERTIFICATE-----" spellCheck={false} />
-            <label className="rm-field__label">{t('remote.pvnc.certLabel')}</label>
+
+            <div className="pvnc-field-head">
+              <label className="rm-field__label">{t('remote.pvnc.certLabel')}</label>
+              <Upload accept=".pem,.crt,.cer,.txt" showUploadList={false} beforeUpload={readInto('clientCert')}>
+                <Button size="small" type="text" icon={<UploadOutlined />}>{t('remote.pvnc.upload')}</Button>
+              </Upload>
+            </div>
             <Input.TextArea value={form.clientCert} onChange={(e) => setForm((f) => ({ ...f, clientCert: e.target.value }))} rows={3} autoSize={{ minRows: 3, maxRows: 6 }} placeholder="-----BEGIN CERTIFICATE-----" spellCheck={false} />
-            <label className="rm-field__label">{t('remote.pvnc.keyLabel')}</label>
+
+            <div className="pvnc-field-head">
+              <label className="rm-field__label">{t('remote.pvnc.keyLabel')}</label>
+              <Upload accept=".pem,.key,.txt" showUploadList={false} beforeUpload={readInto('clientKey')}>
+                <Button size="small" type="text" icon={<UploadOutlined />}>{t('remote.pvnc.upload')}</Button>
+              </Upload>
+            </div>
             <Input.TextArea value={form.clientKey} onChange={(e) => setForm((f) => ({ ...f, clientKey: e.target.value }))} rows={3} autoSize={{ minRows: 3, maxRows: 6 }} placeholder={cfg?.hasKey ? t('remote.pvnc.keyKept') : '-----BEGIN PRIVATE KEY-----'} spellCheck={false} />
             <div className="pvnc-identity__actions">
               <Button type="primary" loading={saving} onClick={saveIdentity} disabled={!form.caCert.trim() || !form.clientCert.trim() || (!cfg?.hasKey && !form.clientKey.trim())}>

@@ -1021,3 +1021,8 @@
 }
 .rm-people-block__head .anticon { color: var(--da-primary); }
 .rm-tight-item.ant-form-item { margin-bottom: 12px; }
+
+/* Portal VNC identity: label + «upload file» button on one line. */
+.pvnc-field-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.pvnc-field-head .rm-field__label { margin: 0 0 3px; }
+.pvnc-field-head .ant-btn { height: 24px; padding: 0 8px; color: var(--da-primary); }

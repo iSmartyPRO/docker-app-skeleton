@@ -43,6 +43,8 @@ export default {
     keyKept: 'Anahtar saklandı — değiştirmemek için boş bırakın',
     saved: 'Portal istemci sertifikası kaydedildi',
     savedAt: 'Güncellendi {date}',
+    upload: 'Dosya yükle',
+    uploadFailed: 'Dosya okunamadı',
   },
   catalogue: {
     lead: 'Destek için çalışanların bilgisayarlarına bağlanın veya çalışanın bilgisi dahilinde çalışmayı izleyin.',
