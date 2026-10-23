@@ -67,6 +67,8 @@ export function modulesPayload(parsed, { demo = null } = {}) {
       docs: manifest.docs,
       permissions: module.permissions,
       core: Boolean(module.core),
+      // A core service an administrator may still hide (Counterparties): it has a switch.
+      hideable: Boolean(module.hideable),
       overlay: Boolean(module.overlay),
       enabled: enabled[module.id],
       status,

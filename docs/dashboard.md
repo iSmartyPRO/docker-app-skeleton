@@ -44,7 +44,7 @@ Permission `dashboard.admin` (super administrators always): on the dashboard, **
 ## Technical notes
 
 - Tables: `dash_layouts` (per person: widgets with type, size, settings, in order) and `dash_default` (one row, the administrator's starting layout). Without either the built-in layout in `modules/dashboard/widgets.js` is used.
-- Widgets of modules switched off are kept in a saved layout and come back with the module.
+- Widgets of modules switched off are kept in a saved layout and come back with the module. The server keeps every widget type it does not know right now too (a module that failed to register, a package not loaded yet): `cleanLayout` checks only the type's shape, the size and the settings' size, and the routes show and offer only `availableTypes()`.
 - An API token reads a widget only with the scope of its module (`notifications` for notifications, `admin.users` for people); the welcome widget and the agenda leave out the parts the token may not read.
 - API (`/api/app/dashboard`): `GET /` (layout, available widgets, rights), `PUT /layout`, `DELETE /layout`, `PUT|DELETE /default` (`dashboard.admin`), `GET /options` (projects, calendars, link categories), `GET /data/:type?settings=<json>&tz=<zone>` (widget data; `miniCalendar` also takes `from`, `to`).
 - Charts are small SVG components (`platform/widgets/charts.jsx`, shared with module widgets and the developer console); no chart library.

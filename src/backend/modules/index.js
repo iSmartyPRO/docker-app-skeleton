@@ -151,7 +151,7 @@ export async function ensureModuleSchemas() {
 async function bootModules() {
   for (const module of MODULES) recordBundled(module, MODULE_MANIFEST[module.id]);
   // Built-in modules join the core registry and run their register(ctx) (platform/registry.js).
-  activateModules(MODULES.map((module) => ({ ...module, version: module.version || MODULE_MANIFEST[module.id]?.version })));
+  await activateModules(MODULES.map((module) => ({ ...module, version: module.version || MODULE_MANIFEST[module.id]?.version })));
   try {
     await loadPackages({ builtinIds: BUILTIN_MODULE_IDS, manifestEntries: MODULE_MANIFEST });
     await registerPackages();

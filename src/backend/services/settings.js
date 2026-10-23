@@ -5,7 +5,7 @@ import { getPool, query, withTransaction } from '../config/database.js';
 import { logoDir } from '../config/paths.js';
 import { APP_VERSION } from '../config/version.js';
 import { REGIONAL_DEFAULTS, resolveRegional, sanitizeRegional } from './datetime.js';
-import { CRM_DEFAULTS, MODULE_CATALOG, MODULE_IDS, crmStockLists, resolveModules, sanitizeModules } from '../modules/catalog.js';
+import { ALWAYS_ON_IDS, CRM_DEFAULTS, MODULE_CATALOG, MODULE_IDS, crmStockLists, resolveModules, sanitizeModules } from '../modules/catalog.js';
 import { EDITING_DEFAULTS, sanitizeEditing } from './office/editing.js';
 import { sanitizeDefaultTheme, sanitizeThemePolicy } from './themeCatalog.js';
 import { planModuleChanges } from '../modules/dependencies.js';
@@ -914,7 +914,7 @@ export async function updateAdminSettings(patch, { locked = false } = {}) {
   if (patch.modules && typeof patch.modules === 'object') {
     const current = Object.fromEntries(Object.entries(parsed.modules).map(([id, state]) => [id, Boolean(state.enabled)]));
     const integrations = Object.fromEntries(Object.entries(parsed.integrations || {}).map(([key, value]) => [key, Boolean(value?.enabled)]));
-    const plan = planModuleChanges(current, patch.modules, { integrations, core: MODULE_CATALOG.filter((module) => module.core).map((module) => module.id) });
+    const plan = planModuleChanges(current, patch.modules, { integrations, core: ALWAYS_ON_IDS() });
     modulesPatch = { ...patch.modules };
     for (const id of plan.autoEnabled) modulesPatch[id] = { ...(modulesPatch[id] || {}), enabled: true };
   }

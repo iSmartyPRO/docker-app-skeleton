@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveModules, sanitizeModules } from '../modules/catalog.js';
+import { ALWAYS_ON_IDS, resolveModules, sanitizeModules } from '../modules/catalog.js';
+import { cleanLayout } from '../modules/dashboard/widgets.js';
 import { slugProblem, slugify } from '../modules/kb/shares.js';
 
 test('modules resolve to defaults and keep stored state', () => {
@@ -37,6 +38,32 @@ test('module settings are sanitised field by field', () => {
   assert.equal(next.kb.settings.publicLinks, true, 'non-boolean flags ignored');
   assert.equal(next.kb.settings.maxShareDays, 0);
   assert.equal(next.unknown, undefined, 'unknown modules are not created');
+});
+
+test('core services stay on; Counterparties (core, hideable) keeps a stored «off» and can be switched', () => {
+  // Org structure and Approvals: always on, a stored false is ignored and cannot be saved.
+  assert.equal(resolveModules({ org: { enabled: false }, approvals: { enabled: false } }).org.enabled, true);
+  assert.equal(sanitizeModules(resolveModules(), { approvals: { enabled: false } }).approvals.enabled, true);
+  // Counterparties: on by default, a stored false is respected (hidden: no app, widgets, own routes).
+  assert.equal(resolveModules().companies.enabled, true);
+  assert.equal(resolveModules({ companies: { enabled: false } }).companies.enabled, false);
+  assert.equal(sanitizeModules(resolveModules(), { companies: { enabled: false } }).companies.enabled, false);
+  assert.ok(!ALWAYS_ON_IDS().includes('companies'));
+  assert.ok(ALWAYS_ON_IDS().includes('org') && ALWAYS_ON_IDS().includes('approvals'));
+});
+
+test('dashboard layouts keep widget types the server does not know right now (sizes and settings still checked)', () => {
+  const out = cleanLayout([
+    { id: 'a', type: 'myTasks', w: 99, h: 1, settings: { x: 1 } },
+    { id: 'b', type: 'hello.greeting', w: 4, h: 4, settings: { big: 'x'.repeat(9000) } },
+    { id: 'c', type: '<script>', w: 4, h: 4 },
+    { id: 'd', type: 42 },
+    null,
+  ]);
+  assert.deepEqual(out.map((widget) => widget.type), ['myTasks', 'hello.greeting']);
+  assert.equal(out[0].w, 12);
+  assert.equal(out[0].h, 2);
+  assert.deepEqual(out[1].settings, {});
 });
 
 test('slugify transliterates Cyrillic and Kazakh titles', () => {

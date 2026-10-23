@@ -59,7 +59,8 @@ export const MODULE_REGISTRY = [
     Settings: lazy(() => import('./resources/ResourcesSettings')),
   },
   {
-    // Counterparties: a core service, always on (no switch in Settings → Modules).
+    // Counterparties: a core service (its API serves CRM, Contracts, Procurement…). An administrator
+    // may still hide it in Settings → Modules: then no app, widgets or pages (docs/companies.md).
     id: 'companies',
     path: '/app/companies',
     core: true,

@@ -900,10 +900,14 @@ export const MODULE_CATALOG = [
     },
   },
   {
-    // Counterparties: a core service (docs/specs/module-packages.ru.md §2). Always on; CRM,
-    // Contracts, Procurement and Warehouse read it through modules/companies/api.js.
+    // Counterparties: a core service (docs/specs/module-packages.ru.md §2): always loaded, CRM,
+    // Contracts, Procurement and Warehouse read it through modules/companies/api.js. «Hideable»:
+    // an administrator may still switch it off (as before it became core) — then it is hidden:
+    // no app, no widgets, its own routes answer 404 MODULE_DISABLED, and the other modules'
+    // pickers work as they did with Counterparties off (companiesEnabled false).
     id: 'companies',
     core: true,
+    hideable: true,
     defaultEnabled: true,
     permissions: ['companies.admin'],
     defaults: {
@@ -1377,6 +1381,15 @@ MODULE_CATALOG.push(...packageCatalogEntries(BUILTIN_MODULE_IDS));
 
 export const MODULE_IDS = MODULE_CATALOG.map((module) => module.id);
 
+/*
+ * Core services are always loaded; most are always on too. A «hideable» core service
+ * (Counterparties) keeps a stored enabled=false: it stays loaded (its api.js serves the
+ * other modules) but is hidden from people — see the catalog entry.
+ */
+export const alwaysOn = (module) => Boolean(module?.core && !module.hideable);
+/** Ids of the core services that cannot be switched off. */
+export const ALWAYS_ON_IDS = () => MODULE_CATALOG.filter(alwaysOn).map((module) => module.id);
+
 /** Stored state merged over defaults: `{ kb: { enabled, settings } }`. */
 /** `locale`: the portal language, for modules whose stock settings have per-language texts (localizedDefaults). */
 export function resolveModules(stored = {}, { locale } = {}) {
@@ -1388,7 +1401,7 @@ export function resolveModules(stored = {}, { locale } = {}) {
       return [
         module.id,
         {
-          enabled: module.core ? true : typeof saved.enabled === 'boolean' ? saved.enabled : module.defaultEnabled,
+          enabled: alwaysOn(module) ? true : typeof saved.enabled === 'boolean' ? saved.enabled : module.defaultEnabled,
           settings: module.upgrade ? module.upgrade({ ...defaults, ...(saved.settings || {}) }, saved.settings || {}) : { ...defaults, ...(saved.settings || {}) },
         },
       ];
@@ -1401,7 +1414,7 @@ export function sanitizeModules(current, incoming = {}) {
   for (const module of MODULE_CATALOG) {
     const patch = incoming[module.id];
     if (!patch || typeof patch !== 'object') continue;
-    if (typeof patch.enabled === 'boolean' && !module.core) next[module.id].enabled = patch.enabled;
+    if (typeof patch.enabled === 'boolean' && !alwaysOn(module)) next[module.id].enabled = patch.enabled;
     if (patch.settings && typeof patch.settings === 'object') {
       next[module.id].settings = module.sanitize(next[module.id].settings, patch.settings);
     }

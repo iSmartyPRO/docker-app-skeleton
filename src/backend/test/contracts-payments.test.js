@@ -20,7 +20,7 @@ import contractsModule from '../modules/contracts/index.js';
 import { activateModules } from '../platform/registry.js';
 
 // Contracts registers its dashboard widget through the core registry (register(ctx)).
-activateModules([contractsModule]);
+await activateModules([contractsModule]);
 
 /*
  * The money side of contracts (docs/contracts.md "Deposit and payments"):

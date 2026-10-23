@@ -9,5 +9,5 @@ export async function activateAll() {
   if (!Object.entries(process.env).some(([key, value]) => key.endsWith('_DB_TEST') && value === '1')) return;
   const { MODULES } = await import('../../modules/index.js');
   const { activateModules } = await import('../../platform/registry.js');
-  activateModules(MODULES);
+  await activateModules(MODULES);
 }

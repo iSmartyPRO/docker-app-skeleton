@@ -20,7 +20,7 @@ import './platform.css';
 const MAX_LINKS = 4;
 
 function StatusTag({ module, t }) {
-  if (module.core) return <Tag bordered={false} color="blue">{t('platform.modules.statusCore')}</Tag>;
+  if (module.core && !module.hideable) return <Tag bordered={false} color="blue">{t('platform.modules.statusCore')}</Tag>;
   if (!module.compatible) return <Tag bordered={false} color="red">{t('platform.modules.incompatible', { version: module.minCore })}</Tag>;
   if (module.missing?.length) {
     const list = module.missing.map((item) => `«${linkName(item, t)}»`).join(', ');
@@ -89,7 +89,7 @@ function ModuleCard({ module, canEdit, canDemo, onToggle, onDemo, focused, coreV
           <StatusTag module={module} t={t} />
           <PackageTags pkg={pkg} />
         </div>
-        {!module.core && (
+        {(!module.core || module.hideable) && (
           <Switch
             checked={Boolean(module.enabled)}
             loading={busy}

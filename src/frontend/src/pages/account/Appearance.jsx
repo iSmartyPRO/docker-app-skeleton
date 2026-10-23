@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, App, Button, ColorPicker, Form, Select, Slider, Spin, Switch } from 'antd';
 import Segmented from '../../components/ui/Segmented';
 import PageHeader from '../../components/ui/PageHeader';
@@ -13,6 +13,7 @@ import { HintLabel } from '../../help/Hint';
 import RegionalFields from '../../components/ui/RegionalFields';
 import { useSettings } from '../../context/SettingsContext';
 import { useContributions } from '../../platform/extensions';
+import Contribution from '../../platform/Contribution';
 import ThemePicker from '../../theme/ThemePicker';
 import { cleanCustom, selectableThemes } from '../../theme/themes';
 import { ensureContrast } from '../../theme/contrast';
@@ -228,11 +229,11 @@ export default function AccountAppearance() {
         </div>
       </SettingsSection>
       {/* Sections modules add here (account.appearance — the assistant's settings). */}
-      <Suspense fallback={null}>
-        {appearanceSections.map(({ id, Component }) => (
-          <Component key={id} />
-        ))}
-      </Suspense>
+      {appearanceSections.map(({ id, Component }) => (
+        <Contribution key={id} point="account.appearance" id={id}>
+          <Component />
+        </Contribution>
+      ))}
       <SaveBar visible={dirty} saving={saving} onSave={submit} onReset={onReset} />
     </div>
   );

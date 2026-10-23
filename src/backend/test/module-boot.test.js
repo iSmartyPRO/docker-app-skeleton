@@ -30,7 +30,7 @@ const { widgetDefinitions } = await import('./platform/widgets.js');
 const list = [];
 for (const id of ids) list.push((await import('./modules/' + id + '/index.js')).default);
 for (const module of list) if (module.id !== ids[list.indexOf(module)]) throw new Error('module id mismatch: ' + module.id);
-registry.activateModules(list);
+await registry.activateModules(list);
 const routers = [];
 for (const module of list) {
   if (typeof module.routes === 'function') routers.push(module.routes());
@@ -117,5 +117,44 @@ test('boot: everything', () => {
   // Widgets of every module that has some are registered.
   for (const id of ['tasks', 'calendar', 'files', 'drive', 'kb', 'resources', 'companies', 'procurement', 'contracts', 'warehouse', 'employees']) {
     assert.ok(report.widgets.includes(id), `${id} widgets`);
+  }
+});
+
+test('activation: a register() that throws, rejects or leaves a failing ctx helper never escapes; activateModules waits', async () => {
+  const { activateModules, modules } = await import('../platform/registry.js');
+  const seen = [];
+  const warn = console.warn;
+  const error = console.error;
+  const logged = [];
+  console.warn = (...args) => logged.push(args.join(' '));
+  console.error = (...args) => logged.push(args.join(' '));
+  const unhandled = [];
+  const onUnhandled = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    await activateModules([
+      { id: 'zz-throws', register() { throw new Error('sync boom'); } },
+      { id: 'zz-rejects', async register() { await null; throw new Error('async boom'); } },
+      {
+        id: 'zz-helper',
+        register(ctx) {
+          // Not awaited, not caught: must not become an unhandled rejection.
+          ctx.registerInboxProvider('zz-bad-provider', 'not a function');
+        },
+      },
+      { id: 'zz-slow', async register() { await new Promise((resolve) => setTimeout(resolve, 20)); seen.push('slow done'); } },
+    ]);
+    assert.deepEqual(seen, ['slow done'], 'activateModules resolved only after the async register finished');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.deepEqual(unhandled, []);
+    assert.ok(logged.some((line) => /zz-throws: register\(\) failed/.test(line) && /sync boom/.test(line)), logged.join('\n'));
+    assert.ok(logged.some((line) => /zz-rejects: register\(\) failed/.test(line) && /async boom/.test(line)), logged.join('\n'));
+    // The modules stay loaded without their extensions.
+    assert.ok(logged.some((line) => /zz-helper: registerInboxProvider\(zz-bad-provider\) failed/.test(line)), logged.join('\n'));
+    assert.ok(modules.loaded('zz-throws') && modules.loaded('zz-rejects'));
+  } finally {
+    console.warn = warn;
+    console.error = error;
+    process.off('unhandledRejection', onUnhandled);
   }
 });

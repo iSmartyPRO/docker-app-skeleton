@@ -56,13 +56,32 @@ export function unregisterModule(id) {
   loadedModules.delete(id);
 }
 
-function runSafe(label, fn) {
+/**
+ * Runs fn() so that neither a throw nor a rejected promise escapes: errors are
+ * logged. Returns a promise that settles (never rejects) once fn's promise
+ * does — callers that need to wait (activateModules) await it, others may not.
+ */
+function runSafe(label, fn, log = console.warn) {
   try {
     const result = fn();
-    if (result && typeof result.catch === 'function') result.catch((err) => console.warn(`[modules] ${label} failed:`, err?.message || err));
+    if (result && typeof result.then === 'function') {
+      return Promise.resolve(result).then(
+        () => undefined,
+        (err) => log(`[modules] ${label} failed:`, err?.message || err)
+      );
+    }
   } catch (err) {
-    console.warn(`[modules] ${label} failed:`, err?.message || err);
+    log(`[modules] ${label} failed:`, err?.message || err);
   }
+  return Promise.resolve();
+}
+
+/** A promise a ctx helper returns: still rejects for a caller that awaits it, but is never an unhandled rejection. */
+function handled(label, promise, pending) {
+  promise.catch((err) => console.warn(`[modules] ${label} failed:`, err?.message || err));
+  // Waited for only while register() runs (activateModules); later calls are not collected.
+  if (pending && !pending.closed) pending.push(promise.catch(() => undefined));
+  return promise;
 }
 
 async function readEnabled(id) {
@@ -286,7 +305,7 @@ export async function runShutdownHooks() {
  * What a module's register(ctx) receives. Registrations made through ctx are
  * tagged with the module's id, so they hide while the module is off.
  */
-export function moduleContext(module) {
+export function moduleContext(module, { pending = null } = {}) {
   const id = module.id;
   const own = (definition) => ({ module: id, ...definition });
   return {
@@ -307,9 +326,10 @@ export function moduleContext(module) {
     onHttpServer: (fn) => onHttpServer(fn, { module: id }),
     onShutdown: (fn) => onShutdown(fn, { module: id }),
     // Existing core mechanisms, reached through ctx too (loaded on use: no import cycles with the settings service).
-    registerApprovalType: (definition) => import('../modules/approvals/api.js').then((approvals) => approvals.registerApprovalType(definition)),
-    registerInboxProvider: (key, provider, options = {}) => import('../services/inbox.js').then((inbox) => inbox.registerInboxProvider(key, provider, { module: id, ...options })),
-    registerJob: (job) => import('../services/scheduler.js').then((scheduler) => scheduler.registerJob(job)),
+    // Each returns a promise that is never an unhandled rejection, and activateModules waits for it.
+    registerApprovalType: (definition) => handled(`${id}: registerApprovalType`, import('../modules/approvals/api.js').then((approvals) => approvals.registerApprovalType(definition)), pending),
+    registerInboxProvider: (key, provider, options = {}) => handled(`${id}: registerInboxProvider(${key})`, import('../services/inbox.js').then((inbox) => inbox.registerInboxProvider(key, provider, { module: id, ...options })), pending),
+    registerJob: (job) => handled(`${id}: registerJob`, import('../services/scheduler.js').then((scheduler) => scheduler.registerJob(job)), pending),
   };
 }
 
@@ -317,20 +337,28 @@ const activated = new Set();
 
 /**
  * Registers every module of the list, then runs each one's register(ctx)
- * (once per module). A register() that throws is logged and the module stays
- * loaded without its extensions — the portal keeps running.
+ * (once per module). A register() that throws or rejects (async register, a
+ * ctx.register* helper that failed) is logged and the module stays loaded
+ * without its extensions — the portal keeps running. Resolves once every
+ * register() and the ctx helpers they started have settled; never rejects.
  */
-export function activateModules(list) {
+export async function activateModules(list) {
   for (const module of list) registerModule(module);
+  const waits = [];
   for (const module of list) {
     if (activated.has(module.id) || typeof module.register !== 'function') continue;
     activated.add(module.id);
-    try {
-      module.register(moduleContext(module));
-    } catch (err) {
-      console.error(`[modules] ${module.id}: register() failed:`, err?.message || err);
-    }
+    const pending = [];
+    const ctx = moduleContext(module, { pending });
+    waits.push(
+      runSafe(`${module.id}: register()`, () => module.register(ctx), console.error)
+        .then(() => Promise.all(pending))
+        .then(() => {
+          pending.closed = true;
+        })
+    );
   }
+  await Promise.all(waits);
 }
 
 export { events, registerWidget, registerWidgetSection, widgetDefinitions };

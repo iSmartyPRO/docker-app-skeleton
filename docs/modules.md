@@ -4,7 +4,7 @@ The skeleton is a platform for **modules**: self-contained applications that plu
 
 People: the core [Org structure](org-structure.md) (units, heads, `managerOf()`; always on, like Approvals) and the [Employees](employees.md) module (people with or without portal access, clearances, org chart; off by default).
 
-**Core services** (always on, no switch): Org structure, Approvals and [Counterparties](companies.md) — modules use them through their public `api.js` / `public.js`. Everything else is a module that may be off or, with module packages, not installed: modules never import each other's internal files, and optional links go through the core registry and extension points ([extending.md → Module registry and extension points](extending.md#module-registry-and-extension-points); checked by `npm run check:modules`).
+**Core services** (always loaded): Org structure and Approvals (always on, no switch) and [Counterparties](companies.md) (on by default; an administrator may hide it — see below) — modules use them through their public `api.js` / `public.js`. Everything else is a module that may be off or, with module packages, not installed: modules never import each other's internal files, and optional links go through the core registry and extension points ([extending.md → Module registry and extension points](extending.md#module-registry-and-extension-points); checked by `npm run check:modules`).
 
 | URL | What it is |
 |-----|------------|
@@ -126,7 +126,7 @@ The registry wraps every router with `enabledOnly(id)`, and wraps the private ro
 
 Unknown keys in a settings patch are ignored. Each field is validated by `sanitize`.
 
-`core: true` marks a module that can never be switched off (Org structure, Approvals, Counterparties): it is always enabled, Settings → Modules shows *Always on* instead of a switch, and other modules and the core may import its public `api.js` / `public.js`.
+`core: true` marks a core service: always loaded, and other modules and the core may import its public `api.js` / `public.js`. Org structure and Approvals are always enabled: Settings → Modules shows *Always on* instead of a switch, and a stored `enabled: false` is ignored. `hideable: true` (Counterparties) keeps the switch: a portal that had it off (`modules.companies.enabled = false`, as before it became core) keeps it off. Then it is **hidden**, not removed: no app or launcher entry, no dashboard widgets, its own routes (`/api/app/companies/*`) answer 404 `MODULE_DISABLED`, and the other modules' pickers work exactly as they did with Counterparties off (CRM, Masterplan get `companiesEnabled: false`; Procurement, Warehouse and the shared pickers offer no directory; Contracts refuse a `companyId` with `COMPANIES_DISABLED`). Its `api.js` stays importable for server code.
 
 ### Frontend
 

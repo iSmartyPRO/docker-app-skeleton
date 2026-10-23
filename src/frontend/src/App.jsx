@@ -235,8 +235,19 @@ function ThemedRoutes() {
             <Route path="/setup" element={<SetupWizard />} />
             <Route path="/auth/magic" element={<AuthCallback kind="magic" />} />
             <Route path="/auth/telegram" element={<AuthCallback kind="telegram" />} />
+            {/* Each public page in its own boundary: one that fails shows the page error, not a broken shell. */}
             {publicRoutes.map(({ id, path, Component }) => (
-              <Route key={id} path={path} element={<Component />} />
+              <Route
+                key={id}
+                path={path}
+                element={
+                  <AppErrorBoundary resetKey={location.pathname}>
+                    <Suspense fallback={<Screen />}>
+                      <Component />
+                    </Suspense>
+                  </AppErrorBoundary>
+                }
+              />
             ))}
             <Route
               path="/install"

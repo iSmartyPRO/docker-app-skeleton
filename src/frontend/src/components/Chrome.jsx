@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { App, Avatar, Dropdown, Tooltip } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
@@ -17,6 +17,7 @@ import { enabledModules, moduleLabel } from '../modules/registry';
 import { preloadProps } from '../lib/lazyPage';
 import NotificationBell from './NotificationBell';
 import { useContributions } from '../platform/extensions';
+import Contribution from '../platform/Contribution';
 import { isStandalone } from '../pwa/pwa';
 import { useHelp } from '../help/HelpContext';
 import api from '../services/api';
@@ -225,12 +226,12 @@ export default function Chrome({ dense }) {
                 </svg>
               </button>
             </Tooltip>
-            {/* Buttons modules add to the top bar (chat, «Ждёт меня»): header.actions. */}
-            <Suspense fallback={null}>
-              {headerActions.map(({ id, Component }) => (
-                <Component key={id} />
-              ))}
-            </Suspense>
+            {/* Buttons modules add to the top bar (chat, «Ждёт меня»): header.actions — each loads and fails on its own. */}
+            {headerActions.map(({ id, Component }) => (
+              <Contribution key={id} point="header.actions" id={id}>
+                <Component />
+              </Contribution>
+            ))}
             <NotificationBell />
             <AppsLauncher />
             {can(user, 'console.access') && (

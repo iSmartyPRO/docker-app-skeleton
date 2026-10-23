@@ -56,15 +56,22 @@ export function availableTypes(modules, permissions) {
 }
 
 const ID = /^[a-z0-9_-]{1,40}$/i;
+// A widget type as modules name them (myTasks, contractsPayments, a package's hello.greeting…).
+const TYPE = /^[a-z][a-z0-9_.-]{0,59}$/i;
 
-/** A layout as sent by the browser, made safe: known types, sane sizes, small settings. */
+/**
+ * A layout as sent by the browser or read from the database, made safe: sane
+ * types, sizes and small settings. Types the server does not know right now are
+ * KEPT — their module may be off, failed to register or not loaded yet (a
+ * package), and must find its widgets again when it is back; the routes show
+ * and offer only availableTypes() (docs/dashboard.md).
+ */
 export function cleanLayout(input) {
   if (!Array.isArray(input)) return [];
-  const catalog = widgetCatalog();
   const seen = new Set();
   const out = [];
   for (const raw of input.slice(0, 40)) {
-    if (!raw || !catalog[raw.type]) continue;
+    if (!raw || typeof raw !== 'object' || typeof raw.type !== 'string' || !TYPE.test(raw.type)) continue;
     const id = ID.test(String(raw.id || '')) && !seen.has(raw.id) ? String(raw.id) : `w${Date.now().toString(36)}${out.length}`;
     seen.add(id);
     let settings = raw.settings && typeof raw.settings === 'object' && !Array.isArray(raw.settings) ? raw.settings : {};
