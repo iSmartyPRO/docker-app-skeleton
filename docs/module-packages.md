@@ -414,7 +414,10 @@ is kept (they count only for downgrades).
 - **Install**: verify → checks → card → unpack to `<id>/<version>` → `prepare.mjs` in a child process
   imports the new code (contract check, side effects stay out of the running portal) and applies its
   migrations in one transaction → `installed_modules` row → `current` pointer → journal → restart.
-  The module comes up **installed, switched off**.
+  The module comes up **installed, switched off** — also when its manifest says `defaultEnabled: true`: a first install
+  (no `installed_modules` row) stores `settings.modules.<id> = { enabled: false }`. A portal that has had the module (a
+  «removed» row — data kept, e.g. it was built into an older core — or a reinstall) keeps the state it had, so a module
+  that ran by its default before keeps running.
 - **Update**: the same, preceded by a refusal when other tables have foreign keys into the module's tables and a
   backup of the module's tables; `previous` keeps the old version folder (older ones are pruned); the first boot
   confirms the new version (`pending_check`, after the probation above) or rolls back. Writes the old version made

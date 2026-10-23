@@ -788,3 +788,47 @@ async function runIdentityChecks(inventory, INVENTORY_FORMAT, canonicalJson) {
   assert.ok(verify(null, Buffer.from(d2), createPublicKey(challenged.portal.publicKey), Buffer.from(s2, 'base64')));
   assert.equal(first.challenge, undefined);
 }
+
+test('a first install comes up switched off whatever defaultEnabled says; a portal that had the module keeps its state', { skip, timeout: 240_000 }, async () => {
+  const { stagePackage, installStaged, uninstallPackage, purgeModuleData } = await import('../platform/packages/installer.js');
+  const stored = async () => {
+    const row = (await ctx.db.query(`SELECT value FROM app_settings WHERE key = 'modules'`)).rows[0];
+    return row ? JSON.parse(row.value).hellodep : undefined;
+  };
+  const zip = await ctx.build(
+    '1.0.0',
+    (src) => {
+      const config = JSON.parse(readFileSync(join(src, 'module.json'), 'utf8'));
+      writeFileSync(join(src, 'module.json'), JSON.stringify({ ...config, name: { en: 'On by default', ru: 'Включён по умолчанию' }, permissions: [], tables: [], settings: { ...config.settings, defaultEnabled: true } }));
+      rmSync(join(src, 'migrations'), { recursive: true });
+      writeFileSync(join(src, 'server/index.js'), `export default { id: 'hellodep' };\n`);
+    },
+    { id: 'hellodep' }
+  );
+  const install = async () => {
+    const staged = await stagePackage(zip, { actor: ACTOR });
+    assert.deepEqual(staged.problems, []);
+    return installStaged(staged.token, { actor: ACTOR, restart: false });
+  };
+  await ctx.db.query(`DELETE FROM installed_modules WHERE id = 'hellodep'`);
+  await ctx.db.query(`UPDATE app_settings SET value = (value::jsonb - 'hellodep')::text WHERE key = 'modules'`);
+  assert.equal(await stored(), undefined);
+
+  await install();
+  assert.deepEqual(await stored(), { enabled: false }, 'stored switched off at the first install');
+  // Switched on, removed (data kept), installed again: the state it had.
+  await setEnabled('hellodep', true);
+  await uninstallPackage('hellodep', { actor: ACTOR, restart: false });
+  await install();
+  assert.equal((await stored()).enabled, true, 'a reinstall keeps the stored state');
+  // «Удалить данные» forgets it: the next install is a first one again.
+  await uninstallPackage('hellodep', { actor: ACTOR, restart: false });
+  await purgeModuleData('hellodep', { actor: ACTOR, confirm: 'hellodep' });
+  assert.equal(await stored(), undefined);
+  // A module that was built into an older core (a «removed» row with data, nothing stored: it ran by its default) keeps running.
+  await ctx.db.query(`INSERT INTO installed_modules (id, version, state, source, manifest) VALUES ('hellodep', '0.9.0', 'removed', 'package', '{"id":"hellodep","version":"0.9.0"}')`);
+  await install();
+  assert.equal(await stored(), undefined, 'nothing forced: defaultEnabled still applies');
+  await uninstallPackage('hellodep', { actor: ACTOR, restart: false });
+  await purgeModuleData('hellodep', { actor: ACTOR, confirm: 'hellodep' });
+});

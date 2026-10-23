@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - **API reference — installed module packages**: the developer reference and `openapi.json` now list the routes of installed module packages too (they listed only the modules built into the core).
+- **Modules — a newly installed package comes up switched off** as documented, also when the module is on by default (the robot assistant came up switched on); a portal that already had the module keeps its state.
 - **Modules — «Delete data» removes the module's files**: besides its tables, the module's upload folder (`uploads/<id>`, e.g. Masterplan's media) is now archived into the backup made first and then removed; previously the files stayed behind.
 
 ## [1.20.0] - 2026-10-23

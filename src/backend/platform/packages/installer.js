@@ -283,6 +283,10 @@ export async function installStaged(token, { actor = null, ip = null, restart = 
       journal({ actor, ip, code: 'module_failed', detail: `${manifest.id} ${manifest.version} not installed: ${prepared.error}`.slice(0, 200), params: { module: manifest.id, version: manifest.version } });
       throw problemError(422, [prepareProblem(prepared, current)]);
     }
+    // A module installed for the first time comes up switched off (spec: «Установлен, выключен»), whatever its
+    // manifest defaultEnabled says. A portal that has had it (a «removed» row: data kept, e.g. a module that was built
+    // into an older core) keeps the state it had.
+    if (!current && !(await getModuleRow(manifest.id))) await storeSwitchedOff(manifest.id);
     await saveModuleRow({
       id: manifest.id,
       version: manifest.version,
@@ -320,6 +324,17 @@ export async function installStaged(token, { actor = null, ip = null, restart = 
     if (restart) requestRestart(`${current ? 'update' : 'install'} ${manifest.id} ${manifest.version}`);
     return { id: manifest.id, version: manifest.version, action: current ? 'update' : 'install', ...(meta.incoming ? { incomingFile: meta.incoming.file, incomingMoved: Boolean(moved) } : {}), applied: prepared.applied, tables: prepared.tables, backup: backup ? { file: backup.file, format: backup.format } : null, restart, bootId: BOOT_ID };
   });
+}
+
+/** settings.modules.<id> = { enabled: false } unless something is stored for the module already. */
+async function storeSwitchedOff(id) {
+  await query(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES ('modules', $2, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = jsonb_set(app_settings.value::jsonb, ARRAY[$1::text], '{"enabled": false}'::jsonb)::text, updated_at = NOW()
+      WHERE app_settings.value ~ '^\\s*\\{' AND NOT (app_settings.value::jsonb ? $1::text)`,
+    [id, JSON.stringify({ [id]: { enabled: false } })]
+  );
+  invalidateSettings();
 }
 
 /** Removes a package's code (data stays). Refused while other modules require it. */
