@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-10-23
+
 ### Added
 
 - **Installable module packages**: modules can be installed, updated and removed as signed zip files (Settings → Modules → «Install from file», super administrators). Updates back up the module's tables first and roll back automatically when the new version does not start; removal keeps the data until «Delete data». Masterplan is the first module shipped as a package and is no longer built into the core — install its package right after this update (its data, settings and roles are kept; see [docs/module-packages.md](docs/module-packages.md#upgrading-a-portal-that-had-masterplan-built-in)).
@@ -716,7 +718,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.19.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.20.0...HEAD
+[1.20.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.20.0
 [1.19.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.19.0
 [1.18.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.18.0
 [1.17.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.17.1
