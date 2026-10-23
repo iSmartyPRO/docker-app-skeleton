@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-10-23
+
 ### Added
 
 - **Remote access — connect to Portal VNC agents from the browser**: a new WebSocket bridge (`/api/app/remote/pvnc`) opens a mutual-TLS connection to a [Portal VNC](https://github.com/iSmartyPRO/portal-vnc) agent, performs its handshake and relays raw RFB to **noVNC** in the browser (guacd is not involved). Add a computer with the new **Portal VNC** protocol and connect in one click. The portal's client identity (CA + client certificate/key, the key stored sealed) is set by an administrator on the Portal VNC page («Connect from the portal»); the target address and Windows credentials never reach the browser (encrypted, short-lived token) and come from the usual credential sources. Every connection stays transparent — it is still recorded and the employee is notified. The reverse proxy gained the upgrade headers for the new route. See [docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md#подключение-из-браузера-портала).
@@ -684,7 +686,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.17.0
 [1.16.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.16.0
 [1.15.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.15.0
 [1.14.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.14.1
