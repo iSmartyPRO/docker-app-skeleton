@@ -1,0 +1,129 @@
+{
+  "comment": "Package kit hints for the CRM (docs/package-testing.md «Module kit file»). The CRM links to Counterparties and Chat (built in) and is linked from two packages: Masterplan (units of a deal, the deal's history) and Contracts (the deal picker, a contract's deal). Both are installed as linked packages; on the upgrade source (main) Masterplan is already a package and Contracts is built in. The seed makes a company and a deal through the APIs so the Counterparties timeline has a deal line (the CRM's own demo writes rows directly, without the timeline). Visibility is set to «own» so the plain user's lists are filtered.",
+  "enableAlso": [
+    "companies",
+    "chat"
+  ],
+  "packages": [
+    "masterplan",
+    "contracts"
+  ],
+  "seed": [
+    "companies",
+    "crm",
+    "masterplan",
+    "contracts"
+  ],
+  "seedRequests": [
+    {
+      "method": "PUT",
+      "path": "/api/admin/settings",
+      "body": {
+        "modules": {
+          "crm": {
+            "enabled": true,
+            "settings": {
+              "visibility": "own"
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "/api/app/companies/companies",
+      "body": {
+        "name": "Kit client LLC",
+        "force": true
+      },
+      "save": "company"
+    },
+    {
+      "path": "/api/app/crm/deals",
+      "body": {
+        "title": "Kit deal with a company",
+        "amount": 1200,
+        "companyId": "@company.company.id"
+      },
+      "save": "deal"
+    }
+  ],
+  "apiParams": {
+    "id": "SELECT id FROM crm_deals WHERE deleted_at IS NULL ORDER BY id LIMIT 1",
+    "stageId": "SELECT id FROM crm_stages ORDER BY id LIMIT 1",
+    "dealId": "SELECT deal_id FROM mp_units WHERE deal_id IS NOT NULL ORDER BY node_id LIMIT 1",
+    "companyId": "SELECT entity_id FROM cmp_events WHERE kind = 'deal' AND entity_type = 'company' ORDER BY id DESC LIMIT 1",
+    "contractId": "SELECT id FROM ctr_contracts WHERE deal_id IS NOT NULL ORDER BY id LIMIT 1"
+  },
+  "pageParams": {
+    "param": "SELECT id::text FROM crm_deals WHERE deleted_at IS NULL ORDER BY id LIMIT 1"
+  },
+  "links": [
+    {
+      "name": "Masterplan → units of a CRM deal",
+      "path": "/api/app/masterplan/deals/:dealId/units",
+      "present": {
+        "status": 200,
+        "nonEmpty": "units"
+      },
+      "absent": {
+        "status": 400
+      }
+    },
+    {
+      "name": "Contracts → the deal picker",
+      "path": "/api/app/contracts/link-options/deals",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404,
+        "empty": "items"
+      },
+      "absentWhy": "the CRM removed (fresh): Contracts answers an empty picker; on the upgrade window Contracts (built in on main) is absent too: 404"
+    },
+    {
+      "name": "Counterparties → deal lines of the company timeline",
+      "path": "/api/app/companies/company/:companyId/timeline?kinds=deal",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "status": 200,
+        "empty": "items"
+      }
+    },
+    {
+      "name": "Masterplan registry without the CRM's data (deal titles from crm_deals while it exists)",
+      "path": "/api/app/masterplan/units?pageSize=5",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "status": 200
+      }
+    }
+  ],
+  "openToUsers": [
+    "GET /api/app/crm/meta",
+    "GET /api/app/crm/users",
+    "GET /api/app/crm/clients",
+    "GET /api/app/crm/counters",
+    "GET /api/app/crm/board",
+    "GET /api/app/crm/activity-board",
+    "GET /api/app/crm/pipelines"
+  ],
+  "needsOtherScopes": [],
+  "skipApi": [],
+  "openToUsersWhy": {
+    "": "The CRM is open to everyone signed in (it has no «use» permission: crm.admin and crm.all only widen it); deals are filtered by the visibility setting («own» in the kit: deals a person owns, watches or created).",
+    "meta": "settings, stock lists, the person's own rights",
+    "users": "people picker (names and avatars of active users, as elsewhere in the portal)",
+    "clients": "client picker of Counterparties (its own visibility applies)",
+    "counters": "chip counters of the person's visible deals (numbers, no deals)",
+    "board": "the columns of the pipeline (stages); the deals inside are the person's visible ones",
+    "activity-board": "the columns of the activities board (time buckets); the activities inside are of visible deals",
+    "pipelines": "pipelines and stages (structure, shared by everyone using the CRM)"
+  }
+}

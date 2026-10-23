@@ -82,36 +82,49 @@ test('database: language settings, personal languages and recipients', { skip },
   assert.equal(await settings.localeFor(null, { acceptLanguage: 'de-DE' }), 'en');
 });
 
-test('database: CRM stock lists of an existing portal are stored once and never relabelled', { skip }, async () => {
+test('database: CRM stock lists are stored once (CRM migration 001) and never relabelled', { skip }, async () => {
   db = db || (await import('../config/database.js'));
   const settings = await import('../services/settings.js');
-  const { CRM_DEFAULTS } = await import('../modules/catalog.js');
+  const { CRM_DEFAULTS } = await import('../modules/crm/settings.js');
+  const { ensureCrmSchema, storeStockLists } = await import('../modules/crm/schema.js');
+  await ensureCrmSchema();
   if (!saved) saved = (await db.query(`SELECT key, value FROM app_settings WHERE key = ANY($1)`, [['localization', 'default_locale', 'modules']])).rows;
   const modules = JSON.parse(saved.find((row) => row.key === 'modules')?.value || '{}');
-  // A portal from before: CRM on, its settings never saved, the language English.
-  const legacy = { ...modules, crm: { enabled: true } };
-  await db.query(`INSERT INTO app_settings (key, value) VALUES ('modules', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify(legacy)]);
   await settings.updateAdminSettings({ localization: { enabled: ['en', 'ru'], default: 'en', fallback: 'en' } });
-  assert.deepEqual(await settings.migrateCrmStockLists(), ['sources', 'lostReasons']);
-  assert.deepEqual(await settings.migrateCrmStockLists(), [], 'idempotent');
-  settings.invalidateSettings();
-  let parsed = settings.parseSettings(await settings.getSettings({ fresh: true }));
-  assert.deepEqual(parsed.modules.crm.settings.sources, CRM_DEFAULTS.sources, 'the Russian lists the deals hold');
-  assert.deepEqual(parsed.modules.crm.settings.lostReasons, CRM_DEFAULTS.lostReasons);
-  assert.equal(parsed.modules.crm.enabled, true);
-  // A later language change relabels nothing; setup's localisation refuses once deals exist.
-  await settings.updateAdminSettings({ localization: { enabled: ['en', 'ru', 'tr'], default: 'tr', fallback: 'en' } });
-  parsed = settings.parseSettings(await settings.getSettings({ fresh: true }));
-  assert.deepEqual(parsed.modules.crm.settings.sources, CRM_DEFAULTS.sources);
-  const deals = (await db.query(`SELECT to_regclass('public.crm_deals') AS t`)).rows[0].t;
-  if (deals && (await db.query(`SELECT 1 FROM crm_deals LIMIT 1`)).rows.length) {
-    assert.equal(await settings.localizeCrmStockLists('tr'), false);
-  }
-  // The start-up path runs it too (ensureSettingsTable).
-  await db.query(`UPDATE app_settings SET value = $1 WHERE key = 'modules'`, [JSON.stringify(legacy)]);
-  await settings.ensureSettingsTable();
-  parsed = settings.parseSettings(await settings.getSettings({ fresh: true }));
-  assert.deepEqual(parsed.modules.crm.settings.sources, CRM_DEFAULTS.sources);
+  // Each case in a transaction that is rolled back (the portal's own deals and settings stay as they were).
+  const inTransaction = async (fn) => {
+    const client = await db.getPool().connect();
+    try {
+      await client.query('BEGIN');
+      return await fn({ query: (text, params) => client.query(text, params) });
+    } finally {
+      await client.query('ROLLBACK').catch(() => {});
+      client.release();
+    }
+  };
+  const storedCrm = async (q) => JSON.parse((await q.query(`SELECT value FROM app_settings WHERE key = 'modules'`)).rows[0].value).crm;
+  // A portal from before: CRM on, its settings never saved, deals in it, the language English → the Russian lists the deals hold.
+  await inTransaction(async (q) => {
+    await q.query(`INSERT INTO app_settings (key, value) VALUES ('modules', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify({ ...modules, crm: { enabled: true } })]);
+    const stage = (await q.query(`SELECT id, pipeline_id FROM crm_stages ORDER BY id LIMIT 1`)).rows[0];
+    await q.query(`INSERT INTO crm_deals (pipeline_id, stage_id, title) VALUES ($1, $2, 'i18n test deal')`, [stage.pipeline_id, stage.id]);
+    assert.deepEqual(await storeStockLists(q), ['sources', 'lostReasons']);
+    assert.deepEqual(await storeStockLists(q), [], 'idempotent');
+    const crm = await storedCrm(q);
+    assert.deepEqual(crm.settings.sources, CRM_DEFAULTS.sources);
+    assert.deepEqual(crm.settings.lostReasons, CRM_DEFAULTS.lostReasons);
+    assert.equal(crm.enabled, true);
+    // A later language change relabels nothing (the lists are stored); only section titles follow it.
+    const parsed = settings.parseSettings({ modules: JSON.stringify({ crm }), localization: JSON.stringify({ enabled: ['en', 'ru', 'tr'], default: 'tr', fallback: 'en' }) });
+    assert.deepEqual(parsed.modules.crm.settings.sources, CRM_DEFAULTS.sources);
+  });
+  // No deals yet (a new portal, or the CRM installed later): the lists in the portal language.
+  await inTransaction(async (q) => {
+    await q.query(`INSERT INTO app_settings (key, value) VALUES ('modules', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify({ ...modules, crm: { enabled: true } })]);
+    await q.query(`DELETE FROM crm_deals`);
+    assert.deepEqual(await storeStockLists(q), ['sources', 'lostReasons']);
+    assert.equal((await storedCrm(q)).settings.sources[0], 'Website');
+  });
 });
 
 test('database: the last request language is stored for messages outside requests', { skip }, async () => {

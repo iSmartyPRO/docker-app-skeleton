@@ -5,7 +5,7 @@ import { getPool, query, withTransaction } from '../config/database.js';
 import { logoDir } from '../config/paths.js';
 import { APP_VERSION } from '../config/version.js';
 import { REGIONAL_DEFAULTS, resolveRegional, sanitizeRegional } from './datetime.js';
-import { ALWAYS_ON_IDS, CRM_DEFAULTS, MODULE_CATALOG, MODULE_IDS, crmStockLists, keepUnknownModules, resolveModules, sanitizeModules } from '../modules/catalog.js';
+import { ALWAYS_ON_IDS, MODULE_CATALOG, MODULE_IDS, keepUnknownModules, resolveModules, sanitizeModules } from '../modules/catalog.js';
 import { EDITING_DEFAULTS, sanitizeEditing } from './office/editing.js';
 import { sanitizeDefaultTheme, sanitizeThemePolicy } from './themeCatalog.js';
 import { planModuleChanges } from '../modules/dependencies.js';
@@ -194,71 +194,7 @@ export async function ensureSettingsTable() {
       /* keep stored value */
     }
   }
-  await migrateCrmStockLists();
   invalidateSettings();
-}
-
-const CRM_STOCK_KEYS = ['sources', 'lostReasons'];
-const parseModules = (value) => {
-  try {
-    const parsed = JSON.parse(value || '{}');
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-};
-
-/*
- * CRM sources and lost reasons a portal never saved were the Russian stock lists, and deals hold
- * those texts. Store them, so a later portal language never relabels the lists away from the deals.
- * Idempotent: only missing lists are written. → the keys written.
- */
-export async function migrateCrmStockLists(transaction = withTransaction) {
-  return transaction(async (client) => {
-    const row = (await client.query(`SELECT value FROM app_settings WHERE key = 'modules' FOR UPDATE`)).rows[0];
-    const modules = row ? parseModules(row.value) : {};
-    if (!modules) return []; // unreadable: left alone, resolveModules falls back as before
-    const crm = modules.crm && typeof modules.crm === 'object' ? modules.crm : {};
-    const settings = crm.settings && typeof crm.settings === 'object' ? crm.settings : {};
-    const missing = CRM_STOCK_KEYS.filter((key) => !Array.isArray(settings[key]));
-    if (!missing.length) return [];
-    const added = Object.fromEntries(missing.map((key) => [key, [...CRM_DEFAULTS[key]]]));
-    const next = { ...modules, crm: { ...crm, settings: { ...settings, ...added } } };
-    await client.query(
-      `INSERT INTO app_settings (key, value) VALUES ('modules', $1)
-       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-      [JSON.stringify(next)]
-    );
-    return missing;
-  });
-}
-
-/*
- * Setup of a brand-new portal: the stock lists in the installer's language, while no deal exists yet
- * and the lists are still the untouched Russian stock written by migrateCrmStockLists. → true when written.
- */
-export async function localizeCrmStockLists(locale, transaction = withTransaction) {
-  const written = await transaction(async (client) => {
-    const deals = (await client.query(`SELECT to_regclass('public.crm_deals') AS t`)).rows[0]?.t;
-    if (deals && (await client.query(`SELECT 1 FROM crm_deals LIMIT 1`)).rows.length) return false;
-    const row = (await client.query(`SELECT value FROM app_settings WHERE key = 'modules' FOR UPDATE`)).rows[0];
-    const modules = row ? parseModules(row.value) : {};
-    if (!modules) return false;
-    const crm = modules.crm && typeof modules.crm === 'object' ? modules.crm : {};
-    const settings = crm.settings && typeof crm.settings === 'object' ? crm.settings : {};
-    const stock = CRM_STOCK_KEYS.every((key) => !Array.isArray(settings[key]) || JSON.stringify(settings[key]) === JSON.stringify(CRM_DEFAULTS[key]));
-    if (!stock) return false;
-    const lists = crmStockLists(locale);
-    const next = { ...modules, crm: { ...crm, settings: { ...settings, ...lists } } };
-    await client.query(
-      `INSERT INTO app_settings (key, value) VALUES ('modules', $1)
-       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-      [JSON.stringify(next)]
-    );
-    return true;
-  });
-  invalidateSettings();
-  return written;
 }
 
 // ipGuard and the rate limiter read settings on every request, so raw rows are

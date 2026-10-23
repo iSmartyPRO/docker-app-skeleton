@@ -1,9 +1,10 @@
-import { query, withTransaction } from '../../config/database.js';
-import { getSetting, localeFor, setSetting } from '../../services/settings.js';
+import { withTransaction } from '../../config/database.js';
+import { localeFor } from '../../services/settings.js';
 import { pick } from '../../services/i18n/index.js';
 import { registerJob } from '../../services/scheduler.js';
 import { runReminders } from './reminders.js';
 import { registerDealChat } from './chat.js';
+import { CRM_DEFAULTS, crmStockLists } from './settings.js';
 
 /*
  * CRM: deals moving through pipeline stages (docs/crm.md).
@@ -26,7 +27,15 @@ export const DEFAULT_STAGES = [
   { name: { ru: 'Провалена', en: 'Lost', ky: 'Ийгиликсиз', tr: 'Kaybedildi', zh: '输单' }, color: '#EF4444', kind: 'lost' },
 ];
 
-export async function ensureCrmSchema() {
+/**
+ * Migration 001 (index.js `migrations`, docs/module-packages.md «Migrations»): the schema the CRM had
+ * while built into the core — CREATE … IF NOT EXISTS / ADD COLUMN IF NOT EXISTS, all idempotent — so
+ * on a portal that already has the crm_* tables it changes nothing (pipelines, deals, history stay).
+ * Then the default pipeline (when there is none) and the stock sources / lost reasons (when the
+ * settings have none). Everything goes through `db` (the migration's transaction).
+ */
+export async function createCrmSchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS crm_pipelines (
       id SERIAL PRIMARY KEY,
@@ -140,24 +149,76 @@ export async function ensureCrmSchema() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS crm_presets_user_idx ON crm_presets (user_id)`);
 
-  await seedPipeline();
+  await seedPipeline(db);
+  await storeStockLists(db);
+}
+
+/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+export async function ensureCrmSchema() {
+  await withTransaction(async (client) => {
+    // The lock the package migrations take (platform/packages/migrations.js): one at a time.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:crm'))`);
+    await createCrmSchema({ query: (text, params) => client.query(text, params) });
+  });
+}
+
+/** Background jobs and the deal conversations (register(ctx); no database access). */
+export function startCrm() {
   registerJob({ name: 'crm:reminders', everyMs: 60 * 1000, run: runReminders });
   registerDealChat();
 }
 
 const DEFAULT_PIPELINE = { ru: 'Продажи', en: 'Sales', ky: 'Сатуу', tr: 'Satış', zh: '销售' };
 
-/** The default pipeline "Продажи", once, named in the portal language. */
-async function seedPipeline() {
-  if ((await getSetting('crm_seeded')) === 'true') return;
-  const locale = await localeFor(null);
-  await withTransaction(async (client) => {
-    const existing = await client.query(`SELECT 1 FROM crm_pipelines LIMIT 1`);
-    if (existing.rows.length) return;
-    const { rows } = await client.query(`INSERT INTO crm_pipelines (name, color, sort, is_default) VALUES ($1, '#2563EB', 0, TRUE) RETURNING id`, [pick(DEFAULT_PIPELINE, locale)]);
+/**
+ * The default pipeline "Продажи", named in the portal language, while there is no pipeline at all
+ * (a new portal, or the CRM installed again after «Удалить данные»). The table decides — the CRM never
+ * lets the last pipeline go; the `crm_seeded` flag older versions wrote in app_settings is no longer used.
+ */
+async function seedPipeline(db) {
+  const existing = await db.query(`SELECT 1 FROM crm_pipelines LIMIT 1`);
+  if (!existing.rows.length) {
+    const locale = await localeFor(null);
+    const { rows } = await db.query(`INSERT INTO crm_pipelines (name, color, sort, is_default) VALUES ($1, '#2563EB', 0, TRUE) RETURNING id`, [pick(DEFAULT_PIPELINE, locale)]);
     for (const [index, stage] of DEFAULT_STAGES.entries()) {
-      await client.query(`INSERT INTO crm_stages (pipeline_id, name, color, sort, kind) VALUES ($1, $2, $3, $4, $5)`, [rows[0].id, pick(stage.name, locale), stage.color, index, stage.kind]);
+      await db.query(`INSERT INTO crm_stages (pipeline_id, name, color, sort, kind) VALUES ($1, $2, $3, $4, $5)`, [rows[0].id, pick(stage.name, locale), stage.color, index, stage.kind]);
     }
-  });
-  await setSetting('crm_seeded', 'true');
+  }
+}
+
+const STOCK_KEYS = ['sources', 'lostReasons'];
+const parseModules = (value) => {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+/*
+ * Deals store the source / lost reason text itself, so the stock lists are stored once and never
+ * relabelled by a later portal language (they lived in the core before: setup stored them in the
+ * installer's language, every boot stored the Russian ones a portal never saved). Only the lists
+ * missing from settings.modules.crm are written: in the portal language while there are no deals,
+ * else the Russian stock older versions showed (what the deals hold). → the keys written.
+ */
+export async function storeStockLists(db) {
+  const row = (await db.query(`SELECT value FROM app_settings WHERE key = 'modules' FOR UPDATE`)).rows[0];
+  const modules = row ? parseModules(row.value) : {};
+  if (!modules) return []; // unreadable: left alone, the settings fall back to the defaults
+  const crm = modules.crm && typeof modules.crm === 'object' ? modules.crm : {};
+  const settings = crm.settings && typeof crm.settings === 'object' ? crm.settings : {};
+  const missing = STOCK_KEYS.filter((key) => !Array.isArray(settings[key]));
+  if (!missing.length) return [];
+  const deals = (await db.query(`SELECT 1 FROM crm_deals LIMIT 1`)).rows.length;
+  const lists = deals ? CRM_DEFAULTS : crmStockLists(await localeFor(null));
+  const added = Object.fromEntries(missing.map((key) => [key, [...lists[key]]]));
+  const next = { ...modules, crm: { ...crm, settings: { ...settings, ...added } } };
+  await db.query(
+    `INSERT INTO app_settings (key, value) VALUES ('modules', $1)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [JSON.stringify(next)]
+  );
+  return missing;
 }

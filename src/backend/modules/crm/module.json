@@ -1,0 +1,51 @@
+{
+  "id": "crm",
+  "name": { "en": "CRM", "ru": "CRM", "ky": "CRM", "tr": "CRM", "zh": "CRM" },
+  "nameForms": { "ru": { "ins": "CRM" } },
+  "description": {
+    "en": "Deals through pipeline stages: kanban, list, activities and calendar",
+    "ru": "Сделки по стадиям воронки: канбан, список, дела и календарь",
+    "ky": "Воронканын баскычтары боюнча бүтүмдөр: канбан, тизме, иш-чаралар жана календарь",
+    "tr": "Satış hattı aşamalarında fırsatlar: kanban, liste, aktiviteler ve takvim",
+    "zh": "按销售漏斗阶段推进交易：看板、列表、活动和日历"
+  },
+  "version": "1.1.0",
+  "category": "sales",
+  "requires": [],
+  "enhances": [
+    { "id": "companies", "what": { "en": "Clients from the counterparties directory", "ky": "Кардарлар контрагенттер маалымдамасынан", "tr": "Cari hesaplar rehberinden müşteriler", "zh": "客户来自往来单位名录", "ru": "Клиенты из справочника контрагентов" } },
+    { "id": "chat", "what": { "en": "Discuss a deal with colleagues", "ky": "Бүтүмдү кесиптештер менен талкуулоо", "tr": "Fırsatı ekip arkadaşlarıyla görüşme", "zh": "与同事讨论交易", "ru": "Обсуждение сделки с коллегами" } }
+  ],
+  "permissions": ["crm.admin", "crm.all"],
+  "tables": ["crm_%"],
+  "icon": "target",
+  "docsInfo": { "user": "crm", "guide": "docs/crm.md" },
+  "localeKeys": {
+    "apps": ["crm"],
+    "settings": ["crm"],
+    "permissions": ["groups.module_crm", "crm_*"],
+    "notifyPrefs": ["groups.crm", "events.crm_*"],
+    "tour": ["crm"]
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-23",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); pipelines, deals, activities, history, saved filters and settings are kept."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); воронки, сделки, дела, история, сохранённые фильтры и настройки сохраняются."]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-16",
+      "changes": {
+        "en": ["Pipelines, kanban and list, activities, custom fields."],
+        "ru": ["Воронки, канбан и список, дела, свои поля."],
+        "ky": ["Воронкалар, канбан жана тизме, иш-чаралар, өз талаалары."],
+        "tr": ["Satış hatları, kanban ve liste, aktiviteler, özel alanlar."],
+        "zh": ["销售漏斗、看板和列表、活动、自定义字段。"]
+      }
+    }
+  ]
+}

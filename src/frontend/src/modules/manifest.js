@@ -38,7 +38,6 @@ export const MODULE_UI = {
   kb: { tour: null },
   contracts: { tour: 'contracts' }, // registered in modules/<id>/register.js
   companies: { tour: null },
-  crm: { tour: 'crm' }, // registered in modules/<id>/register.js
   procurement: { tour: 'procurement' }, // registered in modules/<id>/register.js
   warehouse: { tour: 'warehouse' }, // registered in modules/<id>/register.js
   drive: { tour: null },

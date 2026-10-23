@@ -1,10 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CRM_DEFAULTS, crmFieldKey, resolveModules, sanitizeCrm, sanitizeModules } from '../modules/catalog.js';
+import { resolveModules, sanitizeModules } from '../modules/catalog.js';
+import { CRM_DEFAULTS, crmFieldKey, sanitizeCrm } from '../modules/crm/settings.js';
+import { sourcePackage } from './helpers/modules.js';
 import { buildFilter, cleanFilter, orderBy, pageOf } from '../modules/crm/filters.js';
 import { visibleSql } from '../modules/crm/access.js';
 import { normalizeStages } from '../modules/crm/pipelines.js';
 import { Params, activityBucket, bucketBounds, counterBucket, csvCell, idList, likePattern, midRank, money, parseAmount, parseDateOnly, sumsByCurrency, zonedMidnight } from '../modules/crm/util.js';
+
+// The CRM is a module package: its catalog entry as an installed package adds it (module.json + settings.js).
+await sourcePackage('crm');
 
 const ctx = (extra = {}) => ({ userId: 7, seesAll: true, limits: null, settings: CRM_DEFAULTS, ...extra });
 const FIELDS = [

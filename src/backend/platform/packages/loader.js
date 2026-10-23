@@ -412,6 +412,7 @@ export const CONVERTED_MODULES = Object.freeze({
   qr: { version: '1.0.0', name: { en: 'QR codes', ru: 'QR-коды', ky: 'QR-коддор', tr: 'QR kodları', zh: '二维码' } },
   assistant: { version: '1.0.0', name: { en: 'Robot assistant', ru: 'Робот-помощник', ky: 'Робот-жардамчы', tr: 'Robot asistan', zh: '机器人助手' } },
   remote: { version: '1.3.0', name: { en: 'Remote access', ru: 'Удалённый доступ', ky: 'Алыстан кирүү', tr: 'Uzak erişim', zh: '远程访问' } },
+  crm: { version: '1.0.0', name: { en: 'CRM', ru: 'CRM', ky: 'CRM', tr: 'CRM', zh: 'CRM' } },
 });
 
 async function hasModuleData(id) {

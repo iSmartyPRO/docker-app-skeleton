@@ -179,19 +179,6 @@ export const MODULE_MANIFEST = {
     docs: { user: 'companies', guide: 'docs/companies.md' },
     changelog: first(['Companies and people, registry lookups, careers, history and rating.'], ['Компании и люди, реквизиты из реестров, карьера, история и рейтинг.'], { ky: ['Компаниялар жана адамдар, реестрлерден реквизиттер, карьера, тарых жана рейтинг.'], tr: ['Şirketler ve kişiler, sicil sorguları, kariyer, geçmiş ve puanlama.'], zh: ['公司和联系人、登记信息查询、职业经历、历史和评分。'] }),
   },
-  crm: {
-    name: { en: 'CRM', ky: 'CRM', tr: 'CRM', zh: 'CRM', ru: 'CRM' },
-    version: '1.0.0',
-    category: 'sales',
-    minCore: '1.4.0',
-    requires: [],
-    enhances: [
-      { id: 'companies', what: { en: 'Clients from the counterparties directory', ky: 'Кардарлар контрагенттер маалымдамасынан', tr: 'Cari hesaplar rehberinden müşteriler', zh: '客户来自往来单位名录', ru: 'Клиенты из справочника контрагентов' } },
-      { id: 'chat', what: { en: 'Discuss a deal with colleagues', ky: 'Бүтүмдү кесиптештер менен талкуулоо', tr: 'Fırsatı ekip arkadaşlarıyla görüşme', zh: '与同事讨论交易', ru: 'Обсуждение сделки с коллегами' } },
-    ],
-    docs: { user: 'crm', guide: 'docs/crm.md' },
-    changelog: first(['Pipelines, kanban and list, activities, custom fields.'], ['Воронки, канбан и список, дела, свои поля.'], { ky: ['Воронкалар, канбан жана тизме, иш-чаралар, өз талаалары.'], tr: ['Satış hatları, kanban ve liste, aktiviteler, özel alanlar.'], zh: ['销售漏斗、看板和列表、活动、自定义字段。'] }),
-  },
   procurement: {
     name: { en: 'Procurement', ky: 'Сатып алуулар', tr: 'Satın alma', zh: '采购', ru: 'Закупки' },
     version: '1.0.0',
@@ -296,7 +283,7 @@ export const BUILTIN_MANIFEST_IDS = Object.keys(MODULE_MANIFEST);
  * Modules distributed as packages (no longer built into the core) that built-in
  * modules may name in `enhances`: the link is active once the package is installed.
  */
-export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant', 'remote'];
+export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant', 'remote', 'crm'];
 Object.assign(MODULE_MANIFEST, packageManifestEntries(BUILTIN_MANIFEST_IDS));
 
 /**

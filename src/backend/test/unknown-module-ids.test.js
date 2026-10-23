@@ -39,21 +39,21 @@ test('module settings: a save keeps stored entries of unknown ids, unchanged', (
 });
 
 test('role permissions: an edit keeps stored permissions of unknown modules', () => {
-  const stored = [`${GHOST}.sales`, 'tasks.admin', 'crm.admin'];
+  const stored = [`${GHOST}.sales`, 'tasks.admin', 'procurement.admin'];
   const edited = normalizePermissions(['tasks.admin']);
   assert.deepEqual(keepUnknownPermissions(stored, edited), [`${GHOST}.sales`, 'tasks.admin'].sort());
   // A known permission removed by the edit stays removed; "*" is never carried.
-  assert.equal(keepUnknownPermissions(['*', 'crm.admin'], ['tasks.admin']).includes('*'), false);
+  assert.equal(keepUnknownPermissions(['*', 'procurement.admin'], ['tasks.admin']).includes('*'), false);
   assert.deepEqual(keepUnknownPermissions(null, ['tasks.admin']), ['tasks.admin']);
 });
 
 test('API scopes: an edit keeps stored scopes of unknown areas; bad values are not carried', () => {
-  const stored = { [GHOST]: 'read', crm: 'write', other: 'admin' };
-  const next = keepUnknownScopes(stored, cleanScopes({ crm: 'read' }, { partial: true }));
-  assert.deepEqual(next, { [GHOST]: 'read', crm: 'read' });
-  assert.deepEqual(keepUnknownScopes(JSON.stringify(stored), { crm: 'none' }), { [GHOST]: 'read', crm: 'none' });
-  assert.deepEqual(keepUnknownScopes('not json', { crm: 'none' }), { crm: 'none' });
-  assert.deepEqual(keepUnknownScopes(undefined, { crm: 'none' }), { crm: 'none' });
+  const stored = { [GHOST]: 'read', procurement: 'write', other: 'admin' };
+  const next = keepUnknownScopes(stored, cleanScopes({ procurement: 'read' }, { partial: true }));
+  assert.deepEqual(next, { [GHOST]: 'read', procurement: 'read' });
+  assert.deepEqual(keepUnknownScopes(JSON.stringify(stored), { procurement: 'none' }), { [GHOST]: 'read', procurement: 'none' });
+  assert.deepEqual(keepUnknownScopes('not json', { procurement: 'none' }), { procurement: 'none' });
+  assert.deepEqual(keepUnknownScopes(undefined, { procurement: 'none' }), { procurement: 'none' });
 });
 
 test('dashboard: a saved layout (personal or default) keeps stored widgets of types not available now', async () => {

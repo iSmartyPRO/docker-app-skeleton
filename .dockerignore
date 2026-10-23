@@ -26,3 +26,5 @@ src/backend/modules/assistant
 src/frontend/src/modules/assistant
 src/backend/modules/remote
 src/frontend/src/modules/remote
+src/backend/modules/crm
+src/frontend/src/modules/crm

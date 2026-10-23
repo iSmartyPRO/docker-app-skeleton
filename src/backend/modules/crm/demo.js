@@ -1,7 +1,7 @@
 import { registerDemo } from '../../services/demo.js';
 import { RANK_STEP } from './util.js';
 import { crmSettings } from './access.js';
-import { CRM_STOCK_LISTS } from '../catalog.js';
+import { CRM_STOCK_LISTS } from './settings.js';
 import { demoMoney, dropEntityChats, dropNotifications, isoDate } from '../shared/demoAssets.js';
 import { DEMO_DEALS, DEMO_SELLERS } from './demoData.js';
 
