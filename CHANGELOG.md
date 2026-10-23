@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **Remote access — one-click connect**: «Connect» now starts the session and opens the viewer in a single click, using the connection settings configured on the computer or application (the gear). The gear gained a «Credentials on connect» choice — the computer's own saved credentials, a password-manager entry, or «ask each time». For a one-off login, the card's ⋮ menu has «Connect with credentials…», which opens the full dialog.
+
+
 ## [1.14.1] - 2026-10-22
 
 - refactor(remote): dedup folder predicate and sanitizer, drop dead api methods and imports (code review)

@@ -4,6 +4,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { remoteApi } from '../api';
 import { useRemote } from '../RemoteContext';
+import DefaultCredSelect from './DefaultCredSelect';
 
 const DEFAULT_PORT = { rdp: 3389, vnc: 5900 };
 
@@ -33,6 +34,7 @@ export default function HostDialog({ open, host, onClose }) {
       credUsername: host?.credUsername || '',
       credDomain: host?.credDomain || '',
       credPassword: '',
+      defaultCred: host?.defaultCred || '',
       note: host?.note || '',
     });
     remoteApi.subjects().then((res) => setPeople(res.data?.users || [])).catch(() => setPeople([]));
@@ -119,6 +121,9 @@ export default function HostDialog({ open, host, onClose }) {
         <div className="rm-creds-block">
           <div className="rm-creds-block__head">{t('remote.host.credentials')}</div>
           <p className="rm-muted">{t(protocol === 'vnc' ? 'remote.host.credsVnc' : 'remote.host.credsHint')}</p>
+          <Form.Item name="defaultCred" label={t('remote.connect.defaultSource')} help={t('remote.connect.defaultSourceHint')}>
+            <DefaultCredSelect />
+          </Form.Item>
           {protocol !== 'vnc' && (
             <div className="rm-form__row">
               <Form.Item name="credUsername" label={t('remote.host.credUser')} style={{ flex: 2 }}>

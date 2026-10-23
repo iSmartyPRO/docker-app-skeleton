@@ -4,6 +4,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { remoteApi } from '../api';
 import { useRemote } from '../RemoteContext';
+import DefaultCredSelect from './DefaultCredSelect';
 
 /** Add or edit a published application (remote.admin). Independent connection. */
 export default function AppDialog({ open, app, onClose }) {
@@ -24,6 +25,7 @@ export default function AppDialog({ open, app, onClose }) {
       folderId: app?.folderId || null,
       args: app?.args || '',
       loadBalanceInfo: app?.loadBalanceInfo || '',
+      defaultCred: app?.defaultCred || '',
       credUsername: app?.credUsername || '',
       credDomain: app?.credDomain || '',
       credPassword: '',
@@ -83,6 +85,9 @@ export default function AppDialog({ open, app, onClose }) {
         <div className="rm-creds-block">
           <div className="rm-creds-block__head">{t('remote.host.credentials')}</div>
           <p className="rm-muted">{t('remote.apps.credsHint')}</p>
+          <Form.Item name="defaultCred" label={t('remote.connect.defaultSource')} help={t('remote.connect.defaultSourceHint')}>
+            <DefaultCredSelect />
+          </Form.Item>
           <div className="rm-form__row">
             <Form.Item name="credUsername" label={t('remote.host.credUser')} style={{ flex: 2 }}>
               <Input maxLength={160} autoComplete="off" />

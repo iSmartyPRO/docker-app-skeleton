@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Dropdown, Empty } from 'antd';
-import { AppstoreOutlined, DesktopOutlined, ImportOutlined, MoreOutlined, PlusOutlined, SafetyOutlined, SettingOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, DesktopOutlined, ImportOutlined, KeyOutlined, MoreOutlined, PlusOutlined, SafetyOutlined, SettingOutlined } from '@ant-design/icons';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
 import ModuleHeader from '../../shared/ModuleHeader';
 import { useRemote } from '../RemoteContext';
-import ConnectDialog from '../components/ConnectDialog';
+import Launcher from '../components/Launcher';
 import AppDialog from '../components/AppDialog';
 import GatewaysDialog from '../components/GatewaysDialog';
 import RdpImportDialog from '../components/RdpImportDialog';
@@ -95,13 +95,13 @@ export default function Applications() {
               canAdmin={remote.can.admin}
               onLaunch={() => setConnect({ host: { id: app.id, name: app.name, kind: 'app', protocol: 'rdp', hasCredentials: app.hasCredentials, credUsername: app.credUsername, defaultCred: app.defaultCred }, app })}
               onEdit={() => setEditing(app)}
-              menu={[moveMenuItems(remote, 'app', app.id, t, remote.refresh)]}
+              menu={[{ key: 'creds', icon: <KeyOutlined />, label: t('remote.connect.withCreds'), onClick: () => setConnect({ host: { id: app.id, name: app.name, kind: 'app', protocol: 'rdp', hasCredentials: app.hasCredentials, defaultCred: 'ask' }, app, ask: true }) }, moveMenuItems(remote, 'app', app.id, t, remote.refresh)]}
             />
           ))}
         </div>
       )}
 
-      <ConnectDialog open={Boolean(connect)} host={connect?.host} app={connect?.app} onClose={() => setConnect(null)} />
+      <Launcher request={connect} onClose={() => setConnect(null)} />
       <AppDialog open={Boolean(editing)} app={editing} onClose={(c) => { setEditing(null); if (c) remote.refresh(); }} />
       <GatewaysDialog open={gateways} onClose={() => setGateways(false)} />
       <RdpImportDialog open={importing} onClose={(c) => { setImporting(false); if (c) remote.refresh(); }} />

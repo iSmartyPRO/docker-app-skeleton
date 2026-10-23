@@ -7,7 +7,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import ModuleHeader from '../../shared/ModuleHeader';
 import { useRemote } from '../RemoteContext';
 import HostDialog from '../components/HostDialog';
-import ConnectDialog from '../components/ConnectDialog';
+import Launcher from '../components/Launcher';
 import FolderBar, { matchesFolder, moveMenuItems } from '../components/FolderBar';
 
 function HostCard({ host, can, onConnect, onEdit, menu }) {
@@ -117,14 +117,14 @@ export default function Catalogue() {
               can={remote.can}
               onEdit={setEditing}
               onConnect={(h, m) => setConnect({ host: h, mode: m })}
-              menu={[moveMenuItems(remote, 'host', host.id, t, remote.refresh)]}
+              menu={[{ key: 'creds', icon: <KeyOutlined />, label: t('remote.connect.withCreds'), onClick: () => setConnect({ host, mode: 'assist', ask: true }) }, moveMenuItems(remote, 'host', host.id, t, remote.refresh)]}
             />
           ))}
         </div>
       )}
 
       <HostDialog open={Boolean(editing)} host={editing} onClose={(changed) => { setEditing(null); if (changed) remote.refresh(); }} />
-      <ConnectDialog open={Boolean(connect)} host={connect?.host} app={connect?.app} mode={connect?.mode} onClose={() => setConnect(null)} />
+      <Launcher request={connect} onClose={() => setConnect(null)} />
     </div>
   );
 }
