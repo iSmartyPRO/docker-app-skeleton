@@ -202,6 +202,8 @@ export function platformCatalogEntry(manifest) {
     defaults: manifest.settings.defaults,
     publicSettings: manifest.settings.public,
     sanitize: genericSanitizer(manifest.settings.defaults),
+    // A browser part without a page of its own (the robot assistant): drawn over every page, not an app.
+    ...(manifest.web && manifest.web.page === false ? { overlay: true } : {}),
     package: true,
   };
 }

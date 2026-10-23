@@ -69,6 +69,7 @@ export const EXPOSED_CORE = [
   'components/ui/SettingsSection',
   'components/ui/WhenPicker',
   'help/HelpContext',
+  'help/registry',
   'help/Hint',
   'help/Rich',
   'layouts/PublicLayout',

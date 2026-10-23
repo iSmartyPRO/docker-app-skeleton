@@ -57,8 +57,9 @@ export function matches(entry, ctx) {
   }
 }
 
-export async function ensureAclTable(table, resourceTable) {
-  await query(`
+/** `db`: the connection to run on (a module migration passes its transaction's); the pool by default. */
+export async function ensureAclTable(table, resourceTable, db = { query }) {
+  await db.query(`
     CREATE TABLE IF NOT EXISTS ${table} (
       id SERIAL PRIMARY KEY,
       resource_id INTEGER NOT NULL REFERENCES ${resourceTable}(id) ON DELETE CASCADE,
@@ -67,7 +68,7 @@ export async function ensureAclTable(table, resourceTable) {
       level SMALLINT NOT NULL
     )
   `);
-  await query(
+  await db.query(
     `CREATE UNIQUE INDEX IF NOT EXISTS ${table}_subject_key ON ${table} (resource_id, subject_type, COALESCE(subject_id, 0))`
   );
 }

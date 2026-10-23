@@ -218,7 +218,8 @@ async function inRepoSource(id) {
         generated,
         icon: config.icon || registry?.icon || 'apps',
         permission: config.webPermission || registry?.permission || null,
-        page: registry ? registry.page : true,
+        // module.json `web.page: false`: no page of its own (an overlay like the robot assistant).
+        page: config.web?.page === false ? false : registry ? registry.page : true,
         // A Settings screen: an item in Settings → Modules (frontend platform/packages/loader.js).
         settings: generated ? Boolean(generated.settings) : /\bSettings\s*:/.test(readFileSync(webEntry, 'utf8')),
       }

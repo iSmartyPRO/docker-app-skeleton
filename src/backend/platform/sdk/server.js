@@ -21,10 +21,12 @@ export { SDK_VERSION } from './version.js';
 export { query, withTransaction, getPool } from '../../config/database.js';
 
 // ── Configuration ──────────────────────────────────────────────────────────
-// No appConfig (database password, JWT secret) and no seal / unseal (the key of stored secrets):
-// removed before SDK 1.0 shipped; config/app.js and services/crypto.js are refused on the core path too.
+// No appConfig (database password, JWT secret) and no key material: config/app.js and services/crypto.js
+// are refused on the core path too. Secrets a module stores (Remote's computer passwords) are sealed with
+// seal / unseal (services/secrets.js, SDK 1.1.0): the core's sealing, never its keys.
 export { APP_VERSION } from '../../config/version.js';
 export { uploadRoot } from '../../config/paths.js';
+export { seal, unseal } from '../../services/secrets.js';
 
 // ── Access ──────────────────────────────────────────────────────────────────
 export { requireAuth, optionalAuth, requirePermission, refuseImpersonation } from '../../middleware/auth.js';

@@ -1,6 +1,6 @@
 import { lazy } from 'react';
 import { lazyPage } from '../../lib/lazyPage';
-import { MODULE_REGISTRY } from '../../modules/registry';
+import { FEATURE_MODULES, MODULE_REGISTRY } from '../../modules/registry';
 import { MODULE_UI } from '../../modules/manifest';
 import { addTranslationSource } from '../../i18n/translations';
 import { addPackageSettingsItem } from '../../admin/navigation';
@@ -19,7 +19,8 @@ import { backgroundDelays, checkEntry, fetchInstalled as fetchList, fetchWithinB
  *     register) is imported and register(ctx) runs (widgets and other
  *     extension points);
  *   - a page module joins MODULE_REGISTRY like a built-in one: /app/<id>,
- *     icon, apps.<id>.name — its App and Settings load only when opened;
+ *     icon, apps.<id>.name — its App and Settings load only when opened; one
+ *     without a page (web.page false: the robot assistant) joins FEATURE_MODULES;
  *   - a package with a Settings screen (manifest web.settings) gets its item
  *     in Settings → Modules (admin/navigation.js), like a built-in module;
  *   - a `tour` of web/index.js is the module's tour (MODULE_UI, «Tour» buttons).
@@ -153,7 +154,19 @@ function addSettingsItem(pkg) {
 }
 
 function addToRegistry(pkg) {
-  if (!pkg.web || pkg.web.page === false || MODULE_REGISTRY.some((module) => module.id === pkg.id)) return;
+  if (!pkg.web || MODULE_REGISTRY.some((module) => module.id === pkg.id) || FEATURE_MODULES.some((module) => module.id === pkg.id)) return;
+  if (pkg.web.page === false) {
+    // No page of its own (the robot assistant): a feature module — its card, icon and Settings screen.
+    FEATURE_MODULES.push({
+      id: pkg.id,
+      icon: pkg.web.icon || 'apps',
+      labelKey: `apps.${pkg.id}.name`,
+      descKey: `apps.${pkg.id}.desc`,
+      package: { version: pkg.version, name: pkg.name },
+      Settings: lazy(partLoader(pkg, 'Settings')),
+    });
+    return;
+  }
   MODULE_REGISTRY.push({
     id: pkg.id,
     path: `/app/${pkg.id}`,

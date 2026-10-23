@@ -180,9 +180,14 @@ test('inventory: a store challenge must be a plain token (it is signed with the 
   }
 });
 
-test('SDK: no database password / JWT secret (appConfig) and no secret sealing for packages', async () => {
+test('SDK: no database password / JWT secret (appConfig) and no key material; sealing of stored secrets without the keys', async () => {
   const sdk = await import('../platform/sdk/server.js');
-  for (const name of ['appConfig', 'seal', 'unseal']) assert.equal(name in sdk, false, name);
+  for (const name of ['appConfig', 'decryptionKeys', 'reportUnreadableSecret', 'openSealed']) assert.equal(name in sdk, false, name);
+  // SDK 1.1.0: Remote's stored passwords (sealed while it was built in) open the same way from the package.
+  const crypto = await import('../services/crypto.js');
+  assert.equal(sdk.unseal(crypto.seal('s3cret')), 's3cret');
+  assert.equal(crypto.unseal(sdk.seal('s3cret')), 's3cret');
+  assert.equal(sdk.SDK_VERSION, '1.1.0');
 });
 
 test('signing key: a passphrase encrypts the key file; signing needs the passphrase', async () => {

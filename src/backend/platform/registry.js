@@ -282,10 +282,18 @@ export const tokenResourceLister = (key) => tokenResources.get(key) || null;
 const httpServerHooks = [];
 const shutdownHooks = [];
 
-export const onHttpServer = (fn, { module = null } = {}) => httpServerHooks.push({ fn, module });
+// Set once the hooks ran: a hook registered later (a module that registers after the boot ran them)
+// is attached to the running server at once instead of never.
+let hookedServer = null;
+
+export const onHttpServer = (fn, { module = null } = {}) => {
+  httpServerHooks.push({ fn, module });
+  if (hookedServer) runSafe(`http server hook of ${module || 'core'}`, () => fn(hookedServer));
+};
 export const onShutdown = (fn, { module = null } = {}) => shutdownHooks.push({ fn, module });
 
 export function runHttpServerHooks(server) {
+  hookedServer = server;
   for (const { fn, module } of httpServerHooks) runSafe(`http server hook of ${module || 'core'}`, () => fn(server));
 }
 
