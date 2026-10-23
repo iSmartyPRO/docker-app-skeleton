@@ -16,6 +16,11 @@ import { MODULE_CATALOG } from '../modules/catalog.js';
 import { EVENT_CATALOG } from '../api/events.js';
 import { NOTIFICATION_EVENTS } from '../services/notificationCatalog.js';
 import { availableTypes } from '../modules/dashboard/widgets.js';
+import contractsModule from '../modules/contracts/index.js';
+import { activateModules } from '../platform/registry.js';
+
+// Contracts registers its dashboard widget through the core registry (register(ctx)).
+activateModules([contractsModule]);
 
 /*
  * The money side of contracts (docs/contracts.md "Deposit and payments"):

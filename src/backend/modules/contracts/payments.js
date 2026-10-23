@@ -34,7 +34,7 @@ import { decimalSeparator, exportLocale, translator } from '../../services/i18n/
  * Every change locks the contract row, writes its history line and calls
  * recompute(): the payments (and the deposit while held) are allocated to the
  * schedule rows oldest first, and the totals land on ctr_contracts for the
- * registry chips. A linked Masterplan unit follows after the commit (mpSync.js).
+ * registry chips. A linked Masterplan unit follows after the commit (objectSync.js: contract.* events).
  */
 
 const soonDaysOf = (settings) => Number(settings?.paymentSoonDays) || 7;
@@ -156,7 +156,7 @@ export async function paymentsOf(ctx, id) {
   const virtual = depositAsPayment(deposit, currency);
   // A received deposit with no «Задаток» row in the schedule is held, not counted yet.
   totals.depositHeld = Boolean(virtual?.only && !rows.some((r) => r.purpose === 'deposit'));
-  const { unitInfo } = await import('./mpSync.js');
+  const { unitInfo } = await import('./objectSync.js');
   return {
     today: ctx.today,
     soonDays,
@@ -284,7 +284,7 @@ export async function depositStatus(ctx, id, input = {}, file = null) {
     const deposit = depositShape(await loadDeposit({ query }, row.id));
     const actor = await actorNameOf(ctx.userId);
     const sync = [];
-    const mp = await import('./mpSync.js');
+    const mp = await import('./objectSync.js');
     if (result.to === 'received' && result.from === 'expected') {
       await notifyMoney(contractPeople(fresh), 'contracts.payment', 'depositReceived', { deposit, actor }, fresh, ctx.userId);
       emitContract('deposit.received', fresh, ctx.userId, { deposit });
@@ -375,7 +375,7 @@ export async function saveSchedule(ctx, id, input = {}) {
     return recompute(client, row.id);
   });
   const fresh = await loadRow(row.id);
-  const { syncPaid } = await import('./mpSync.js');
+  const { syncPaid } = await import('./objectSync.js');
   await syncPaid(ctx, fresh, { full: totals.full }).catch((err) => console.warn('[contracts] masterplan paid sync:', err.message));
   return paymentsOf(ctx, row.id);
 }
@@ -409,7 +409,7 @@ export async function addPayment(ctx, id, input = {}, file = null) {
     const shapeTotals = { total: totals.total ?? fresh.amount, paid: totals.paid, full: totals.full, percent: totals.total > 0 ? Math.min(100, Math.floor((totals.paid / totals.total) * 100)) : 0 };
     await notifyMoney(contractPeople(fresh), 'contracts.payment', 'paymentReceived', { payment: { amount: data.amount, paidOn: data.paidOn }, totals: shapeTotals, actor }, fresh, ctx.userId);
     emitContract('payment.received', fresh, ctx.userId, { payment: paymentShape(payment), totals: shapeTotals });
-    const { syncPaid } = await import('./mpSync.js');
+    const { syncPaid } = await import('./objectSync.js');
     const sync = await syncPaid(ctx, fresh, { full: totals.full }).catch((err) => console.warn('[contracts] masterplan paid sync:', err.message));
     const out = await paymentsOf(ctx, row.id);
     out.payment = paymentShape(payment);
@@ -436,7 +436,7 @@ export async function deletePayment(ctx, paymentId) {
     return recompute(client, row.id);
   });
   if (rows[0].file_key) await removeBlob(rows[0].file_key);
-  const { syncPaid } = await import('./mpSync.js');
+  const { syncPaid } = await import('./objectSync.js');
   await syncPaid(ctx, await loadRow(row.id), { full: totals.full }).catch(() => null);
   return paymentsOf(ctx, row.id);
 }
@@ -460,28 +460,8 @@ export async function sendPayFile(ctx, kind, id, res, { download = false } = {})
  */
 export async function planOptions(ctx, id) {
   const row = await requireContract(ctx, id);
-  const { linkedUnit } = await import('./mpSync.js');
-  const unit = await linkedUnit(row);
-  if (!unit) return { plans: [] };
-  try {
-    const { mpContext, mpSettings } = await import('../masterplan/access.js');
-    const { projectPricing, activeGrid, paymentOptions } = await import('../masterplan/pricing.js');
-    const mctx = await mpContext(ctx.req || {}, await mpSettings());
-    const pricing = await projectPricing(mctx, unit.project_id);
-    if (!pricing?.grids?.length) return { plans: [], unit: { code: unit.code || unit.name } };
-    const { rows } = await query(`SELECT u.price, u.currency, u.area_total, u.area_plot, n.type_id FROM mp_units u JOIN mp_nodes n ON n.id = u.node_id WHERE u.node_id = $1`, [unit.id]);
-    const u = rows[0];
-    const grid = activeGrid(pricing.grids, u.type_id, pricing.today);
-    const options = paymentOptions({ price: Number(u.price) || 0, areaTotal: Number(u.area_total) || 0, areaPlot: Number(u.area_plot) || 0, currency: (u.currency || '').trim() || null }, grid);
-    return {
-      unit: { code: unit.code || unit.name, price: Number(u.price) || null, currency: (u.currency || '').trim() || null },
-      currency: options?.currency || null,
-      effectiveFrom: options?.effectiveFrom || null,
-      plans: (options?.plans || []).map((plan) => ({ key: plan.key, name: plan.name, total: plan.total, firstPct: plan.firstPct, first: plan.first, months: plan.months, monthly: plan.monthly, last: plan.last })),
-    };
-  } catch {
-    return { plans: [] };
-  }
+  const { objectPlans } = await import('./objectSync.js');
+  return objectPlans(ctx, row);
 }
 
 // ── Payments registry (finance) ─────────────────────────────────────────────

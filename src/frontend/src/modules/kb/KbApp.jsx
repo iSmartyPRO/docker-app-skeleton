@@ -8,7 +8,7 @@ import { useLocale } from '../../context/LocaleContext';
 import { errorMessage } from '../../lib/errors';
 import FolderTree from './components/FolderTree';
 import { KbProvider, useKb } from './KbContext';
-import './kb.css';
+import '../../components/documents/documents.css';
 import PageTransition from '../../components/ui/PageTransition';
 
 const KbHome = lazy(() => import('./pages/KbHome'));

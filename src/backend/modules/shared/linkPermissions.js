@@ -1,3 +1,5 @@
+import { httpError } from './acl.js';
+
 /*
  * The permission list of a public link, one rule for Files (/l/…) and Drive
  * (/d/…). The frontend picker (components/ui/LinkPermissions.jsx) uses the
@@ -30,4 +32,21 @@ export function normalizeLinkPermissions(perms, isFolder = true) {
   if (!set.has('view')) LINK_NEEDS_VIEW.forEach((key) => set.delete(key));
   if (!set.size) set.add('view');
   return LINK_PERMISSIONS.filter((key) => set.has(key));
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+
+/** A public link's expiry from input (Files and Drive): null = never, unless `maxDays` caps every link. */
+export function parseExpiry(value, maxDays) {
+  if (value === null || value === '' || value === undefined) {
+    if (maxDays) return new Date(Date.now() + maxDays * DAY);
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw httpError(400, 'Invalid expiry date', 'INVALID_DATE');
+  if (date.getTime() <= Date.now()) throw httpError(400, 'Expiry must be in the future', 'INVALID_DATE');
+  if (maxDays && date.getTime() > Date.now() + maxDays * DAY + 60_000) {
+    throw httpError(400, `Links can live at most ${maxDays} days`, 'EXPIRY_LIMIT');
+  }
+  return date;
 }

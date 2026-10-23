@@ -17,6 +17,8 @@
  * another in registration order. Returns a function that unregisters it.
  */
 
+import { emit as emitEvent, on as onEvent } from '../platform/events.js';
+
 const listeners = new Map();
 
 function on(event, fn) {
@@ -40,8 +42,9 @@ async function emit(event, payload) {
  *
  *   crm.deal.stage  { dealId, from, to: { id, name, kind }, actorId }  a deal moved to another stage
  */
-export const onModuleEvent = (name, fn) => on(`module:${name}`, fn);
-export const emitModuleEvent = (name, payload) => emit(`module:${name}`, payload);
+// Kept for existing callers: the same bus as platform/events.js.
+export const onModuleEvent = (name, fn) => onEvent(name, fn);
+export const emitModuleEvent = (name, payload) => emitEvent(name, payload).then(() => undefined);
 
 export const onDirectorySignIn = (fn) => on('directory-sign-in', fn);
 export const emitDirectorySignIn = (payload) => emit('directory-sign-in', payload);

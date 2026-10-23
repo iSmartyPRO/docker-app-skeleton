@@ -21,9 +21,7 @@ import {
 
 import { disconnectGoogle, googleStatus, listGoogleCalendars, setGoogleCalendarSelection } from '../services/google.js';
 import { deliveryHistory, getPrefs, listSubscriptions, savePrefs, sendTest, setSubscription, takeTestSend } from '../services/notifications.js';
-import { contextFromRequest, levelOn } from '../modules/shared/acl.js';
-import { query } from '../config/database.js';
-import { canViewCalendar } from '../modules/calendar/service.js';
+import { canFollow as canFollowTarget } from '../platform/registry.js';
 const router = Router();
 router.use(requireAuth);
 // "Sign in as" never changes how the person signs in (see middleware/auth.js).
@@ -193,14 +191,9 @@ router.get('/notifications/history', wrap(async (req, res) => {
 }));
 
 /** Can the person (still) see what a subscription points at? */
+// Modules register what can be followed (registerFollowable: tasks.project, calendar.calendar).
 async function canFollow(req, type, id) {
-  if (!Number.isInteger(Number(id))) return false;
-  if (type === 'tasks.project') {
-    const { rows } = await query(`SELECT is_personal FROM task_projects WHERE id = $1`, [Number(id)]);
-    return Boolean(rows[0]) && !rows[0].is_personal && (await levelOn('task_acl', Number(id), contextFromRequest(req, 'tasks.admin'))) > 0;
-  }
-  if (type === 'calendar.calendar') return canViewCalendar(contextFromRequest(req, 'calendar.admin'), Number(id));
-  return false;
+  return canFollowTarget(req, type, id);
 }
 
 router.get('/notifications/subscriptions', wrap(async (req, res) => {

@@ -1,6 +1,5 @@
 import { query, withTransaction } from '../../config/database.js';
-import { ensureKbFileLinks } from '../files/schema.js';
-import { migrateKbFiles } from '../files/kb.js';
+import { modules } from '../../platform/registry.js';
 import { localeOrDefault, tr } from '../../services/i18n/index.js';
 
 /*
@@ -95,8 +94,11 @@ export async function ensureKbSchema() {
   await query(`CREATE INDEX IF NOT EXISTS kb_shares_folder_idx ON kb_shares (folder_id)`);
 
   // Files are kept in the Files module; link tables, then move legacy uploads.
-  await ensureKbFileLinks();
-  await migrateKbFiles();
+  const files = modules.loaded('files')?.api;
+  if (files) {
+    await files.ensureKbFileLinks();
+    await files.migrateKbFiles();
+  }
   await seedKb();
 }
 

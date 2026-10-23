@@ -13,21 +13,11 @@ import { LocaleProvider, useLocale } from './context/LocaleContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import FontLoader from './components/FontLoader';
 import { ThemeProvider, useThemeMode } from './context/ThemeContext';
-import { ChatProvider } from './modules/chat/ChatContext';
 import { HelpProvider } from './help/HelpContext';
 import { TourProvider } from './tour/TourContext';
-// Texts of task events in conversations (task chats show up on the chat page too).
-import './modules/tasks/chatEvents';
-// …and of deal events (deal chats of the CRM).
-import './modules/crm/chatEvents';
-// …and of contract events (contract discussions).
-import './modules/contracts/chatEvents';
-// Guided tours of Settings → Org structure and the Employees module.
-import './modules/people/tours';
-// Guided tours of CRM, Masterplan, Procurement, Contracts, Warehouse and «Ждёт меня».
-import './modules/shared/businessTours';
-// The AD directory's tour and the «AD» tab of employee cards.
-import './modules/directory/register';
+// Modules plug into the shell through extension points (platform/extensions.js): their
+// register.js files (chat events, tours, header buttons, public pages…) load with the registry.
+import { useContributions } from './platform/extensions';
 import { LEGACY_ADMIN_ROUTES, SETTINGS_ITEMS } from './admin/navigation';
 import { SETTINGS_PAGES } from './admin/settingsPages';
 import { loginUrl } from './lib/returnPath';
@@ -35,6 +25,7 @@ import AppErrorBoundary, { RootErrorBoundary } from './components/AppErrorBounda
 import { getSetupStatus } from './services/api';
 import { SETTINGS_VIEW } from './lib/access';
 import { MODULE_REGISTRY } from './modules/registry';
+import PackageSettings from './platform/packages/PackageSettings';
 import UpdateBanner from './pwa/UpdateBanner';
 import Maintenance from './components/Maintenance';
 import AssistantSlot from './components/AssistantSlot';
@@ -70,11 +61,7 @@ const AdminRoles = lazy(() => import('./pages/admin/Roles'));
 const ModuleDocs = lazy(() => import('./pages/admin/ModuleDocs'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const AppsPage = lazy(() => import('./pages/Apps'));
-const PublicShare = lazy(() => import('./modules/kb/PublicShare'));
 const InstallPage = lazy(() => import('./pwa/InstallPage'));
-const PublicLink = lazy(() => import('./modules/files/PublicLink'));
-const PublicDrive = lazy(() => import('./modules/drive/PublicDrive'));
-const ResourcesHome = lazy(() => import('./modules/resources/ResourcesHome'));
 const SettingsHome = lazy(() => import('./pages/admin/settings/SettingsHome'));
 const AccountProfile = lazy(() => import('./pages/account/Profile'));
 const AccountAppearance = lazy(() => import('./pages/account/Appearance'));
@@ -83,7 +70,6 @@ const AccountNotifications = lazy(() => import('./pages/account/Notifications'))
 const AccountConnections = lazy(() => import('./pages/account/Connections'));
 const ApiConsole = lazy(() => import('./developer/ApiConsole'));
 const ApiTokensPage = lazy(() => import('./developer/ApiTokensPage'));
-const MySubstitute = lazy(() => import('./modules/approvals/MySubstitute'));
 const Developers = lazy(() => import('./developer/Developers'));
 const HelpCenter = lazy(() => import('./help/HelpCenter'));
 
@@ -176,11 +162,20 @@ function HomeRoute() {
   const { user } = useAuth();
   const location = useLocation();
   const page = settings?.homePage || 'landing';
+  const homePages = useContributions('app.homePages');
   const module = page !== 'landing' && settings?.modules?.[page]?.enabled ? MODULE_REGISTRY.find((entry) => entry.id === page) : null;
   if (!module) return <Home />;
-  if (module.id === 'resources') return <ResourcesHome />;
+  // A module that draws its own home page in place (the resources board works for guests too).
+  const InPlace = homePages.find((entry) => entry.id === module.id)?.Component;
+  if (InPlace) return <InPlace />;
   if (!user) return <Navigate to={loginUrl({ ...location, pathname: module.path })} replace />;
   return <Navigate to={module.path} replace />;
+}
+
+/** App-wide providers modules contribute (app.providers: the chat's live state), outermost first. */
+function ModuleProviders({ children }) {
+  const providers = useContributions('app.providers');
+  return providers.reduceRight((inner, { id, Component }) => <Component key={id}>{inner}</Component>, children);
 }
 
 /** /admin/<old path> → new location, so bookmarks keep working. */
@@ -196,6 +191,8 @@ function ThemedRoutes() {
   const { antdConfig, mode } = useThemeMode();
   const { antdLocale, locale } = useLocale();
   const { settings } = useSettings();
+  const publicRoutes = useContributions('app.publicRoutes');
+  const accountRoutes = useContributions('app.accountRoutes');
   // antd spaces out two-character CJK button labels ("登 录"); Chinese reads them unspaced.
   const buttonConfig = useMemo(() => ({ autoInsertSpace: locale !== 'zh' }), [locale]);
 
@@ -238,9 +235,9 @@ function ThemedRoutes() {
             <Route path="/setup" element={<SetupWizard />} />
             <Route path="/auth/magic" element={<AuthCallback kind="magic" />} />
             <Route path="/auth/telegram" element={<AuthCallback kind="telegram" />} />
-            <Route path="/s/:slug/*" element={<PublicShare />} />
-            <Route path="/l/:token" element={<PublicLink />} />
-            <Route path="/d/:token" element={<PublicDrive />} />
+            {publicRoutes.map(({ id, path, Component }) => (
+              <Route key={id} path={path} element={<Component />} />
+            ))}
             <Route
               path="/install"
               element={
@@ -340,6 +337,8 @@ function ThemedRoutes() {
                     <Route key={item.id} path={item.id} element={<Page key={item.id} itemId={item.id} />} />
                   ) : null;
                 })}
+                {/* Settings of installed module packages (platform/packages). */}
+                <Route path=":moduleId" element={<PackageSettings />} />
                 <Route path="*" element={<Navigate to="/admin/settings" replace />} />
               </Route>
               <Route path="*" element={<LegacyAdminRedirect />} />
@@ -360,7 +359,9 @@ function ThemedRoutes() {
               <Route path="notifications" element={<AccountNotifications />} />
               <Route path="connections" element={<AccountConnections />} />
               <Route path="api" element={<ApiTokensPage />} />
-              <Route path="substitute" element={<MySubstitute />} />
+              {accountRoutes.map(({ id, path, Component }) => (
+                <Route key={id} path={path} element={<Component />} />
+              ))}
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
@@ -385,11 +386,11 @@ export default function App() {
         <LocaleProvider>
           <ThemeProvider>
             <FontLoader />
-            <ChatProvider>
+            <ModuleProviders>
               <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <ThemedRoutes />
               </Router>
-            </ChatProvider>
+            </ModuleProviders>
           </ThemeProvider>
         </LocaleProvider>
       </AuthProvider>

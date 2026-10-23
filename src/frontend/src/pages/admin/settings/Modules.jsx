@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Badge, Button, Input, Switch, Tag, Tooltip } from 'antd';
 import Segmented from '../../../components/ui/Segmented';
-import { BookOutlined, ExperimentOutlined, ExportOutlined, PlayCircleOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
+import { BookOutlined, CloudUploadOutlined, ExperimentOutlined, ExportOutlined, PlayCircleOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import LoadState from '../../../components/ui/LoadState';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useAdminSettings } from '../../../hooks/useAdminSettings';
@@ -14,6 +14,7 @@ import { CATEGORY_ICONS, hasAdminDocs, moduleUi, useModulesCatalog, useModuleTou
 import { linkName, moduleName, pickText, useModuleSwitch } from '../../../modules/platformUi';
 import SettingsPageHeader from './SettingsPageHeader';
 import DemoDrawer from './DemoDrawer';
+import { InstallDialog, PackageActions, PackageTags, RemovedPackages, RestartOverlay, usePackages } from './ModulePackages';
 import './platform.css';
 
 const MAX_LINKS = 4;
@@ -57,7 +58,7 @@ function LinkChips({ links, t, locale }) {
   );
 }
 
-function ModuleCard({ module, canEdit, canDemo, onToggle, onDemo, focused, coreVersion }) {
+function ModuleCard({ module, canEdit, canDemo, onToggle, onDemo, focused, coreVersion, pkg, canManagePackages, onUpdatePackage, onRestart }) {
   const { t, locale } = useLocale();
   const ui = moduleUi(module.id);
   const tour = useModuleTour(module.id);
@@ -86,6 +87,7 @@ function ModuleCard({ module, canEdit, canDemo, onToggle, onDemo, focused, coreV
             </Tooltip>
           </div>
           <StatusTag module={module} t={t} />
+          <PackageTags pkg={pkg} />
         </div>
         {!module.core && (
           <Switch
@@ -132,6 +134,7 @@ function ModuleCard({ module, canEdit, canDemo, onToggle, onDemo, focused, coreV
             <PlayCircleOutlined /> {t('platform.modules.tour')}
           </button>
         )}
+        <PackageActions module={module} pkg={pkg} canManage={canManagePackages} onUpdate={onUpdatePackage} onRestart={onRestart} name={moduleName(module.id, t)} />
         {module.enabled && ui?.path && (
           <Link to={ui.path} className="pf-action pf-action--end">
             {t('platform.modules.open')} <ExportOutlined />
@@ -161,6 +164,15 @@ export default function ModulesSettings() {
   const canEdit = can('settings.modules');
   const canDemo = Boolean(catalog.data?.demo?.canManage);
   const { toggle } = useModuleSwitch(admin.save, { onChanged: catalog.reload });
+  // Module packages (docs/module-packages.md): install from a file, update, remove.
+  const packages = usePackages();
+  const canManagePackages = Boolean(packages.data?.canManage);
+  const [installOpen, setInstallOpen] = useState(false);
+  const [restartBoot, setRestartBoot] = useState(null);
+  const onRestart = (bootId) => {
+    setInstallOpen(false);
+    setRestartBoot(bootId || packages.data?.bootId || 'unknown');
+  };
 
   useEffect(() => {
     if (!focus || !catalog.data) return;
@@ -193,10 +205,19 @@ export default function ModulesSettings() {
       <SettingsPageHeader
         id="modules"
         extra={
-          canDemo && (
-            <Button icon={<ExperimentOutlined />} onClick={() => setDemo('all')}>
-              {t('platform.demo.menu')}
-            </Button>
+          (canDemo || canManagePackages) && (
+            <>
+              {canManagePackages && (
+                <Button icon={<CloudUploadOutlined />} onClick={() => setInstallOpen(true)}>
+                  {t('packages.install')}
+                </Button>
+              )}
+              {canDemo && (
+                <Button icon={<ExperimentOutlined />} onClick={() => setDemo('all')}>
+                  {t('platform.demo.menu')}
+                </Button>
+              )}
+            </>
           )
         }
       />
@@ -260,16 +281,23 @@ export default function ModulesSettings() {
                       onDemo={setDemo}
                       focused={focus === module.id}
                       coreVersion={catalog.data.coreVersion}
+                      pkg={packages.byId.get(module.id)}
+                      canManagePackages={canManagePackages}
+                      onUpdatePackage={() => setInstallOpen(true)}
+                      onRestart={onRestart}
                     />
                   ))}
                 </div>
               </section>
             ))}
             {!categories.length && <p className="pf-empty">{t('platform.modules.empty')}</p>}
+            {!query && <RemovedPackages packages={packages.data?.packages} canManage={canManagePackages} onChanged={packages.reload} />}
             <p className="section-footnote">{t('platform.modules.footnote')}</p>
           </div>
         )}
       </LoadState>
+      {canManagePackages && <InstallDialog open={installOpen} onClose={() => setInstallOpen(false)} devMode={packages.data?.devMode} maxUploadMb={packages.data?.maxUploadMb} onRestart={onRestart} />}
+      {restartBoot && <RestartOverlay bootId={restartBoot} />}
       {canDemo && (
         <DemoDrawer open={Boolean(demo)} focus={demo === 'all' ? null : demo} modules={all} users={catalog.data?.demo?.users || 0} onClose={() => setDemo(null)} onChanged={changed} locale={locale} />
       )}

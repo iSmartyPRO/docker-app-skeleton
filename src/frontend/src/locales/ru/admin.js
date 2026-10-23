@@ -92,4 +92,5 @@ export default {
   event_ad_changed: 'Каталог AD: изменены учётные записи',
   event_ad_password_reset: 'Каталог AD: сброс пароля',
   event_ad_credential: 'Каталог AD: доменный пароль администратора',
+  event_module_package: 'Модули-пакеты: установка, обновление, удаление, удаление данных',
 };

@@ -18,8 +18,8 @@ import EditPage from './pages/EditPage';
 import Activity from './pages/Activity';
 import { AccessProvider } from './access/AccessContext';
 import '../shared/module.css';
-import '../kb/kb.css';
-import '../files/files.css';
+import '../../components/documents/documents.css';
+import '../../components/filekit/filekit.css';
 import './drive.css';
 import SideRail from '../shared/SideRail';
 

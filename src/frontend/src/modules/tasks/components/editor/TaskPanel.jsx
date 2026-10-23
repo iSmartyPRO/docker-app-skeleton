@@ -8,8 +8,6 @@ import { useLocale } from '../../../../context/LocaleContext';
 import { useSettings } from '../../../../context/SettingsContext';
 import { errorMessage } from '../../../../lib/errors';
 import { formatDateTime } from '../../../../lib/format';
-import Conversation from '../../../chat/components/Conversation';
-import { chatApi } from '../../../chat/api';
 import { tasksApi } from '../../api';
 import { useTasks } from '../../TasksContext';
 import ProjectDialog from '../ProjectDialog';
@@ -41,6 +39,11 @@ import { fmtDateTime } from '../../../../lib/datetime';
 import { OrderIcon, isLate, untilText, waitingHours } from '../acceptance';
 import './editor.css';
 import ModuleHint from '../../../../components/ModuleHint';
+import { optionalComponent, optionalApi } from '../../../../platform/optional';
+
+// Optional links (the module may be off or not installed): provided by its register.js.
+const Conversation = optionalComponent('chat', 'Conversation');
+const chatApi = optionalApi('chat', 'chatApi');
 
 export const CHIPS = [
   { key: 'results', icon: '🏁' },

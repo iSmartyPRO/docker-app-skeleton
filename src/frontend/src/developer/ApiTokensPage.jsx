@@ -6,7 +6,7 @@ import PageHeader from '../components/ui/PageHeader';
 import { useLocale } from '../context/LocaleContext';
 import { errorMessage } from '../lib/errors';
 import { formatDateTime } from '../lib/format';
-import { TimeChart } from '../modules/dashboard/charts';
+import { TimeChart } from '../platform/widgets/charts';
 import { personalApi } from './client';
 import { CopyField, EmptyState, SecretModal, TokenEditor } from './components';
 import { TokenRow, useTokenActions } from './console/Tokens';

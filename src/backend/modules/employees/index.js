@@ -1,10 +1,11 @@
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
-import { registerPeopleProvider } from '../org/providers.js';
+import { registerPeopleProvider } from '../org/api.js';
 import { ensureEmployeesSchema } from './schema.js';
 import { privateRoutes } from './routes.js';
 import { fullName } from './logic.js';
 import { rightsOf } from './access.js';
+import * as api from './api.js';
 
 /*
  * Employees (spec docs/specs/platform-2.0.ru.md §4, docs/employees.md): the
@@ -79,4 +80,9 @@ export default {
   id: 'employees',
   schema: ensureEmployeesSchema,
   routes: privateRoutes,
+  api,
+  register(ctx) {
+    // Birthdays and work anniversaries on the dashboard (the module's privacy setting applies).
+    ctx.registerWidget({ type: 'employeesCelebrations' });
+  },
 };

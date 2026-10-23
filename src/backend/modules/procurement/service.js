@@ -7,7 +7,7 @@ import { requestRegional } from '../../services/regional.js';
 import { getDefaultLegalEntity, getLegalEntity, listLegalEntities } from '../../services/legalEntities.js';
 import { avatarOf } from '../shared/acl.js';
 import { getProcess, refreshApproval, restart, startApproval, withdraw } from '../approvals/api.js';
-import { approvalSettings } from '../approvals/engine.js';
+import { approvalSettings } from '../approvals/api.js';
 import { APPROVAL_TYPE, Params, canSee, procContext, procurementSettings, rolesOn, visibleSql } from './access.js';
 import {
   ACTIVE,
@@ -190,7 +190,7 @@ async function chipSql(ctx, chip, p, today) {
       return `(r.author_id = ${m} OR r.responsible_id = ${m} OR r.created_by = ${m})`;
     }
     case 'waiting': {
-      const { principalSets, principalsOf, seatMatchSql } = await import('../approvals/people.js');
+      const { principalSets, principalsOf, seatMatchSql } = await import('../approvals/api.js');
       const sets = principalSets(await principalsOf(ctx.userId));
       const base = p.values.length;
       const users = p.add(sets.userIds);

@@ -11,6 +11,7 @@
 .PHONY: db-setup db-create db-drop user-create user-drop
 .PHONY: psql sql dbs users
 .PHONY: install build-local test seed-demo clean clean-image
+.PHONY: module module-keygen modules-verify
 
 # ── Configuration ───────────────────────────────────────────────────────────
 COMPOSE      ?= docker compose
@@ -428,6 +429,22 @@ test: ## Run backend unit tests and a frontend build on the host
 build-local: ## Build frontend on the host (no Docker)
 	@cd "$(PROJECT_ROOT)src/frontend" && npm run build
 	@echo "Local frontend build complete."
+
+# ── Module packages (docs/module-packages.md) ──────────────────────────────
+# The signing key lives outside the repository (MODULE_SIGNING_KEY_FILE).
+MODULE_SIGNING_KEY_FILE ?= /root/.portal-keys/modules-ed25519.pem
+module: ## Build a signed module package into dist/modules: make module ID=masterplan [MODULE_VERSION=x.y.z | BUMP=major|minor|patch | KEEP=1] [UNSIGNED=1] [SOURCE=dir]
+	@test -n "$(ID)$(SOURCE)" || { echo "Usage: make module ID=<module id> [MODULE_VERSION=x.y.z | BUMP=minor | KEEP=1] [UNSIGNED=1]"; exit 1; }
+	@NODE_OPTIONS=--max-old-space-size=1536 node "$(PROJECT_ROOT)scripts/build-module.mjs" $(ID) \
+		$(if $(SOURCE),--source "$(SOURCE)") $(if $(MODULE_VERSION),--version $(MODULE_VERSION)) $(if $(BUMP),--bump $(BUMP)) \
+		$(if $(KEEP),--keep) $(if $(UNSIGNED),--unsigned) --key "$(MODULE_SIGNING_KEY_FILE)"
+
+module-keygen: ## Create the module signing key (outside the repo, once) and trust its public key (platform/trusted-keys.json)
+	@node "$(PROJECT_ROOT)scripts/build-module.mjs" keygen --key "$(MODULE_SIGNING_KEY_FILE)"
+
+modules-verify: ## Check a module package's signature and manifest: make modules-verify FILE=dist/modules/masterplan-1.2.0.zip
+	@test -n "$(FILE)" || { echo "Usage: make modules-verify FILE=<package.zip>"; exit 1; }
+	@node "$(PROJECT_ROOT)scripts/build-module.mjs" verify "$(FILE)"
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────
 clean: ## Stop production and development containers

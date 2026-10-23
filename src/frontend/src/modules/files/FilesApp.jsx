@@ -13,7 +13,7 @@ import FilePage from './pages/FilePage';
 import EditPage from './pages/EditPage';
 import SpaceDialog from './components/SpaceDialog';
 import '../shared/module.css';
-import './files.css';
+import '../../components/filekit/filekit.css';
 import SideRail from '../shared/SideRail';
 
 function Sidebar({ onNavigate }) {

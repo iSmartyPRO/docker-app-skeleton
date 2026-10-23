@@ -1,8 +1,11 @@
 import { decide } from '../../api/scopes.js';
-import { registerChatEntity } from '../chat/entities.js';
+import { modules } from '../../platform/registry.js';
 import { httpError } from './logic.js';
 import { canView, contractsContext, contractsSettings, modulesEnabled } from './access.js';
 import { contractPeople, contractUrl, loadRow } from './service.js';
+
+// Chat is an optional link: the conversation exists only while the Chat module is installed.
+const registerChatEntity = (type, adapter) => modules.whenLoaded('chat', (chat) => chat.registerChatEntity(type, adapter));
 
 /*
  * «Обсуждение»: every contract can have a conversation in the chat module

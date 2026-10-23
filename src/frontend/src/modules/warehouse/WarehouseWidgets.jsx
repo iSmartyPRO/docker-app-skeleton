@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocale } from '../../context/LocaleContext';
-import { WidgetState } from '../dashboard/widgets/common';
+import { WidgetState } from '../../platform/widgets/common';
 import { whApi } from './api';
 import { formatQty } from './lib';
 import './warehouse.css';

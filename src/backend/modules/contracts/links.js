@@ -1,6 +1,6 @@
-import { query } from '../../config/database.js';
 import { httpError } from './logic.js';
 import { modulesEnabled } from './access.js';
+import { linkProvider, modules } from '../../platform/registry.js';
 
 /*
  * «Связи»: a contract may point at a CRM deal and a Masterplan project or
@@ -10,25 +10,16 @@ import { modulesEnabled } from './access.js';
  * it ("no access" otherwise). Setting a link checks the person's rights there.
  */
 
-async function crmTools() {
-  const [{ crmContext, crmSettings }, { requireDeal, listDeals }] = await Promise.all([import('../crm/access.js'), import('../crm/deals.js')]);
-  return { crmContext, crmSettings, requireDeal, listDeals };
-}
+// CRM and Masterplan are optional links: their providers are looked up at run time (null while off).
+const crmDeals = () => linkProvider('crm.deal');
+const masterplanApi = () => modules.loaded('masterplan')?.api || null;
 
-async function mpTools() {
-  const access = await import('../masterplan/access.js');
-  return access;
-}
-
+/** The deal row if the person may see it in the CRM; throws otherwise. */
 async function dealFor(ctx, dealId) {
-  const { crmContext, crmSettings, requireDeal } = await crmTools();
-  const { row } = await requireDeal(crmContext(ctx.req, await crmSettings()), dealId);
-  return row;
-}
-
-async function mpContextOf(ctx) {
-  const { mpContext, mpSettings } = await mpTools();
-  return mpContext(ctx.req, await mpSettings());
+  const deals = await crmDeals();
+  const deal = deals ? await deals.resolve(ctx.req, dealId) : null;
+  if (!deal) throw httpError(404, 'Deal not found', 'NOT_FOUND');
+  return deal.row;
 }
 
 /** Checks links being set (only changed ones): the module is on and the person may see the target. */
@@ -42,14 +33,14 @@ export async function validateLinks(ctx, data, current = {}) {
   }
   if ((data.mpProjectId && data.mpProjectId !== current.mpProjectId) || (data.mpNodeId && data.mpNodeId !== current.mpNodeId)) {
     if (!enabled.masterplan) throw httpError(400, 'Masterplan is turned off', 'MASTERPLAN_DISABLED', { field: 'mpProjectId' });
-    const { requireProject, requireNode } = await mpTools();
-    const mctx = await mpContextOf(ctx);
+    const mp = masterplanApi();
+    if (!mp) throw httpError(400, 'Masterplan is turned off', 'MASTERPLAN_DISABLED', { field: 'mpProjectId' });
     if (data.mpNodeId) {
-      const node = await requireNode(mctx, data.mpNodeId).catch(() => null);
+      const node = await mp.nodeFor(ctx.req, data.mpNodeId);
       if (!node) throw httpError(400, 'Unknown object', 'BAD_OBJECT', { field: 'mpNodeId' });
       data.mpProjectId = node.project_id;
     } else if (data.mpProjectId) {
-      const project = await requireProject(mctx, data.mpProjectId).catch(() => null);
+      const project = await mp.projectFor(ctx.req, data.mpProjectId);
       if (!project) throw httpError(400, 'Unknown project', 'BAD_OBJECT', { field: 'mpProjectId' });
       if (!('mpNodeId' in data)) data.mpNodeId = null;
     }
@@ -69,10 +60,10 @@ export async function resolveLinks(ctx, row) {
   }
   if (row.mp_project_id && enabled.masterplan) {
     try {
-      const { requireProject, requireNode } = await mpTools();
-      const mctx = await mpContextOf(ctx);
-      const project = await requireProject(mctx, row.mp_project_id);
-      const node = row.mp_node_id ? await requireNode(mctx, row.mp_node_id).catch(() => null) : null;
+      const mp = masterplanApi();
+      const project = mp ? await mp.projectFor(ctx.req, row.mp_project_id) : null;
+      if (!project) throw new Error('hidden');
+      const node = row.mp_node_id ? await mp.nodeFor(ctx.req, row.mp_node_id) : null;
       out.masterplan = {
         projectId: project.id,
         project: project.name,
@@ -90,35 +81,15 @@ export async function resolveLinks(ctx, row) {
 /** Deals for the link picker (the person's CRM visibility). */
 export async function dealOptions(ctx, search) {
   if (!(await modulesEnabled()).crm) return [];
-  const { crmContext, crmSettings, listDeals } = await crmTools();
-  const result = await listDeals(crmContext(ctx.req, await crmSettings()), { q: String(search || '').slice(0, 100), pageSize: 20 });
-  return result.items.map((deal) => ({ id: deal.id, title: deal.title, amount: deal.amount, currency: deal.currency, stage: deal.stage?.name || deal.stageName || null }));
+  const deals = await crmDeals();
+  if (!deals) return [];
+  const items = await deals.search(ctx.req, { q: String(search || '').slice(0, 100), pageSize: 20 });
+  return items.map((deal) => ({ id: deal.id, title: deal.title, amount: deal.amount, currency: deal.currency, stage: deal.stage }));
 }
 
 /** Masterplan projects and objects for the link picker (projects the person sees). */
 export async function masterplanOptions(ctx, search) {
   if (!(await modulesEnabled()).masterplan) return [];
-  const { visibleProjectIds } = await mpTools();
-  const mctx = await mpContextOf(ctx);
-  const ids = visibleProjectIds(mctx);
-  const q = String(search || '').trim().slice(0, 100);
-  const like = `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
-  const params = [like];
-  let scope = '';
-  if (ids) {
-    params.push(ids);
-    scope = `AND p.id = ANY($2::int[])`;
-  }
-  const { rows: projects } = await query(`SELECT p.id, p.name FROM mp_projects p WHERE p.name ILIKE $1 ${scope} ORDER BY p.name LIMIT 10`, params);
-  const { rows: nodes } = q
-    ? await query(
-        `SELECT n.id, n.code, n.name, n.kind, p.id AS project_id, p.name AS project FROM mp_nodes n JOIN mp_projects p ON p.id = n.project_id
-         WHERE (n.name ILIKE $1 OR n.code ILIKE $1) ${scope} ORDER BY n.depth, n.name LIMIT 20`,
-        params
-      )
-    : { rows: [] };
-  return [
-    ...projects.map((p) => ({ projectId: p.id, nodeId: null, label: p.name, project: p.name })),
-    ...nodes.map((n) => ({ projectId: n.project_id, nodeId: n.id, label: [n.code, n.name].filter(Boolean).join(' · '), project: n.project, kind: n.kind })),
-  ];
+  const mp = masterplanApi();
+  return mp ? mp.projectLinkOptions(ctx.req, search) : [];
 }

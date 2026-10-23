@@ -173,20 +173,7 @@ export function fileUrl(shareId, path) {
   return `/app/drive/v/${shareId}/${path.split('/').map(encodeURIComponent).join('/')}`;
 }
 
-export async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const area = document.createElement('textarea');
-    area.value = text;
-    document.body.appendChild(area);
-    area.select();
-    const ok = document.execCommand('copy');
-    area.remove();
-    return ok;
-  }
-}
+export { copyText } from '../../lib/clipboard';
 
 /** Drive errors in the UI language (`drive.errors.<CODE>`), else the server text. */
 export function driveError(err, t, fallback) {

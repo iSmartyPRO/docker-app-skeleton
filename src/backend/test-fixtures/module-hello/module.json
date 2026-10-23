@@ -1,0 +1,15 @@
+{
+  "id": "hello",
+  "name": { "en": "Hello", "ru": "Привет" },
+  "description": { "en": "A test module: one route, one table, one page.", "ru": "Тестовый модуль: один маршрут, одна таблица, одна страница." },
+  "version": "1.0.0",
+  "core": "1.0.0",
+  "category": "work",
+  "permissions": ["hello.admin"],
+  "requires": [],
+  "enhances": [],
+  "settings": { "defaults": { "greeting": "Hello" }, "public": ["greeting"] },
+  "tables": ["hello_%"],
+  "web": { "icon": "apps" },
+  "changelog": [{ "version": "1.0.0", "date": "2026-10-23", "changes": { "en": ["First version."], "ru": ["Первая версия."] } }]
+}

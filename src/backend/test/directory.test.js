@@ -30,11 +30,16 @@ import { passwordIssues as browserPasswordIssues } from '../../frontend/src/modu
 import { demoObjects } from '../modules/directory/demo.js';
 import { DEMO_EXCLUDED, DEMO_ROOT } from '../modules/directory/demoDirectory.js';
 import { setClientFactory, verifyBind } from '../modules/drive/access/directory.js';
+import driveModule from '../modules/drive/index.js';
+import { registerModule } from '../platform/registry.js';
 import { DIRECTORY_DEFAULTS, sanitizeDirectory } from '../modules/catalog.js';
 import { MODULE_MANIFEST } from '../modules/manifest.js';
 import { planModuleChanges, moduleStatus } from '../modules/dependencies.js';
 import { classify } from '../api/scopes.js';
 import { fakeDirectory } from '../test-fixtures/ldap-fake.mjs';
+
+// The directory reaches the File server's AD connection through the core registry (Drive is an optional link).
+registerModule(driveModule);
 
 const ROOT = 'OU=Accounts,DC=example,DC=local';
 const SETTINGS = { ...DIRECTORY_DEFAULTS, rootDn: ROOT, excluded: [`OU=Service,${ROOT}`, 'Admins*'], hiddenAccounts: ['svc_*'] };

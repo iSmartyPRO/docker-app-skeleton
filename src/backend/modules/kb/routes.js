@@ -38,7 +38,7 @@ import {
   updateShare,
 } from './shares.js';
 import { addFromFiles, attachmentsOf, sendAttachment, sendAttachmentPreview, sendItemFile, sendItemPreview } from './attachments.js';
-import { uploadForKb } from '../files/kb.js';
+import { filesApi } from './filesLink.js';
 
 const wrap = (handler) => async (req, res, next) => {
   try {
@@ -113,7 +113,7 @@ export function privateRoutes() {
     const access = await loadAccess(req.kb);
     requireLevel(access.folderLevel(folderId), LEVEL.edit, 'this folder');
     const { module } = await kbSettings();
-    const nodes = await uploadForKb(req.kb, req, res, { maxUploadMb: module.maxUploadMb, fileGroups: module.fileGroups, locale: req.locale });
+    const nodes = await filesApi().uploadForKb(req.kb, req, res, { maxUploadMb: module.maxUploadMb, fileGroups: module.fileGroups, locale: req.locale });
     const created = [];
     for (const node of nodes) {
       const result = await query(
@@ -134,7 +134,7 @@ export function privateRoutes() {
       const access = await loadAccess(req.kb);
       requireLevel(await levelOf(access, req), LEVEL.edit, 'this place');
       const { module } = await kbSettings();
-      const nodes = await uploadForKb(req.kb, req, res, { maxUploadMb: module.maxUploadMb, fileGroups: module.fileGroups, locale: req.locale });
+      const nodes = await filesApi().uploadForKb(req.kb, req, res, { maxUploadMb: module.maxUploadMb, fileGroups: module.fileGroups, locale: req.locale });
       res.status(201).json({
         success: true,
         files: nodes.map((node) => ({ id: node.id, name: node.name, file: { name: node.name, mime: node.mime, size: Number(node.size) || 0, ext: node.ext } })),

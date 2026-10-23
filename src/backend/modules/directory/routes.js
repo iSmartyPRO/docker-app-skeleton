@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { wrap } from '../shared/acl.js';
-import { PASSWORD_ATTEMPTS } from '../drive/access/routes.js';
+import { PASSWORD_ATTEMPTS } from '../shared/passwordAttempts.js';
 import {
   browse,
   bulk,

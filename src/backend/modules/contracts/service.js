@@ -7,6 +7,7 @@ import { getDefaultLegalEntity, getLegalEntity } from '../../services/legalEntit
 import { getProcess, refreshApproval, waitingDocIds, withdraw } from '../approvals/api.js';
 import { avatarOf, userShape } from '../shared/acl.js';
 import { removeBlob } from '../shared/storage.js';
+import { modules } from '../../platform/registry.js';
 import {
   ARCHIVED,
   IN_WORK,
@@ -164,8 +165,8 @@ export async function postChat(contractId, actorId, data) {
     if (!(await modulesEnabled()).chat) return;
     const { rows } = await query(`SELECT 1 FROM chat_rooms WHERE entity_type = 'contract' AND entity_id = $1`, [contractId]);
     if (!rows.length) return;
-    const { postSystem } = await import('../chat/service.js');
-    await postSystem('contract', contractId, { actorId, data });
+    const chat = modules.loaded('chat')?.api;
+    if (chat) await chat.postSystem('contract', contractId, { actorId, data });
   } catch (err) {
     console.warn(`[contracts] chat line for ${contractId} failed:`, err.message);
   }
@@ -668,7 +669,7 @@ export async function changeStatus(ctx, id, input = {}) {
   await afterStatus(updated, row.status, to, { actorId: ctx.userId, comment });
   if (to === 'signed') {
     // A linked Masterplan unit becomes «Договор» (number, date, amount) with the signer's rights there.
-    const { syncSigned } = await import('./mpSync.js');
+    const { syncSigned } = await import('./objectSync.js');
     const sync = await syncSigned(ctx, updated).catch((err) => console.warn('[contracts] masterplan sync after signing:', err.message));
     // A signed contract whose start date has come is in force at once.
     const result = await getContract(ctx, (await applyDates(updated, ctx.today, ctx.settings, ctx.userId)).id);

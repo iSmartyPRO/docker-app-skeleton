@@ -1,5 +1,5 @@
 import { query } from '../config/database.js';
-import { contextFromRequest, levelMap } from '../modules/shared/acl.js';
+import { tokenResourceLister } from '../platform/registry.js';
 import { AREAS, RESOURCE_KINDS, cleanRules, cleanScopes } from './scopes.js';
 import { httpError } from './tokens.js';
 
@@ -89,24 +89,9 @@ export function areaList(modules) {
 export async function resourceOptions(req, { all = false } = {}) {
   const out = {};
   for (const kind of RESOURCE_KINDS) {
-    const ctx = contextFromRequest({ ...req, apiLimits: null }, `${kind.module}.admin`);
-    // Kinds without an access list: every pipeline is offered (deals inside keep their own visibility).
-    const levels = kind.acl === false ? { of: () => 1 } : await levelMap(kind.table, ctx);
-    let rows = [];
-    if (kind.key === 'crm.pipelines') {
-      ({ rows } = await query(`SELECT id, name, color FROM crm_pipelines WHERE archived_at IS NULL ORDER BY sort, id`).catch(() => ({ rows: [] })));
-    } else if (kind.key === 'tasks.projects') {
-      ({ rows } = await query(`SELECT id, name, key AS code, color, is_personal FROM task_projects WHERE archived_at IS NULL ORDER BY is_personal DESC, LOWER(name)`).catch(() => ({ rows: [] })));
-      rows = rows.filter((row) => all || row.is_personal || levels.of(row.id) > 0);
-    } else if (kind.key === 'calendar.calendars') {
-      ({ rows } = await query(
-        `SELECT c.id, c.name, c.color, c.is_personal, COALESCE(u.display_name, u.username) AS owner FROM cal_calendars c LEFT JOIN users u ON u.id = c.owner_id ORDER BY c.is_personal, LOWER(c.name)`
-      ).catch(() => ({ rows: [] })));
-      rows = rows.filter((row) => all || levels.of(row.id) > 0);
-    } else if (kind.key === 'files.spaces') {
-      ({ rows } = await query(`SELECT id, name, color FROM fs_spaces ORDER BY LOWER(name)`).catch(() => ({ rows: [] })));
-      rows = rows.filter((row) => all || levels.of(row.id) > 0);
-    }
+    // Each module lists its own resources (registerTokenResources); a module that is not installed lists none.
+    const lister = tokenResourceLister(kind.key);
+    const rows = lister ? await lister.list(req, { all, kind }).catch(() => []) : [];
     out[kind.key] = rows.map((row) => ({ id: row.id, name: row.name, code: row.code || null, color: row.color || null, personal: Boolean(row.is_personal), owner: row.owner || null }));
   }
   return out;

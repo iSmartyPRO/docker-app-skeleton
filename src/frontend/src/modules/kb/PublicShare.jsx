@@ -9,11 +9,11 @@ import { useLocale } from '../../context/LocaleContext';
 import { useSettings } from '../../context/SettingsContext';
 import { formatDateTime } from '../../lib/format';
 import { publicApi, publicSource } from './api';
-import { itemType } from './fileTypes';
+import { itemType } from '../../components/documents/fileTypes';
 import FolderContent from './components/FolderContent';
-import { FileIcon, FolderIcon } from './components/Icons';
-import DocumentViewer, { ImageViewer } from './viewers/DocumentViewer';
-import './kb.css';
+import { FileIcon, FolderIcon } from '../../components/documents/Icons';
+import DocumentViewer, { ImageViewer } from '../../components/documents/viewers/DocumentViewer';
+import '../../components/documents/documents.css';
 import PageTransition from '../../components/ui/PageTransition';
 
 const tokenKey = (slug) => `kb_share_${slug}`;

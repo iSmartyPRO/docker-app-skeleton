@@ -5,7 +5,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { contractsApi } from '../api';
 import { formatMoney } from '../lib';
-import { tOr } from '../../approvals/lib';
+import { tOr } from '../../approvals/public';
 
 /** A searchable picker fed by one of the link-options endpoints. */
 function RemotePicker({ load, toOption, placeholder, onPick, onCancel }) {

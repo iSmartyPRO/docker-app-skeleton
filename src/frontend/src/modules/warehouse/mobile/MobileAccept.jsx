@@ -4,7 +4,7 @@ import { App, Button, Input, Result, Skeleton, Switch } from 'antd';
 import { MinusOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { fmtDateTime } from '../../../lib/datetime';
-import { inboxChanged } from '../../approvals/api';
+import { inboxChanged } from '../../approvals/public';
 import { whApi } from '../api';
 import { useWh } from '../WhContext';
 import { formatQty, scanFeedback, whError } from '../lib';

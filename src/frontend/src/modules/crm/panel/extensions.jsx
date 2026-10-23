@@ -1,24 +1,14 @@
-import { Suspense, lazy } from 'react';
-import { useSettings } from '../../../context/SettingsContext';
+import { LinkBlocks } from '../../../platform/links';
 
 /*
  * Extension point of the deal panel: blocks other modules show under the
- * deal's fields. Each entry is lazy, so a module adds nothing to the CRM
- * bundle, and appears only while that module is switched on.
+ * deal's fields («Связи», platform/links.jsx — host 'crm.deal'). Each block is
+ * lazy, so a module adds nothing to the CRM bundle, and appears only while
+ * that module is switched on. Masterplan registers its units block there.
  *
- *   { id, module: '<module id>', Component: lazy(() => import(...)) }  — gets { deal, onChanged }
+ *   registerLinkBlock('crm.deal', { id, module: '<module id>', Component: lazy(() => import(...)) })  — gets { deal, onChanged }
  */
-const DEAL_BLOCKS = [{ id: 'masterplan', module: 'masterplan', Component: lazy(() => import('../../masterplan/integrations/DealUnitsBlock')) }];
-
 export default function DealExtensions({ deal, onChanged }) {
-  const { settings } = useSettings();
-  const blocks = DEAL_BLOCKS.filter((block) => settings?.modules?.[block.module]?.enabled);
-  if (!deal || !blocks.length) return null;
-  return (
-    <Suspense fallback={null}>
-      {blocks.map(({ id, Component }) => (
-        <Component key={id} deal={deal} onChanged={onChanged} />
-      ))}
-    </Suspense>
-  );
+  if (!deal) return null;
+  return <LinkBlocks host="crm.deal" deal={deal} onChanged={onChanged} />;
 }

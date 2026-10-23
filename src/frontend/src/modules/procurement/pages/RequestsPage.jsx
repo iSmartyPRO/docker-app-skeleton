@@ -9,7 +9,7 @@ import { HelpButton } from '../../../help/Hint';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { errorMessage } from '../../../lib/errors';
 import { UserAvatar } from '../../shared/People';
-import { useApprovalsMeta, urgencyLevels, urgencyName } from '../../approvals/lib';
+import { useApprovalsMeta, urgencyLevels, urgencyName } from '../../approvals/public';
 import { procApi, csvUrl } from '../api';
 import { useProc } from '../ProcContext';
 import { BOARD_STATUSES, CHIPS, STATUS_COLORS, readStore, writeStore } from '../lib';

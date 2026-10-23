@@ -27,7 +27,7 @@ import { activeLocale } from '../i18n/translations';
  * and a runner is installed: useModuleTour(id) → { available, start }.
  */
 export const MODULE_UI = {
-  approvals: { tour: 'approvals' }, // modules/shared/businessTours.js
+  approvals: { tour: 'approvals' }, // registered in modules/<id>/register.js
   dashboard: { tour: null },
   tasks: { tour: null },
   calendar: { tour: null },
@@ -38,17 +38,17 @@ export const MODULE_UI = {
   assistant: { tour: null },
   files: { tour: null },
   kb: { tour: null },
-  contracts: { tour: 'contracts' }, // modules/shared/businessTours.js
+  contracts: { tour: 'contracts' }, // registered in modules/<id>/register.js
   companies: { tour: null },
-  crm: { tour: 'crm' }, // modules/shared/businessTours.js
-  procurement: { tour: 'procurement' }, // modules/shared/businessTours.js
-  warehouse: { tour: 'warehouse' }, // modules/shared/businessTours.js
-  masterplan: { tour: 'masterplan' }, // modules/shared/businessTours.js
+  crm: { tour: 'crm' }, // registered in modules/<id>/register.js
+  procurement: { tour: 'procurement' }, // registered in modules/<id>/register.js
+  warehouse: { tour: 'warehouse' }, // registered in modules/<id>/register.js
+  masterplan: { tour: 'masterplan' }, // registered in modules/<id>/register.js
   drive: { tour: null },
-  // Tours registered in modules/people/tours.js (imported by App.jsx).
+  // Tours registered in each module's register.js.
   org: { tour: 'org' },
   employees: { tour: 'employees' },
-  // Registered in modules/directory/register.js (imported by App.jsx).
+  // Registered in modules/directory/register.js.
   directory: { tour: 'directory' },
 };
 

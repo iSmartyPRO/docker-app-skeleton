@@ -43,6 +43,11 @@ RUN apk add --no-cache nginx python3 py3-cryptography py3-pillow py3-pip \
  && pip install --no-cache-dir --break-system-packages smbprotocol==1.17.0 pyspnego==0.12.4 \
  && apk del py3-pip
 
+# pg_dump / pg_restore: backups of a module's tables before updates and data removal
+# (docs/module-packages.md). The client must not be older than the server (PostgreSQL 18);
+# without it the app falls back to a data-only backup format.
+RUN apk add --no-cache postgresql18-client || apk add --no-cache postgresql-client
+
 # dwg2dxf and its library
 COPY --from=libredwg /opt/libredwg/bin/dwg2dxf /usr/local/bin/dwg2dxf
 COPY --from=libredwg /opt/libredwg/lib/libredwg.so* /usr/local/lib/
@@ -66,7 +71,10 @@ COPY start.sh ./start.sh
 RUN chmod +x ./start.sh
 
 # Create nginx directories
-RUN mkdir -p /var/log/nginx /var/cache/nginx /run/nginx /app/uploads/avatars /app/uploads/logos
+RUN mkdir -p /var/log/nginx /var/cache/nginx /run/nginx /app/uploads/avatars /app/uploads/logos /app/data/modules
+
+# Installed module packages (a volume in docker-compose.yml: ./data/modules).
+ENV MODULES_DIR=/app/data/modules
 
 ENV APP_VERSION=$APP_VERSION
 

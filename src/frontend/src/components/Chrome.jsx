@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { App, Avatar, Dropdown, Tooltip } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
@@ -16,8 +16,7 @@ import { MenuIcon } from './icons/menuIcons';
 import { enabledModules, moduleLabel } from '../modules/registry';
 import { preloadProps } from '../lib/lazyPage';
 import NotificationBell from './NotificationBell';
-import ChatButton from '../modules/chat/components/ChatButton';
-import InboxButton from '../modules/approvals/InboxButton';
+import { useContributions } from '../platform/extensions';
 import { isStandalone } from '../pwa/pwa';
 import { useHelp } from '../help/HelpContext';
 import api from '../services/api';
@@ -194,6 +193,7 @@ export default function Chrome({ dense }) {
   // An installed app has no browser back button: offer one away from the home page.
   const { openHelp } = useHelp();
   const showBack = isStandalone() && location.pathname !== '/' && window.history.length > 1;
+  const headerActions = useContributions('header.actions');
 
   return (
     <>
@@ -225,8 +225,12 @@ export default function Chrome({ dense }) {
                 </svg>
               </button>
             </Tooltip>
-            <ChatButton />
-            <InboxButton />
+            {/* Buttons modules add to the top bar (chat, «Ждёт меня»): header.actions. */}
+            <Suspense fallback={null}>
+              {headerActions.map(({ id, Component }) => (
+                <Component key={id} />
+              ))}
+            </Suspense>
             <NotificationBell />
             <AppsLauncher />
             {can(user, 'console.access') && (

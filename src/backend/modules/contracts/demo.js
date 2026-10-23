@@ -3,9 +3,12 @@ import { requestContext, changeStatus, createContract } from './service.js';
 import { addPayment, depositStatus, saveDeposit, saveSchedule } from './payments.js';
 import { modulesEnabled } from './access.js';
 import { TYPE_KEY } from './logic.js';
-import { DEMO_CONTRACT_UNITS } from '../masterplan/demo.js';
+import { modules } from '../../platform/registry.js';
 import { decideDemo, dropProcesses, ensureDemoRoute, purgeDemoRoutes, startDemoApproval } from '../shared/demoApprovals.js';
 import { demoMoney, dropEntityChats, dropNotifications, isoDate, removeDemoBlobs, simpleDocx, simplePdf, storeDemoBlob } from '../shared/demoAssets.js';
+
+// The Masterplan demo's units these sale contracts are for (same codes when Masterplan is not installed: titles only).
+const DEMO_CONTRACT_UNITS = modules.loaded('masterplan')?.api?.DEMO_CONTRACT_UNITS || ['A-1-03', 'A-1-05'];
 
 /*
  * Demo data of Contracts (spec §8, docs/contracts.md «Демо-данные»): eight

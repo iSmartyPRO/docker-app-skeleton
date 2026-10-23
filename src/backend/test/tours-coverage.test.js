@@ -9,8 +9,8 @@ import { fileURLToPath } from 'url';
  * intentionally without one; every anchor any tour names is marked in the
  * frontend source (grep-based, like business-tours.test.js); every tour has
  * texts in both languages. Tours come from tour/content (built-in, core
- * modules) and modules/<id>/tour.js (registered by businessTours.js,
- * people/tours.js, directory/register.js).
+ * modules) and modules/<id>/tour.js (registered by the module's own
+ * register.js).
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -71,16 +71,14 @@ test('tours: every manifest module has a tour or is whitelisted', async () => {
 });
 
 test('tours: every module tour is registered with the engine', async () => {
-  const registered = [
-    readFileSync(join(SRC, 'tour/content/index.js'), 'utf8'),
-    readFileSync(join(SRC, 'modules/shared/businessTours.js'), 'utf8'),
-    readFileSync(join(SRC, 'modules/people/tours.js'), 'utf8'),
-    existsSync(join(SRC, 'modules/directory/register.js')) ? readFileSync(join(SRC, 'modules/directory/register.js'), 'utf8') : '',
-  ].join('\n');
+  // A module registers its own tour in its frontend entry (modules/<id>/register.js).
   for (const name of readdirSync(join(SRC, 'modules'))) {
     if (!existsSync(join(SRC, 'modules', name, 'tour.js'))) continue;
-    assert.ok(registered.includes(`../${name}/tour'`) || (name === 'directory' && registered.includes(`from './tour'`)), `${name}/tour.js is not registered`);
+    const entry = join(SRC, 'modules', name, 'register.js');
+    const text = existsSync(entry) ? readFileSync(entry, 'utf8') : '';
+    assert.ok(text.includes("from './tour'") && text.includes('registerTour('), `${name}/tour.js is not registered`);
   }
+  assert.ok(readFileSync(join(SRC, 'tour/content/index.js'), 'utf8').includes('registerTour'));
 });
 
 test('tours: valid, texts in both languages, every anchor marked in the frontend', async () => {

@@ -21,12 +21,15 @@ services:
       - DATABASE_URL=${DATABASE_URL:-}
       - JWT_SECRET=${JWT_SECRET}
       - UPLOAD_DIR=/app/uploads
+      - MODULES_DIR=/app/data/modules
       - TZ=${TZ:-UTC}
       - APP_VERSION=${APP_VERSION:-}
     volumes:
       # Writable so Setup Wizard can persist DB credentials
       - ./.env:/app/.env
       - ./data/uploads:/app/uploads
+      # Installed module packages, their table backups (.backups) — docs/module-packages.md
+      - ./data/modules:/app/data/modules
     restart: unless-stopped
     # nginx and the app log to the container output: keep at most 5 × 10 MB.
     logging:

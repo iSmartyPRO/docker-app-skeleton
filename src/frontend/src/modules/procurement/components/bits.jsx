@@ -3,8 +3,7 @@ import { Select, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { fmtDate } from '../../../lib/datetime';
 import { userOptions } from '../../shared/People';
-import { UrgencyTag } from '../../approvals/components/bits';
-import { useApprovalsMeta } from '../../approvals/lib';
+import { UrgencyTag, useApprovalsMeta } from '../../approvals/public';
 import { useProc } from '../ProcContext';
 import { STATUS_COLORS, categoryOf, dayState, formatMoney } from '../lib';
 

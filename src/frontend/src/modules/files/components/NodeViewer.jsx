@@ -1,10 +1,10 @@
 import { Button, Modal } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
-import DocumentViewer, { ImageViewer } from '../../kb/viewers/DocumentViewer';
+import DocumentViewer, { ImageViewer } from '../../../components/documents/viewers/DocumentViewer';
 import { asViewerItem, formatBytes } from '../api';
 import { NodeIcon } from './NodeList';
-import '../../kb/kb.css';
-import '../files.css';
+import '../../../components/documents/documents.css';
+import '../../../components/filekit/filekit.css';
 
 const IMAGE = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']);
 

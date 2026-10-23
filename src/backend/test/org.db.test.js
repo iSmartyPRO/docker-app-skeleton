@@ -1,6 +1,10 @@
 import '../test-fixtures/test-env.mjs';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { activateAll } from './helpers/modules.js';
+
+// Modules reach each other through the core registry, as at server start (no-op without a database).
+await activateAll();
 
 /*
  * Database integration of the org structure (docs/org-structure.md) and of

@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import { App, Button, Input } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
-import Conversation from '../../chat/components/Conversation';
-import { chatApi } from '../../chat/api';
 import { Empty } from '../components/bits';
+import { optionalComponent, optionalApi } from '../../../platform/optional';
+
+// Optional links (the module may be off or not installed): provided by its register.js.
+const Conversation = optionalComponent('chat', 'Conversation');
+const chatApi = optionalApi('chat', 'chatApi');
 
 /** The message that ties a chat message to a risk: «↪ Риск #3 · § 7.2 — …» and a link back to it. */
 export function riskMessage(contract, risk, text, t) {

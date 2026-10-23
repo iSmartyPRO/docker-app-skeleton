@@ -5,7 +5,6 @@ import { App, Button, Dropdown, Input, InputNumber, Select, Skeleton, Space, Too
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
-import Conversation from '../../chat/components/Conversation';
 import { UserAvatar } from '../../shared/People';
 import { crmApi } from '../api';
 import { useCrm } from '../CrmContext';
@@ -18,6 +17,10 @@ import StageBar from './StageBar';
 import Timeline from './Timeline';
 import DealExtensions from './extensions';
 import './panel.css';
+import { optionalComponent } from '../../../platform/optional';
+
+// Optional links (the module may be off or not installed): provided by its register.js.
+const Conversation = optionalComponent('chat', 'Conversation');
 
 const EVENTS_PAGE = 50;
 

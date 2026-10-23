@@ -8,6 +8,7 @@ import { privateRoutes } from './routes.js';
 import { registerContractApproval } from './approval.js';
 import { RUNNING, addDays, daysBetween, noticeDeadline } from './logic.js';
 import { contractShape, portalToday } from './service.js';
+import * as api from './api.js';
 
 /*
  * Contracts (spec §6, docs/contracts.md): a registry of contracts with file
@@ -103,4 +104,10 @@ export default {
   id: 'contracts',
   schema: ensureContractsSchema,
   routes: privateRoutes,
+  api,
+  register(ctx) {
+    // «Поступления по договорам» on the dashboard: finance and those who see every contract.
+    ctx.registerWidget({ type: 'contractsPayments', anyPermission: ['contracts.finance', 'contracts.view_all', 'contracts.legal', 'contracts.admin'] });
+    ctx.registerLinkProvider(api.contractLinkProvider);
+  },
 };

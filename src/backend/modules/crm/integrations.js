@@ -3,8 +3,8 @@ import { notify } from '../../services/notifications.js';
 import { emitEvent } from '../../api/events.js';
 import { emitModuleEvent } from '../../services/hooks.js';
 import { publicBase } from '../../services/google.js';
-import { logEvent as companyEvent } from '../companies/service.js';
-import { postSystem } from '../chat/service.js';
+import { logEvent as companyEvent } from '../companies/api.js';
+import { modules } from '../../platform/registry.js';
 import { canView, crmContext, crmSettings, modulesEnabled } from './access.js';
 import { dealLink, hydrate, loadDealRow } from './deals.js';
 import { crmMessage } from './messages.js';
@@ -68,7 +68,8 @@ async function chatLine(dealId, actorId, data) {
   try {
     if (!(await modulesEnabled()).chat) return;
     const { rows } = await query(`SELECT 1 FROM chat_rooms WHERE entity_type = 'deal' AND entity_id = $1`, [dealId]);
-    if (rows.length) await postSystem('deal', dealId, { actorId, data });
+    const chat = modules.loaded('chat')?.api;
+    if (rows.length && chat) await chat.postSystem('deal', dealId, { actorId, data });
   } catch (err) {
     console.warn(`[crm] chat line for deal ${dealId} failed:`, err.message);
   }

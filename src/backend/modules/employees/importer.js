@@ -1,6 +1,5 @@
 import { query, withTransaction } from '../../config/database.js';
-import { loadUnits } from '../org/service.js';
-import { byId, pathNames } from '../org/logic.js';
+import { byId, descendantIds, loadUnits, pathNames } from '../org/api.js';
 import { assertHr, rightsOf } from './access.js';
 import { logEvent, syncUser } from './service.js';
 import { httpError, planImport } from './logic.js';

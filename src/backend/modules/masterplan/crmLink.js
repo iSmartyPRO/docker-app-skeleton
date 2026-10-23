@@ -4,8 +4,7 @@ import { formatDateTime } from '../../services/datetime.js';
 import { onModuleEvent } from '../../services/hooks.js';
 import { requestAs } from '../../api/events.js';
 import { httpError } from '../shared/acl.js';
-import { crmContext, crmSettings } from '../crm/access.js';
-import { requireDeal } from '../crm/deals.js';
+import { modules } from '../../platform/registry.js';
 import { modulesEnabled, mpContext, requireCrmScope, usersWithRole } from './access.js';
 import { readCaps, has } from './rules.js';
 import { statusName } from './messages.js';
@@ -34,16 +33,17 @@ export async function dealForLink(ctx, dealId, { allowClosed = false, scope = 'w
   if (!(await modulesEnabled()).crm) throw httpError(400, 'The CRM is turned off', 'CRM_DISABLED');
   if (!ctx.request) throw httpError(400, 'No CRM context', 'CRM_DISABLED');
   requireCrmScope(ctx, scope);
-  const cctx = crmContext(ctx.request, await crmSettings());
-  const { row } = await requireDeal(cctx, dealId);
+  const crm = modules.loaded('crm')?.api;
+  if (!crm) throw httpError(400, 'The CRM is turned off', 'CRM_DISABLED');
+  const row = await crm.dealFor(ctx.request, dealId);
   if (!allowClosed && row.stage_kind === 'lost') throw httpError(400, 'The deal is closed as lost', 'DEAL_CLOSED');
   return row;
 }
 
 /** A system line in a deal's history (the portal's default language and time zone). */
 async function dealLine(dealId, body, data, authorId = null) {
-  await query(`INSERT INTO crm_events (deal_id, kind, body, data, author_id) VALUES ($1, 'masterplan', $2, $3, $4)`, [dealId, body, JSON.stringify(data), authorId]);
-  await query(`UPDATE crm_deals SET updated_at = NOW() WHERE id = $1`, [dealId]);
+  const crm = modules.loaded('crm')?.api;
+  if (crm) await crm.addDealEvent(dealId, { kind: 'masterplan', body, data, authorId });
 }
 
 const unitLabel = (node) => node.code || node.name || `#${node.id}`;
@@ -67,18 +67,8 @@ export async function afterUnitStatus(ctx, node, { before, after, booking, reaso
       [after.deal_id, currency]
     );
     const amount = money(held[0].total);
-    if (amount !== null && currency) {
-      const { rows } = await query(`SELECT amount, currency FROM crm_deals WHERE id = $1`, [after.deal_id]);
-      const deal = rows[0];
-      if (deal && (Number(deal.amount) !== amount || (deal.currency || '').trim() !== currency)) {
-        await query(`UPDATE crm_deals SET amount = $2, currency = $3, version = version + 1, updated_at = NOW(), updated_by = $4 WHERE id = $1`, [after.deal_id, amount, currency, ctx.userId]);
-        await query(`INSERT INTO crm_events (deal_id, kind, data, author_id) VALUES ($1, 'field', $2, $3)`, [
-          after.deal_id,
-          JSON.stringify({ field: 'amount', label: 'Amount', from: { amount: money(deal.amount), currency: (deal.currency || '').trim() }, to: { amount, currency } }),
-          ctx.userId,
-        ]);
-      }
-    }
+    const crm = modules.loaded('crm')?.api;
+    if (amount !== null && currency && crm) await crm.setDealAmount(after.deal_id, { amount, currency, actorId: ctx.userId });
   }
 }
 

@@ -1,4 +1,4 @@
-import { formatMoney } from '../approvals/lib';
+import { formatMoney } from '../approvals/public';
 import { errorMessage } from '../../lib/errors';
 import { localeTag } from '../../i18n/languages';
 

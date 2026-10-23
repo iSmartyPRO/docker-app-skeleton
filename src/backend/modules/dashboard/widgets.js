@@ -1,40 +1,32 @@
 import { hasPermission } from '../../services/permissions.js';
+import { widgetDefinitions } from '../../platform/widgets.js';
 
 /*
  * Widget catalog (server side): which module a widget needs and which
  * permission (`area`: the API token scope it needs when not the module's),
- * plus the built-in starting layout. Rendering, settings forms
+ * plus the built-in starting layout (widget types only — a type whose module
+ * is not installed simply drops out). Rendering, settings forms
  * and sizes for the UI live in the frontend catalog (modules/dashboard/catalog.js).
  */
 
-export const WIDGETS = {
+export const CORE_WIDGETS = {
   welcome: {},
   quickActions: {},
   clock: {},
   note: {},
   notifications: { area: 'notifications' },
   inbox: { module: 'approvals' },
-  procurement: { module: 'procurement' },
-  // «Поступления по договорам»: finance and those who see every contract.
-  contractsPayments: { module: 'contracts', anyPermission: ['contracts.finance', 'contracts.view_all', 'contracts.legal', 'contracts.admin'] },
-  warehouseLow: { module: 'warehouse' },
-  warehouseIncoming: { module: 'warehouse' },
-  warehouseMyTools: { module: 'warehouse' },
-  myTasks: { module: 'tasks' },
-  taskStats: { module: 'tasks' },
-  taskTrend: { module: 'tasks' },
-  agenda: { module: 'calendar' },
-  miniCalendar: { module: 'calendar' },
-  recentFiles: { module: 'files' },
-  drive: { module: 'drive' },
-  driveActivity: { module: 'drive', permission: 'drive.audit' },
-  kbRecent: { module: 'kb' },
-  links: { module: 'resources' },
-  companies: { module: 'companies' },
   people: { permission: 'users.view', area: 'admin.users' },
-  // Birthdays and work anniversaries (Employees; the module's privacy setting applies).
-  employeesCelebrations: { module: 'employees' },
 };
+
+/**
+ * Every widget type: the core ones above and those modules registered
+ * (platform/widgets.js registerWidget — e.g. Tasks «myTasks», Contracts
+ * «contractsPayments» for finance, Warehouse «warehouseLow»).
+ */
+export function widgetCatalog() {
+  return { ...CORE_WIDGETS, ...widgetDefinitions() };
+}
 
 /** The starting dashboard; widgets of switched-off modules drop out, the grid closes the gaps. */
 export const DEFAULT_LAYOUT = [
@@ -58,7 +50,7 @@ export const DEFAULT_LAYOUT = [
 
 /** Widget types this person can use now (module on, permission held). */
 export function availableTypes(modules, permissions) {
-  return Object.entries(WIDGETS)
+  return Object.entries(widgetCatalog())
     .filter(([, def]) => (!def.module || modules[def.module]?.enabled) && (!def.permission || hasPermission(permissions, def.permission)) && (!def.anyPermission || def.anyPermission.some((perm) => hasPermission(permissions, perm))))
     .map(([type]) => type);
 }
@@ -68,10 +60,11 @@ const ID = /^[a-z0-9_-]{1,40}$/i;
 /** A layout as sent by the browser, made safe: known types, sane sizes, small settings. */
 export function cleanLayout(input) {
   if (!Array.isArray(input)) return [];
+  const catalog = widgetCatalog();
   const seen = new Set();
   const out = [];
   for (const raw of input.slice(0, 40)) {
-    if (!raw || !WIDGETS[raw.type]) continue;
+    if (!raw || !catalog[raw.type]) continue;
     const id = ID.test(String(raw.id || '')) && !seen.has(raw.id) ? String(raw.id) : `w${Date.now().toString(36)}${out.length}`;
     seen.add(id);
     let settings = raw.settings && typeof raw.settings === 'object' && !Array.isArray(raw.settings) ? raw.settings : {};

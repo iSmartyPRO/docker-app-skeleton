@@ -4,7 +4,7 @@ import { App, Button, Checkbox, Input, InputNumber, Modal, Skeleton } from 'antd
 import { useLocale } from '../../../context/LocaleContext';
 import { fmtDate, fmtDateTime } from '../../../lib/datetime';
 import { UserAvatar } from '../../shared/People';
-import { inboxChanged } from '../../approvals/api';
+import { inboxChanged } from '../../approvals/public';
 import { whApi } from '../api';
 import { useWh } from '../WhContext';
 import { formatQty, whError } from '../lib';

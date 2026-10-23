@@ -4,9 +4,9 @@ import { App, Button, Drawer, Dropdown, Grid, Input, InputNumber, Modal, Result,
 import { useLocale } from '../../../context/LocaleContext';
 import { fmtDate, fmtDateTime } from '../../../lib/datetime';
 import { PrintLabelsDialog } from '../../../components/ui/Labels';
-import ApprovalPath from '../../approvals/ApprovalPath';
-import ApprovalActions from '../../approvals/ApprovalActions';
-import { inboxChanged } from '../../approvals/api';
+import { inboxChanged } from '../../approvals/public';
+import ApprovalPath from '../../approvals/public/ApprovalPath';
+import ApprovalActions from '../../approvals/public/ApprovalActions';
 import { whApi } from '../api';
 import { useWh } from '../WhContext';
 import { conversionText, formatQty, itemLabel, whError } from '../lib';

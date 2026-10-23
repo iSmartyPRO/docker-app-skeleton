@@ -6,7 +6,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useSettings } from '../../../context/SettingsContext';
 import { enabledModules, moduleLabel } from '../../registry';
 import { WIDGET_CATALOG, withDefaults } from '../catalog';
-import { useOptions } from '../options';
+import { useOptions } from '../../../platform/widgets/options';
 import { Hint } from '../../../help/Hint';
 
 /** Settings that have a help hint (help/content/dashboard.js → fields). */

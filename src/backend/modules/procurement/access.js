@@ -1,7 +1,7 @@
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { hasPermission } from '../../services/permissions.js';
-import { principalSets, principalsOf, seatMatchSql } from '../approvals/people.js';
+import { principalSets, principalsOf, seatMatchSql } from '../approvals/api.js';
 import { isParticipant } from '../approvals/api.js';
 import { AFTER_APPROVAL } from './logic.js';
 

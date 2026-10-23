@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import i18n from './scripts/vite-plugin-i18n.mjs';
+import portalSdk from './scripts/vite-plugin-portal-sdk.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -60,7 +61,8 @@ function portalDefaults() {
 }
 
 export default defineConfig({
-  plugins: [i18n(), react(), buildVersionFile(), portalDefaults()],
+  // portalSdk: /sdk/*.js shims and window.__PORTAL_SHARED__ for module packages (docs/module-packages.md).
+  plugins: [i18n(), react(), buildVersionFile(), portalDefaults(), portalSdk({ root: here })],
   define: {
     __APP_VERSION__: JSON.stringify(readAppVersion()),
     __BUILD_ID__: JSON.stringify(BUILD_ID),
@@ -85,6 +87,11 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/ready': {
+        target: process.env.VITE_API_URL || 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      // Browser code of installed module packages (served by the API from MODULES_DIR).
+      '/modules': {
         target: process.env.VITE_API_URL || 'http://localhost:3001',
         changeOrigin: true,
       },

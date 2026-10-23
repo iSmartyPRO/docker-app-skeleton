@@ -1,5 +1,6 @@
 import { ensureResourcesSchema } from './schema.js';
 import { privateRoutes, publicRoutes } from './routes.js';
+import { registerResourcesWidgets } from './widgets.js';
 
 /** Online resources module descriptor: company links as icon tiles, usually on the home page. */
 export default {
@@ -8,4 +9,7 @@ export default {
   routes: privateRoutes,
   publicRoutes,
   publicPrefix: '/res',
+  register(ctx) {
+    registerResourcesWidgets(ctx);
+  },
 };

@@ -1,5 +1,5 @@
 import { Attribute, Change, EqualityFilter, OrFilter, PresenceFilter } from 'ldapts';
-import { addMember, newClient, rangedValues, removeMember, withActor, withService } from '../drive/access/directory.js';
+import { addMember, newClient, rangedValues, removeMember, withActor, withService } from './driveLink.js';
 import { bindServiceAccount, tlsOptionsFor } from '../../services/ldap.js';
 import { canonDn, domainOf, parentDn } from './dn.js';
 import { encodePassword, httpError, kindOf, lowerKeys, shapeObject } from './logic.js';

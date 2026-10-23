@@ -1,5 +1,5 @@
 import { registerDemo, seedModule } from '../../services/demo.js';
-import { DEMO_HEADS, DEMO_UNITS } from '../org/demo.js';
+import { DEMO_HEADS, DEMO_UNITS } from '../org/api.js';
 import { portalToday, syncUser } from './service.js';
 
 /*

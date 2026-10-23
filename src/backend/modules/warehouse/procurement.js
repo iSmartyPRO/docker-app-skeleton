@@ -3,6 +3,7 @@ import { decide } from '../../api/scopes.js';
 import { intOrNull, logEvent, modulesState, whContext } from './access.js';
 import { EPS, httpError, q4 } from './logic.js';
 import { createDoc, getDoc, visibleDoc } from './documents.js';
+import { modules } from '../../platform/registry.js';
 
 /*
  * The link with Procurement (spec §7; not a dependency — every call answers
@@ -16,8 +17,11 @@ import { createDoc, getDoc, visibleDoc } from './documents.js';
  *     procurement rights apply).
  */
 
+/** Procurement's public API (installed), or null. */
+const procurementApi = () => modules.loaded('procurement')?.api || null;
+
 async function assertProcurement(req) {
-  if (!(await modulesState()).procurement) throw httpError(404, 'Procurement is switched off', 'MODULE_DISABLED');
+  if (!(await modulesState()).procurement || !procurementApi()) throw httpError(404, 'Procurement is switched off', 'MODULE_DISABLED');
   const policy = req?.apiToken?.policy;
   if (policy && !decide(policy, 'GET', '/app/procurement/requests').ok) throw httpError(403, 'The token has no procurement access', 'SCOPE_DENIED');
 }
@@ -35,7 +39,7 @@ async function receivedByProcItem(requestId) {
 /** Approved requests waiting for goods (picker of the receipt form). */
 export async function deliverableRequests(req, input = {}) {
   await assertProcurement(req);
-  const { listRequests } = await import('../procurement/service.js');
+  const { listRequests } = procurementApi();
   const result = await listRequests(req, { status: 'to_pay,partially_paid,paid', q: input.q || undefined, pageSize: 30 });
   return result.items.filter((item) => item.deliveryState !== 'full').map((item) => ({ id: item.id, label: `${item.number} · ${item.title}`, supplier: item.supplier?.name || '', deliveryState: item.deliveryState }));
 }
@@ -45,7 +49,7 @@ export async function receiptFromRequest(req, input = {}) {
   await assertProcurement(req);
   const requestId = intOrNull(input.requestId);
   if (!requestId) throw httpError(400, 'Choose the purchase request', 'REQUEST_REQUIRED');
-  const { getRequest } = await import('../procurement/service.js');
+  const { getRequest } = procurementApi();
   const { request } = await getRequest(req, requestId);
   if (!['to_pay', 'partially_paid', 'paid', 'delivered'].includes(request.status)) throw httpError(409, 'The request is not approved yet', 'REQUEST_NOT_APPROVED', { status: request.status });
   const ctx = await whContext(req);
@@ -82,11 +86,11 @@ export async function receiptFromRequest(req, input = {}) {
 
 /** After a receipt with a request is posted: the delivery mark in Procurement (partial while lines are open). */
 export async function markProcurementDelivery(row, actorId) {
-  if (!(await modulesState()).procurement) return { skipped: 'MODULE_DISABLED' };
+  if (!(await modulesState()).procurement || !procurementApi()) return { skipped: 'MODULE_DISABLED' };
   const { rows: items } = await query(`SELECT id, qty FROM proc_items WHERE request_id = $1`, [row.proc_request_id]);
   const received = await receivedByProcItem(row.proc_request_id);
   const partial = items.length ? items.some((item) => (received.get(item.id) || 0) < Number(item.qty) - EPS) : false;
-  const { recordExternalDelivery } = await import('../procurement/money.js');
+  const { recordExternalDelivery } = procurementApi();
   const result = await recordExternalDelivery({ requestId: row.proc_request_id, actorId, partial, note: `Склад: ${row.number}`, source: 'warehouse', reference: row.number });
   await logEvent({ query }, 'doc', row.id, actorId, result.skipped ? 'procurement_skipped' : 'procurement_delivered', { requestId: row.proc_request_id, partial, ...(result.skipped ? { reason: result.skipped } : { status: result.status }) });
   return result;
@@ -94,11 +98,11 @@ export async function markProcurementDelivery(row, actorId) {
 
 /** After a receipt with a request is reversed: its delivery mark goes back (what is still to come is recomputed). */
 export async function revertProcurementDelivery(row, actorId) {
-  if (!(await modulesState()).procurement) return { skipped: 'MODULE_DISABLED' };
+  if (!(await modulesState()).procurement || !procurementApi()) return { skipped: 'MODULE_DISABLED' };
   const { rows: items } = await query(`SELECT id, qty FROM proc_items WHERE request_id = $1`, [row.proc_request_id]);
   const received = await receivedByProcItem(row.proc_request_id);
   const partial = items.length ? items.some((item) => (received.get(item.id) || 0) < Number(item.qty) - EPS) : null;
-  const { revertExternalDelivery } = await import('../procurement/money.js');
+  const { revertExternalDelivery } = procurementApi();
   const result = await revertExternalDelivery({ requestId: row.proc_request_id, actorId, reference: row.number, source: 'warehouse', partial });
   await logEvent({ query }, 'doc', row.id, actorId, result.skipped ? 'procurement_revert_skipped' : 'procurement_reverted', { requestId: row.proc_request_id, ...(result.skipped ? { reason: result.skipped } : { status: result.status }) });
   return result;
@@ -107,7 +111,7 @@ export async function revertProcurementDelivery(row, actorId) {
 async function createPurchaseDraft(req, { title, lines, description }) {
   await assertProcurement(req);
   const ctx = await whContext(req);
-  const { createRequest } = await import('../procurement/service.js');
+  const { createRequest } = procurementApi();
   const items = [];
   for (const line of lines) {
     const { rows } = await query(`SELECT id, name, sku, base_unit, last_price, purchase_multiple FROM wh_items WHERE id = $1`, [line.itemId]);

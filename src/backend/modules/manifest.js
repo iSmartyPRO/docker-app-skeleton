@@ -32,6 +32,7 @@
  * attention (removed settings, a data migration that cannot be undone, an API
  * change). Add a changelog entry with every bump; keep the last 5.
  */
+import { packageManifestEntries } from '../platform/packages/disk.js';
 
 /** Categories of the «Modules» page, in display order (labels: i18n platform.categories.<id>). */
 export const CATEGORIES = ['work', 'documents', 'sales', 'supply', 'construction', 'people', 'infrastructure'];
@@ -390,6 +391,10 @@ export const MODULE_MANIFEST = {
     ],
   },
 };
+
+/** Modules built into this core version; installed packages (docs/module-packages.md) are merged in from the disk. */
+export const BUILTIN_MANIFEST_IDS = Object.keys(MODULE_MANIFEST);
+Object.assign(MODULE_MANIFEST, packageManifestEntries(BUILTIN_MANIFEST_IDS));
 
 /**
  * Core services: always on, listed in the «Core» section of the Modules page

@@ -7,7 +7,7 @@ import { avatarOf, contextFromRequest, httpError, intId } from '../shared/acl.js
 import { COUNTRIES, COUNTRY_CODES, cleanIds, primaryIdKey, profileOf } from './countries.js';
 import { claimDocument, stashDocument } from './files.js';
 import { REGISTRIES, lookupRegistry } from './registry/index.js';
-import { canView as canViewDeal, crmContext, crmSettings } from '../crm/access.js';
+import { modules } from '../../platform/registry.js';
 
 /*
  * Counterparties: companies, contact people, careers, timeline, ratings.
@@ -921,17 +921,9 @@ async function requireEntity(type, id) {
 async function withoutHiddenDeals(rows, viewer) {
   const dealIds = [...new Set(rows.filter((row) => row.kind === 'deal' && row.data?.dealId).map((row) => Number(row.data.dealId)))];
   if (!dealIds.length) return rows;
-  let visible = new Set();
-  if (viewer?.request) {
-    const crm = crmContext(viewer.request, await crmSettings());
-    const deals = await query(
-      `SELECT d.id, d.pipeline_id, d.owner_id, d.created_by,
-              ARRAY(SELECT w.user_id FROM crm_deal_watchers w WHERE w.deal_id = d.id) AS watchers
-       FROM crm_deals d WHERE d.id = ANY($1)`,
-      [dealIds]
-    ).catch(() => ({ rows: [] }));
-    visible = new Set(deals.rows.filter((deal) => canViewDeal(crm, deal, deal.watchers || [])).map((deal) => deal.id));
-  }
+  // The CRM decides (an optional module: without it, deal lines stay hidden).
+  const crm = modules.loaded('crm')?.api;
+  const visible = viewer?.request && crm ? await crm.visibleDealIds(viewer.request, dealIds) : new Set();
   return rows.filter((row) => !(row.kind === 'deal' && row.data?.dealId) || visible.has(Number(row.data.dealId)));
 }
 

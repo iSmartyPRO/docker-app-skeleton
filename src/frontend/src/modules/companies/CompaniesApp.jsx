@@ -12,7 +12,7 @@ import { CompanyList, PeopleList } from './pages/Lists';
 import CompanyCard from './pages/CompanyCard';
 import PersonCard from './pages/PersonCard';
 import '../shared/module.css';
-import '../kb/kb.css';
+import '../../components/documents/documents.css';
 import './companies.css';
 import SideRail from '../shared/SideRail';
 

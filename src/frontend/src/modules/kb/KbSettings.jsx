@@ -9,8 +9,8 @@ import { useAdminSettings } from '../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { useLocale } from '../../context/LocaleContext';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
-import { FOLDER_COLORS } from './fileTypes';
-import { FolderIcon } from './components/Icons';
+import { FOLDER_COLORS } from '../../components/documents/fileTypes';
+import { FolderIcon } from '../../components/documents/Icons';
 import { HintLabel } from '../../help/Hint';
 
 const GROUPS = ['images', 'pdf', 'office', 'text', 'media', 'archives'];

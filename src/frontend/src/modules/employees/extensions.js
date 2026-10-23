@@ -1,11 +1,11 @@
 /*
  * Tabs other modules add to the employee card (docs/employees.md → «Hooks
  * for other modules»). The AD directory module, for one, registers an «AD»
- * tab at import time:
+ * tab from its register.js, through the shell (no import of this module):
  *
- *   import { registerEmployeeTab } from '../employees/extensions';
+ *   import { contribute } from '../../platform/extensions';
  *
- *   registerEmployeeTab({
+ *   contribute('employees.tabs', {
  *     id: 'ad',                                   // = the server extension id (its data arrives as `data`)
  *     labelKey: 'ad.employeeTab',                 // i18n key of the tab title
  *     order: 50,                                  // position among the extra tabs
@@ -19,30 +19,17 @@
  * to the tab as `data` (or { error } when it failed).
  */
 
-const tabs = new Map();
-const listeners = new Set();
-let snapshot = [];
-const refresh = () => {
-  snapshot = [...tabs.values()].sort((a, b) => a.order - b.order);
-  listeners.forEach((listener) => listener());
-};
+import { contribute, contributions, subscribe } from '../../platform/extensions';
 
+// The tabs live in the shell's extension point «employees.tabs», so modules add them without importing Employees.
 export function registerEmployeeTab(definition) {
   if (!definition?.id || !definition.Component) throw new Error('registerEmployeeTab needs { id, Component }');
-  tabs.set(definition.id, { order: 100, ...definition });
-  refresh();
-  return () => {
-    if (tabs.get(definition.id)?.Component === definition.Component) {
-      tabs.delete(definition.id);
-      refresh();
-    }
-  };
+  return contribute('employees.tabs', { order: 100, ...definition });
 }
 
 /** The registered tabs (a stable array between changes, for useSyncExternalStore). */
-export const employeeTabs = () => snapshot;
+export const employeeTabs = () => contributions('employees.tabs');
 
 export function subscribeEmployeeTabs(listener) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+  return subscribe('employees.tabs', listener);
 }

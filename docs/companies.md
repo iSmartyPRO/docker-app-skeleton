@@ -1,6 +1,6 @@
 # Counterparties (`/app/companies`)
 
-A [module](modules.md) with the company's directory of **companies** (clients, suppliers, partners, government bodies…) and the **people** who work there. Cards fill themselves from public registers by identifier, people keep their career when they change jobs, and every change is recorded with who made it and when.
+A **core service** ([modules](modules.md): always on, like Approvals and the Org structure; ids, tables and URLs as before) with the company's directory of **companies** (clients, suppliers, partners, government bodies…) and the **people** who work there. Cards fill themselves from public registers by identifier, people keep their career when they change jobs, and every change is recorded with who made it and when. Other modules use it through `modules/companies/api.js` (`createCompany`, `createPerson`, `logEvent`, `searchCompanies`, `companyName`); deal lines in a card's history are shown only to people the CRM lets see the deal (asked of the CRM at run time).
 
 ## Companies
 

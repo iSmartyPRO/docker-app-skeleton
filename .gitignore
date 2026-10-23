@@ -44,6 +44,7 @@ temp/
 
 # Uploads (runtime)
 data/uploads/
+data/modules/
 uploads/
 
 # Copied from node_modules at build time

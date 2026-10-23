@@ -67,8 +67,10 @@ test('business tours: every anchor is marked in the frontend source', async () =
   }
 });
 
-test('business tours: the registrar lists every tour and App.jsx loads it', () => {
-  const registrar = readFileSync(join(SRC, 'modules/shared/businessTours.js'), 'utf8');
-  for (const id of MODULES) assert.ok(registrar.includes(`'../${id}/tour'`), id);
-  assert.ok(readFileSync(join(SRC, 'App.jsx'), 'utf8').includes("import './modules/shared/businessTours'"));
+test('business tours: each module registers its tour in its register.js, which the module registry loads', () => {
+  for (const id of MODULES) {
+    const entry = readFileSync(join(SRC, `modules/${id}/register.js`), 'utf8');
+    assert.ok(entry.includes("from './tour'") && entry.includes('registerTour('), id);
+  }
+  assert.ok(readFileSync(join(SRC, 'modules/registry.js'), 'utf8').includes("import.meta.glob('./*/register.js', { eager: true })"));
 });

@@ -1,18 +1,21 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import { useContributions } from '../platform/extensions';
 
-// The robot assistant loads after the page, never delaying it — and only for
-// a signed-in person while the module is on (guests and the login page skip it).
-const Assistant = lazy(() => import('../modules/assistant/Assistant'));
-
+// What modules draw over every page (app.overlays — the robot assistant). Each loads after
+// the page, never delaying it; `signedIn` ones only for a signed-in person, and only while
+// their module is on (guests and the login page skip them).
 export default function AssistantSlot() {
   const { user } = useAuth();
   const { settings } = useSettings();
-  if (!user || !settings?.modules?.assistant?.enabled) return null;
+  const overlays = useContributions('app.overlays').filter((item) => (!item.signedIn || user) && (!item.module || settings?.modules?.[item.module]?.enabled));
+  if (!overlays.length) return null;
   return (
     <Suspense fallback={null}>
-      <Assistant />
+      {overlays.map(({ id, Component }) => (
+        <Component key={id} />
+      ))}
     </Suspense>
   );
 }

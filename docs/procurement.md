@@ -201,7 +201,7 @@ src/frontend/src/modules/procurement/
   ProcurementApp.jsx, ProcContext.jsx, api.js, lib.js, procurement.css
   pages/  RequestsPage, RequestForm, PaymentsPage, SummaryPage, SettingsPage
   card/   RequestCard, DetailsTab, DocumentsTab, MoneyTab, HistoryTab
-  components/  bits, DropZone, pickers;  settings/  SettingsForm, LegalEntitiesEditor
+  components/  bits, DropZone, pickers;  settings/  SettingsForm (the legal entities editor is core: components/legalEntities/)
   ProcurementSettings.jsx (console), ProcurementWidget.jsx (dashboard)
 src/frontend/src/pages/admin/settings/LegalEntities.jsx
 src/frontend/src/locales/<lang>/procurement.js, help/content/<lang>/procurement.js

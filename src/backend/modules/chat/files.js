@@ -6,7 +6,7 @@ import { query } from '../../config/database.js';
 import { uploadRoot } from '../../config/paths.js';
 import { httpError } from '../shared/acl.js';
 import { FILE_CSP, contentDisposition, hasSignature, readHead, signatureMatches } from '../shared/storage.js';
-import { originalName } from '../kb/files.js';
+import { originalName } from '../shared/storage.js';
 
 /*
  * Chat uploads live in UPLOAD_DIR/chat/<year>/<month>/<random>.<ext>. They

@@ -17,6 +17,7 @@ Recipes for the changes you will make in almost every product built on this repo
 - [Demo data](#demo-data)
 - [Admin docs](#admin-docs)
 - [Optional links inside a module (ModuleHint)](#optional-links-inside-a-module-modulehint)
+- [Module registry and extension points](#module-registry-and-extension-points)
 - [Write a backend test](#write-a-backend-test)
 - [Conventions checklist](#conventions-checklist)
 
@@ -475,7 +476,7 @@ Tours are anchored to the page with `data-tour="…"` attributes. The engine dim
 
    `placement`: `top | bottom | left | right | auto`; `route` per step opens another page; `when(ctx)` (`{ can, canAny, user, settings, phone }`) hides a step whose anchor exists for everyone. Texts may use `{app}` (the portal name).
 3. Texts in `src/frontend/src/locales/<lang>/tour.js` under `tour.<id>.*`, Russian and English (`test/tours.test.js` checks both).
-4. Nothing else: modules in a `SideRail` get a «Тур» button next to their name automatically; elsewhere put `<TourButton module="crm" />` (renders only when the module has a tour). The help drawer offers the tour of its section, and the Modules page («Тур») finds it through the manifest bridge.
+4. Register it in the module's frontend entry `modules/<id>/register.js` (`registerTour(tour)` with `import tour from './tour'`); built-in core tours stay in `tour/content/index.js`. Modules in a `SideRail` get a «Тур» button next to their name automatically; elsewhere put `<TourButton module="crm" />` (renders only when the module has a tour). The help drawer offers the tour of its section, and the Modules page («Тур») finds it through the manifest bridge.
 
 **API** (`src/frontend/src/tour`): `registerTour(def)`, `hasTour(moduleId)`, `tourForModule(moduleId)`, `startTour(idOrModuleId)` (works outside React), `useTour()` → `{ startTour, hasTour, running, state, setDisabled }`, `<TourButton module iconOnly />`, `registerManifestTours(manifests)`. The provider installs itself as the runner of `modules/manifest.js` (`setTourRunner`), accepting a tour id, a tour object or a loader in a manifest's `tour`.
 
@@ -662,6 +663,11 @@ With every bump add an entry at the **top** of `changelog` (its `version` must e
 keep the last five. Raise `minCore` when the module starts using a core API that older cores lack.
 The System page shows version, minCore, state and the newest changelog line of every module.
 
+Modules can also ship as signed zip packages installed from Settings → Modules (own versions,
+migrations, install / update / remove without rebuilding the portal): see
+[module-packages.md](module-packages.md) for the package format, `make module ID=<id>`, the
+`@portal/sdk` surface and how to convert a built-in module.
+
 ## Demo data
 
 Neutral sample records per module, filled and removed by a superadministrator (spec §8):
@@ -756,6 +762,86 @@ It renders nothing while the module is on; people with `settings.modules` get a 
 card. `what` completes «… to …» (lower case, no full stop). Used in the Procurement request form, the
 Contracts form and the task chat.
 
+## Module registry and extension points
+
+Spec: [module-packages.ru.md](specs/module-packages.ru.md) §6, stage 1. **Neither the core nor a module reaches into another module's files.** A module talks to the rest of the portal in three ways only:
+
+1. **The core** — `config/`, `services/`, `middleware/`, `api/`, `platform/`, `modules/shared/` (a core library), and the core modules **Org structure**, **Approvals** and **Counterparties** (`core: true` in `catalog.js`) through their public files.
+2. **The public surface of a module it requires** (manifest `requires`): backend `modules/<id>/api.js`, frontend `modules/<id>/public.js`, `public.css` or a file under `modules/<id>/public/`. Today only core modules are required, so these imports go to `org/api.js`, `approvals/api.js`, `companies/api.js`, `approvals/public.js`, `approvals/public/ApprovalPath.jsx`, `org/public.js`…
+3. **Extension points and the run-time registry** for everything optional (manifest `enhances`): the module may be switched off or not installed at all, and the feature then hides.
+
+The rule is checked by `scripts/check-module-boundaries.mjs` (`npm run check:modules` in `src/backend`, and `test/module-boundaries.test.js`): a module importing another module's internal file, a module importing a public file of a module it does not require, and the core importing a module all fail. The composition roots — backend `modules/index.js`, frontend `modules/registry.js` — may import module entries. Justified temporary exceptions are listed with a reason in `scripts/module-boundaries.allow.json` (the test also fails on entries that no longer match, so the list only shrinks). `test/module-boot.test.js` loads «the core alone», «the core + each module alone» and «everything» in fresh processes, without a database, and checks that no file of another optional module is imported; `test/frontend-modules.test.js` builds the frontend shell with modules absent (`src/frontend/scripts/check-module-absence.mjs`).
+
+### Backend: the module contract
+
+```js
+// src/backend/modules/<id>/index.js (in a package: server/index.js)
+import * as api from './api.js';
+export default {
+  id: 'crm',
+  schema: ensureCrmSchema,          // or migrations: [{ id: '001_init', up: async (db) => … }]
+  routes: privateRoutes,            // () => Router, mounted at /api/app/<id>
+  publicRoutes, publicPrefix,       // optional anonymous API
+  api,                              // the public functions other modules may call
+  register(ctx) {                   // hooks into the core's extension points, once at start
+    ctx.registerLinkProvider(api.dealLinkProvider);
+  },
+};
+```
+
+The loader registers every module with the core registry first (so a module's `schema()` may already look another one up), then calls each `register(ctx)` (built-in modules, then packages). `ctx`:
+
+| `ctx.…` | What it does |
+|---|---|
+| `modules.get(id)` | the entry `{ id, version, api }` while the module is installed **and switched on** (last settings read), else `null` |
+| `modules.loaded(id)` | the entry while it is installed, switched on or not (data upkeep, storage shared with it) |
+| `await modules.use(id)` | its `api` after a fresh «is it on?» check, else `null` |
+| `modules.whenLoaded(id, fn)` | `fn(api)` once the module is loaded (e.g. `chat.registerChatEntity(…)`) |
+| `events.on(name, handler)` / `events.emit(name, payload)` | the event bus (`platform/events.js`) |
+| `registerWidget({ type, data?, options?, permission?, anyPermission?, area? })` | a dashboard widget and its data provider (`platform/widgets.js`) |
+| `registerWidgetSection(type, { data })` | a part of someone else's widget (Tasks' counters in «Welcome», tasks in the calendar's agenda) |
+| `registerObjectSource({ id, priority, projects, objects, projectLabel, objectLabel })` | «objects» — places work is done for; Procurement and Warehouse pick them through `platform/pickers.js` |
+| `registerLinkProvider({ kind, search, resolve })` | «Связи»: what a card may point at (`crm.deal`, `contracts.contract`); `await linkProvider(kind)` → the provider or `null` |
+| `registerSearchProvider({ id, search(req, q, { limit }) })` | global search; `await searchAll(req, q)` |
+| `registerPreviewProvider(fn)` | rich previews of the module's public links (`services/linkPreview`) |
+| `registerFollowable(type, { canFollow })` | notification subscriptions (`tasks.project`, `calendar.calendar`) |
+| `registerTokenResources(key, { list })` | what an API token can be narrowed to (`tasks.projects`, `crm.pipelines`…) |
+| `onHttpServer(fn)`, `onShutdown(fn)` | server lifecycle (the Remote tunnel, chat streams); the boot code runs `runHttpServerHooks(server)` / `runShutdownHooks()` |
+| `registerApprovalType`, `registerInboxProvider`, `registerJob` | the existing core mechanisms, through ctx (promises) |
+
+Registrations made through `ctx` carry the module's id, so they hide while it is off. In-repo modules may also import `platform/registry.js` / `platform/events.js` directly (a package gets the same objects from `@portal/sdk`).
+
+**Events** (`platform/events.js`): `on(name, handler, { module })`, `await emit(name, payload)` → the handlers' non-empty results (`[]` when nobody listens). Handlers run in order; one that throws is logged and left out, the event never fails. Used today:
+
+| Event | Emitted by | Payload | Followed by |
+|---|---|---|---|
+| `contract.deposit_received`, `contract.signed`, `contract.paid` | Contracts (`objectSync.js`) | `{ contract: { id, number, extNumber, concludedOn, amount, framework, payTracked, mpNodeId }, paid, full, actor: { userId, req } }` | Masterplan (`contractSync.js`): the unit's status and paid amount; answers `{ result, logs }` — the card shows `result`, Contracts keeps `logs` in its history |
+| `crm.deal.stage` | CRM | `{ dealId, from, to, actorId }` | Masterplan (units follow the deal's stage) |
+
+**Public APIs** (`api.js`): `org`, `approvals`, `companies` (core); `crm` (`dealFor`, `searchDeals`, `visibleDealIds`, `addDealEvent`, `setDealAmount`, link provider), `masterplan` (`contractUnit`, `unitPaymentPlans`, `projectFor`, `nodeFor`, `projectLinkOptions`), `contracts` (link provider), `procurement` (`listRequests`, `getRequest`, `createRequest`, delivery marks), `chat` (`registerChatEntity`, `postSystem`, `importHistory`, `removeStored`), `files` (`nodeAccess`, `usageOf`, the knowledge base's storage), `drive` (AD helpers and credentials for the AD directory), `employees` (`registerEmployeeExtension`).
+
+### Frontend: module entries and extension points
+
+Each module may have a **frontend entry** `src/frontend/src/modules/<id>/register.js` (in a package: `web/index.js`). `modules/registry.js` loads all of them at start (`import.meta.glob('./*/register.js', { eager: true })`); keep them small — heavy parts are `lazy()`. They contribute to the shell:
+
+```js
+import { lazy } from 'react';
+import { contribute, provideModule } from '../../platform/extensions';
+import { lazyWidget, registerWidget } from '../../platform/widgets/registry';
+import { registerLinkBlock } from '../../platform/links';
+import { registerTour } from '../../tour/engine';
+
+contribute('header.actions', { id: 'chat', module: 'chat', order: 10, Component: lazy(() => import('./components/ChatButton')) });
+provideModule('chat', { Conversation: lazy(() => import('./components/Conversation')), chatApi });
+registerWidget('myTasks', { module: 'tasks', order: 50, category: 'tasks', icon: 'tasks', size: { w: 5, h: 6 }, Component: lazyWidget(() => import('./DashboardWidgets'), 'MyTasks') });
+registerLinkBlock('crm.deal', { id: 'masterplan', module: 'masterplan', Component: lazy(() => import('./integrations/DealUnitsBlock')) });
+registerTour(tour);
+```
+
+Points (`platform/extensions.js`, read with `useContributions(point)`): `app.providers`, `app.publicRoutes`, `app.homePages`, `app.overlays`, `app.accountRoutes`, `header.actions`, `account.appearance`, `maintenance.art`, `chat.systemEvents`, `employees.tabs`, `links.<host>` (`<LinkBlocks host="crm.deal" … />`, `platform/links.jsx`), `search.providers` (`platform/search.js`). Dashboard widgets: `platform/widgets/registry.js`; widgets draw with `platform/widgets/api.js` (`useWidgetData`), `common.jsx` (`WidgetState`, `Kpi`…), `charts.jsx`, `fields.js`.
+
+Another module's UI is used through the module it belongs to, never by import: `const FilePicker = optionalComponent('files', 'FilePicker')` and `const chatApi = optionalApi('chat', 'chatApi')` (`platform/optional.jsx`) render nothing / reject while the module is not installed; keep checking `settings.modules.<id>.enabled` as before. Shared UI kits are core: `components/documents/` (viewers, file icons, `documents.css`), `components/filekit/` (upload, transfers, `NameDialog`, `filekit.css`), `components/legalEntities/`, `lib/xlsx.js`, `lib/clipboard.js`, `lib/moduleColors.js`.
+
 ---
 
 ## Write a backend test
@@ -780,6 +866,7 @@ Run with `npm test` in `src/backend`, or `make test` from the root. CI runs the 
 
 Before opening a pull request:
 
+- [ ] Module code imports only the core and the public `api.js` / `public.js` of modules it requires; optional links use the registry and extension points (`npm run check:modules`).
 - [ ] Inputs are validated and clamped in the **service**, not only in the UI.
 - [ ] SQL is parameterized; user-owned rows are scoped by `user_id`.
 - [ ] No state change on `GET`.

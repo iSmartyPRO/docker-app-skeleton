@@ -2,8 +2,11 @@ import { useRef, useState } from 'react';
 import { Button, Progress } from 'antd';
 import { CameraOutlined, FolderOpenOutlined, UploadOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
-import { FilePicker } from '../../files/components/dialogs';
 import { useProc } from '../ProcContext';
+import { optionalComponent } from '../../../platform/optional';
+
+// Optional links (the module may be off or not installed): provided by its register.js.
+const FilePicker = optionalComponent('files', 'FilePicker');
 
 const ACCEPT = 'image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.odt,.ods,.rtf,.txt,.zip';
 

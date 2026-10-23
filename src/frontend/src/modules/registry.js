@@ -2,6 +2,16 @@ import { lazy } from 'react';
 import { canAny } from '../lib/access';
 import { lazyPage } from '../lib/lazyPage';
 
+/*
+ * Each module's frontend entry, modules/<id>/register.js (in a package:
+ * web/index.js), runs once at start: it contributes to the shell's extension
+ * points (platform/extensions.js — header buttons, public pages, chat events,
+ * tours, «Связи» blocks; platform/widgets/registry.js — dashboard widgets).
+ * A module without the file simply adds nothing; the shell never imports
+ * module files itself. This file is the composition root.
+ */
+import.meta.glob('./*/register.js', { eager: true });
+
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
  * /app/<id>; the backend decides whether it is enabled (settings.modules).
@@ -49,8 +59,10 @@ export const MODULE_REGISTRY = [
     Settings: lazy(() => import('./resources/ResourcesSettings')),
   },
   {
+    // Counterparties: a core service, always on (no switch in Settings → Modules).
     id: 'companies',
     path: '/app/companies',
+    core: true,
     icon: 'building',
     labelKey: 'apps.companies.name',
     descKey: 'apps.companies.desc',

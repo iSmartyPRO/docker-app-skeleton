@@ -4,6 +4,8 @@ The skeleton is a platform for **modules**: self-contained applications that plu
 
 People: the core [Org structure](org-structure.md) (units, heads, `managerOf()`; always on, like Approvals) and the [Employees](employees.md) module (people with or without portal access, clearances, org chart; off by default).
 
+**Core services** (always on, no switch): Org structure, Approvals and [Counterparties](companies.md) — modules use them through their public `api.js` / `public.js`. Everything else is a module that may be off or, with module packages, not installed: modules never import each other's internal files, and optional links go through the core registry and extension points ([extending.md → Module registry and extension points](extending.md#module-registry-and-extension-points); checked by `npm run check:modules`).
+
 | URL | What it is |
 |-----|------------|
 | `/apps` | Launcher with every enabled module (also the 9-dot menu in the top bar) |
@@ -25,7 +27,7 @@ People: the core [Org structure](org-structure.md) (units, heads, `managerOf()`;
 
 Optional links (`enhances`) never block anything: the feature simply hides, and `<ModuleHint>` tells people inside the module which module to switch on.
 
-Today only core services are required — Approvals (by Contracts, Procurement and Warehouse) and the Org structure (by Employees); every other link between modules is optional:
+Today only core services are required — Approvals (by Contracts, Procurement and Warehouse) and the Org structure (by Employees); every other link between modules is optional (run-time lookups `modules.get(id)?.api`, events and extension points, never imports):
 
 | Module | Needs | Works with (optional) |
 |---|---|---|
@@ -33,9 +35,9 @@ Today only core services are required — Approvals (by Contracts, Procurement a
 | Procurement | Approvals (core) | Counterparties, Masterplan, CRM, Contracts, Files, Chats |
 | Warehouse | Approvals (core) | Procurement, Masterplan, Counterparties |
 | Employees | Org structure (core) | Dashboard (birthdays widget), Active Directory (integration: AD account field) |
-| Masterplan | — | CRM, Counterparties |
+| Masterplan | — | CRM (`crm/api.js` at run time), Counterparties; follows Contracts' `contract.*` events |
 | CRM | — | Counterparties, Chats |
-| Counterparties | — | CRM |
+| Counterparties (core) | — | CRM |
 | Tasks | — | Chats, Files, File server, Calendar |
 | Calendar | — | Tasks, Google (integration) |
 | Knowledge base | — | Files, document server (integration) |
@@ -63,17 +65,27 @@ src/backend/modules/
 ├── catalog.js           # static facts: id, default settings, sanitize(), permissions
 ├── manifest.js          # version, category, requires, enhances, minCore, changelog
 ├── dependencies.js      # switching on/off with requirements (409 rules)
-├── index.js             # registry: mounts routes, runs schemas, validates manifests, loads <id>/demo.js
+├── index.js             # loader: mounts routes, runs schemas, validates manifests, loads <id>/demo.js, register(ctx)
+├── shared/              # core library for modules (acl, storage, slugs, csv…), not a module
 └── kb/
-    ├── index.js         # descriptor { id, schema, routes, publicRoutes, publicPrefix }
+    ├── index.js         # descriptor { id, schema, routes, publicRoutes, publicPrefix, api, register(ctx) }
+    ├── api.js           # public functions for other modules (only this file is imported from outside)
+    ├── widgets.js       # dashboard widget data (registered in register(ctx))
     ├── demo.js          # optional: registerDemo({ module, seed, purge }) — demo data
     ├── schema.js        # tables (idempotent) + one-time seed
     ├── routes.js        # Express routers
     └── …                # services
 
+src/backend/platform/
+├── registry.js          # modules.get/loaded/use, register* extension points, activateModules
+├── events.js            # event bus: on / emit
+├── widgets.js           # dashboard widgets: registerWidget, helpers
+└── pickers.js           # shared link pickers (companies, «objects», deals)
+
 src/frontend/src/modules/
-├── registry.js          # { id, path, icon, labelKey, descKey, App, Settings }
+├── registry.js          # { id, path, icon, labelKey, descKey, App, Settings }; loads every <id>/register.js
 └── kb/
+    ├── register.js      # frontend entry: widgets, public routes, provideModule(), tours (small, lazy parts)
     ├── KbApp.jsx        # routes under /app/kb/*
     ├── KbSettings.jsx   # settings screen under /admin/settings/kb
     └── …
@@ -89,8 +101,12 @@ export default {
   routes: privateRoutes,       // () => Router, mounted behind requireAuth
   publicRoutes,                // optional () => Router for anonymous visitors
   publicPrefix: '/t',          // where publicRoutes live under /api
+  api,                         // optional: public functions (import * as api from './api.js')
+  register(ctx) { … },         // optional: extension points (widgets, events, link providers…)
 };
 ```
+
+See [extending.md → Module registry and extension points](extending.md#module-registry-and-extension-points) for `ctx`.
 
 The registry wraps every router with `enabledOnly(id)`, and wraps the private router with `requireAuth` as well. Inside the routes, check permissions or the module's own access model. The `req.user` object carries `permissions`, `roleIds` and `groupIds`.
 
@@ -110,13 +126,14 @@ The registry wraps every router with `enabledOnly(id)`, and wraps the private ro
 
 Unknown keys in a settings patch are ignored. Each field is validated by `sanitize`.
 
-`core: true` marks a module that can never be switched off (Approvals): it is always enabled and Settings → Modules shows *Always on* instead of a switch.
+`core: true` marks a module that can never be switched off (Org structure, Approvals, Counterparties): it is always enabled, Settings → Modules shows *Always on* instead of a switch, and other modules and the core may import its public `api.js` / `public.js`.
 
 ### Frontend
 
-1. Add an entry to `src/frontend/src/modules/registry.js`. `App` and `Settings` should be `lazy()` so the module stays out of the main bundle.
-2. Add a settings item to `admin/navigation.js` (group `modules`), then map it in `admin/settingsPages.js`.
-3. Add i18n keys `apps.<id>.name`, `apps.<id>.desc` and the permission label in both languages. Keep EN and RU in parity.
+1. Add an entry to `src/frontend/src/modules/registry.js`. `App` and `Settings` should be `lazy()` so the module stays out of the main bundle; the settings screen is taken from `Settings` (`admin/settingsPages.js`).
+2. Add a settings item to `admin/navigation.js` (group `modules`).
+3. Anything the module adds outside its pages — dashboard widgets, header buttons, public routes, tours, «Связи» blocks, UI for other modules (`provideModule`) — goes into `modules/<id>/register.js`.
+4. Add i18n keys `apps.<id>.name`, `apps.<id>.desc` and the permission label in both languages. Keep EN and RU in parity.
 
 Routing is automatic. `App.jsx` mounts `${path}/*` behind `SetupGate`, `AuthGate` and `ModuleGate`.
 
@@ -128,7 +145,8 @@ Routing is automatic. `App.jsx` mounts `${path}/*` behind `SetupGate`, `AuthGate
 - [ ] Admin docs `help/admin/<lang>/<id>.js` and user help `help/content/<lang>/<id>.js`
 - [ ] Demo data `modules/<id>/demo.js` (optional, recommended)
 - [ ] Added to `MODULES` in `modules/index.js`
-- [ ] Frontend registry entry, settings page, navigation item
+- [ ] Frontend registry entry, settings page, navigation item, `register.js` for widgets / tours / extension points
+- [ ] `api.js` for what other modules may use; no imports of other modules' internals (`npm run check:modules`)
 - [ ] EN + RU translations
 - [ ] Unit tests for pure logic (`src/backend/test/`)
 - [ ] Docs page in `docs/` and a line in the README

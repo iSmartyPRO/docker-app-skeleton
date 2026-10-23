@@ -1,7 +1,7 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { useLocale } from '../../context/LocaleContext';
 import { formatDateTime } from '../../lib/format';
-import { Bars, Donut, Legend, TimeChart } from '../../modules/dashboard/charts';
+import { Bars, Donut, Legend, TimeChart } from '../../platform/widgets/charts';
 import { CodeTabs, MethodBadge, PathText, requestSamples } from '../components';
 import { localeTag } from '../../i18n/languages';
 

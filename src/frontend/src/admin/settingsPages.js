@@ -1,4 +1,5 @@
 import { lazy } from 'react';
+import { FEATURE_MODULES, MODULE_REGISTRY } from '../modules/registry';
 
 /**
  * Settings screen components, keyed by the item id in navigation.js.
@@ -6,7 +7,11 @@ import { lazy } from 'react';
  */
 const Integration = lazy(() => import('../pages/admin/settings/Integration'));
 
+// A module's settings screen comes from the module registry (its `Settings`).
+const MODULE_SETTINGS = Object.fromEntries([...MODULE_REGISTRY, ...FEATURE_MODULES].filter((module) => module.Settings).map((module) => [module.id, module.Settings]));
+
 export const SETTINGS_PAGES = {
+  ...MODULE_SETTINGS,
   general: lazy(() => import('../pages/admin/settings/General')),
   languages: lazy(() => import('../pages/admin/settings/Languages')),
   theme: lazy(() => import('../pages/admin/settings/Theme')),
@@ -26,28 +31,7 @@ export const SETTINGS_PAGES = {
   system: lazy(() => import('../pages/admin/settings/System')),
   notifications: lazy(() => import('../pages/admin/settings/NotificationDelivery')),
   modules: lazy(() => import('../pages/admin/settings/Modules')),
-  kb: lazy(() => import('../modules/kb/KbSettings')),
   documents: Integration,
   google: lazy(() => import('../pages/admin/settings/GoogleSettings')),
-  dashboard: lazy(() => import('../modules/dashboard/DashboardSettings')),
-  approvals: lazy(() => import('../modules/approvals/ApprovalsSettings')),
-  chat: lazy(() => import('../modules/chat/ChatSettings')),
-  files: lazy(() => import('../modules/files/FilesSettings')),
-  drive: lazy(() => import('../modules/drive/DriveSettings')),
-  resources: lazy(() => import('../modules/resources/ResourcesSettings')),
-  qr: lazy(() => import('../modules/qr/QrSettings')),
-  remote: lazy(() => import('../modules/remote/RemoteSettings')),
-  companies: lazy(() => import('../modules/companies/CompaniesSettings')),
-  tasks: lazy(() => import('../modules/tasks/TasksSettings')),
-  crm: lazy(() => import('../modules/crm/CrmSettings')),
-  masterplan: lazy(() => import('../modules/masterplan/MasterplanSettings')),
-  procurement: lazy(() => import('../modules/procurement/ProcurementSettings')),
-  contracts: lazy(() => import('../modules/contracts/ContractsSettings')),
-  warehouse: lazy(() => import('../modules/warehouse/WarehouseSettings')),
   legalEntities: lazy(() => import('../pages/admin/settings/LegalEntities')),
-  org: lazy(() => import('../modules/org/OrgSettings')),
-  employees: lazy(() => import('../modules/employees/EmployeesSettings')),
-  directory: lazy(() => import('../modules/directory/DirectorySettings')),
-  assistant: lazy(() => import('../modules/assistant/AssistantSettings')),
-  calendar: lazy(() => import('../modules/calendar/CalendarSettings')),
 };

@@ -374,6 +374,8 @@ const EVENT_KINDS = new Set([
   'ad_changed',
   'ad_password_reset',
   'ad_credential',
+  // Module packages installed, updated, removed, rejected, backed up or their data deleted (platform/packages).
+  'module_package',
 ]);
 
 /** Kinds recordSecurityEvent accepts (anything else is dropped). */

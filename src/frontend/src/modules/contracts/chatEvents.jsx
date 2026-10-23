@@ -1,4 +1,7 @@
-import { registerSystemEvents } from '../chat/system';
+import { contribute } from '../../platform/extensions';
+
+// How these events read in conversations (the Chat module reads the «chat.systemEvents» point).
+const registerSystemEvents = (prefix, render) => contribute('chat.systemEvents', { id: prefix, prefix, render });
 import { fmtDate } from '../../lib/datetime';
 
 /*

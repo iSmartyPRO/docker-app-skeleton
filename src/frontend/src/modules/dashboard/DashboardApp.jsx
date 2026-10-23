@@ -1,4 +1,4 @@
-import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Dropdown, Skeleton } from 'antd';
 import { CheckOutlined, CrownOutlined, DownOutlined, EditOutlined, PlusOutlined, UndoOutlined } from '@ant-design/icons';
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
@@ -10,17 +10,15 @@ import { useLocale } from '../../context/LocaleContext';
 import { useSettings } from '../../context/SettingsContext';
 import { errorMessage } from '../../lib/errors';
 import { intlOptions } from '../../lib/datetime';
-import { dashboardApi, uid } from './api';
+import { dashboardApi, uid } from '../../platform/widgets/api';
 import { WIDGET_CATALOG, withDefaults } from './catalog';
-import { OptionsProvider } from './options';
+import { OptionsProvider } from '../../platform/widgets/options';
 import WidgetFrame, { widgetTitle } from './components/WidgetFrame';
 import WidgetSettings from './components/WidgetSettings';
 import Gallery from './components/Gallery';
-import { cap, localeTag } from './widgets/common';
-import '../kb/kb.css';
-import '../files/files.css';
-import '../drive/drive.css';
-import '../resources/resources.css';
+import { cap, localeTag } from '../../platform/widgets/common';
+import '../../components/documents/documents.css';
+import '../../components/filekit/filekit.css';
 import './dashboard.css';
 import TourButton from '../../tour/TourButton';
 
@@ -103,7 +101,10 @@ function GridItem({ widget, cols, editing, canEdit, flash, resizing, onSettings,
         onResizeStart={cols > 1 ? onResizeStart : undefined}
       >
         <WidgetBoundary label={t('dashboard.widgetFailed')}>
-          <Widget widget={{ ...widget, settings }} size={size} onSettings={onChangeSettings} />
+          {/* Module widgets load with their module's code (registerWidget … lazyWidget). */}
+          <Suspense fallback={<Skeleton active title={false} paragraph={{ rows: 3 }} className="dw-skeleton" />}>
+            <Widget widget={{ ...widget, settings }} size={size} onSettings={onChangeSettings} />
+          </Suspense>
         </WidgetBoundary>
       </WidgetFrame>
     </div>
@@ -243,6 +244,8 @@ function Dashboard() {
     window.addEventListener('pointerup', up);
   };
 
+  // A widget whose module code is not here (not installed in this browser build) is kept in the layout, not drawn.
+  const shown = widgets.filter((widget) => WIDGET_CATALOG[widget.type]);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const onDragOver = ({ active, over }) => {
     if (!over || active.id === over.id) return;
@@ -368,9 +371,9 @@ function Dashboard() {
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={({ active: item }) => setActiveId(item.id)} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragEnd}>
-          <SortableContext items={widgets.map((widget) => widget.id)} strategy={keepInPlace}>
+          <SortableContext items={shown.map((widget) => widget.id)} strategy={keepInPlace}>
             <div className={`dash-grid${cols === 1 ? ' is-single' : ''}`} ref={attachGrid} style={{ '--cols': cols }} data-tour="dashboard.grid">
-              {widgets.map((widget) => (
+              {shown.map((widget) => (
                 <GridItem
                   key={widget.id}
                   widget={widget}

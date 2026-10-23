@@ -4,8 +4,8 @@ import { Result, Skeleton } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import ModuleHeader from '../../shared/ModuleHeader';
-import OrgChart from '../../org/OrgChart';
-import { orgApi } from '../../org/api';
+import { orgApi } from '../../org/public';
+import OrgChart from '../../org/public/OrgChart';
 import { empError } from '../lib';
 
 /** «Оргсхема» (spec §4.2): units with their heads and headcount; a click opens the unit's people. */

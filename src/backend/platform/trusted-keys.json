@@ -1,0 +1,4 @@
+{
+  "_comment": "Ed25519 public keys whose module packages this portal accepts (docs/module-packages.md). Added by `make module-keygen`; the private key stays outside the repository.",
+  "keys": []
+}

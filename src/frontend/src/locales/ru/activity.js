@@ -2,6 +2,13 @@ export default {
   title: 'Журнал',
   lead: 'Инциденты безопасности за 90 дней. Счётчики — за последние 24 часа.',
   detail: {
+    module_installed: 'Установлен модуль {module} {version}',
+    module_updated: 'Модуль {module} обновлён {from} → {version}',
+    module_removed: 'Модуль {module} {version} удалён (данные сохранены)',
+    module_failed: 'Модуль {module} {version} не установлен',
+    module_rejected: 'Файл модуля отклонён: {reason}',
+    module_data_removed: 'Данные модуля {module} удалены (таблиц: {tables}) после резервной копии',
+    module_backup: 'Сделана резервная копия модуля {module}',
     rate_limit_signin: 'Превышен лимит попыток входа',
     rate_limit_code_address: 'Превышен лимит запросов кода входа (с адреса)',
     rate_limit_code: 'Превышен лимит запросов кода входа',

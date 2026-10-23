@@ -4,7 +4,7 @@ import AppFooter from '../../components/AppFooter';
 import PageTransition from '../../components/ui/PageTransition';
 import ResourceBoard from './components/ResourceBoard';
 import Manage from './pages/Manage';
-import '../kb/kb.css';
+import '../../components/documents/documents.css';
 import './resources.css';
 
 /** /app/resources (the board) and /app/resources/manage (catalogue, admins). */

@@ -3,7 +3,7 @@ import { query, withTransaction } from '../../config/database.js';
 import { fileWithinLimits, httpError } from './access.js';
 import { kbDir } from './files.js';
 import { officePreview, sendBlob, sendPdf, storagePath } from '../shared/storage.js';
-import { attachmentShape, usableFile } from '../files/kb.js';
+import { filesApi } from './filesLink.js';
 
 /*
  * Files of knowledge-base materials, stored in the Files module:
@@ -48,7 +48,7 @@ export async function attachmentsOf(itemId) {
     `SELECT n.*, f.inline FROM kb_item_files f JOIN fs_nodes n ON n.id = f.node_id WHERE f.item_id = $1 ORDER BY f.inline, f.sort, LOWER(n.name)`,
     [itemId]
   );
-  return rows.map((row) => attachmentShape(row, row.inline));
+  return rows.map((row) => filesApi().attachmentShape(row, row.inline));
 }
 
 /**
@@ -65,7 +65,7 @@ export async function planAttachments(ctx, itemId, content, explicit) {
   const wanted = [...new Set([...embedded, ...listed])].slice(0, 200);
   const filesCtx = { ...ctx, isAdmin: false };
   for (const nodeId of wanted) {
-    if (!had.has(nodeId)) await usableFile(filesCtx, nodeId);
+    if (!had.has(nodeId)) await filesApi().usableFile(filesCtx, nodeId);
   }
   return { itemId, wanted, embedded };
 }
@@ -115,7 +115,7 @@ export async function addFromFiles(ctx, folderId, nodeIds) {
   if (!ids.length) throw httpError(400, 'Choose files', 'NO_FILES');
   const filesCtx = { ...ctx, isAdmin: false };
   const nodes = [];
-  for (const nodeId of ids) nodes.push(await usableFile(filesCtx, nodeId));
+  for (const nodeId of ids) nodes.push(await filesApi().usableFile(filesCtx, nodeId));
   const created = [];
   for (const node of nodes) {
     const { rows } = await query(

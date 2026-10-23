@@ -7,7 +7,7 @@ import { bulkCreate, createNode } from './nodes.js';
 import { createGrid } from './pricing.js';
 import { createReport } from './construction.js';
 import { removeMediaFiles } from './media.js';
-import { DEMO_DEALS, DEMO_SELLERS } from '../crm/demo.js';
+import { modules } from '../../platform/registry.js';
 import { demoMoney, dropNotifications, isoDate, sitePhoto } from '../shared/demoAssets.js';
 import { mkdir, writeFile } from 'fs/promises';
 import { randomBytes } from 'crypto';
@@ -27,8 +27,7 @@ import { randomBytes } from 'crypto';
  * Purge removes the media files, then the project (everything cascades).
  */
 
-/** Units the Contracts demo turns into sale contracts (they wait in «Бронь»). */
-export const DEMO_CONTRACT_UNITS = ['A-1-03', 'A-1-05'];
+export { DEMO_CONTRACT_UNITS } from './demoData.js';
 
 // Prefix of the demo sale contract numbers.
 const SALE_CONTRACT = { ru: 'ДКП', en: 'SPA', ky: 'СК', tr: 'GSS', zh: 'SPA' };
@@ -129,7 +128,10 @@ registerDemo({
     const currency = (settings.currency || 'USD').trim();
     const money = (usd) => demoMoney(usd, currency);
     const people = { me: ctx.userId };
-    for (const [key, person] of Object.entries(DEMO_SELLERS)) people[key] = await ctx.demoUser(person.key, { displayName: ctx.t(person.name) });
+    // Sellers and deals of the CRM demo (an optional link: without the CRM, units get no managers or deals).
+    const crmDemo = modules.loaded('crm')?.api || {};
+    const DEMO_DEALS = crmDemo.DEMO_DEALS || [];
+    for (const [key, person] of Object.entries(crmDemo.DEMO_SELLERS || {})) people[key] = await ctx.demoUser(person.key, { displayName: ctx.t(person.name) });
     const foreman = await ctx.demoUser('org.foreman', { displayName: ctx.t({ ru: 'Пётр Прорабов', en: 'Peter Foreman', ky: 'Пётр Прорабов' }) });
 
     const { rows: typeRows } = await ctx.query(`SELECT id, key FROM mp_types WHERE key = ANY($1::text[])`, [['cottage', 'apartment_building', 'apartment', 'playground']]);

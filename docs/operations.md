@@ -126,7 +126,37 @@ Minimum — all three, taken together:
 2. Directory `data/uploads/` from the compose volume: avatars and logos **and the files of the modules** (Files, chat attachments, tasks, knowledge base, CRM/companies, masterplan media). The database only references these files; a dump without them restores broken links.
 3. The `.env` file. It holds `JWT_SECRET` (sessions) and `ENCRYPTION_KEY` (when it is not set, the key is derived from `JWT_SECRET`), which encrypts the integration secrets stored in the database (SMB/Drive passwords, API keys, bot tokens). A dump restored with a different key cannot decrypt them — every integration has to be configured again. Keep the `.env` copy as secret as the database itself (not next to it in plain view).
 
-Restore: recreate the role/database, `psql` the dump, copy uploads back, start the container with the same `.env`.
+4. Directory `data/modules/` (installed module packages and their table backups in `.backups/`). Without it the portal starts without those modules (their data stays in the database; install the packages again).
+
+Restore: recreate the role/database, `psql` the dump, copy uploads and modules back, start the container with the same `.env`.
+
+The module **signing key** (`/root/.portal-keys/modules-ed25519.pem`, see below) is not part of a portal backup, but losing it means packages can no longer be signed with the key portals trust: keep an offline copy.
+
+## Module packages
+
+Modules can be installed, updated and removed as signed zip files (Settings → Modules → «Установить из файла»,
+superadministrators only). Engineering details: [module-packages.md](module-packages.md).
+
+- **Volume**: `./data/modules` → `/app/data/modules` (`MODULES_DIR`). Layout: `<id>/<version>/`, `<id>/current`,
+  `<id>/previous`, `.staging/` (uploads waiting for «Установить», removed after an hour), `.backups/<id>/`.
+  Create it writable before the first deploy with this version: `mkdir -p data/modules`.
+- **Restart**: installing, updating or removing restarts the app process inside the container (5–10 s;
+  `start.sh` restarts node on exit code 75, nginx stays up). No `make restart` needed.
+- **Backups of module tables**: before every update and before «Удалить данные» the app writes
+  `data/modules/.backups/<id>/…` (pg_dump format when the image has `pg_dump`, else NDJSON). They are
+  not rotated: delete old ones by hand when space matters. Restore a pg_dump backup:
+  `docker exec -i <container> pg_restore --clean --if-exists --single-transaction -d "$POSTGRES_DB" < file.dump`
+  (with the `PG*` variables of `.env`).
+- **Signing key**: `make module-keygen` (once, on the build host) creates `/root/.portal-keys/modules-ed25519.pem`
+  (mode 600, outside the repository; `MODULE_SIGNING_KEY_FILE` overrides) and adds the public key to
+  `src/backend/platform/trusted-keys.json` — commit it and release the core; only then do portals accept
+  packages signed with it. `make module ID=<id>` builds and signs `dist/modules/<id>-<version>.zip`;
+  `make modules-verify FILE=…` checks a file.
+- **Development**: `MODULES_DEV=1` accepts unsigned packages (never in production). `MODULE_TRUSTED_KEYS_FILE`
+  points at another trusted-keys file (tests).
+- **A module that fails to start** is skipped (the portal runs on) and shown as «Не запустился» with the
+  error on its card; after an update the previous version is restored automatically.
+- **Inventory** for the future store: `GET /api/admin/modules/inventory` (portal id, core and module versions, signed).
 
 ## Updates from upstream skeleton
 
@@ -218,6 +248,7 @@ Every `make rebuild` leaves Docker build-cache layers behind (a few GB per build
 
 - If PostgreSQL is not reachable when the container starts, the backend keeps retrying the schema bootstrap in the background (5 s, doubling up to 5 min) until it succeeds. `/health` answers as before (process alive); `/ready` answers `503` with `"schema": false` until the bootstrap has run (it also tries the bootstrap itself once the database is back).
 - On `SIGTERM`/`SIGINT` the backend ends the live streams (chat), closes idle connections, gives requests in flight 3 s, closes the database pool and exits `0` (forced exit after 10 s).
+- After a module package is installed, updated or removed the app stops the same way but exits `75`; `start.sh` starts node again at once (any other exit ends the container, which Docker restarts).
 - Notifications have an index on `created_at`, so the retention job does not scan the whole table.
 
 ## Logs

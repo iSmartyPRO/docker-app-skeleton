@@ -2,7 +2,7 @@ import { unlink } from 'fs/promises';
 import { resolve } from 'path';
 import { query, withTransaction } from '../../config/database.js';
 import { uploadRoot } from '../../config/paths.js';
-import { removeStored } from '../chat/files.js';
+import { modules } from '../../platform/registry.js';
 import { notify, subscribersOf } from '../../services/notifications.js';
 import { requestAs } from '../../api/events.js';
 import {
@@ -21,7 +21,7 @@ import {
   withinLimits,
   writeAcl,
 } from '../shared/acl.js';
-import { slugify } from '../kb/shares.js';
+import { slugify } from '../shared/slug.js';
 import { insertStatuses } from './schema.js';
 import { taskMessage } from './messages.js';
 import { taskEvent } from './chat.js';
@@ -370,7 +370,8 @@ async function deleteWithFiles(taskIds, remove) {
   };
   try {
     for (const key of await unused('task_files', taskKeys.rows)) await unlink(resolve(TASK_FILES_ROOT, key)).catch(() => {});
-    for (const key of await unused('chat_files', chatKeys.rows)) await removeStored(key);
+    const chat = modules.loaded('chat')?.api;
+    if (chat) for (const key of await unused('chat_files', chatKeys.rows)) await chat.removeStored(key);
   } catch (err) {
     console.warn('[tasks] removing files of deleted tasks failed:', err.message);
   }

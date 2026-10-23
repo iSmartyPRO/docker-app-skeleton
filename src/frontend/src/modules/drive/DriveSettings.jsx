@@ -13,7 +13,7 @@ import { LinkRow } from './components/LinkDialog';
 import { HintLabel } from '../../help/Hint';
 import AccessSettingsFields from './access/AccessSettings';
 import './drive.css';
-import '../files/files.css';
+import '../../components/filekit/filekit.css';
 
 const COLORS = ['#2563EB', '#0EA5E9', '#14B8A6', '#10B981', '#84CC16', '#F59E0B', '#F97316', '#EF4444', '#EC4899', '#8B5CF6', '#6366F1', '#64748B'];
 

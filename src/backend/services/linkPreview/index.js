@@ -6,9 +6,7 @@ import rateLimit from 'express-rate-limit';
 import { logoDir } from '../../config/paths.js';
 import { getSettings, parseSettings } from '../settings.js';
 import { REGIONAL_DEFAULTS } from '../datetime.js';
-import { filesPreview } from '../../modules/files/preview.js';
-import { drivePreview } from '../../modules/drive/preview.js';
-import { kbPreview } from '../../modules/kb/preview.js';
+import { previewProvider } from '../../platform/registry.js';
 import { evaluateIpAccess } from '../security.js';
 import { clientIp } from '../../middleware/ipGuard.js';
 import { cardKey, cardPng, HEIGHT, logoDataUrl, rasterDataUrl, rendererAvailable, WIDTH } from './card.js';
@@ -64,9 +62,10 @@ export function parseRoute(pathname) {
 async function resolveModel(route, { facts }) {
   const parsed = parseSettings(await getSettings());
   if (!parsed.modules?.[route.module]?.enabled) return { state: 'invalid' };
-  if (route.module === 'files') return filesPreview(route.token);
-  if (route.module === 'drive') return drivePreview(route.token, { facts });
-  return kbPreview(route.token, { folderId: route.folderId, itemId: route.itemId });
+  // Each module that owns public links registers its preview (registerPreviewProvider).
+  const provider = previewProvider(route.module);
+  if (!provider) return { state: 'invalid' };
+  return provider(route, { facts });
 }
 
 /** The preview model of a link page (state 'site' for any other page). */

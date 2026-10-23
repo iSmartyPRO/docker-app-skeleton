@@ -9,7 +9,7 @@ import { intlOptions } from '../../../lib/datetime';
 import { procApi } from '../api';
 import { useProc } from '../ProcContext';
 import { STATUS_COLORS, categoryOf, formatMoney } from '../lib';
-import { shortDuration } from '../../approvals/lib';
+import { shortDuration } from '../../approvals/public';
 import { DayBadge, Empty, StatusPill } from '../components/bits';
 import { localeTag } from '../../../i18n/languages';
 

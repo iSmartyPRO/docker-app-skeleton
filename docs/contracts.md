@@ -91,7 +91,7 @@ Risks have a per-contract number (#1, #2…), text, clause, importance (high / m
 
 ## Deposit and payments
 
-Everything here is optional: a contract without a deposit, a schedule or payments shows none of it. The «Оплаты» tab appears for contracts `direction = client`, of the types `sale` / `property_sale` (new stock type «Продажа объекта»; added once to type lists saved before it, `typesRev`), and for any contract that already tracks money (`pay_tracked`). Code: `payLogic.js` (pure), `payments.js` (service), `mpSync.js` (Masterplan).
+Everything here is optional: a contract without a deposit, a schedule or payments shows none of it. The «Оплаты» tab appears for contracts `direction = client`, of the types `sale` / `property_sale` (new stock type «Продажа объекта»; added once to type lists saved before it, `typesRev`), and for any contract that already tracks money (`pay_tracked`). Code: `payLogic.js` (pure), `payments.js` (service), `objectSync.js` (announces `contract.*` events; Masterplan follows them in `modules/masterplan/contractSync.js`).
 
 **Deposit** (`ctr_deposits`, one per contract). `kind`: **Задаток** (`deposit`) — secures the deal: forfeited if the buyer refuses, returned double if the seller refuses (Civil Code of the KR / RF) — or **Аванс** (`advance`) — a prepayment, always refundable; the card shows this as a one-line hint. Amount + currency (the contract's by default), due day, refund / forfeit terms, method, document number, a document (file), status:
 
@@ -121,7 +121,7 @@ Finance may also put it back to `expected` (a mistake). Only finance changes the
 
 ## Masterplan
 
-Only while both modules are on and the contract is linked to a sellable Masterplan object (`mp_node_id` with an `mp_units` row) — `mpSync.js`:
+Only while both modules are on and the contract is linked to a sellable Masterplan object (`mp_node_id` with an `mp_units` row). Contracts announces `contract.deposit_received` / `contract.signed` / `contract.paid` (`objectSync.js`); Masterplan follows them (`modules/masterplan/contractSync.js`) — Contracts does not import Masterplan:
 
 | Contracts | Masterplan | How |
 |-----------|-----------|-----|
@@ -250,7 +250,7 @@ src/backend/modules/contracts/
   jobs.js       contracts:daily (dates, reminders), contracts:payments (payment reminders)
   payLogic.js   pure: schedule building, allocation, row states, totals, payment reminders, input
   payments.js   deposit, schedule, payments, files, payments registry + CSV, widget, inbox, reminders
-  mpSync.js     Masterplan: deposit → «Задаток», signed → «Договор», paid amount, 100 % → «Продано»
+  objectSync.js the linked object follows: emits contract.* events, keeps the followers' notes (Masterplan: deposit → «Задаток», signed → «Договор», paid amount, 100 % → «Продано»)
   chat.js       chat entity 'contract'
   messages.js   notification texts (ru / en)
   schema.js     tables + job + chat registration

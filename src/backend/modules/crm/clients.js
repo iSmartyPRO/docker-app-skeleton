@@ -1,7 +1,7 @@
 import { query } from '../../config/database.js';
 import { decide } from '../../api/scopes.js';
 import { clean, httpError } from '../shared/acl.js';
-import { createCompany, createPerson } from '../companies/service.js';
+import { createCompany, createPerson } from '../companies/api.js';
 import { modulesEnabled } from './access.js';
 import { likePattern, posInt } from './util.js';
 

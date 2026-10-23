@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { App, Button, Result, Spin, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
-import { copyText } from '../../drive/api';
+import { copyText } from '../../../lib/clipboard';
 import { filesApi, nodeSource } from '../api';
 import { useFiles } from '../FilesContext';
 import { NodeFileView } from '../components/NodeViewer';

@@ -29,7 +29,9 @@ import {
 // Checking a domain password: a few attempts, never a brute-force channel. Each wrong one is a
 // real bad-password bind in AD; with a lockout threshold of 5 and the person's own Windows
 // logons on top, more than 3 per 15 minutes could lock the account.
-export const PASSWORD_ATTEMPTS = { windowMs: 15 * 60 * 1000, max: 3 };
+import { PASSWORD_ATTEMPTS } from '../../shared/passwordAttempts.js';
+
+export { PASSWORD_ATTEMPTS };
 
 const passwordLimiter = rateLimit({
   ...PASSWORD_ATTEMPTS,

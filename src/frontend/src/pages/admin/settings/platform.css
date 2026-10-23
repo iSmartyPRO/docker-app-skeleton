@@ -845,3 +845,65 @@
     font-size: 12px;
   }
 }
+
+/* ── Module packages (ModulePackages.jsx) ─────────────────────────────────── */
+.pf-action--danger {
+  color: var(--da-error);
+}
+.pf-muted {
+  color: var(--da-muted);
+  font-size: 13px;
+}
+.pf-package-alert {
+  margin-bottom: 12px;
+}
+.pf-package-problems {
+  margin: 4px 0 0;
+  padding-inline-start: 18px;
+}
+.pf-package-error {
+  flex-basis: 100%;
+  margin-bottom: 6px;
+}
+.pf-package-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pf-package-card__head strong {
+  font-size: 16px;
+}
+.pf-package-card__desc {
+  margin: 0 0 8px;
+}
+.pf-package-card__changes ul {
+  margin: 4px 0 8px;
+  padding-inline-start: 18px;
+}
+.pf-restart {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.45);
+}
+.pf-restart__box {
+  max-width: 420px;
+  padding: 28px 24px;
+  border-radius: 12px;
+  text-align: center;
+  background: var(--da-surface, #fff);
+  color: var(--da-text, inherit);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.pf-restart__box h3 {
+  margin: 16px 0 6px;
+}
+.pf-restart__box p {
+  margin: 0;
+}

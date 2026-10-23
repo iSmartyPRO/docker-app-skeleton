@@ -1,7 +1,7 @@
 import { todayISO } from '../../lib/datetime';
 import { errorMessage } from '../../lib/errors';
 
-export { formatMoney } from '../approvals/lib';
+export { formatMoney } from '../approvals/public';
 
 export const TYPE_KEY = 'contracts.contract';
 

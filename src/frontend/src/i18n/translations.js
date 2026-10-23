@@ -28,6 +28,41 @@ export const AVAILABLE_LOCALES = Object.keys(loaders);
 /** Share of the English interface texts each language has translated (0…1), computed at build. */
 export const TRANSLATION_COVERAGE = coverage;
 
+// ── Texts of module packages (docs/module-packages.md «Translations») ──────
+
+const sources = [];
+
+function mergeInto(target, tree) {
+  for (const [key, value] of Object.entries(tree || {})) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (!target[key] || typeof target[key] !== 'object') target[key] = {};
+      mergeInto(target[key], value);
+    } else {
+      target[key] = value;
+    }
+  }
+  return target;
+}
+
+/** Lays a package's texts for `locale` (English first, so missing ones read in English) into a dictionary. */
+function applySource(source, locale, dict) {
+  return Promise.all([source(REFERENCE_LOCALE), locale === REFERENCE_LOCALE ? null : source(locale)])
+    .then(([english, own]) => {
+      mergeInto(dict, mergeInto(mergeInto({}, english), own));
+    })
+    .catch(() => {});
+}
+
+/**
+ * Adds the texts of a module package: `source(locale)` resolves to
+ * { <namespace>: { … } } (or null). Dictionaries downloaded later get them
+ * before they are used; ones already downloaded get them at once.
+ */
+export function addTranslationSource(source) {
+  sources.push(source);
+  return Promise.all([...loaded].map(([locale, dict]) => applySource(source, locale, dict)));
+}
+
 /** Downloads (once) the dictionary of a language; resolves to it. */
 export function loadDictionary(code) {
   const locale = loaders[code] ? code : REFERENCE_LOCALE;
@@ -36,7 +71,9 @@ export function loadDictionary(code) {
     pending.set(
       locale,
       loaders[locale]()
-        .then((mod) => {
+        .then(async (mod) => {
+          // Texts of installed module packages are laid in before the language is used.
+          await Promise.all(sources.map((source) => applySource(source, locale, mod.default)));
           loaded.set(locale, mod.default);
           englishPlurals.set(locale, new Set(mod.fallbackPlurals || []));
           pending.delete(locale);

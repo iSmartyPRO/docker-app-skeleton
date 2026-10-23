@@ -1,7 +1,7 @@
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { notify } from '../../services/notifications.js';
-import { permissionHolders } from '../approvals/people.js';
+import { permissionHolders } from '../approvals/api.js';
 import { clearanceThresholds, dayText, fullName } from './logic.js';
 import { employeeMessage } from './messages.js';
 import { portalToday } from './service.js';

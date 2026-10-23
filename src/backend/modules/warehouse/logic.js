@@ -5,7 +5,7 @@
  * Unit-tested in test/warehouse.test.js.
  */
 
-export { csvCell, toCsv } from '../procurement/logic.js';
+export { csvCell, toCsv } from '../shared/csv.js';
 
 export function httpError(statusCode, message, code, info) {
   const error = new Error(message);

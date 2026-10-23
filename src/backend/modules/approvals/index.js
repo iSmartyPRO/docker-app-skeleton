@@ -3,6 +3,7 @@ import { privateRoutes } from './routes.js';
 import { registerInboxProvider, setUrgencyRanker } from '../../services/inbox.js';
 import { approvalSettings, decide, answer, inboxItems } from './engine.js';
 import { urgencyRank } from './logic.js';
+import * as api from './api.js';
 
 /*
  * Approvals: a core service (always on). Other modules register document
@@ -41,4 +42,5 @@ export default {
   id: 'approvals',
   schema: ensureApprovalsSchema,
   routes: privateRoutes,
+  api,
 };

@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
     "test": "node --test",
     "check": "node --check server.js && find . -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check",
-    "seed:demo": "node scripts/seed-demo.js"
+    "seed:demo": "node scripts/seed-demo.js",
+    "check:modules": "node ../../scripts/check-module-boundaries.mjs"
   },
   "keywords": [
     "api",

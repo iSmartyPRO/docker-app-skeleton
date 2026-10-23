@@ -26,10 +26,7 @@ export const resourcesApi = {
 
 export const iconUrl = (file) => `/api/res/icons/${file}`;
 
-/** A pleasant default colour for each module's tile. */
-export const MODULE_COLORS = {
-  companies: '#4F46E5', kb: '#0EA5E9', files: '#3B82F6', tasks: '#10B981', calendar: '#F97316', drive: '#2563EB',
-};
+export { MODULE_COLORS } from '../../lib/moduleColors';
 
 /**
  * What a tile says in the current language: its translation, else its own

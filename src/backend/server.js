@@ -13,8 +13,6 @@ import { ipGuard } from './middleware/ipGuard.js';
 import { trustProxy } from './services/security.js';
 import { getSettings, getSettingsView, parseSettings } from './services/settings.js';
 import { verifyToken } from './services/auth.js';
-import { initRemoteTunnel } from './modules/remote/tunnel.js';
-import { initPvncTunnel } from './modules/remote/pvncTunnel.js';
 import { bootstrapSchema, schemaBootstrapped } from './services/schema.js';
 import { APP_VERSION } from './config/version.js';
 import apiRoutes from './routes/index.js';
@@ -22,10 +20,11 @@ import { requestIds } from './services/incidents.js';
 import { installProcessGuards } from './services/processGuards.js';
 import { stopScheduler } from './services/scheduler.js';
 import { tokenGate, versionPrefix } from './api/gate.js';
-import { closeAllStreams } from './modules/chat/realtime.js';
 import { shellMiddleware } from './services/linkPreview/index.js';
 import { maskToken } from './services/office/tokens.js';
 import { readyHandler } from './services/readiness.js';
+import { mountModulePackages, startModuleServer } from './platform/packages/index.js';
+import { runShutdownHooks } from './platform/registry.js';
 
 const app = express();
 const PORT = config.server.port;
@@ -81,6 +80,8 @@ app.get('/health', (req, res) => {
 app.get('/ready', readyHandler({ draining: () => shuttingDown, connect: tryConnectDB, bootstrapped: schemaBootstrapped, bootstrapLate: () => bootstrapLate() }));
 
 app.use(ipGuard);
+// Module packages: the @portal/sdk resolver and their browser code under /modules/<id>/<version>/ (docs/module-packages.md).
+mountModulePackages(app);
 // Only avatars and logos are public; every other upload (files, chat, tasks,
 // counterparties, knowledge base) is served by its module after an access check.
 const publicUploads = {
@@ -268,10 +269,8 @@ async function start() {
   // Large uploads to file servers can take longer than Node's 5-minute default.
   server.requestTimeout = 60 * 60 * 1000;
 
-  // Remote access: the WebSocket bridge to guacd (docs/specs/remote-access.ru.md).
-  initRemoteTunnel(server);
-  // Portal VNC: the mutual-TLS bridge to PortalVNC agents (bypasses guacd).
-  initPvncTunnel(server);
+  // Modules hooked on the HTTP server (Remote: the WebSocket bridges to guacd and Portal VNC agents) — ctx.onHttpServer.
+  startModuleServer(server);
 
   const shutdown = async (signal) => {
     if (shuttingDown) return;
@@ -287,7 +286,8 @@ async function start() {
     // included) is closed.
     // No new background jobs start; the ones running finish within the grace period.
     stopScheduler();
-    closeAllStreams();
+    // Modules end their live streams (Chat) — ctx.onShutdown.
+    await runShutdownHooks();
     server.closeIdleConnections?.();
     setTimeout(() => server.closeAllConnections?.(), 3000).unref();
     setTimeout(() => {

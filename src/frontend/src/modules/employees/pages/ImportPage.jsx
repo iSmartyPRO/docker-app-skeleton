@@ -5,7 +5,7 @@ import { CheckCircleOutlined, InboxOutlined, WarningOutlined } from '@ant-design
 import { useLocale } from '../../../context/LocaleContext';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import ModuleHeader from '../../shared/ModuleHeader';
-import { importTemplate, readImportFile } from '../../warehouse/xlsx';
+import { importTemplate, readImportFile } from '../../../lib/xlsx';
 import { empApi } from '../api';
 import { useEmp } from '../EmpContext';
 import { empError } from '../lib';

@@ -7,6 +7,7 @@ import { extOf, newStorageKey, originalName, removeBlob, sendBlob, storagePath, 
 import { modulesState, rolesOn } from './access.js';
 import { DOC_KINDS, PAYABLE, httpError } from './logic.js';
 import { documentsOf, logEvent, visibleRow, webhook } from './service.js';
+import { modules } from '../../platform/registry.js';
 
 /*
  * Documents of a request: invoices, quotes, specifications, photos, waybills,
@@ -141,7 +142,9 @@ export async function linkDocument(req, id, input = {}) {
   if (!(await modulesState()).files) throw httpError(404, 'The Files module is off', 'MODULE_DISABLED');
   const nodeId = Number(input.nodeId);
   if (!Number.isInteger(nodeId) || nodeId < 1) throw httpError(400, 'Choose a file', 'NO_FILES');
-  const { nodeAccess } = await import('../files/access.js');
+  const files = modules.loaded('files')?.api;
+  if (!files) throw httpError(404, 'The Files module is off', 'MODULE_DISABLED');
+  const { nodeAccess } = files;
   // The person must be able to open the file in Files themselves (no admin bypass).
   const access = await nodeAccess({ ...contextFromRequest(req, 'files.admin'), isAdmin: false }, nodeId).catch(() => null);
   if (!access || access.level < LEVEL.view) throw httpError(404, 'File not found', 'NOT_FOUND');

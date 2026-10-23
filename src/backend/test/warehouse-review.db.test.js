@@ -1,6 +1,10 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { activateAll } from './helpers/modules.js';
+
+// Modules reach each other through the core registry, as at server start (no-op without a database).
+await activateAll();
 
 /*
  * Database checks of the Warehouse review fixes (docs/warehouse.md): sums in

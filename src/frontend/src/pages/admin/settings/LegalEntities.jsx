@@ -2,9 +2,8 @@ import { useMemo } from 'react';
 import api from '../../../services/api';
 import { useLocale } from '../../../context/LocaleContext';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
-import LegalEntitiesEditor from '../../../modules/procurement/settings/LegalEntitiesEditor';
+import LegalEntitiesEditor from '../../../components/legalEntities/LegalEntitiesEditor';
 import SettingsPageHeader from './SettingsPageHeader';
-import '../../../modules/procurement/procurement.css';
 
 /** Settings → Project → Legal entities: the shared directory used by Procurement and Contracts. */
 export default function LegalEntitiesSettings() {

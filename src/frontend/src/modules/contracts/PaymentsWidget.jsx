@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocale } from '../../context/LocaleContext';
 import { fmtDate } from '../../lib/datetime';
-import { WidgetState } from '../dashboard/widgets/common';
+import { WidgetState } from '../../platform/widgets/common';
 import { contractsApi } from './api';
 import { PAY_STATE_LOOK, formatMoney } from './lib';
 import './contracts-pay.css';

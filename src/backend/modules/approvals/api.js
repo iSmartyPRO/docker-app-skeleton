@@ -18,5 +18,8 @@ export {
   routeFor,
   participantDocIds,
   waitingDocIds,
+  approvalSettings,
 } from './engine.js';
+// Who holds a seat / permission (modules filtering «my» documents by approver seats).
+export { principalsOf, principalSets, seatMatchSql, permissionHolders } from './people.js';
 export { registerInboxProvider, inboxFor } from '../../services/inbox.js';

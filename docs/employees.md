@@ -185,7 +185,7 @@ They keep using portal accounts for now. To switch a «person» field to employe
 ## Demo data and tour
 
 - `modules/employees/demo.js` (seeds the org demo first when needed): 25 people of «ООО «Пример»» — heads and office staff with demo accounts (they cannot sign in), site workers without portal access, a candidate, a person on vacation, a terminated one, a part-timer, a contractor and a seasonal worker; clearances expiring in 5, 7, 20 and 25 days and one expired; birthdays and anniversaries in the coming days; personnel numbers `DEMO-001…`. Purge deletes exactly the tracked rows; seeding twice does nothing.
-- Tour `employees` (`modules/employees/tour.js`, texts `tour.employees.*` in `locales/<lang>/tour.js`): registry, filters, «Добавить сотрудника», export, org chart, import — steps without their button (no right) are skipped. Registered in `modules/people/tours.js`; auto-starts on the first visit to `/app/employees`.
+- Tour `employees` (`modules/employees/tour.js`, texts `tour.employees.*` in `locales/<lang>/tour.js`): registry, filters, «Добавить сотрудника», export, org chart, import — steps without their button (no right) are skipped. Registered in `modules/employees/register.js`; auto-starts on the first visit to `/app/employees`.
 
 ## Tests
 

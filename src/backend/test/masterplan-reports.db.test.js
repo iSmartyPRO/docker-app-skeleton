@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { activateAll } from './helpers/modules.js';
 
 /*
  * Correcting and deleting construction reports against a real database:
@@ -20,6 +21,10 @@ const skip = enabled ? false : 'set MASTERPLAN_DB_TEST=1 and a test database to 
 // Files go to a throw-away upload directory (read by config/paths.js at import).
 const uploads = mkdtempSync(join(tmpdir(), 'mp-reports-'));
 process.env.UPLOAD_DIR = uploads;
+
+// Modules reach each other through the core registry, as at server start (no-op without a database);
+// after UPLOAD_DIR, which config/paths.js reads at import.
+await activateAll();
 
 let db = null;
 const projects = [];

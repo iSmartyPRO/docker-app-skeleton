@@ -1,5 +1,6 @@
 import { ensureOrgSchema } from './schema.js';
 import { privateRoutes } from './routes.js';
+import * as api from './api.js';
 
 /*
  * Org structure (spec docs/specs/platform-2.0.ru.md §3, docs/org-structure.md):
@@ -11,4 +12,5 @@ export default {
   id: 'org',
   schema: ensureOrgSchema,
   routes: privateRoutes,
+  api,
 };

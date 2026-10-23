@@ -6,11 +6,12 @@ import { query, withTransaction } from '../../config/database.js';
 import { uploadRoot } from '../../config/paths.js';
 import { notify } from '../../services/notifications.js';
 import { clean, httpError, LEVEL, requireLevel } from '../shared/acl.js';
-import { originalName } from '../kb/files.js';
+import { originalName } from '../shared/storage.js';
 import { taskEvent } from './chat.js';
 import { taskMessage } from './messages.js';
 import { createTask, editableTask, getTask, insertReminder, loadTaskRow, taskLevel, taskRef, taskWebhook, touch, updateTask, viewableTask } from './service.js';
 import { FILE_CSP } from '../shared/storage.js';
+import { modules } from '../../platform/registry.js';
 
 /*
  * The optional blocks of a task: checklists, files, results, related tasks,
@@ -221,7 +222,9 @@ export async function linkTaskFile(ctx, taskRefOrId, input = {}) {
   const row = taskRefOrId ? await editableTask(ctx, taskRefOrId) : null;
   let record;
   if (input.nodeId) {
-    const { nodeAccess } = await import('../files/access.js');
+    const files = modules.loaded('files')?.api;
+    if (!files) throw httpError(404, 'File not found', 'NOT_FOUND');
+    const { nodeAccess } = files;
     const nodeId = intOr(input.nodeId, 0);
     const access = await nodeAccess({ ...ctx, isAdmin: false }, nodeId);
     if (!access || access.level < LEVEL.view) throw httpError(404, 'File not found', 'NOT_FOUND');

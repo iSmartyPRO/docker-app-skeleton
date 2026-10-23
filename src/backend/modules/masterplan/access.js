@@ -23,7 +23,8 @@ export async function mpSettings() {
 
 export async function modulesEnabled() {
   const parsed = parseSettings(await getSettings());
-  return { crm: Boolean(parsed.modules.crm?.enabled), companies: Boolean(parsed.modules.companies?.enabled) };
+  const on = (id) => Boolean(parsed.modules[id]?.enabled);
+  return { crm: on('crm'), companies: on('companies'), masterplan: on('masterplan'), contracts: on('contracts') };
 }
 
 export async function loadAssignments(userId, groupIds = []) {

@@ -5,6 +5,7 @@ import { query } from '../../config/database.js';
 import { requestAs } from '../../api/events.js';
 import { LEVEL, contextFromRequest, httpError, loadAccess, requireLevel } from './access.js';
 import { kbSettings } from './files.js';
+import { slugify } from '../shared/slug.js';
 
 /*
  * Public links: /s/<slug> opens a folder (and everything that inherits from it)
@@ -18,27 +19,9 @@ const RESERVED = new Set([
   'health', 'ready', 's', 'share', 'shares', 'static', 'public', 'new', 'edit', 'settings', 'help',
 ]);
 
-const TRANSLIT = {
-  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k',
-  л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts',
-  ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya', ә: 'a', ө: 'o', ү: 'u',
-  ң: 'n', ғ: 'g', қ: 'k', ұ: 'u', һ: 'h', і: 'i',
-};
 
-/** "Онбординг 2026" → "onbording-2026". */
-export function slugify(text) {
-  return String(text || '')
-    .toLowerCase()
-    .split('')
-    .map((char) => (TRANSLIT[char] !== undefined ? TRANSLIT[char] : char))
-    .join('')
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48)
-    .replace(/-+$/g, '');
-}
+
+export { slugify };
 
 export function slugProblem(slug) {
   if (!SLUG.test(slug)) return 'FORMAT';

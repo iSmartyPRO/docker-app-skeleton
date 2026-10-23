@@ -6,7 +6,7 @@ import { getAccessMap } from '../../services/rbac.js';
 import { avatarOf, clean, httpError } from '../shared/acl.js';
 import { entityAdapter } from './entities.js';
 import { fileShape, filePath, removeStored } from './files.js';
-import { originalName } from '../kb/files.js';
+import { originalName } from '../shared/storage.js';
 import { isOnline, publish } from './realtime.js';
 import { deliverMessage } from './notify.js';
 import { emitEvent } from '../../api/events.js';

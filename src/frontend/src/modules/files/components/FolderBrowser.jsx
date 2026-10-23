@@ -4,7 +4,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { formatBytes, filesApi } from '../api';
 import { NodeIcon, nodeLabel } from './NodeList';
 import '../../shared/module.css';
-import '../files.css';
+import '../../../components/filekit/filekit.css';
 
 /**
  * Compact browser over My files, Shared with me and shared spaces.

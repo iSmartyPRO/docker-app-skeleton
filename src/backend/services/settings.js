@@ -9,6 +9,7 @@ import { CRM_DEFAULTS, MODULE_CATALOG, MODULE_IDS, crmStockLists, resolveModules
 import { EDITING_DEFAULTS, sanitizeEditing } from './office/editing.js';
 import { sanitizeDefaultTheme, sanitizeThemePolicy } from './themeCatalog.js';
 import { planModuleChanges } from '../modules/dependencies.js';
+import { noteModuleStates } from '../platform/registry.js';
 import { SUPPORTED, acceptLanguages, resolveLocale, sanitizeLocalization } from './i18n/index.js';
 
 export const DEFAULTS = {
@@ -320,6 +321,8 @@ export async function getSettingsView() {
   const raw = await rawSettings();
   if (parsedFrom === raw && parsedCache) return parsedCache;
   const parsed = deepFreeze(structuredClone(parseSettings(raw)));
+  // The core registry answers modules.get(id) with the module states last read here.
+  noteModuleStates(parsed.modules);
   // Only the current raw cache keeps its parse (an uncached, stale or fresh-only load does not).
   if (raw === cached) {
     parsedCache = parsed;

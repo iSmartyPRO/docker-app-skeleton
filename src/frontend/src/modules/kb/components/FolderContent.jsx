@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom';
 import { Dropdown, Empty } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatRelative } from '../../../lib/format';
-import { formatSize, itemType } from '../fileTypes';
-import { FileIcon, FolderIcon } from './Icons';
+import { formatSize, itemType } from '../../../components/documents/fileTypes';
+import { FileIcon, FolderIcon } from '../../../components/documents/Icons';
 
 function itemMeta(item, t) {
   if (item.kind === 'article') return t('kb.type.article');

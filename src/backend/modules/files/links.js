@@ -6,7 +6,7 @@ import { query, withTransaction } from '../../config/database.js';
 import { requestAs } from '../../api/events.js';
 import { LEVEL, avatarOf, contextFromRequest, httpError } from '../shared/acl.js';
 import { addressMatch, addressOrder, checkSlug, claimSlug, clearHold, freshToken, releaseSlug, rethrowSlugConflict } from '../shared/linkSlug.js';
-import { LINK_PERMISSIONS, LINK_WRITE_PERMISSIONS, normalizeLinkPermissions } from '../shared/linkPermissions.js';
+import { LINK_PERMISSIONS, LINK_WRITE_PERMISSIONS, normalizeLinkPermissions, parseExpiry } from '../shared/linkPermissions.js';
 import { forgetPreviews } from '../../services/linkPreview/memo.js';
 import { chainOf, nodeAccess, requireNode } from './access.js';
 import { filesSettings } from './service.js';
@@ -139,19 +139,7 @@ async function guard(ctx, nodeId) {
   return { access, settings, isFolder, manager: access.owner, grantable: grantable(access.level, settings, isFolder) };
 }
 
-export function parseExpiry(value, maxDays) {
-  if (value === null || value === '' || value === undefined) {
-    if (maxDays) return new Date(Date.now() + maxDays * DAY);
-    return null;
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) throw httpError(400, 'Invalid expiry date', 'INVALID_DATE');
-  if (date.getTime() <= Date.now()) throw httpError(400, 'Expiry must be in the future', 'INVALID_DATE');
-  if (maxDays && date.getTime() > Date.now() + maxDays * DAY + 60_000) {
-    throw httpError(400, `Links can live at most ${maxDays} days`, 'EXPIRY_LIMIT');
-  }
-  return date;
-}
+export { parseExpiry };
 
 /** Permissions from a create/update payload (older clients send only allowDownload). */
 export function permissionsFromInput(input, isFolder) {

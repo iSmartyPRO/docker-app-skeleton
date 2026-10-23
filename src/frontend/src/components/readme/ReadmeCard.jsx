@@ -21,7 +21,7 @@ import {
 } from '../../lib/readme';
 import './readme.css';
 
-const ImageViewer = lazy(() => import('../../modules/kb/viewers/ImageViewer'));
+const ImageViewer = lazy(() => import('../documents/viewers/ImageViewer'));
 
 // Collapsed preview height (px); the card grows to the full text on demand.
 const COLLAPSED = 188;

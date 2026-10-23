@@ -127,3 +127,9 @@ export async function colleaguesOf(userId, { subtree = false } = {}) {
 }
 
 export { buildTree };
+
+// Lower-level helpers for modules that work with the unit list themselves (Employees).
+export { loadUnits };
+export { byId, descendantIds, pathNames };
+export { registerPeopleProvider } from './providers.js';
+export { DEMO_HEADS, DEMO_UNITS } from './demoData.js';

@@ -1,4 +1,4 @@
-import { formatMoney } from '../approvals/lib';
+import { formatMoney } from '../approvals/public';
 import { todayISO } from '../../lib/datetime';
 import { formatBytes } from '../../lib/format';
 

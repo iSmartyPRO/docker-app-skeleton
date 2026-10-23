@@ -4,6 +4,7 @@ import { useLocale } from '../context/LocaleContext';
 import { useSettings } from '../context/SettingsContext';
 import { fmtTime } from '../lib/datetime';
 import { BUILD, checkNow, clientSessionId, outageDetails, useOutage } from '../lib/outage';
+import { contributions } from '../platform/extensions';
 
 /*
  * The "technical works" screen: shown over the app while the server restarts,
@@ -21,7 +22,11 @@ let robotModule = null;
 let robotPromise = null;
 function loadRobot() {
   if (!robotPromise) {
-    robotPromise = import('../modules/assistant/robots')
+    // The picture comes from a module (maintenance.art — the assistant's robots); none: no picture.
+    const art = contributions('maintenance.art')[0];
+    if (!art) return Promise.resolve(null);
+    robotPromise = art
+      .load()
       .then((module) => {
         robotModule = module;
         return module;

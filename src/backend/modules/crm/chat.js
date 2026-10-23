@@ -1,9 +1,12 @@
 import { query } from '../../config/database.js';
 import { decide } from '../../api/scopes.js';
-import { registerChatEntity } from '../chat/entities.js';
+import { modules } from '../../platform/registry.js';
 import { httpError } from '../shared/acl.js';
 import { canView, crmContext, crmSettings, modulesEnabled } from './access.js';
 import { dealLink, loadDealRow } from './deals.js';
+
+// Chat is an optional link: the conversation exists only while the Chat module is installed.
+const registerChatEntity = (type, adapter) => modules.whenLoaded('chat', (chat) => chat.registerChatEntity(type, adapter));
 
 /*
  * "Обсудить с коллегами": every deal can have a conversation in the chat

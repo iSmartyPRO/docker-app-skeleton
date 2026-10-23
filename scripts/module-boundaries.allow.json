@@ -1,0 +1,7 @@
+[
+  {
+    "from": "src/frontend/src/modules/crm/views/CalendarView.jsx",
+    "to": "src/frontend/src/modules/calendar/calendar.css",
+    "reason": "The CRM calendar view reuses Calendar's FullCalendar theme (.cal-view rules, some inside @media). Split the theme into a core stylesheet when CSS is separated per package (stage 5); at build time the CSS is bundled into the importer, so there is no run-time link."
+  }
+]

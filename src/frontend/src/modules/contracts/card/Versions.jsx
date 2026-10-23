@@ -9,10 +9,10 @@ import { UserAvatar } from '../../shared/People';
 import { contractsApi } from '../api';
 import { fileKind } from '../lib';
 import { Empty } from '../components/bits';
-import '../../kb/kb.css';
+import '../../../components/documents/documents.css';
 
 // The pdf.js viewer of the Knowledge Base (its styles come with kb.css above).
-const PdfViewer = lazy(() => import('../../kb/viewers/PdfViewer'));
+const PdfViewer = lazy(() => import('../../../components/documents/viewers/PdfViewer'));
 
 /** Preview of a version: PDF and pictures inline (sandboxed), Office through the PDF preview. */
 export function VersionPreview({ version, onClose }) {

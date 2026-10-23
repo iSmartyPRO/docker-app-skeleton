@@ -92,4 +92,5 @@ export default {
   event_ad_changed: 'AD directory: accounts changed',
   event_ad_password_reset: 'AD directory: password reset',
   event_ad_credential: 'AD directory: domain password of an administrator',
+  event_module_package: 'Module packages: installed, updated, removed or data deleted',
 };

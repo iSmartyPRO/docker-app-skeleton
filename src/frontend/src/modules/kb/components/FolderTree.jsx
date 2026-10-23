@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { FolderIcon } from './Icons';
+import { FolderIcon } from '../../../components/documents/Icons';
 import { useLocale } from '../../../context/LocaleContext';
 
 function Branch({ node, byParent, depth, config, openIds, toggle, onNavigate }) {

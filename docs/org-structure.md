@@ -130,7 +130,7 @@ The settings screen is listed under Settings → Project for holders of `org.man
 ## Demo data and tour
 
 - `modules/org/demo.js`: «ООО «Пример»» (linked to a demo legal entity) → central office with Finance, HR, IT, Procurement; branches «Север» (sales, site «Северный квартал» with `construction` + `warehouse`) and «Юг» (sales, yard «Южная» with `warehouse` + `production`); heads are demo colleagues placed in their units. A code a real unit already uses is dropped instead of failing. Purge removes units newest first (children before parents).
-- Tour `org` (`modules/org/tour.js`, texts `tour.org.*` in `locales/<lang>/tour.js`), started by the «Тур» button of the settings screen; registered in `modules/people/tours.js`.
+- Tour `org` (`modules/org/tour.js`, texts `tour.org.*` in `locales/<lang>/tour.js`), started by the «Тур» button of the settings screen; registered in `modules/org/register.js`.
 
 ## Tests
 

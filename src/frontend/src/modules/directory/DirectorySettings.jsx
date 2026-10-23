@@ -9,7 +9,7 @@ import { useAdminSettings } from '../../hooks/useAdminSettings';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
 import { useLocale } from '../../context/LocaleContext';
 import SettingsPageHeader from '../../pages/admin/settings/SettingsPageHeader';
-import UnitSelect from '../org/UnitSelect';
+import { UnitSelect } from '../org/public';
 import { adApi, adError } from './api';
 import { loginPreview } from './lib';
 import './directory.css';

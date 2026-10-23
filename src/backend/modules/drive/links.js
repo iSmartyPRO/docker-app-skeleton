@@ -5,7 +5,7 @@ import config from '../../config/app.js';
 import { query, withTransaction } from '../../config/database.js';
 import { forgetPreviews } from '../../services/linkPreview/memo.js';
 import { httpError, intId } from '../shared/acl.js';
-import { parseExpiry } from '../files/links.js';
+import { parseExpiry } from '../shared/linkPermissions.js';
 import { addressMatch, addressOrder, checkSlug, claimSlug, clearHold, freshToken, releaseSlug, rethrowSlugConflict } from '../shared/linkSlug.js';
 import { driveSettings } from './credentials.js';
 import { cleanVisitor, effectivePerms, hasWrite, legacyPerms, linkOptions, normalizePerms, storedPermissions, ungrantable } from './linkPerms.js';

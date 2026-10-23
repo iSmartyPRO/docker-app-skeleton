@@ -4,6 +4,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import { activateAll } from './helpers/modules.js';
+
+// Modules reach each other through the core registry, as at server start (no-op without a database).
+await activateAll();
 
 /*
  * Custom addresses of Drive public links (/d/<slug>) against a test database

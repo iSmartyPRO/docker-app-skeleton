@@ -47,5 +47,6 @@ Permission `dashboard.admin` (super administrators always): on the dashboard, **
 - Widgets of modules switched off are kept in a saved layout and come back with the module.
 - An API token reads a widget only with the scope of its module (`notifications` for notifications, `admin.users` for people); the welcome widget and the agenda leave out the parts the token may not read.
 - API (`/api/app/dashboard`): `GET /` (layout, available widgets, rights), `PUT /layout`, `DELETE /layout`, `PUT|DELETE /default` (`dashboard.admin`), `GET /options` (projects, calendars, link categories), `GET /data/:type?settings=<json>&tz=<zone>` (widget data; `miniCalendar` also takes `from`, `to`).
-- Charts are small SVG components (`modules/dashboard/charts.jsx`); no chart library.
+- Charts are small SVG components (`platform/widgets/charts.jsx`, shared with module widgets and the developer console); no chart library.
+- Module widgets are registered by their modules (backend `ctx.registerWidget` with the data provider, frontend `registerWidget` in `modules/<id>/register.js`); the dashboard imports no module.
 - Adding a widget: an entry in `WIDGETS` (backend, with its module and permission), a provider in `data.js` if it needs data, and an entry in the frontend `catalog.js` with the component, sizes, preview and settings fields.

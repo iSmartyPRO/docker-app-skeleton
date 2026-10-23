@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { App, Button, Drawer, Dropdown, Grid, Input, Result, Skeleton, Tabs } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
-import ApprovalPath, { useApprovalProcess } from '../../approvals/ApprovalPath';
-import ApprovalActions from '../../approvals/ApprovalActions';
-import { inboxChanged } from '../../approvals/api';
-import Conversation from '../../chat/components/Conversation';
+import { inboxChanged } from '../../approvals/public';
+import ApprovalPath, { useApprovalProcess } from '../../approvals/public/ApprovalPath';
+import ApprovalActions from '../../approvals/public/ApprovalActions';
 import { procApi } from '../api';
 import { useProc } from '../ProcContext';
 import { DayBadge, Money, StatusPill, Urgency } from '../components/bits';
@@ -14,6 +13,10 @@ import DetailsTab from './DetailsTab';
 import DocumentsTab from './DocumentsTab';
 import MoneyTab, { DeliveryDialog, PaymentDialog } from './MoneyTab';
 import HistoryTab from './HistoryTab';
+import { optionalComponent } from '../../../platform/optional';
+
+// Optional links (the module may be off or not installed): provided by its register.js.
+const Conversation = optionalComponent('chat', 'Conversation');
 
 const TYPE = 'procurement.request';
 

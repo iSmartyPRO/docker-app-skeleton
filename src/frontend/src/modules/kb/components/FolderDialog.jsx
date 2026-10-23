@@ -4,8 +4,8 @@ import { ICON_IDS, MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { kbApi } from '../api';
-import { FOLDER_COLORS } from '../fileTypes';
-import { FolderIcon } from './Icons';
+import { FOLDER_COLORS } from '../../../components/documents/fileTypes';
+import { FolderIcon } from '../../../components/documents/Icons';
 import { HintLabel } from '../../../help/Hint';
 
 /** Create or edit a folder: name, description, icon and colour with live preview. */

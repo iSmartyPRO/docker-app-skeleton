@@ -8,11 +8,14 @@ import { useLocale } from '../../../../context/LocaleContext';
 import { errorMessage } from '../../../../lib/errors';
 import { formatBytes, formatDateTime } from '../../../../lib/format';
 import { UserAvatar } from '../../../shared/People';
-import FolderBrowser from '../../../files/components/FolderBrowser';
-import { driveApi } from '../../../drive/api';
 import { fileUrl, tasksApi } from '../../api';
 import { PeopleSelect } from './pickers';
 import { HintLabel } from '../../../../help/Hint';
+import { optionalComponent, optionalApi } from '../../../../platform/optional';
+
+// Optional links (the module may be off or not installed): provided by its register.js.
+const FolderBrowser = optionalComponent('files', 'FolderBrowser');
+const driveApi = optionalApi('drive', 'api');
 
 export const uid = () => `k${Math.random().toString(36).slice(2, 9)}`;
 const formatSize = (bytes) => formatBytes(bytes);

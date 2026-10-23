@@ -3,8 +3,7 @@ import { isoDay } from '../../services/datetime.js';
 import { portalRegional } from '../../services/regional.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { avatarOf } from '../shared/acl.js';
-import { loadUnits } from '../org/service.js';
-import { byId, descendantIds, pathNames } from '../org/logic.js';
+import { byId, descendantIds, loadUnits, pathNames } from '../org/api.js';
 import { assertAdmin, assertHr, assertView, rightsOf } from './access.js';
 import { extensionsFor } from './extensions.js';
 import {

@@ -8,9 +8,9 @@ import { MenuIcon } from '../../../components/icons/menuIcons';
 import { markNotificationsRead } from '../../../services/api';
 import { inZone, intlOptions, useRegional } from '../../../lib/datetime';
 import { enabledModules, moduleLabel } from '../../registry';
-import { MODULE_COLORS } from '../../resources/api';
-import { useWidgetData } from '../api';
-import { WidgetState, When, cap, initials, localeTag, timeOf } from './common';
+import { MODULE_COLORS } from '../../../lib/moduleColors';
+import { useWidgetData } from '../../../platform/widgets/api';
+import { WidgetState, When, cap, initials, localeTag, timeOf } from '../../../platform/widgets/common';
 import { firstNameOf } from '../../../lib/firstName';
 
 // ── Welcome ─────────────────────────────────────────────────────────────────

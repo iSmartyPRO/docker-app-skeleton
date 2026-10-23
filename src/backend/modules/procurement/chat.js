@@ -1,8 +1,11 @@
 import { decide } from '../../api/scopes.js';
-import { registerChatEntity } from '../chat/entities.js';
+import { modules } from '../../platform/registry.js';
 import { httpError } from '../shared/acl.js';
 import { canSee, modulesState, procContext, procurementSettings } from './access.js';
 import { loadRow, requestUrl } from './service.js';
+
+// Chat is an optional link: the conversation exists only while the Chat module is installed.
+const registerChatEntity = (type, adapter) => modules.whenLoaded('chat', (chat) => chat.registerChatEntity(type, adapter));
 
 /*
  * «Обсуждение»: every purchase request has a conversation in the chat module

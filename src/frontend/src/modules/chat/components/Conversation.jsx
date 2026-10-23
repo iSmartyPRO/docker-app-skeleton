@@ -5,7 +5,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
-import ImageViewer from '../../kb/viewers/ImageViewer';
+import ImageViewer from '../../../components/documents/viewers/ImageViewer';
 import { UserAvatar } from '../../shared/People';
 import { Hint, HintLabel } from '../../../help/Hint';
 import { chatApi, formatSize } from '../api';

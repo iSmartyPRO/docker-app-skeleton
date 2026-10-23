@@ -1,8 +1,10 @@
 /**
  * Static facts about every module: permissions, default system settings and a
- * pure sanitizer for them. No imports — core services read this without
- * loading module code (and without import cycles).
+ * pure sanitizer for them. No imports of module code — core services read this
+ * without loading module code (and without import cycles). Installed module
+ * packages are appended from the disk (platform/packages/disk.js, node:fs only).
  */
+import { packageCatalogEntries } from '../platform/packages/disk.js';
 
 const clampInt = (value, min, max, fallback) => {
   const n = Number(value);
@@ -898,7 +900,10 @@ export const MODULE_CATALOG = [
     },
   },
   {
+    // Counterparties: a core service (docs/specs/module-packages.ru.md §2). Always on; CRM,
+    // Contracts, Procurement and Warehouse read it through modules/companies/api.js.
     id: 'companies',
+    core: true,
     defaultEnabled: true,
     permissions: ['companies.admin'],
     defaults: {
@@ -1364,6 +1369,11 @@ export const MODULE_CATALOG = [
     sanitize: sanitizeDirectory,
   },
 ];
+
+/** Modules built into this core version (source «bundled»); the rest of MODULE_CATALOG are installed packages. */
+export const BUILTIN_MODULE_IDS = MODULE_CATALOG.map((module) => module.id);
+// Installed module packages (docs/module-packages.md): their catalog entries come from manifest.json.
+MODULE_CATALOG.push(...packageCatalogEntries(BUILTIN_MODULE_IDS));
 
 export const MODULE_IDS = MODULE_CATALOG.map((module) => module.id);
 

@@ -3,6 +3,9 @@ import { RANK_STEP } from './util.js';
 import { crmSettings } from './access.js';
 import { CRM_STOCK_LISTS } from '../catalog.js';
 import { demoMoney, dropEntityChats, dropNotifications, isoDate } from '../shared/demoAssets.js';
+import { DEMO_DEALS, DEMO_SELLERS } from './demoData.js';
+
+export { DEMO_DEALS, DEMO_SELLERS };
 
 /*
  * Demo data of the CRM (spec §8, docs/crm.md «Демо-данные»): two pipelines —
@@ -29,11 +32,6 @@ const stockText = (ctx, settings, list, ru) => {
   return listed || ctx.t(entry);
 };
 
-export const DEMO_SELLERS = {
-  sales1: { key: 'emp.sales1', name: { ru: 'Алексей Продажин', en: 'Alexey Seller', ky: 'Алексей Продажин' } },
-  sales3: { key: 'emp.sales3', name: { ru: 'Ольга Сделкина', en: 'Olga Deal', ky: 'Ольга Сделкина' } },
-  north: { key: 'org.north', name: { ru: 'Игорь Северов', en: 'Igor North', ky: 'Игорь Северов' } },
-};
 
 const PIPELINES = [
   {
@@ -64,29 +62,6 @@ const PIPELINES = [
   },
 ];
 
-// pipeline, stage index, title, amount (USD), owner, company key, person index, source, close in days, unit (masterplan code)
-export const DEMO_DEALS = [
-  { p: 0, s: 0, title: { ru: 'Заявка с сайта: коттедж до 150 тыс.', en: 'Website lead: a cottage under 150k', ky: 'Сайттан келген өтүнмө: 150 миңге чейинки коттедж', tr: 'Web sitesinden talep: 150 bin altı villa', zh: '网站线索：15 万以内的别墅' }, usd: 150000, owner: 'sales1', source: 'Сайт', close: 30 },
-  { p: 0, s: 0, title: { ru: 'Звонок: квартира с двумя спальнями', en: 'Call: a two-bedroom flat', ky: 'Чалуу: эки уктоочу бөлмөлүү батир', tr: 'Arama: iki yatak odalı daire', zh: '来电：两居室公寓' }, usd: 82000, owner: 'sales3', source: 'Звонок', close: 40 },
-  { p: 0, s: 1, title: { ru: 'Коттедж A-1-07 — показ семье Примеровых', en: 'Cottage A-1-07 — viewing for the Example family', ky: 'A-1-07 коттеджи — Примеровдордун үй-бүлөсүнө көрсөтүү', tr: 'A-1-07 villası — Örnek ailesine gösterim', zh: '别墅 A-1-07——为“示例”一家看房' }, usd: 168000, owner: 'sales1', source: 'Рекомендация', close: 21, unit: 'A-1-07' },
-  { p: 0, s: 1, title: { ru: 'Коттедж A-2-01 — повторный показ', en: 'Cottage A-2-01 — second viewing', ky: 'A-2-01 коттеджи — кайра көрсөтүү', tr: 'A-2-01 villası — ikinci gösterim', zh: '别墅 A-2-01——第二次看房' }, usd: 172000, owner: 'me', source: 'Выставка', close: 14, unit: 'A-2-01' },
-  { p: 0, s: 2, title: { ru: 'Коттедж A-1-03 — бронь, семья Покупателевых', en: 'Cottage A-1-03 — booking, the Buyer family', ky: 'A-1-03 коттеджи — брондоо, Покупателевдердин үй-бүлөсү', tr: 'A-1-03 villası — rezervasyon, Alıcı ailesi', zh: '别墅 A-1-03——预订，“买家”一家' }, usd: 158000, owner: 'sales1', source: 'Сайт', close: 10, unit: 'A-1-03' },
-  { p: 0, s: 2, title: { ru: 'Коттедж A-1-05 — бронь, Анна Клиентова', en: 'Cottage A-1-05 — booking, Anna Client', ky: 'A-1-05 коттеджи — брондоо, Анна Клиентова', tr: 'A-1-05 villası — rezervasyon, Anna Client', zh: '别墅 A-1-05——预订，Anna Client' }, usd: 164000, owner: 'sales3', source: 'Звонок', close: 12, unit: 'A-1-05' },
-  { p: 0, s: 2, title: { ru: 'Квартира D1-10 — бронь', en: 'Flat D1-10 — booking', ky: 'D1-10 батири — брондоо', tr: 'D1-10 dairesi — rezervasyon', zh: '公寓 D1-10——预订' }, usd: 76000, owner: 'me', source: 'Instagram', close: 7, unit: 'D1-10' },
-  { p: 0, s: 3, title: { ru: 'Коттедж A-1-06 — задаток получен', en: 'Cottage A-1-06 — deposit received', ky: 'A-1-06 коттеджи — кепилдик акча алынды', tr: 'A-1-06 villası — kaparo alındı', zh: '别墅 A-1-06——已收定金' }, usd: 161000, owner: 'sales1', source: 'Рекомендация', close: 5, unit: 'A-1-06' },
-  { p: 0, s: 3, title: { ru: 'Коттедж A-2-03 — подготовка договора', en: 'Cottage A-2-03 — contract in preparation', ky: 'A-2-03 коттеджи — келишим даярдалууда', tr: 'A-2-03 villası — sözleşme hazırlanıyor', zh: '别墅 A-2-03——合同准备中' }, usd: 175000, owner: 'north', source: 'Сайт', close: 3, unit: 'A-2-03' },
-  { p: 0, s: 4, title: { ru: 'Коттедж A-1-01 — продан', en: 'Cottage A-1-01 — sold', ky: 'A-1-01 коттеджи — сатылды', tr: 'A-1-01 villası — satıldı', zh: '别墅 A-1-01——已售' }, usd: 149000, owner: 'sales1', source: 'Сайт', close: -20, unit: 'A-1-01' },
-  { p: 0, s: 4, title: { ru: 'Квартира D1-2 — продана', en: 'Flat D1-2 — sold', ky: 'D1-2 батири — сатылды', tr: 'D1-2 dairesi — satıldı', zh: '公寓 D1-2——已售' }, usd: 69000, owner: 'sales3', source: 'Звонок', close: -35, unit: 'D1-2' },
-  { p: 0, s: 5, title: { ru: 'Коттедж B-1-04 — клиент выбрал другой вариант', en: 'Cottage B-1-04 — the client chose another option', ky: 'B-1-04 коттеджи — кардар башка вариантты тандады', tr: 'B-1-04 villası — müşteri başka bir seçeneği tercih etti', zh: '别墅 B-1-04——客户选择了其他房源' }, usd: 155000, owner: 'north', source: 'Выставка', close: -10, lost: 'Выбрали конкурента' },
-  { p: 1, s: 0, title: { ru: 'ООО «Пример»: отделочные материалы на квартал', en: 'Example LLC: finishing materials for the quarter', ky: '«Мисал» ЖЧК: чейрекке жасалга материалдары', tr: 'Örnek Ltd. Şti.: çeyreklik ince işçilik malzemeleri', zh: '“示例”有限责任公司：本季度装修材料' }, usd: 24000, owner: 'me', company: 'example', person: 0, source: 'Сайт', close: 25 },
-  { p: 1, s: 1, title: { ru: 'ИП Тестов: поставка сантехники', en: 'Test Sole Trader: plumbing supply', ky: 'Тестов ЖИ: сантехника жеткирүү', tr: 'Test Şahıs İşletmesi: tesisat malzemesi tedariki', zh: '测试个体工商户：卫浴供货' }, usd: 8600, owner: 'sales3', company: 'prospect', source: 'Звонок', close: 18 },
-  { p: 1, s: 2, title: { ru: 'ООО «Компания-Партнёр»: кабельная продукция', en: 'Partner Company LLC: cables', ky: '«Өнөктөш компания» ЖЧК: кабелдер', tr: 'Ortak Şirket Ltd. Şti.: kablolar', zh: '“合作伙伴”有限责任公司：电缆' }, usd: 15400, owner: 'sales1', company: 'partner', person: 2, source: 'Рекомендация', close: 9 },
-  { p: 1, s: 2, title: { ru: 'ООО «Пример»: инструмент для бригад', en: 'Example LLC: tools for the crews', ky: '«Мисал» ЖЧК: бригадалар үчүн шаймандар', tr: 'Örnek Ltd. Şti.: ekipler için aletler', zh: '“示例”有限责任公司：施工班组工具' }, usd: 6200, owner: 'me', company: 'example', person: 0, source: 'WhatsApp', close: 6 },
-  { p: 1, s: 3, title: { ru: 'АО «Образец»: годовой контракт на смеси', en: 'Sample JSC: annual dry-mix contract', ky: '«Үлгү» АК: аралашмаларга жылдык келишим', tr: 'Numune A.Ş.: yıllık kuru karışım sözleşmesi', zh: '“样本”股份公司：干混料年度合同' }, usd: 48000, owner: 'north', company: 'sample', person: 1, source: 'Выставка', close: 4 },
-  { p: 1, s: 3, title: { ru: 'ООО «Пример»: продление договора поставки', en: 'Example LLC: supply contract renewal', ky: '«Мисал» ЖЧК: жеткирүү келишимин узартуу', tr: 'Örnek Ltd. Şti.: tedarik sözleşmesinin yenilenmesi', zh: '“示例”有限责任公司：供货合同续签' }, usd: 31000, owner: 'sales3', company: 'example', person: 0, source: 'Звонок', close: 2 },
-  { p: 1, s: 4, title: { ru: 'ООО «Компания-Партнёр»: светильники для офиса', en: 'Partner Company LLC: office lighting', ky: '«Өнөктөш компания» ЖЧК: кеңсе үчүн шамчырактар', tr: 'Ortak Şirket Ltd. Şti.: ofis aydınlatması', zh: '“合作伙伴”有限责任公司：办公室照明' }, usd: 4300, owner: 'sales1', company: 'partner', person: 2, source: 'Сайт', close: -12 },
-  { p: 1, s: 5, title: { ru: 'ИП Тестов: двери и фурнитура', en: 'Test Sole Trader: doors and fittings', ky: 'Тестов ЖИ: эшиктер жана фурнитура', tr: 'Test Şahıs İşletmesi: kapılar ve aksesuarlar', zh: '测试个体工商户：门及五金件' }, usd: 5100, owner: 'sales3', company: 'prospect', source: 'Instagram', close: -6, lost: 'Дорого' },
-];
 
 const COMPANY_KEYS = ['example', 'sample', 'partner', 'prospect'];
 

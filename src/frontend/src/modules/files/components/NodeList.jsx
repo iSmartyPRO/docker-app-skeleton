@@ -1,7 +1,7 @@
 import { Checkbox, Dropdown, Tooltip } from 'antd';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatRelative } from '../../../lib/format';
-import { FileIcon } from '../../kb/components/Icons';
+import { FileIcon } from '../../../components/documents/Icons';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { UserAvatar } from '../../shared/People';
 import { formatBytes, nodeSource } from '../api';

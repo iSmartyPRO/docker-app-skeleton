@@ -5,8 +5,15 @@ import { readdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { APP_VERSION } from '../config/version.js';
-import { MODULE_CATALOG } from './catalog.js';
+import { BUILTIN_MODULE_IDS, MODULE_CATALOG } from './catalog.js';
 import { MODULE_MANIFEST, compareVersions, validateManifests } from './manifest.js';
+import { loadPackages, packagesRouter, recordBundled, registerPackages } from '../platform/packages/loader.js';
+import { activateModules, registerModule as registerInCore } from '../platform/registry.js';
+import { packageRoutes } from '../platform/packages/routes.js';
+import { modulesRegistered } from '../platform/packages/index.js';
+import { ensurePackageTables } from '../platform/packages/store.js';
+import { inlineMigrations, runMigrations } from '../platform/packages/migrations.js';
+import { withTransaction } from '../config/database.js';
 import { ensureDemoSchema } from '../services/demo.js';
 import files from './files/index.js';
 import kb from './kb/index.js';
@@ -56,6 +63,9 @@ import remote from './remote/index.js';
 // Org structure before everything: approvals resolve «руководитель подразделения» through it, Employees point at its units.
 // Directory after Employees and Drive: it adds a section to employee cards and reuses the File server's AD credentials.
 export const MODULES = [org, approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, masterplan, procurement, warehouse, dashboard, assistant, contracts, employees, directory, qr, remote];
+// Built-in modules are in the core registry from the start: one module's schema() or demo may look up another
+// (modules.loaded('files') from the knowledge base); register(ctx) runs later, in bootModules().
+for (const module of MODULES) registerInCore({ ...module, version: module.version || MODULE_MANIFEST[module.id]?.version });
 
 /*
  * Manifests are checked when the platform loads: an unknown id or a
@@ -63,11 +73,20 @@ export const MODULES = [org, approvals, files, kb, chat, tasks, calendar, drive,
  * run the same check). A module that needs a newer core only warns: it is
  * marked «incompatible» on the Modules page.
  */
-const MANIFEST_PROBLEMS = validateManifests(MODULE_MANIFEST, {
-  catalogIds: MODULE_CATALOG.map((module) => module.id),
-  coreIds: MODULE_CATALOG.filter((module) => module.core).map((module) => module.id),
+// Built-in modules are checked strictly. Installed packages (docs/module-packages.md) were
+// checked when they were installed; a problem found now (a required module removed by hand…)
+// is reported and the package is marked failed by the loader instead of stopping the start.
+const BUILTIN_SET = new Set(BUILTIN_MODULE_IDS);
+const BUILTIN_MANIFEST = Object.fromEntries(Object.entries(MODULE_MANIFEST).filter(([id]) => BUILTIN_SET.has(id)));
+const MANIFEST_PROBLEMS = validateManifests(BUILTIN_MANIFEST, {
+  catalogIds: BUILTIN_MODULE_IDS,
+  coreIds: MODULE_CATALOG.filter((module) => module.core && BUILTIN_SET.has(module.id)).map((module) => module.id),
 });
 if (MANIFEST_PROBLEMS.length) throw new Error(`Module manifests are invalid:\n- ${MANIFEST_PROBLEMS.join('\n- ')}`);
+for (const problem of validateManifests(MODULE_MANIFEST, { catalogIds: MODULE_CATALOG.map((module) => module.id) })) {
+  const id = problem.split(':', 1)[0];
+  if (!BUILTIN_SET.has(id)) console.warn(`Module package ${problem}`);
+}
 for (const [id, entry] of Object.entries(MODULE_MANIFEST)) {
   if (compareVersions(APP_VERSION, entry.minCore) < 0) console.warn(`Module ${id} ${entry.version} needs core ${entry.minCore}; running ${APP_VERSION}`);
 }
@@ -101,12 +120,45 @@ function enabledOnly(id) {
   };
 }
 
+/*
+ * Boot of the modules: built-in modules create their tables — schema() as
+ * before, or versioned `migrations` ([{ id: '001_init', up(db) }], run once
+ * each, platform/packages/migrations.js) — then installed packages load
+ * (platform/packages/loader.js), then every module's register(ctx) runs:
+ * built-in first, packages after. A package that fails is skipped and marked
+ * failed; the portal keeps running.
+ */
+let modulesBooted = null;
 export async function ensureModuleSchemas() {
+  await ensurePackageTables();
   for (const module of MODULES) {
-    await module.schema();
+    if (Array.isArray(module.migrations) && module.migrations.length) {
+      await runMigrations({ moduleId: module.id, version: MODULE_MANIFEST[module.id]?.version, migrations: inlineMigrations(module.migrations), transaction: withTransaction });
+    } else if (typeof module.schema === 'function') {
+      await module.schema();
+    }
   }
   await ensureDemoSchema();
   await loadModuleDemos();
+  // Once per process: the setup wizard and a delayed start may bootstrap again.
+  modulesBooted ||= bootModules().catch((err) => {
+    modulesBooted = null;
+    console.error(`Module packages were not loaded: ${err.message}`);
+  });
+  await modulesBooted;
+}
+
+async function bootModules() {
+  for (const module of MODULES) recordBundled(module, MODULE_MANIFEST[module.id]);
+  // Built-in modules join the core registry and run their register(ctx) (platform/registry.js).
+  activateModules(MODULES.map((module) => ({ ...module, version: module.version || MODULE_MANIFEST[module.id]?.version })));
+  try {
+    await loadPackages({ builtinIds: BUILTIN_MODULE_IDS, manifestEntries: MODULE_MANIFEST });
+    await registerPackages();
+  } finally {
+    // ctx.onHttpServer hooks (e.g. Remote's tunnel) run once the HTTP server is up too.
+    modulesRegistered();
+  }
 }
 
 /** Module routers as mounted, for the API reference (api/introspect.js). */
@@ -130,6 +182,9 @@ export function moduleRouter() {
     }
   });
 
+  // Module packages: /api/modules/installed (shell), /api/admin/modules/packages… (install, update, remove).
+  router.use(packageRoutes());
+
   for (const module of MODULES) {
     const routes = module.routes();
     MOUNTED.push({ prefix: `/app/${module.id}`, router: routes, module: module.id });
@@ -138,5 +193,7 @@ export function moduleRouter() {
       router.use(module.publicPrefix, enabledOnly(module.id), module.publicRoutes());
     }
   }
+  // Installed packages mount their routes here as they load (/app/<id>, their public prefix).
+  router.use(packagesRouter());
   return router;
 }

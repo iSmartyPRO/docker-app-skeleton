@@ -1,5 +1,5 @@
 import { query } from '../../config/database.js';
-import { lookup as procurementLookup } from '../procurement/lookups.js';
+import { pickerLookup } from '../../platform/pickers.js';
 import { whContext } from './access.js';
 import { httpError, q4 } from './logic.js';
 import { deliverableRequests } from './procurement.js';
@@ -7,14 +7,14 @@ import { listDocs } from './documents.js';
 import { myTools } from './tools.js';
 
 /*
- * Pickers for links to other modules — the same ones the Procurement form
- * uses (Counterparties, Masterplan projects and objects, CRM deals), each
+ * Pickers for links to other modules — the core pickers (platform/pickers.js)
+ * the Procurement form uses too (Counterparties, Masterplan projects and objects, CRM deals), each
  * answering only while its module is on and with that module's access
  * rules — plus approved purchase requests waiting for goods.
  */
 export async function lookup(req, kind, input = {}) {
   if (kind === 'requests') return deliverableRequests(req, input);
-  if (['companies', 'projects', 'objects', 'deals'].includes(kind)) return procurementLookup(req, kind, input);
+  if (['companies', 'projects', 'objects', 'deals'].includes(kind)) return pickerLookup(req, kind, input);
   throw httpError(404, 'Unknown lookup', 'NOT_FOUND');
 }
 

@@ -7,12 +7,12 @@ import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
 import { kbApi, privateSource } from '../api';
 import { useKb } from '../KbContext';
-import { formatSize } from '../fileTypes';
-import { FileIcon } from '../components/Icons';
+import { formatSize } from '../../../components/documents/fileTypes';
+import { FileIcon } from '../../../components/documents/Icons';
 import ItemDialog from '../components/ItemDialog';
 import AccessDialog from '../components/AccessDialog';
 import MoveDialog from '../components/MoveDialog';
-import DocumentViewer from '../viewers/DocumentViewer';
+import DocumentViewer from '../../../components/documents/viewers/DocumentViewer';
 import { useItemActions } from './useItemActions';
 
 /** A material opened full width: breadcrumbs, meta, actions and the viewer. */

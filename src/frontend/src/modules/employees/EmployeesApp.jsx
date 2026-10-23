@@ -10,7 +10,7 @@ import SideRail from '../shared/SideRail';
 import { EmpProvider, useEmp } from './EmpContext';
 import { empError } from './lib';
 import '../shared/module.css';
-import '../org/org.css';
+import '../org/public.css';
 import './employees.css';
 
 const RegistryPage = lazy(() => import('./pages/RegistryPage'));

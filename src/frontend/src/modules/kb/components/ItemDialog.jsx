@@ -7,12 +7,15 @@ import { htmlToMarkdown, markdownToHtml } from './articleHtml';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { kbApi } from '../api';
-import Markdown from '../viewers/Markdown';
+import Markdown from '../../../components/documents/viewers/Markdown';
 import { useSettings } from '../../../context/SettingsContext';
-import { FilePicker } from '../../files/components/dialogs';
-import { FileIcon } from './Icons';
-import { formatSize } from '../fileTypes';
+import { FileIcon } from '../../../components/documents/Icons';
+import { formatSize } from '../../../components/documents/fileTypes';
 import { Hint } from '../../../help/Hint';
+import { optionalComponent } from '../../../platform/optional';
+
+// Optional links (the module may be off or not installed): provided by its register.js.
+const FilePicker = optionalComponent('files', 'FilePicker');
 
 const IMAGE = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']);
 

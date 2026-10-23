@@ -25,16 +25,16 @@ import { formatDateTime, formatRelative } from '../../lib/format';
 import { UserAvatar } from '../shared/People';
 import { asViewerItem, formatBytes, linkApi, linkSource } from './api';
 import { markViewCounted, viewCounted } from '../../lib/linkVisit';
-import { canPickFolders, collectDrop, collectPicked } from './folderUpload';
+import { canPickFolders, collectDrop, collectPicked } from '../../components/filekit/folderUpload';
 import NodeList, { NodeIcon } from './components/NodeList';
 import ReadmeCard from '../../components/readme/ReadmeCard';
 import { pickReadme } from '../../lib/readme';
 import { nodeResolver } from './readmeLinks';
 import NodeViewer from './components/NodeViewer';
-import DocumentViewer from '../kb/viewers/DocumentViewer';
-import '../kb/kb.css';
+import DocumentViewer from '../../components/documents/viewers/DocumentViewer';
+import '../../components/documents/documents.css';
 import '../shared/module.css';
-import './files.css';
+import '../../components/filekit/filekit.css';
 import './publicLink.css';
 
 /*

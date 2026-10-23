@@ -1,5 +1,5 @@
 import api from '../../services/api';
-import { knownError } from '../org/errors';
+import { knownError } from '../org/public';
 
 export const STATUS_COLORS = { active: 'green', vacation: 'gold', terminated: 'default', candidate: 'purple' };
 export const CLEARANCE_COLORS = { expired: 'red', soon: 'orange', ok: 'green', none: 'default' };

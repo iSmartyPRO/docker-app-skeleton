@@ -6,7 +6,7 @@ import { errorMessage } from '../../../lib/errors';
 import { procApi } from '../api';
 import { useProc } from '../ProcContext';
 import SettingsForm from '../settings/SettingsForm';
-import LegalEntitiesEditor from '../settings/LegalEntitiesEditor';
+import LegalEntitiesEditor from '../../../components/legalEntities/LegalEntitiesEditor';
 
 /** /app/procurement/settings for procurement administrators (no console rights needed). */
 export default function SettingsPage() {

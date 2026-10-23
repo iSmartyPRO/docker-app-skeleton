@@ -4,6 +4,10 @@ import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import { activateAll } from './helpers/modules.js';
+
+// Modules reach each other through the core registry, as at server start (no-op without a database).
+await activateAll();
 
 /*
  * Permissions of public drive links, end to end through the public routes:

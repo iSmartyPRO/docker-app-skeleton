@@ -3,7 +3,7 @@ import { getSettings, parseSettings } from '../../services/settings.js';
 import { getUserAccess } from '../../services/rbac.js';
 import { hasPermission } from '../../services/permissions.js';
 import { clean, httpError, HEX, LEVEL, levelOn, requireLevel, withinLimits } from '../shared/acl.js';
-import { fromWall, toWall } from '../calendar/recurrence.js';
+import { fromWall, toWall } from '../shared/wallTime.js';
 import { isValidTimeZone, isoDay } from '../../services/datetime.js';
 import { regionalOfUser } from '../../services/regional.js';
 import { createTask, loadProject, loadTaskRow } from './service.js';

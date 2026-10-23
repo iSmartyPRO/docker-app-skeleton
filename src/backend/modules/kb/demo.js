@@ -2,8 +2,7 @@ import { registerDemo } from '../../services/demo.js';
 import { contextFromRequest } from './access.js';
 import { createFolder, createItem } from './service.js';
 import { removeDemoBlobs, sitePhoto, storeDemoBlob } from '../shared/demoAssets.js';
-import { ensureKbFolder } from '../files/kb.js';
-import { usageOf } from '../files/service.js';
+import { filesApi } from './filesLink.js';
 
 /*
  * Demo data of the Knowledge base (pattern: modules/tasks/demo.js): a folder
@@ -32,6 +31,7 @@ const escape = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&l
 /** The article picture as a node in the administrator's «Knowledge base» folder of Files; null when the quota is full. */
 async function storePicture(ctx) {
   const bytes = sitePhoto({ width: 640, height: 360, progress: 0.7, seed: 5 });
+  const { ensureKbFolder, usageOf } = filesApi();
   const usage = await usageOf(ctx.userId);
   if (usage.quota && usage.used + bytes.length > usage.quota) return null;
   const { rows: had } = await ctx.query(`SELECT 1 FROM fs_nodes WHERE owner_id = $1 AND space_id IS NULL AND parent_id IS NULL AND system_tag = 'kb' AND deleted_at IS NULL`, [ctx.userId]);

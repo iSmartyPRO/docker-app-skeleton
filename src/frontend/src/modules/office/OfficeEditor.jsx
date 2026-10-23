@@ -5,7 +5,7 @@ import { ArrowLeftOutlined, CheckOutlined, CloseOutlined, DownloadOutlined, Edit
 import { useLocale } from '../../context/LocaleContext';
 import { useThemeMode } from '../../context/ThemeContext';
 import { errorMessage } from '../../lib/errors';
-import { FileIcon } from '../kb/components/Icons';
+import { FileIcon } from '../../components/documents/Icons';
 import './office.css';
 import { localeTag } from '../../i18n/languages';
 

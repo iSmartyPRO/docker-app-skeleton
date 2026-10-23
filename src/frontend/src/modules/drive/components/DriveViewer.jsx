@@ -4,12 +4,12 @@ import Segmented from '../../../components/ui/Segmented';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { formatDateTime } from '../../../lib/format';
-import DocumentViewer, { ImageViewer } from '../../kb/viewers/DocumentViewer';
-import Markdown from '../../kb/viewers/Markdown';
+import DocumentViewer, { ImageViewer } from '../../../components/documents/viewers/DocumentViewer';
+import Markdown from '../../../components/documents/viewers/Markdown';
 import { CAD, EDITABLE, IMAGE, asViewerItem, copyText, driveApi, formatBytes } from '../api';
 import { EntryIcon } from './EntryList';
-import '../../kb/kb.css';
-import '../../files/files.css';
+import '../../../components/documents/documents.css';
+import '../../../components/filekit/filekit.css';
 import '../drive.css';
 
 const CadViewer = lazy(() => import('./CadViewer'));

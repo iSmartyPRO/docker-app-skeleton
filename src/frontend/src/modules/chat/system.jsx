@@ -1,7 +1,10 @@
+import { contributions } from '../../platform/extensions';
+
 /*
  * System events in conversations. A module registers how its events read:
  *
  *   registerSystemEvents('task.', (data, ctx) => ({ icon: '⏰', text: '…', tone: 'warn', actions: [...] }))
+ *   — other modules: contribute('chat.systemEvents', { id: 'task.', prefix: 'task.', render }) (platform/extensions.js)
  *
  * `ctx` has t, locale, actor (who did it) and navigate. Unknown events show a
  * neutral line instead of breaking the chat.
@@ -15,7 +18,8 @@ export function registerSystemEvents(prefix, render) {
 
 export function systemView(data, ctx) {
   const event = data?.event || '';
-  const entry = renderers.find((item) => event.startsWith(item.prefix));
+  // Chat's own events, then those other modules contribute (tasks, deals, contracts — platform/extensions.js).
+  const entry = renderers.find((item) => event.startsWith(item.prefix)) || contributions('chat.systemEvents').find((item) => event.startsWith(item.prefix));
   try {
     return entry ? entry.render(data, ctx) : null;
   } catch {

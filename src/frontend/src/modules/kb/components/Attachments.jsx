@@ -1,8 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useLocale } from '../../../context/LocaleContext';
-import { formatSize } from '../fileTypes';
-import { FileIcon } from './Icons';
-import NodeViewer from '../../files/components/NodeViewer';
+import { formatSize } from '../../../components/documents/fileTypes';
+import { FileIcon } from '../../../components/documents/Icons';
+import { optionalComponent } from '../../../platform/optional';
+
+// Optional links (the module may be off or not installed): provided by its register.js.
+const NodeViewer = optionalComponent('files', 'NodeViewer');
+
 
 /** Files of an article (embedded or attached), opened with the same viewers. */
 export default function Attachments({ item, src, conversion }) {

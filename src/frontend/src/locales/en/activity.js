@@ -3,6 +3,13 @@ export default {
   lead: 'Security incidents from the last 90 days. Counters cover the last 24 hours.',
   // Event details by code (backend recordSecurityEvent code/params); older rows show their stored English text.
   detail: {
+    module_installed: 'Module {module} {version} installed',
+    module_updated: 'Module {module} updated {from} → {version}',
+    module_removed: 'Module {module} {version} removed (data kept)',
+    module_failed: 'Module {module} {version} was not installed',
+    module_rejected: 'Module file rejected: {reason}',
+    module_data_removed: 'Data of module {module} deleted ({tables} tables) after a backup',
+    module_backup: 'Backup of module {module} made',
     rate_limit_signin: 'Sign-in rate limit exceeded',
     rate_limit_code_address: 'Sign-in code rate limit exceeded (address)',
     rate_limit_code: 'Sign-in code rate limit exceeded',

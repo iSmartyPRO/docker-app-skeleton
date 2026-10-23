@@ -112,4 +112,8 @@ export default {
   id: 'warehouse',
   schema: ensureWarehouseSchema,
   routes: privateRoutes,
+  register(ctx) {
+    // Dashboard widgets (they read the module's own API): below minimum, transfers waiting for me, tools on me.
+    for (const type of ['warehouseLow', 'warehouseIncoming', 'warehouseMyTools']) ctx.registerWidget({ type });
+  },
 };

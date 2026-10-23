@@ -7,19 +7,23 @@ import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { kbApi, privateSource } from '../api';
 import { atLeast, useKb } from '../KbContext';
-import { itemType } from '../fileTypes';
+import { itemType } from '../../../components/documents/fileTypes';
 import FolderContent from '../components/FolderContent';
-import { FolderIcon } from '../components/Icons';
+import { FolderIcon } from '../../../components/documents/Icons';
 import FolderDialog from '../components/FolderDialog';
 import ItemDialog from '../components/ItemDialog';
 import AccessDialog from '../components/AccessDialog';
 import ShareDialog from '../components/ShareDialog';
 import MoveDialog from '../components/MoveDialog';
 import UploadPanel from '../components/UploadPanel';
-import { ImageViewer } from '../viewers/DocumentViewer';
+import { ImageViewer } from '../../../components/documents/viewers/DocumentViewer';
 import { useItemActions } from './useItemActions';
 import { useSettings } from '../../../context/SettingsContext';
-import { FilePicker } from '../../files/components/dialogs';
+import { optionalComponent } from '../../../platform/optional';
+
+// Optional links (the module may be off or not installed): provided by its register.js.
+const FilePicker = optionalComponent('files', 'FilePicker');
+
 
 const VIEW_KEY = 'kb_view';
 

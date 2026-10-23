@@ -2,8 +2,7 @@ import { query } from '../../config/database.js';
 import { decide } from '../../api/scopes.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { contextFromRequest, httpError, LEVEL } from '../shared/acl.js';
-import { registerChatEntity } from '../chat/entities.js';
-import { importHistory, postSystem } from '../chat/service.js';
+import { modules } from '../../platform/registry.js';
 import { loadTaskRow, participantsOf, taskLevel, taskRef, taskWebhook } from './service.js';
 
 /*
@@ -30,7 +29,8 @@ async function moduleAccess(req) {
 }
 
 export function registerTaskChat() {
-  registerChatEntity('task', {
+  // Only while the Chat module is installed (it is an optional link).
+  modules.whenLoaded('chat', (chat) => chat.registerChatEntity('task', {
     async access(req, id) {
       const allowed = await moduleAccess(req);
       // Thrown, not null: the chat treats an error as "not now" and keeps the
@@ -76,15 +76,16 @@ export function registerTaskChat() {
           createdAt: row.created_at,
         })),
       ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      await importHistory(roomId, entries);
+      await chat.importHistory(roomId, entries);
     },
-  });
+  }));
 }
 
 /** An event in the task's conversation; never fails the change that caused it. */
 export async function taskEvent(taskId, actorId, data, notifyText) {
   try {
-    await postSystem('task', taskId, { actorId, data, notifyText });
+    const chat = modules.loaded('chat')?.api;
+    if (chat) await chat.postSystem('task', taskId, { actorId, data, notifyText });
   } catch (err) {
     console.warn(`[tasks] chat event for task ${taskId} failed:`, err.message);
   }
