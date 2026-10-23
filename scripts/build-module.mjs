@@ -178,6 +178,8 @@ async function inRepoSource(id) {
   const webDir = join(FRONT_SRC, 'modules', id);
   const registry = registryEntry(id);
   const plain = (value) => JSON.parse(JSON.stringify(value ?? null));
+  // The module's own settings.js (plain data, no imports): `defaults`, `publicSettings`, `defaultEnabled`.
+  const own = existsSync(join(backendDir, 'settings.js')) ? await import(pathToFileURL(join(backendDir, 'settings.js')).href) : {};
   const requires = (config.requires || base.requires || []).map((link) => {
     if (link.integration || link.version) return link;
     const other = MODULE_MANIFEST[link.id];
@@ -197,23 +199,29 @@ async function inRepoSource(id) {
     docs: config.docsInfo || base.docs || undefined,
     ...(config.nameForms ? { nameForms: config.nameForms } : {}),
     settings: {
-      defaultEnabled: Boolean(config.settings?.defaultEnabled ?? false),
-      defaults: plain(config.settings?.defaults ?? catalog.defaults ?? {}),
-      public: config.settings?.public || catalog.publicSettings || [],
+      defaultEnabled: Boolean(config.settings?.defaultEnabled ?? own.defaultEnabled ?? catalog.defaultEnabled ?? false),
+      defaults: plain(config.settings?.defaults ?? own.defaults ?? catalog.defaults ?? {}),
+      public: config.settings?.public || own.publicSettings || catalog.publicSettings || [],
     },
     tables: config.tables || [],
   };
   const webEntry = existsSync(webDir) ? firstFile(webDir, ['index.jsx', 'index.js']) : null;
+  const generated = webEntry ? null : { app: registry?.app ? resolveFront(registry.app) : null, settings: registry?.settings ? resolveFront(registry.settings) : null, register: firstFile(webDir, ['register.jsx', 'register.js']) };
   const web = existsSync(webDir) && config.web !== false
     ? {
         dir: webDir,
         entry: webEntry,
-        generated: webEntry ? null : { app: registry?.app ? resolveFront(registry.app) : null, settings: registry?.settings ? resolveFront(registry.settings) : null, register: firstFile(webDir, ['register.jsx', 'register.js']) },
+        generated,
         icon: config.icon || registry?.icon || 'apps',
         permission: config.webPermission || registry?.permission || null,
         page: registry ? registry.page : true,
+        // A Settings screen: an item in Settings → Modules (frontend platform/packages/loader.js).
+        settings: generated ? Boolean(generated.settings) : /\bSettings\s*:/.test(readFileSync(webEntry, 'utf8')),
       }
     : null;
+  // Namespaces only this module uses: src/frontend/src/modules/<id>/locales/<lang>/<ns>.js (not in the
+  // core dictionaries), or core files named <id>*.js (src/frontend/src/locales/<lang>/), or module.json `locales`.
+  const ownLocales = join(webDir, 'locales');
   const nsDefault = existsSync(join(FRONT_SRC, 'locales/en')) ? readdirSync(join(FRONT_SRC, 'locales/en')).filter((name) => name.startsWith(id) && name.endsWith('.js')).map((name) => name.slice(0, -3)) : [];
   return {
     kind: 'repo',
@@ -223,11 +231,17 @@ async function inRepoSource(id) {
     server: { dir: backendDir, entry: join(backendDir, 'index.js') },
     web,
     migrationsDir: join(backendDir, 'migrations'),
-    locales: { kind: 'repo', namespaces: config.locales || nsDefault, apps: config.appsTexts !== false },
+    locales: { kind: 'repo', dir: existsSync(ownLocales) ? ownLocales : null, namespaces: config.locales || (existsSync(ownLocales) ? [] : nsDefault), apps: config.appsTexts !== false, keys: config.localeKeys || {} },
     docs: (config.docFiles || (existsSync(join(ROOT, 'docs', `${id}.md`)) ? [`docs/${id}.md`] : [])).map((path) => join(ROOT, path)),
     versionFile: join(backendDir, 'module.json'),
     watched: [backendDir, webDir, ...(config.locales || nsDefault).flatMap((ns) => ['en', 'ru'].map((lang) => join(FRONT_SRC, 'locales', lang, `${ns}.js`)))].filter((path) => existsSync(path)),
   };
+}
+
+function externalWeb(webDir, config) {
+  const entry = firstFile(webDir, ['index.jsx', 'index.js']);
+  const settings = config.web?.settings ?? Boolean(entry && /\bSettings\s*:/.test(readFileSync(entry, 'utf8')));
+  return { dir: webDir, entry, icon: config.web?.icon || config.icon || 'apps', permission: config.web?.permission || null, page: config.web?.page !== false, settings };
 }
 
 function externalSource(dir) {
@@ -240,7 +254,7 @@ function externalSource(dir) {
     manifest: { ...config, settings: config.settings || {}, tables: config.tables || [] },
     config,
     server: existsSync(join(dir, 'server/index.js')) ? { dir: join(dir, 'server'), entry: join(dir, 'server/index.js') } : null,
-    web: existsSync(webDir) ? { dir: webDir, entry: firstFile(webDir, ['index.jsx', 'index.js']), icon: config.web?.icon || config.icon || 'apps', permission: config.web?.permission || null, page: config.web?.page !== false } : null,
+    web: existsSync(webDir) ? externalWeb(webDir, config) : null,
     migrationsDir: join(dir, 'migrations'),
     locales: { kind: 'external', dir: join(dir, 'locales') },
     docs: existsSync(join(dir, 'docs')) ? readdirSync(join(dir, 'docs')).map((name) => join(dir, 'docs', name)) : [],
@@ -366,7 +380,9 @@ async function buildWeb(source, outDir, tempDir, coreVersion, report) {
       target: 'es2022',
       reportCompressedSize: false,
       lib: { entry, formats: ['es'], fileName: () => 'index.js' },
-      rollupOptions: { output: { chunkFileNames: 'chunks/[name]-[hash].js', assetFileNames: 'assets/[name]-[hash][extname]' } },
+      // /sdk/… stay absolute URLs: rollup would otherwise rewrite the ones reached from a relative
+      // import (../../tour/engine) into ../../../sdk/… paths (and the name check below would miss them).
+      rollupOptions: { makeAbsoluteExternalsRelative: false, output: { chunkFileNames: 'chunks/[name]-[hash].js', assetFileNames: 'assets/[name]-[hash][extname]' } },
     },
   });
   // Every name a package imports from /sdk/… must exist in this core, or the browser refuses the module.
@@ -382,41 +398,81 @@ async function buildWeb(source, outDir, tempDir, coreVersion, report) {
     }
   }
   if (missing.length) throw new Error(`The browser part imports names the core does not share: ${[...new Set(missing)].join(', ')}`);
-  return readdirSync(outDir).filter((name) => name.endsWith('.css')).map((name) => `web/${name}`);
+  // Stylesheets: vite puts them under assets/ (assetFileNames), so look in sub-folders too.
+  return listFiles(outDir).map((file) => file.name).filter((name) => name.endsWith('.css')).map((name) => `web/${name}`);
 }
 
 // ── Locales, docs ───────────────────────────────────────────────────────────
 
 const dataModule = (value) => `export default ${JSON.stringify(value, null, 2)};\n`;
 
+/** Keys of a core namespace a module owns (module.json `localeKeys`: "a.b", "prefix_*"), as a partial tree. */
+function pickKeys(tree, patterns) {
+  const out = {};
+  const put = (path, value) => {
+    let node = out;
+    path.slice(0, -1).forEach((key) => (node = node[key] ||= {}));
+    node[path[path.length - 1]] = value;
+  };
+  for (const pattern of patterns) {
+    const path = pattern.split('.');
+    let node = tree;
+    for (const key of path.slice(0, -1)) node = node && typeof node === 'object' ? node[key] : undefined;
+    if (!node || typeof node !== 'object') continue;
+    const last = path[path.length - 1];
+    const names = last.endsWith('*') ? Object.keys(node).filter((key) => key.startsWith(last.slice(0, -1))) : last in node ? [last] : [];
+    for (const name of names) put([...path.slice(0, -1), name], node[name]);
+  }
+  return out;
+}
+
+async function readLocaleDir(dir, add) {
+  for (const lang of readdirSync(dir)) {
+    if (!/^[a-z]{2,3}$/.test(lang)) continue;
+    for (const file of readdirSync(join(dir, lang)).filter((name) => name.endsWith('.js'))) {
+      add(lang, file.slice(0, -3), (await import(pathToFileURL(join(dir, lang, file)).href)).default);
+    }
+  }
+}
+
 async function collectLocales(source, outDir) {
   const out = {};
-  const add = (lang, ns, text) => {
-    mkdirSync(join(outDir, lang), { recursive: true });
-    writeFileSync(join(outDir, lang, `${ns}.js`), text);
-    (out[lang] ||= []).push(ns);
+  const texts = {};
+  const merge = (target, tree) => {
+    for (const [key, value] of Object.entries(tree || {})) {
+      if (value && typeof value === 'object' && !Array.isArray(value)) merge((target[key] = target[key] && typeof target[key] === 'object' ? target[key] : {}), value);
+      else target[key] = value;
+    }
+    return target;
+  };
+  const add = (lang, ns, value) => {
+    if (!value || typeof value !== 'object' || !Object.keys(value).length) return;
+    merge(((texts[lang] ||= {})[ns] ||= {}), value);
   };
   if (source.locales.kind === 'external') {
-    if (!existsSync(source.locales.dir)) return out;
-    for (const lang of readdirSync(source.locales.dir)) {
-      if (!/^[a-z]{2,3}$/.test(lang)) continue;
-      for (const file of readdirSync(join(source.locales.dir, lang)).filter((name) => name.endsWith('.js'))) {
-        const value = (await import(pathToFileURL(join(source.locales.dir, lang, file)).href)).default;
-        add(lang, file.slice(0, -3), dataModule(value));
+    if (existsSync(source.locales.dir)) await readLocaleDir(source.locales.dir, add);
+  } else {
+    if (source.locales.dir) await readLocaleDir(source.locales.dir, add);
+    const localesDir = join(FRONT_SRC, 'locales');
+    const keys = { ...source.locales.keys };
+    if (source.locales.apps) keys.apps = [...new Set([...(keys.apps || []), source.id])];
+    for (const lang of readdirSync(localesDir).filter((name) => /^[a-z]{2,3}$/.test(name))) {
+      for (const ns of source.locales.namespaces) {
+        const file = join(localesDir, lang, `${ns}.js`);
+        if (existsSync(file)) add(lang, ns, (await import(pathToFileURL(file).href)).default);
+      }
+      // The module's keys in shared core namespaces (apps.<id>, settings.<id>, permissions…).
+      for (const [ns, patterns] of Object.entries(keys)) {
+        const file = join(localesDir, lang, `${ns}.js`);
+        if (existsSync(file)) add(lang, ns, pickKeys((await import(pathToFileURL(file).href)).default, patterns));
       }
     }
-    return out;
   }
-  const localesDir = join(FRONT_SRC, 'locales');
-  for (const lang of readdirSync(localesDir).filter((name) => /^[a-z]{2,3}$/.test(name))) {
-    for (const ns of source.locales.namespaces) {
-      const file = join(localesDir, lang, `${ns}.js`);
-      if (existsSync(file)) add(lang, ns, dataModule((await import(pathToFileURL(file).href)).default));
-    }
-    if (source.locales.apps) {
-      const file = join(localesDir, lang, 'apps.js');
-      const apps = existsSync(file) ? (await import(pathToFileURL(file).href)).default : {};
-      if (apps?.[source.id]) add(lang, 'apps', dataModule({ [source.id]: apps[source.id] }));
+  for (const [lang, namespaces] of Object.entries(texts)) {
+    mkdirSync(join(outDir, lang), { recursive: true });
+    for (const [ns, value] of Object.entries(namespaces).sort(([a], [b]) => a.localeCompare(b))) {
+      writeFileSync(join(outDir, lang, `${ns}.js`), dataModule(value));
+      (out[lang] ||= []).push(ns);
     }
   }
   return out;
@@ -495,7 +551,7 @@ export async function buildModule(id, args = {}) {
       core: source.manifest.core || coreVersion,
       changelog: changelog.slice(0, 5),
       server: source.server ? { entry: 'server/index.js' } : undefined,
-      web: existsSync(join(stage, 'web/index.js')) ? { entry: 'web/index.js', css, icon: source.web.icon, ...(source.web.permission ? { permission: source.web.permission } : {}), ...(source.web.page === false ? { page: false } : {}) } : undefined,
+      web: existsSync(join(stage, 'web/index.js')) ? { entry: 'web/index.js', css, icon: source.web.icon, ...(source.web.permission ? { permission: source.web.permission } : {}), ...(source.web.page === false ? { page: false } : {}), ...(source.web.settings ? { settings: true } : {}) } : undefined,
       locales,
       builtAt: new Date().toISOString(),
       sdk: SDK_VERSION,

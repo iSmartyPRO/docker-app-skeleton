@@ -111,6 +111,14 @@ export const MENU_SLOT_GROUPS = [
 
 export const MENU_SLOTS = MENU_SLOT_GROUPS.flatMap((group) => group.slots);
 
+/** A settings item added later (an installed module package, admin/navigation.js addPackageSettingsItem). */
+export function addMenuSlot(item) {
+  if (!item || MENU_SLOTS.some((slot) => slot.key === item.key)) return;
+  const slot = { key: item.key, labelKey: item.labelKey, defaultIcon: item.defaultIcon };
+  MENU_SLOT_GROUPS.find((group) => group.id === item.group)?.slots.push(slot);
+  MENU_SLOTS.push(slot);
+}
+
 // Icon choices saved by the first skeleton version used the old route keys.
 const LEGACY_SLOT_KEYS = Object.fromEntries(
   Object.entries(LEGACY_ADMIN_ROUTES).map(([from, to]) => [`/admin/${to}`, `/admin/${from}`])

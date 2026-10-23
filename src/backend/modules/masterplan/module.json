@@ -1,0 +1,61 @@
+{
+  "id": "masterplan",
+  "name": { "en": "Masterplan", "ru": "Мастерплан", "ky": "Мастерплан", "tr": "Master plan", "zh": "总体规划" },
+  "nameForms": { "ru": { "ins": "Мастерпланом" } },
+  "description": {
+    "en": "Site plan, chessboard and registry of units: sales statuses, bookings, prices and construction progress",
+    "ru": "Генплан, шахматка и реестр юнитов: статусы продаж, брони, цены и ход строительства",
+    "ky": "Башкы план, шахматка жана объекттер реестри: сатуу статустары, брондоолор, баалар жана курулуштун жүрүшү",
+    "tr": "Vaziyet planı, daire tablosu ve bağımsız bölüm kaydı: satış durumları, rezervasyonlar, fiyatlar ve inşaat ilerlemesi",
+    "zh": "总平面图、房源表和房源单元登记：销售状态、预订、价格和施工进度"
+  },
+  "version": "1.1.0",
+  "category": "construction",
+  "requires": [],
+  "enhances": [
+    { "id": "crm", "what": { "en": "Units linked to CRM deals", "ky": "Объекттер CRM бүтүмдөрү менен байланышкан", "tr": "Bağımsız bölümler CRM fırsatlarına bağlı", "zh": "房源单元关联 CRM 交易", "ru": "Юниты связаны со сделками CRM" } },
+    { "id": "companies", "what": { "en": "Buyers from the counterparties directory", "ky": "Сатып алуучулар контрагенттер маалымдамасынан", "tr": "Alıcılar cari hesaplar rehberinden", "zh": "买方来自往来单位名录", "ru": "Покупатели из справочника контрагентов" } }
+  ],
+  "permissions": [
+    "masterplan.admin",
+    "masterplan.executive",
+    "masterplan.sales_head",
+    "masterplan.sales",
+    "masterplan.finance",
+    "masterplan.legal",
+    "masterplan.construction_head",
+    "masterplan.foreman",
+    "masterplan.marketing"
+  ],
+  "tables": ["mp_%"],
+  "icon": "siteplan",
+  "docsInfo": { "user": "masterplan", "guide": "docs/masterplan.md" },
+  "localeKeys": {
+    "apps": ["masterplan"],
+    "settings": ["masterplan"],
+    "permissions": ["groups.module_masterplan", "masterplan_*"],
+    "notifyPrefs": ["groups.masterplan", "events.masterplan_*"],
+    "tour": ["masterplan"]
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-23",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); data and settings are kept."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); данные и настройки сохраняются."]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-16",
+      "changes": {
+        "en": ["Site plan, chessboard, bookings, pricing, construction progress."],
+        "ru": ["Генплан, шахматка, брони, цены, ход строительства."],
+        "ky": ["Башкы план, шахматка, брондоолор, баалар, курулуштун жүрүшү."],
+        "tr": ["Vaziyet planı, daire tablosu, rezervasyonlar, fiyatlandırma, inşaat ilerlemesi."],
+        "zh": ["总平面图、房源表、预订、定价、施工进度。"]
+      }
+    }
+  ]
+}

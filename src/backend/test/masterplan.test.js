@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MASTERPLAN_DEFAULTS, resolveModules, sanitizeMasterplan } from '../modules/catalog.js';
-import { PERMISSIONS } from '../services/permissions.js';
+import { readFileSync } from 'node:fs';
+import { MODULE_CATALOG, resolveModules } from '../modules/catalog.js';
+import { MASTERPLAN_DEFAULTS, sanitizeMasterplan } from '../modules/masterplan/settings.js';
+import { platformCatalogEntry } from '../platform/packages/manifestFile.js';
 import { NOTIFICATION_EVENTS } from '../services/notificationCatalog.js';
 import { DEFAULT_STAGES, DEFAULT_TYPES, ROLES, ROLE_CAPS, STATUSES } from '../modules/masterplan/constants.js';
 import {
@@ -37,11 +39,22 @@ const caps = (...roles) => capsOf(new Set(roles));
 const go = (from, to, roles, extra = {}) =>
   checkTransition({ unit: { status: from, managerId: extra.managerId ?? 7, dealId: extra.dealId ?? null }, to, caps: caps(...roles), userId: extra.userId ?? 7, input: extra.input || {}, opts: { crmEnabled: true, requireDeal: true, dealHasClient: true, ...(extra.opts || {}) } });
 
-test('catalog: masterplan is off by default, permissions are module roles, settings are sanitized', () => {
-  const fresh = resolveModules();
-  assert.equal(fresh.masterplan.enabled, false);
-  assert.equal(fresh.masterplan.settings.reserveHours, 48);
-  for (const role of ROLES) assert.ok(PERMISSIONS.includes(`masterplan.${role}`), role);
+test('package: masterplan is off by default, permissions are module roles, settings are sanitized', async () => {
+  // Not built into the core: its catalog entry comes from the package manifest (module.json + settings.js).
+  assert.ok(!MODULE_CATALOG.some((entry) => entry.id === 'masterplan'), 'not in the core catalog');
+  const settings = await import('../modules/masterplan/settings.js');
+  const config = JSON.parse(readFileSync(new URL('../modules/masterplan/module.json', import.meta.url), 'utf8'));
+  const entry = platformCatalogEntry({ id: 'masterplan', permissions: config.permissions, settings: { defaultEnabled: settings.defaultEnabled, defaults: settings.defaults, public: [] } });
+  MODULE_CATALOG.push({ ...entry, sanitize: settings.sanitizeSettings });
+  try {
+    const fresh = resolveModules();
+    assert.equal(fresh.masterplan.enabled, false);
+    assert.equal(fresh.masterplan.settings.reserveHours, 48);
+  } finally {
+    MODULE_CATALOG.pop();
+  }
+  for (const role of ROLES) assert.ok(config.permissions.includes(`masterplan.${role}`), role);
+  assert.equal(config.permissions.length, ROLES.length);
   const next = sanitizeMasterplan(MASTERPLAN_DEFAULTS, {
     currencies: ['usd', 'kgs', 'bad!', 'USD'],
     currency: 'EUR',

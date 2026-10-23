@@ -1,7 +1,10 @@
 import { lazy } from 'react';
 import { lazyPage } from '../../lib/lazyPage';
 import { MODULE_REGISTRY } from '../../modules/registry';
+import { MODULE_UI } from '../../modules/manifest';
 import { addTranslationSource } from '../../i18n/translations';
+import { addPackageSettingsItem } from '../../admin/navigation';
+import { addMenuSlot } from '../../components/icons/menuIcons';
 import { installShared } from './shared';
 
 /*
@@ -15,7 +18,10 @@ import { installShared } from './shared';
  *     register) is imported and register(ctx) runs (widgets and other
  *     extension points);
  *   - a page module joins MODULE_REGISTRY like a built-in one: /app/<id>,
- *     icon, apps.<id>.name — its App and Settings load only when opened.
+ *     icon, apps.<id>.name — its App and Settings load only when opened;
+ *   - a package with a Settings screen (manifest web.settings) gets its item
+ *     in Settings → Modules (admin/navigation.js), like a built-in module;
+ *   - a `tour` of web/index.js is the module's tour (MODULE_UI, «Tour» buttons).
  *
  * web/index.js contract:
  *   export default {
@@ -23,6 +29,7 @@ import { installShared } from './shared';
  *     App: () => import('./HelloApp.jsx'),        // the page at /app/<id> (optional)
  *     Settings: () => import('./HelloSettings.jsx'), // Settings → <module> (optional)
  *     register(ctx) {},                            // optional; ctx = { id, version, base }
+ *     tour: 'hello',                               // optional: its guided tour (registered by register())
  *   }
  *
  * A package that fails to load is left out (logged); the portal keeps working.
@@ -82,6 +89,20 @@ function translationsOf(pkg) {
   };
 }
 
+/** Settings → Modules → <package>: the item of the settings navigation (and its icon slot). */
+function addSettingsItem(pkg) {
+  if (!pkg.web?.settings) return;
+  // The package's own settings.<id> texts when it ships them, else its app name.
+  const ownTexts = Object.values(pkg.locales || {}).some((files) => files.some((url) => url.endsWith('/settings.js')));
+  const item = addPackageSettingsItem({
+    id: pkg.id,
+    icon: pkg.web.icon,
+    keywords: [pkg.id, ...Object.values(pkg.name || {})].join(' '),
+    ...(ownTexts ? {} : { labelKey: `apps.${pkg.id}.name`, descKey: `apps.${pkg.id}.desc` }),
+  });
+  addMenuSlot(item);
+}
+
 function addToRegistry(pkg) {
   if (!pkg.web || pkg.web.page === false || MODULE_REGISTRY.some((module) => module.id === pkg.id)) return;
   MODULE_REGISTRY.push({
@@ -122,12 +143,16 @@ export async function loadInstalledPackages({ timeoutMs = 3000 } = {}) {
     if (Object.keys(pkg.locales || {}).length) addTranslationSource(translationsOf(pkg));
     for (const url of pkg.web?.css || []) linkCss(url);
     addToRegistry(pkg);
+    addSettingsItem(pkg);
   }
   await withTimeout(
     Promise.allSettled(
       PACKAGES.filter((pkg) => pkg.web && pkg.enabled !== false).map((pkg) =>
         packageEntry(pkg)
-          .then((entry) => (typeof entry.register === 'function' ? entry.register({ id: pkg.id, version: pkg.version, base: `/modules/${pkg.id}/${pkg.version}/` }) : null))
+          .then((entry) => {
+            if (entry.tour) MODULE_UI[pkg.id] = { ...(MODULE_UI[pkg.id] || {}), tour: entry.tour };
+            return typeof entry.register === 'function' ? entry.register({ id: pkg.id, version: pkg.version, base: `/modules/${pkg.id}/${pkg.version}/` }) : null;
+          })
           .catch((err) => console.warn(`Module package ${pkg.id} did not load:`, err?.message || err))
       )
     ),

@@ -170,7 +170,8 @@ async function restoreNdjson(meta) {
 
 /**
  * Restores a backup made by backupModule: pg_dump backups drop and recreate the
- * tables (structure and data) and put module_migrations back as it was;
+ * tables (structure and data), drop the tables later migrations created and put
+ * module_migrations / module_tables back as they were;
  * NDJSON backups refill tables of the same structure.
  */
 export async function restoreBackup(meta) {
@@ -178,7 +179,14 @@ export async function restoreBackup(meta) {
   if (meta.format === 'pg_dump') {
     await run('pg_restore', ['--clean', '--if-exists', '--single-transaction', '--no-owner', '--no-privileges', '-d', String(config.postgres.database || ''), meta.file]);
     await withTransaction(async (client) => {
-      await client.query(`DELETE FROM module_migrations WHERE module_id = $1 AND NOT (migration_id = ANY($2))`, [meta.id, meta.migrations || []]);
+      const kept = meta.migrations || [];
+      // Tables created by migrations the backup did not have (the failed version's) go too: left behind,
+      // the next real update's CREATE TABLE of the same name would fail.
+      const { rows } = await client.query(`SELECT table_name FROM module_tables WHERE module_id = $1 AND migration_id IS NOT NULL AND NOT (migration_id = ANY($2))`, [meta.id, kept]);
+      const extra = rows.map((row) => row.table_name).filter((table) => !(meta.tables || []).includes(table) && SAFE_TABLE.test(table));
+      if (extra.length) await client.query(`DROP TABLE IF EXISTS ${extra.map(quoteIdent).join(', ')}`);
+      await client.query(`DELETE FROM module_tables WHERE module_id = $1 AND migration_id IS NOT NULL AND NOT (migration_id = ANY($2))`, [meta.id, kept]);
+      await client.query(`DELETE FROM module_migrations WHERE module_id = $1 AND NOT (migration_id = ANY($2))`, [meta.id, kept]);
     });
     return;
   }

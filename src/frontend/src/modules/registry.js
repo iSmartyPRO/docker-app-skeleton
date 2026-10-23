@@ -10,7 +10,9 @@ import { lazyPage } from '../lib/lazyPage';
  * A module without the file simply adds nothing; the shell never imports
  * module files itself. This file is the composition root.
  */
-import.meta.glob('./*/register.js', { eager: true });
+// Folders of modules distributed as packages (their web/index.js is loaded by
+// platform/packages/loader.js when installed) are left out: masterplan.
+import.meta.glob(['./*/register.js', '!./masterplan/register.js'], { eager: true });
 
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
@@ -105,15 +107,6 @@ export const MODULE_REGISTRY = [
     descKey: 'apps.crm.desc',
     App: lazyPage(() => import('./crm/CrmApp')),
     Settings: lazy(() => import('./crm/CrmSettings')),
-  },
-  {
-    id: 'masterplan',
-    path: '/app/masterplan',
-    icon: 'siteplan',
-    labelKey: 'apps.masterplan.name',
-    descKey: 'apps.masterplan.desc',
-    App: lazyPage(() => import('./masterplan/MasterplanApp')),
-    Settings: lazy(() => import('./masterplan/MasterplanSettings')),
   },
   {
     id: 'procurement',

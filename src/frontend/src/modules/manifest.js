@@ -19,7 +19,8 @@ import { activeLocale } from '../i18n/translations';
  *     help                 help/content/<lang>/<id>.js exists → the user guide /help/<id>
  *     icon, labelKey, descKey, Settings, path  ← modules/registry.js
  *
- * Tours (workstream «tours»): set `tour` of a module to anything the tour
+ * A module package sets its tour in its web/index.js (`tour: 'id'`); the
+ * package loader adds it here. Tours (workstream «tours»): set `tour` of a module to anything the tour
  * runner understands — a tour id string, a tour object, or a loader
  * `() => import('../tours/tasks')`. The runner is installed once with
  * setTourRunner(fn); fn(tour, { moduleId }) starts it. The «Tour» buttons
@@ -43,7 +44,6 @@ export const MODULE_UI = {
   crm: { tour: 'crm' }, // registered in modules/<id>/register.js
   procurement: { tour: 'procurement' }, // registered in modules/<id>/register.js
   warehouse: { tour: 'warehouse' }, // registered in modules/<id>/register.js
-  masterplan: { tour: 'masterplan' }, // registered in modules/<id>/register.js
   drive: { tour: null },
   // Tours registered in each module's register.js.
   org: { tour: 'org' },

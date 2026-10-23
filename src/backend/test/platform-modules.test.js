@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import '../test-fixtures/test-env.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,7 +27,9 @@ test('real dependencies: business documents need Approvals, links are optional',
   const enhances = (id) => MODULE_MANIFEST[id].enhances.map((link) => link.id || link.integration);
   for (const id of ['companies', 'masterplan', 'crm', 'contracts']) assert.ok(enhances('procurement').includes(id), `procurement → ${id}`);
   assert.ok(enhances('warehouse').includes('procurement') && enhances('warehouse').includes('masterplan'));
-  assert.ok(enhances('masterplan').includes('crm'));
+  // Masterplan is a package: its manifest is module.json.
+  const masterplan = JSON.parse(readFileSync(new URL('../modules/masterplan/module.json', import.meta.url), 'utf8'));
+  assert.ok(masterplan.enhances.some((link) => link.id === 'crm'));
   assert.ok(enhances('crm').includes('companies'));
   assert.ok(enhances('drive').includes('activeDirectory'));
   assert.ok(enhances('dashboard').length >= 8);

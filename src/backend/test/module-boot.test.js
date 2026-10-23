@@ -120,6 +120,19 @@ test('boot: everything', () => {
   }
 });
 
+// Modules distributed as packages (source still in the tree): the core boots without them (above),
+// and each loads on top of the core alone, reaching other modules only through the registry.
+const { PACKAGE_MODULE_IDS } = await import('../modules/manifest.js');
+for (const id of PACKAGE_MODULE_IDS) {
+  test(`boot: the core and the package ${id} alone`, () => {
+    assert.ok(!MODULE_CATALOG.some((module) => module.id === id), `${id} is not built into the core`);
+    const report = check([...CORE, id]);
+    const extra = report.folders.filter((folder) => ![...CORE, id, 'shared'].includes(folder));
+    assert.deepEqual(extra, [], `${id} imported files of ${extra.join(', ')}`);
+    if (id === 'masterplan') assert.equal(report.objects, 'present');
+  });
+}
+
 test('activation: a register() that throws, rejects or leaves a failing ctx helper never escapes; activateModules waits', async () => {
   const { activateModules, modules } = await import('../platform/registry.js');
   const seen = [];

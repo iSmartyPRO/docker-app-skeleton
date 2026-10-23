@@ -575,3 +575,38 @@ test('build-module: the hello fixture builds into a valid signed package', { tim
     rmSync(keyDir, { recursive: true, force: true });
   }
 });
+
+test('build-module: Masterplan (a converted module of the tree) builds into a package', { timeout: 300_000 }, async () => {
+  const out = temp();
+  try {
+    const { buildModule } = await import(pathToFileURL(resolve(here, '../../../scripts/build-module.mjs')).href);
+    const result = await buildModule('masterplan', { keep: true, unsigned: true, out, 'no-web': process.env.MODULE_BUILD_WEB !== '1', 'no-write': true });
+    const opened = openPackage(readFileSync(result.file), { allowUnsigned: true });
+    const m = opened.manifest;
+    assert.equal(m.id, 'masterplan');
+    assert.equal(m.category, 'construction');
+    assert.deepEqual(m.tables, ['mp_%']);
+    assert.ok(m.permissions.includes('masterplan.sales_head') && m.permissions.length === 9);
+    assert.ok(m.enhances.some((link) => link.id === 'crm'));
+    // Settings defaults come from modules/masterplan/settings.js; the module starts switched off.
+    assert.equal(m.settings.defaultEnabled, false);
+    assert.equal(m.settings.defaults.reserveHours, 48);
+    // Its own namespaces (modules/masterplan/locales) and its keys in shared core namespaces.
+    for (const ns of ['mp', 'mpSettings', 'apps', 'settings', 'permissions', 'notifyPrefs', 'tour']) assert.ok(m.locales.ru.includes(ns), ns);
+    const permissions = opened.files.find((item) => item.name === 'locales/en/permissions.js').data.toString();
+    assert.match(permissions, /masterplan_sales_head/);
+    assert.doesNotMatch(permissions, /crm_admin/, 'only the module\'s keys');
+    const server = opened.files.find((item) => item.name === 'server/index.js').data.toString();
+    assert.match(server, /@portal\/sdk\/core\/config\/database\.js/);
+    assert.match(server, /001_init/);
+    if (process.env.MODULE_BUILD_WEB === '1') {
+      assert.equal(m.web.settings, true);
+      assert.ok(m.web.css.length > 0, 'the stylesheet under web/assets is listed');
+      for (const file of opened.files.filter((item) => item.name.startsWith('web/') && item.name.endsWith('.js'))) {
+        assert.doesNotMatch(file.data.toString(), /from\s*"(\.\.\/)+sdk\//, `${file.name}: /sdk imports stay absolute`);
+      }
+    }
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+});

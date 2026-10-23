@@ -177,3 +177,19 @@ test('database: late reports do not lower progress, a report is reviewed once', 
   assert.equal(results.find((r) => r.status === 'rejected').reason.code, 'ALREADY_PUBLISHED');
   assert.equal(await percent(), 80);
 });
+
+test('package: migration 001 adopts an existing schema and changes nothing the second time', { skip }, async () => {
+  db ||= await import('../config/database.js');
+  const { createMasterplanSchema, ensureMasterplanSchema } = await import('../modules/masterplan/schema.js');
+  await ensureMasterplanSchema();
+  const snapshot = async () => ({
+    tables: (await db.query(`SELECT tablename FROM pg_tables WHERE schemaname = current_schema() AND tablename LIKE 'mp\\_%' ORDER BY 1`)).rows.map((row) => row.tablename),
+    columns: Number((await db.query(`SELECT COUNT(*)::int AS n FROM information_schema.columns WHERE table_schema = current_schema() AND table_name LIKE 'mp\\_%'`)).rows[0].n),
+    directories: (await db.query(`SELECT (SELECT COUNT(*) FROM mp_types)::int AS types, (SELECT COUNT(*) FROM mp_stages)::int AS stages`)).rows[0],
+  });
+  const before = await snapshot();
+  // As the package installer runs it: inside one transaction, through the migration's db.
+  await db.withTransaction((client) => createMasterplanSchema({ query: (text, params) => client.query(text, params) }));
+  assert.deepEqual(await snapshot(), before);
+  assert.ok(before.tables.includes('mp_units') && before.directories.types > 0);
+});

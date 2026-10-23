@@ -1,5 +1,5 @@
-import { query, withTransaction } from '../../config/database.js';
-import { getSetting, localeFor, setSetting } from '../../services/settings.js';
+import { withTransaction } from '../../config/database.js';
+import { localeFor } from '../../services/settings.js';
 import { pick } from '../../services/i18n/index.js';
 import { registerJob } from '../../services/scheduler.js';
 import { DEFAULT_STAGES, DEFAULT_TYPES } from './constants.js';
@@ -31,7 +31,15 @@ import { ensureBuildingSchema } from './buildings.js';
  *   mp_events         history of everything (audit trail)
  */
 
-export async function ensureMasterplanSchema() {
+/**
+ * Migration 001 (index.js `migrations`, docs/module-packages.md «Migrations»):
+ * the whole schema with CREATE … IF NOT EXISTS / ADD COLUMN IF NOT EXISTS, so
+ * it adopts the tables of a portal where Masterplan was built into the core.
+ * Everything goes through `db` (the migration's transaction): no other
+ * connection may touch mp_* tables while it runs.
+ */
+export async function createMasterplanSchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS mp_projects (
       id SERIAL PRIMARY KEY,
@@ -338,10 +346,23 @@ export async function ensureMasterplanSchema() {
   await query(`CREATE INDEX IF NOT EXISTS mp_events_node_idx ON mp_events (node_id, id DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS mp_events_project_idx ON mp_events (project_id, id DESC)`);
 
-  await ensurePricingSchema();
-  await ensureBuildingSchema();
-  await ensureReportSchema();
-  await seedDirectories();
+  await ensurePricingSchema(db);
+  await ensureBuildingSchema(db);
+  await ensureReportSchema(db);
+  await seedDirectories(db);
+}
+
+/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+export async function ensureMasterplanSchema() {
+  await withTransaction(async (client) => {
+    // The lock the package migrations take (platform/packages/migrations.js): one at a time.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:masterplan'))`);
+    await createMasterplanSchema({ query: (text, params) => client.query(text, params) });
+  });
+}
+
+/** Background jobs and CRM hooks (register(ctx); no database access). */
+export function startMasterplan() {
   registerJob({ name: 'masterplan:bookings', everyMs: 60 * 1000, run: runBookingTimers });
   registerJob({
     name: 'masterplan:daily',
@@ -354,29 +375,34 @@ export async function ensureMasterplanSchema() {
   registerCrmHooks();
 }
 
+const readFlag = async (db, key) => (await db.query('SELECT value FROM app_settings WHERE key = $1', [key])).rows[0]?.value ?? null;
+const writeFlag = (db, key, value) =>
+  db.query(`INSERT INTO app_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`, [key, String(value)]);
+
 /**
  * Object types (§4.3) and construction stages (§7.1), once, named in the portal language (then
  * they are the portal's own data, renamed in the settings). Directories only — never project data.
+ * Part of migration 001, so it runs once per install of the module.
  */
-async function seedDirectories() {
-  if ((await getSetting('masterplan_seeded')) === 'true') return;
+async function seedDirectories(client) {
+  // The flag survives «Удалить данные» of the package (app_settings is the core's): empty directories are seeded again.
+  const seeded = (await readFlag(client, 'masterplan_seeded')) === 'true';
+  if (seeded && (await client.query(`SELECT 1 FROM mp_types LIMIT 1`)).rows.length) return;
   const locale = await localeFor(null);
-  await withTransaction(async (client) => {
-    for (const [index, type] of DEFAULT_TYPES.entries()) {
-      await client.query(
-        `INSERT INTO mp_types (key, name, category, node_kind, sellable, stage_set, icon, color, sort)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (key) WHERE key IS NOT NULL DO NOTHING`,
-        [type.key, pick(type.name, locale), type.category, type.nodeKind, type.sellable, type.stageSet, type.icon, type.color, index]
-      );
-    }
-    const existing = await client.query(`SELECT 1 FROM mp_stages LIMIT 1`);
-    if (!existing.rows.length) {
-      for (const [set, stages] of Object.entries(DEFAULT_STAGES)) {
-        for (const [index, [name, weight]] of stages.entries()) {
-          await client.query(`INSERT INTO mp_stages (set_key, name, weight, sort) VALUES ($1, $2, $3, $4)`, [set, pick(name, locale), weight, index]);
-        }
+  for (const [index, type] of DEFAULT_TYPES.entries()) {
+    await client.query(
+      `INSERT INTO mp_types (key, name, category, node_kind, sellable, stage_set, icon, color, sort)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (key) WHERE key IS NOT NULL DO NOTHING`,
+      [type.key, pick(type.name, locale), type.category, type.nodeKind, type.sellable, type.stageSet, type.icon, type.color, index]
+    );
+  }
+  const existing = await client.query(`SELECT 1 FROM mp_stages LIMIT 1`);
+  if (!existing.rows.length) {
+    for (const [set, stages] of Object.entries(DEFAULT_STAGES)) {
+      for (const [index, [name, weight]] of stages.entries()) {
+        await client.query(`INSERT INTO mp_stages (set_key, name, weight, sort) VALUES ($1, $2, $3, $4)`, [set, pick(name, locale), weight, index]);
       }
     }
-  });
-  await setSetting('masterplan_seeded', 'true');
+  }
+  await writeFlag(client, 'masterplan_seeded', 'true');
 }

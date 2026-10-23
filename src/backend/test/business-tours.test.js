@@ -72,5 +72,10 @@ test('business tours: each module registers its tour in its register.js, which t
     const entry = readFileSync(join(SRC, `modules/${id}/register.js`), 'utf8');
     assert.ok(entry.includes("from './tour'") && entry.includes('registerTour('), id);
   }
-  assert.ok(readFileSync(join(SRC, 'modules/registry.js'), 'utf8').includes("import.meta.glob('./*/register.js', { eager: true })"));
+  const registry = readFileSync(join(SRC, 'modules/registry.js'), 'utf8');
+  assert.match(registry, /import\.meta\.glob\(\[?'\.\/\*\/register\.js'/);
+  // A module distributed as a package is left out of the core glob: its web/index.js imports register.js.
+  for (const id of MODULES.filter((item) => registry.includes(`'!./${item}/register.js'`))) {
+    assert.match(readFileSync(join(SRC, `modules/${id}/index.js`), 'utf8'), /import '\.\/register'/, id);
+  }
 });

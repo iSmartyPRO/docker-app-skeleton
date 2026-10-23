@@ -7,6 +7,7 @@ export default {
     module_updated: 'Module {module} updated {from} → {version}',
     module_removed: 'Module {module} {version} removed (data kept)',
     module_failed: 'Module {module} {version} was not installed',
+    module_rolled_back: 'Module {module} {version} did not start and was rolled back to {from}',
     module_rejected: 'Module file rejected: {reason}',
     module_data_removed: 'Data of module {module} deleted ({tables} tables) after a backup',
     module_backup: 'Backup of module {module} made',

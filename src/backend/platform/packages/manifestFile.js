@@ -12,7 +12,7 @@ import { isVersion } from './version.js';
  *   description {..}, changelog [{ version, date, changes {en:[..], ru:[..]} }],
  *   docs { user, guide }, nameForms { ru: { ins } } (declined name for messages),
  *   settings { defaultEnabled, defaults {..}, public [..] }, tables ["mp_units", "mp_%"],
- *   server { entry }, web { entry, css [..], icon, permission [..] },
+ *   server { entry }, web { entry, css [..], icon, permission [..], page, settings (has a Settings screen) },
  *   locales { <lang>: [<namespace>, …] }, builtAt, sdk (SDK version it was built against).
  *
  * normalizeManifest() checks the file and fills defaults; the result also
@@ -113,7 +113,7 @@ export function normalizeManifest(raw, { categories = null, integrations = null 
     for (const file of css) if (!safePath(file) || !file.startsWith('web/')) problems.push(`web.css "${file}" must be a file under web/`);
     if (w.icon != null && (typeof w.icon !== 'string' || !ICON.test(w.icon))) problems.push(`web.icon "${w.icon}" is not an icon name`);
     const permission = Array.isArray(w.permission) ? w.permission.filter((item) => typeof item === 'string') : typeof w.permission === 'string' ? [w.permission] : [];
-    web = { entry, css, icon: w.icon || 'apps', ...(permission.length ? { permission } : {}), ...(w.page === false ? { page: false } : {}) };
+    web = { entry, css, icon: w.icon || 'apps', ...(permission.length ? { permission } : {}), ...(w.page === false ? { page: false } : {}), ...(w.settings === true ? { settings: true } : {}) };
   }
   const locales = {};
   if (isObject(raw.locales)) {

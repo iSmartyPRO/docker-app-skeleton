@@ -223,12 +223,12 @@ async function reportTargets(client, projectId, nodeIds) {
 }
 
 /** Columns added after the first release of the journal (idempotent). */
-export async function ensureReportSchema() {
+export async function ensureReportSchema(db = { query }) {
   // What a report changed: the stage percent before it, and when it was applied (the order of application).
-  await query(`ALTER TABLE mp_report_nodes ADD COLUMN IF NOT EXISTS prev_percent NUMERIC(5,1)`);
-  await query(`ALTER TABLE mp_report_nodes ADD COLUMN IF NOT EXISTS applied_at TIMESTAMPTZ`);
-  await query(`ALTER TABLE mp_reports ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ`);
-  await query(`ALTER TABLE mp_reports ADD COLUMN IF NOT EXISTS edited_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+  await db.query(`ALTER TABLE mp_report_nodes ADD COLUMN IF NOT EXISTS prev_percent NUMERIC(5,1)`);
+  await db.query(`ALTER TABLE mp_report_nodes ADD COLUMN IF NOT EXISTS applied_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE mp_reports ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE mp_reports ADD COLUMN IF NOT EXISTS edited_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);
 }
 
 async function stagePercent(client, nodeId, stageId) {

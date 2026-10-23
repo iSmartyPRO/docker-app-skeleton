@@ -5,6 +5,7 @@ import { Router } from 'express';
 import { query, withTransaction } from '../../config/database.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { getSettingsView } from '../../services/settings.js';
+import { recordSecurityEvent } from '../../services/security.js';
 import { MODULE_CATALOG } from '../../modules/catalog.js';
 import { BUILTIN_MANIFEST_IDS } from '../../modules/manifest.js';
 import { installSdkResolver } from '../sdkLoader.mjs';
@@ -201,6 +202,8 @@ async function rollbackAfterFailedUpdate(pkg, row, error) {
   writePointer(pkg.id, 'previous', null);
   await saveModuleRow({ id: pkg.id, version: previous, state: 'failed', pending_check: false, previous_version: null, error: `Version ${pkg.version} did not start (${error.message}); rolled back to ${previous}; tables: ${restored}` });
   console.error(`Module ${pkg.id} ${pkg.version} failed after update; rolled back to ${previous}`);
+  // The row's error is cleared by the next good boot: the journal (Settings → Activity) keeps why.
+  await recordSecurityEvent({ kind: 'module_package', severity: 'warning', username: 'system', detail: `${pkg.id} ${pkg.version} did not start, rolled back to ${previous} (tables: ${restored}): ${error.message}`.slice(0, 200), code: 'module_rolled_back', params: { module: pkg.id, version: pkg.version, from: previous } }).catch(() => {});
   requestRestart(`rollback of ${pkg.id} to ${previous}`);
   return true;
 }
@@ -226,6 +229,13 @@ async function doLoad(builtinIds, manifestEntries) {
   }
   const { problems } = scanDisk();
   const packages = requirementOrder(activePackages(builtinIds));
+  // A module that was built into an older core and is now a package (masterplan): until its package
+  // is installed it is «removed» — code gone, tables and settings kept (docs/module-packages.md).
+  for (const row of await listModuleRows()) {
+    if (row.source !== 'bundled' || builtinIds.includes(row.id) || packages.some((pkg) => pkg.id === row.id)) continue;
+    await saveModuleRow({ id: row.id, version: row.version, state: 'removed', source: 'package', error: null, pending_check: false });
+    console.warn(`Module ${row.id} is no longer built into the core: install its package to use it again (its data is kept)`);
+  }
   for (const [id, message] of problems) {
     if (packages.some((pkg) => pkg.id === id)) continue;
     const version = readPointer(id) || (await getModuleRow(id))?.version || '0.0.0';
@@ -269,6 +279,8 @@ export async function packageStates() {
   const modules = (await getSettingsView()).modules;
   return rows.map((row) => ({
     id: row.id,
+    // The name from the last installed manifest (a removed package's card has nothing else).
+    name: row.manifest?.name || null,
     version: row.version,
     source: row.source,
     state: row.state === 'installed' ? (modules[row.id]?.enabled ? 'enabled' : 'disabled') : row.state,
@@ -299,7 +311,7 @@ export async function shellPackages() {
       name: manifest.name,
       category: manifest.category,
       enabled: Boolean(modules[record.id]?.enabled),
-      web: manifest.web ? { entry: base + manifest.web.entry, css: (manifest.web.css || []).map((file) => base + file), icon: manifest.web.icon, permission: manifest.web.permission || null, page: manifest.web.page !== false } : null,
+      web: manifest.web ? { entry: base + manifest.web.entry, css: (manifest.web.css || []).map((file) => base + file), icon: manifest.web.icon, permission: manifest.web.permission || null, page: manifest.web.page !== false, settings: Boolean(manifest.web.settings) } : null,
       locales: Object.fromEntries(Object.entries(manifest.locales || {}).map(([lang, names]) => [lang, names.map((ns) => `${base}locales/${lang}/${ns}.js`)])),
     });
   }

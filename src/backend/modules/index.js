@@ -23,7 +23,6 @@ import drive from './drive/index.js';
 import resources from './resources/index.js';
 import companies from './companies/index.js';
 import crm from './crm/index.js';
-import masterplan from './masterplan/index.js';
 import dashboard from './dashboard/index.js';
 import chat from './chat/index.js';
 import assistant from './assistant/index.js';
@@ -56,13 +55,13 @@ import remote from './remote/index.js';
 // Files first: the knowledge base keeps its files there.
 // Chat before tasks: task conversations are entity rooms of the chat module.
 // CRM after companies and chat: deals point at companies and people, and have conversations.
-// Masterplan after CRM: units point at CRM deals and Counterparties.
-// Procurement after the modules it links to (Counterparties, CRM, Masterplan, Files, Chat).
-// Warehouse after Procurement and Masterplan (receipts from purchase requests, issues to objects).
+// Masterplan is a module package (docs/module-packages.md): it loads after every built-in module.
+// Procurement after the modules it links to (Counterparties, CRM, Files, Chat).
+// Warehouse after Procurement (receipts from purchase requests).
 // Approvals first: modules register their document types against it at import time and its tables must exist for theirs.
 // Org structure before everything: approvals resolve «руководитель подразделения» through it, Employees point at its units.
 // Directory after Employees and Drive: it adds a section to employee cards and reuses the File server's AD credentials.
-export const MODULES = [org, approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, masterplan, procurement, warehouse, dashboard, assistant, contracts, employees, directory, qr, remote];
+export const MODULES = [org, approvals, files, kb, chat, tasks, calendar, drive, resources, companies, crm, procurement, warehouse, dashboard, assistant, contracts, employees, directory, qr, remote];
 // Built-in modules are in the core registry from the start: one module's schema() or demo may look up another
 // (modules.loaded('files') from the knowledge base); register(ctx) runs later, in bootModules().
 for (const module of MODULES) registerInCore({ ...module, version: module.version || MODULE_MANIFEST[module.id]?.version });
@@ -93,11 +92,16 @@ for (const [id, entry] of Object.entries(MODULE_MANIFEST)) {
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-/** Imports every modules/<id>/demo.js (each calls registerDemo). */
+/**
+ * Imports modules/<id>/demo.js of every built-in module (each calls registerDemo).
+ * Folders of modules that are not built in (a package's source kept in the tree,
+ * like masterplan) are skipped: a package registers its demo from its own code.
+ */
 export async function loadModuleDemos() {
+  const builtin = new Set(MODULES.map((module) => module.id));
   for (const entry of readdirSync(here, { withFileTypes: true })) {
     const file = join(here, entry.name, 'demo.js');
-    if (entry.isDirectory() && existsSync(file)) await import(pathToFileURL(file).href);
+    if (entry.isDirectory() && builtin.has(entry.name) && existsSync(file)) await import(pathToFileURL(file).href);
   }
 }
 

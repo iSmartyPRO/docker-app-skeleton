@@ -649,9 +649,10 @@ In the UI use `useModuleSwitch(save)` (`modules/platformUi.jsx`): it turns the 4
 
 ## Module versions
 
-Each module has its own semver `version`, independent of the core `VERSION`. All modules ship in the
+Each module has its own semver `version`, independent of the core `VERSION`. Built-in modules ship in the
 core image, so the UI notes «updated with core vX» next to the number; `minCore` prepares separate
-module updates later.
+module updates later. Modules distributed as packages (Masterplan; `PACKAGE_MODULE_IDS` in
+`modules/manifest.js`) keep their version in `module.json` and are released with `make module`.
 
 | Bump | When |
 |---|---|
@@ -666,7 +667,7 @@ The System page shows version, minCore, state and the newest changelog line of e
 Modules can also ship as signed zip packages installed from Settings → Modules (own versions,
 migrations, install / update / remove without rebuilding the portal): see
 [module-packages.md](module-packages.md) for the package format, `make module ID=<id>`, the
-`@portal/sdk` surface and how to convert a built-in module.
+`@portal/sdk` surface and the checklist for converting a built-in module (done for Masterplan).
 
 ## Demo data
 

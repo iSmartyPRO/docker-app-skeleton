@@ -22,12 +22,27 @@ const load = async (file) => (existsSync(file) ? (await import(pathToFileURL(fil
 
 export const languages = () => languagesIn(LOCALES_DIR);
 
-/** Namespace files of a language: { ns: content }. */
+/**
+ * Translation folders of modules distributed as packages (src/modules/<id>/locales/<lang>/<ns>.js):
+ * not part of the core dictionaries (the package ships them, scripts/build-module.mjs), but
+ * checked with them — the module's code uses them.
+ */
+export const moduleLocaleDirs = () => {
+  const root = join(SRC_DIR, 'modules');
+  return readdirSync(root).map((id) => join(root, id, 'locales')).filter((dir) => existsSync(dir));
+};
+
+/** Namespace files of a language: { ns: content }, the core's and the package modules' (see above). */
 export async function readNamespaces(lang) {
-  const dir = join(LOCALES_DIR, lang);
-  if (!existsSync(dir)) return {};
-  const names = readdirSync(dir).filter((name) => name.endsWith('.js')).sort();
-  return Object.fromEntries(await Promise.all(names.map(async (name) => [name.slice(0, -3), await load(join(dir, name))])));
+  const files = [];
+  for (const dir of [join(LOCALES_DIR, lang), ...moduleLocaleDirs().map((base) => join(base, lang))]) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir).filter((item) => item.endsWith('.js')).sort()) {
+      if (files.some((file) => file.ns === name.slice(0, -3))) throw new Error(`namespace ${name.slice(0, -3)} is defined twice (${dir})`);
+      files.push({ ns: name.slice(0, -3), file: join(dir, name) });
+    }
+  }
+  return Object.fromEntries(await Promise.all(files.map(async ({ ns, file }) => [ns, await load(file)])));
 }
 
 export async function readDictionary(lang) {

@@ -6,6 +6,7 @@ export default {
     module_updated: 'Модуль {module} обновлён {from} → {version}',
     module_removed: 'Модуль {module} {version} удалён (данные сохранены)',
     module_failed: 'Модуль {module} {version} не установлен',
+    module_rolled_back: 'Модуль {module} {version} не запустился — возвращена версия {from}',
     module_rejected: 'Файл модуля отклонён: {reason}',
     module_data_removed: 'Данные модуля {module} удалены (таблиц: {tables}) после резервной копии',
     module_backup: 'Сделана резервная копия модуля {module}',

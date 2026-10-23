@@ -22,8 +22,8 @@ import { dayString, intOr, iso, logEvent, money, parseDay, parseNumber, text } f
  *                   currency, plans JSONB, planned_ppm, note, created_by, created_at
  */
 
-export async function ensurePricingSchema() {
-  await query(`
+export async function ensurePricingSchema(db = { query }) {
+  await db.query(`
     CREATE TABLE IF NOT EXISTS mp_price_grids (
       id SERIAL PRIMARY KEY,
       project_id INTEGER NOT NULL REFERENCES mp_projects(id) ON DELETE CASCADE,
@@ -37,7 +37,7 @@ export async function ensurePricingSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  await query(`CREATE INDEX IF NOT EXISTS mp_price_grids_idx ON mp_price_grids (project_id, type_id, effective_from DESC, id DESC)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS mp_price_grids_idx ON mp_price_grids (project_id, type_id, effective_from DESC, id DESC)`);
 }
 
 // ── Pure calculations (unit-tested) ─────────────────────────────────────────

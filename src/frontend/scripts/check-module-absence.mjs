@@ -10,7 +10,8 @@
  *   node scripts/check-module-absence.mjs              # every optional module absent at once
  *   node scripts/check-module-absence.mjs chat tasks   # just these
  *
- * Optional modules are the backend catalog's modules without `core: true`.
+ * Optional modules are the backend catalog's modules without `core: true`; modules
+ * distributed as packages (backend modules/manifest.js PACKAGE_MODULE_IDS) are always absent.
  * Exit code 0 when the shell builds.
  */
 import { existsSync, readFileSync } from 'node:fs';
@@ -22,9 +23,13 @@ const SRC = join(here, '../src');
 const { build } = await import(pathToFileURL(join(here, '../node_modules/esbuild/lib/main.js')).href);
 const { MODULE_CATALOG } = await import(pathToFileURL(join(here, '../../backend/modules/catalog.js')).href);
 
+const { PACKAGE_MODULE_IDS } = await import(pathToFileURL(join(here, '../../backend/modules/manifest.js')).href);
+
 const optional = MODULE_CATALOG.filter((module) => !module.core).map((module) => module.id);
 const absent = new Set(process.argv.slice(2).length ? process.argv.slice(2) : optional);
 for (const id of absent) if (!optional.includes(id)) throw new Error(`${id} is not an optional module`);
+// Modules distributed as packages are never part of the shell, whatever is checked.
+for (const id of PACKAGE_MODULE_IDS) absent.add(id);
 
 const moduleOf = (file) => {
   const rel = relative(join(SRC, 'modules'), file);
@@ -58,7 +63,7 @@ const result = await build({
         b.onLoad({ filter: /modules[\\/]registry\.js$/ }, () => ({
           // import.meta.glob('./*/register.js') is vite's: list the register files of the modules present.
           contents: filteredRegistry.replace(
-            /import\.meta\.glob\('\.\/\*\/register\.js', \{ eager: true \}\);/,
+            /import\.meta\.glob\((?:'\.\/\*\/register\.js'|\[[^\]]*\]), \{ eager: true \}\);/,
             MODULE_CATALOG.map((module) => module.id)
               .filter((id) => !absent.has(id) && existsSync(join(SRC, 'modules', id, 'register.js')))
               .map((id) => `import './${id}/register.js';`)

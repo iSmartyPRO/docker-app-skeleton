@@ -16,3 +16,7 @@ data
 docs
 .github
 *.md
+# Modules distributed as packages (docs/module-packages.md): built with `make module`,
+# installed from their zip — not part of the core image.
+src/backend/modules/masterplan
+src/frontend/src/modules/masterplan

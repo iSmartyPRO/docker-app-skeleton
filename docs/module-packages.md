@@ -76,7 +76,9 @@ make module-keygen                        # once: private key outside the repo, 
 
 - **manifest.json** from `modules/manifest.js` + `modules/catalog.js`, overridden by the optional
   `src/backend/modules/<id>/module.json` (`version`, `core`, `requires`, `requiresVersions`, `tables`,
-  `locales`, `docFiles`, `nameForms`, `settings`, `icon`, `web: false`, …). `requires` without a version
+  `locales`, `localeKeys`, `docFiles`, `docsInfo`, `nameForms`, `settings`, `icon`, `web: false`, …). A module that
+  is no longer in the core lists takes everything from module.json; settings defaults (`defaults`,
+  `defaultEnabled`, `publicSettings`) may come from the module's `settings.js`. `requires` without a version
   get the required module's current version. `core` defaults to the core `VERSION`.
 - **Version**: the module's own (module.json, else the manifest). Without options it grows like the
   core's (`scripts/release.mjs` classification) from commits touching the module's folders since the
@@ -91,10 +93,13 @@ make module-keygen                        # once: private key outside the repo, 
 - **web/**: vite library build; entry `src/frontend/src/modules/<id>/index.js(x)`, or one generated from
   the module's entry in `modules/registry.js` (`App`, `Settings`, `register.js`). Shared names become
   `/sdk/<name>.js` imports (below); importing a core file that is not shared fails the build, and so
-  does importing a name the core does not export. CSS of the module (and core CSS it imports) goes into
-  `web/style.css`.
+  does importing a name the core does not export (`/sdk/…` stay absolute URLs: `makeAbsoluteExternalsRelative: false`).
+  CSS of the module (and core CSS it imports) goes into `web/assets/style-<hash>.css` (manifest `web.css`).
+  `web.settings` is set when the entry has a `Settings`.
 - **migrations/**: `src/backend/modules/<id>/migrations/NNN_name.sql|js` (JS ones bundled like server/).
-- **locales/**: frontend namespaces named `<id>*.js` (or module.json `locales`) and `apps.<id>`.
+- **locales/**: the module's own folder `src/frontend/src/modules/<id>/locales/<lang>/<ns>.js` (namespaces that are
+  not in the core dictionaries), else core namespaces named `<id>*.js` (or module.json `locales`); plus its keys
+  in shared core namespaces — `apps.<id>` always, others from `localeKeys` (`{ "<ns>": ["a.b", "prefix_*"] }`).
 - The zip is checked with the portal's own `openPackage` before it is written to `dist/modules/`.
 
 ## Server side
@@ -154,7 +159,10 @@ transitional escape hatch the build uses for converted modules — prefer the st
    `ctx.onHttpServer` hooks run once both the HTTP server is up (`startModuleServer(server)` in server.js) and the modules registered; `ctx.onShutdown` hooks run on SIGTERM (`runShutdownHooks()`).
 4. A package that fails is skipped; `installed_modules.state = 'failed'` with the error; the portal runs on.
    If that is the first boot after an update (`pending_check`), the previous version is put back
-   (`current` ← `previous`; tables restored when the pre-update backup is a pg_dump) and the app restarts once more.
+   (`current` ← `previous`; tables restored when the pre-update backup is a pg_dump) and the app restarts once more;
+   the journal records `module_rolled_back`.
+5. A `bundled` row of a module this core no longer contains (Masterplan after the upgrade) becomes `removed`
+   (source `package`): data kept, shown under «Удалённые модули» until its package is installed.
 
 Tables: `installed_modules (id, version, state installed|enabled|disabled|failed|removed, source bundled|package,
 installed_at, updated_at, installed_by, error, checksum, signed_by, previous_version, pending_check, backup_file, manifest)`,
@@ -180,8 +188,9 @@ Not possible inside a transaction: `CREATE INDEX CONCURRENTLY`, `ALTER TYPE … 
 export default {
   id: 'hello',
   App: () => import('./HelloApp.jsx'),            // page at /app/<id> (optional)
-  Settings: () => import('./HelloSettings.jsx'),  // /admin/settings/<id> (optional)
+  Settings: () => import('./HelloSettings.jsx'),  // /admin/settings/<id> + an item in Settings → Modules (optional)
   register(ctx) {},                               // ctx = { id, version, base }
+  tour: 'hello',                                  // its guided tour (registered by register / register.js; optional)
 };
 ```
 
@@ -190,7 +199,9 @@ first render: `GET /api/modules/installed` → translations added (`i18n/transla
 `addTranslationSource`, English laid under each language), CSS linked, entries of switched-on packages
 imported and `register(ctx)` run, page modules pushed into `MODULE_REGISTRY` (`/app/<id>`, `icon`,
 `apps.<id>.name`) with lazy `App` / `Settings`. `/admin/settings/:moduleId` renders a package's Settings
-(`platform/packages/PackageSettings.jsx`).
+(`platform/packages/PackageSettings.jsx`); a package with `web.settings` gets its item in the settings navigation
+(`admin/navigation.js` `addPackageSettingsItem`, icon slot `menuIcons.jsx` `addMenuSlot`; label `settings.<id>.title`
+when the package ships a `settings` namespace, else `apps.<id>.name`). A `tour` goes into `MODULE_UI`.
 
 ### Web SDK and shared libraries
 
@@ -290,7 +301,8 @@ start.sh) the process just exits: start it again.
 ### Backups (`platform/packages/backup.js`)
 
 `$MODULES_DIR/.backups/<id>/<id>-<version>-<UTC>-<reason>.{dump|ndjson.gz}` + `.json` description.
-With `pg_dump` in the image: custom format, restores structure and data (`pg_restore --clean`).
+With `pg_dump` in the image: custom format, restores structure and data (`pg_restore --clean`); a restore also
+drops the tables created by migrations the backup did not have and puts `module_migrations` / `module_tables` back.
 Without it (or `MODULE_BACKUP_PGDUMP=0`): gzip NDJSON of `row_to_json` rows — restores data into tables
 of the same structure (same applied migrations). Taken before every update, before «Удалить данные» and
 on «Резервная копия».
@@ -311,36 +323,108 @@ on «Резервная копия».
 
 - `test/module-packages.test.js` (no database): zip round trip and hostile archives, signatures,
   manifest, every §5 message, migrations runner, SDK resolver (real import from outside the tree), disk
-  scan, contract checks, static serving, inventory format, build of the fixture (server part; web with
-  `MODULE_BUILD_WEB=1`).
+  scan, contract checks, static serving, inventory format, build of the fixture and of Masterplan (server part;
+  web with `MODULE_BUILD_WEB=1`).
+- `test/module-boot.test.js`: the core alone, with each built-in module, and with each package module from source.
+- `test/masterplan.db.test.js` (`MASTERPLAN_DB_TEST=1`): migration 001 on an existing schema changes nothing.
 - `test/module-packages.db.test.js` (`MODULES_DB_TEST=1` + a test database): install → boot → off → on →
   route; update with backup; failing update; downgrade / unsigned refused; rollback of a version that does
   not start; removal refused by a dependent; data deletion after a backup; broken package skipped; identity
   and signed inventory.
 - Fixture: `test-fixtures/module-hello` (route, table, SQL + JS migration, page, translations, docs).
 
-## Converting a module (pilot: Masterplan)
+## Converting a module (checklist; done for Masterplan)
 
-1. Make the module self-contained (spec stage 1): no imports of other modules' internals
-   (`scripts/check-module-boundaries.mjs`), core reached through extension points.
-2. Add `src/backend/modules/<id>/module.json`: `tables` (existing tables, e.g. `["mp_%"]`), `core`,
-   `requiresVersions`, `locales` if namespaces are not named `<id>*`.
-3. Replace `schema()` with `migrations/001_init.sql|js` (current schema, `IF NOT EXISTS`), or keep
-   `schema()` for the first package (the loader calls it when there are no migrations).
-4. If the module has catalog settings with a sanitizer, export it as `sanitizeSettings` from index.js.
-5. Remove the module from the core: `modules/index.js` `MODULES`, `modules/manifest.js`,
-   `modules/catalog.js`, frontend `modules/registry.js`, `admin/settingsPages.js`, `admin/navigation.js`.
-   Keep the frontend code where the build finds it (`src/frontend/src/modules/<id>`).
-6. `make module ID=<id>`, install on a test portal, then update, remove, reinstall.
-7. Existing installations: install the package right after deploying the core without the module
-   (its data and settings are kept; migrations `IF NOT EXISTS` adopt the tables).
+Masterplan was the pilot (`src/backend/modules/masterplan`, `src/frontend/src/modules/masterplan`); copy what it does.
+
+**Server** (`src/backend/modules/<id>/`)
+
+1. **Boundaries**: `npm run check:modules` is 0 — no imports of other modules' internals; other modules reach it only
+   through the registry (`ctx.modules.get(id)?.api`, events, object sources, link providers), never by import.
+   Raw SQL of other modules on its tables is a smell (today: warehouse / procurement demo and stock read `mp_*`
+   with a `.catch` fallback) — move it behind its `api` when converting the next consumer.
+2. **`module.json`** (the manifest facts that lived in `modules/manifest.js` + `modules/catalog.js`): `name`,
+   `nameForms.ru.ins`, `description`, `version` (first package: a minor bump, Masterplan 1.0.0 → 1.1.0), `category`,
+   `requires` / `enhances` (copy them), `permissions` (the catalog list), `tables` (prefix of its existing tables,
+   `["mp_%"]`), `icon`, `docsInfo`, `changelog`, `localeKeys` (below). `core` is left out: the build writes the
+   core `VERSION` it is built with — build release packages after the core release they need.
+3. **`settings.js`**: move its defaults and sanitizer out of `catalog.js`; export `defaults`, `defaultEnabled`,
+   `publicSettings` (optional) and `sanitizeSettings`. Plain data, no imports (the build imports it). `index.js`
+   exports `sanitizeSettings` (the loader puts it in place of the generic one).
+4. **Migrations**: the current `schema()` becomes migration `001_init` — `index.js`
+   `migrations: [{ id: '001_init', up: createSchema }]` where `createSchema(db)` runs **every** statement through
+   `db.query` (the migration's transaction; a query on another connection can deadlock on the locks the
+   transaction holds), keeps `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`, and seeds its directories in the same
+   transaction. Flags in `app_settings` survive «Удалить данные»: check the table too (Masterplan seeds again
+   when `mp_types` is empty). Keep `ensure…Schema()` for tests as `withTransaction` + the same advisory lock
+   (`module-migrations:<id>`). Later changes: `migrations/NNN_name.sql|js` files, never edit 001.
+5. **`register(ctx)`**: everything that `schema()` did besides DDL — `registerJob`, hooks (`onModuleEvent`),
+   event listeners, object sources. No database access in `register` (boot tests run without one).
+6. **Demo data**: `import './demo.js'` from `index.js` (`registerDemo` at import; `loadModuleDemos` loads only
+   built-in modules' demo files).
+7. **Remove it from the core**: `modules/index.js` `MODULES`, its `modules/manifest.js` entry, its
+   `modules/catalog.js` entry and settings; add its id to `PACKAGE_MODULE_IDS` (`modules/manifest.js`: built-in
+   modules may keep it in `enhances`; tests and the absence check use the list); `.dockerignore` its folders.
+
+**Browser** (`src/frontend/src/modules/<id>/`)
+
+8. **`index.js`** (web entry): `import './register'` and `export default { id, App: () => import('./XApp'),
+   Settings: () => import('./XSettings'), tour: '<tour id>' }`. A `Settings` gets an item in
+   Settings → Modules (manifest `web.settings`), `tour` the «Тур» buttons.
+9. **Remove it from the core**: its `modules/registry.js` entry, `'!./<id>/register.js'` in the registry's
+   `import.meta.glob`, its `admin/navigation.js` item, its `MODULE_UI` entry.
+10. **Texts**: namespaces only it uses move to `src/frontend/src/modules/<id>/locales/<lang>/<ns>.js` (out of the
+    core dictionaries; `i18n:check` still checks them). Its keys in shared namespaces (`apps.<id>`,
+    `settings.<id>`, `permissions.<id>_*`, `notifyPrefs.events.<id>_*`, `tour.<id>`) stay in the core files for
+    now (the core's roles editor, notification preferences and the removed-module card read them) and are copied
+    into the package by `module.json` `localeKeys` (`{ "permissions": ["groups.module_<id>", "<id>_*"] }`), so
+    the package is complete when the core drops them.
+11. **Shared core files** the browser part imports must be in `src/platform/sdk/exposed.js` (the build fails
+    otherwise); adding one needs a core release.
+
+**Tests and checks**
+
+12. Unit tests that imported its catalog entry read `module.json` / `settings.js`; DB tests get the module through
+    `test/helpers/modules.js` (`activateAll()` activates `PACKAGE_MODULE_IDS` from source; `sourcePackage(id)` for
+    tests that boot with `bootstrapSchema`). `test/module-boot.test.js` boots the core with each package alone.
+13. `npm test`, `npm run check:modules`, `node scripts/check-module-absence.mjs` (frontend), `npm run i18n:check`,
+    the core `vite build`, `make module ID=<id> UNSIGNED=1`, then on a test portal: install, switch on, pages,
+    links with other modules, update (`BUMP=patch` with a new migration), a failing update, remove, reinstall,
+    «Удалить данные». Also on a copy of a database where the module was built in (the upgrade below).
+
+What is left in the core for Masterplan (works when it is absent, fine to keep until the store): help articles
+(`help/content|admin/<lang>/masterplan.js`, `help/registry.jsx` order), its notification kinds
+(`services/notificationCatalog.js`, hidden while absent), the API reference section (`api/reference.js`),
+server-side texts (`src/backend/locales/<lang>/masterplan.js`), the category icon and name forms in `checks.js`.
+
+## Upgrading a portal that had Masterplan built in
+
+The core of this version no longer contains Masterplan; its tables (`mp_*`), files (`uploads/masterplan`), settings
+(`settings.modules.masterplan`) and roles stay untouched. Until the package is installed the module is listed under
+«Удалённые модули» (data kept) and `/app/masterplan` is not there.
+
+1. Build the package with the release core: `make module ID=masterplan` (signed; the public key must be in the
+   released `trusted-keys.json`) → `dist/modules/masterplan-1.1.0.zip`; `make modules-verify FILE=…`.
+2. Usual deploy routine of the core (backup of the database first; `mkdir -p data/modules` once).
+3. **Right after the deploy**: Settings → Modules → «Установить из файла» → the zip → «Установить». Migration
+   `001_init` creates nothing on this database (everything exists) and records itself; the portal restarts (5–10 s).
+4. The module comes back in the state it had (switched on, with its settings and data); its settings item, tour and
+   demo data button are back too. Check `/app/masterplan`, a CRM deal with linked units, a contract with an object.
+
+Rehearsed on a copy of the test database (`audit`): the core alone boots, mp_* row counts and checksums are unchanged,
+after the install the same data is shown and `module_migrations` has `001_init`. If the package cannot be installed
+at once, nothing is lost — only the module is unavailable until it is.
 
 ## Limitations
 
 - Server-side translations of a package (notifications, e-mails) still come from the core's
   `src/backend/locales`; package `locales/` are for the interface only.
-- Demo data (`demo.js`), guided tours and help articles of packages are not loaded yet.
-- Package settings screens are reachable at `/admin/settings/<id>` (Modules card «Settings»), not listed
-  in the settings navigation.
+- Help articles (`help/content`, `help/admin`) of a package are not loaded from the package yet (Masterplan's
+  are still in the core). Demo data: `import './demo.js'` from the server entry; tours: `register()` +
+  `tour` in `web/index.js`; settings: listed in Settings → Modules when `web/index.js` has `Settings`.
+- No source mode for development: a converted module runs only from its zip (`make module … UNSIGNED=1`,
+  `MODULES_DEV=1`); tests load it from source (`test/helpers/modules.js`).
+- `app_settings` keys a module writes itself (Masterplan: `masterplan_seeded`, `masterplan_old_numbers`) are not
+  removed by «Удалить данные».
 - No automatic preinstall of base modules from zips in the image yet (spec stage 5).
 - One install / update / remove at a time per process; the restart makes concurrent work moot.

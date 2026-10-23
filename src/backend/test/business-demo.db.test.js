@@ -34,6 +34,11 @@ async function setup() {
   db = await import('../config/database.js');
   const { bootstrapSchema } = await import('../services/schema.js');
   await bootstrapSchema();
+  // Masterplan is a module package: from its source in the tree, as if installed (schema = its migration 001).
+  const { sourcePackage } = await import('./helpers/modules.js');
+  const masterplan = await sourcePackage('masterplan');
+  await (await import('../modules/masterplan/schema.js')).ensureMasterplanSchema();
+  await (await import('../platform/registry.js')).activateModules([masterplan]);
   demo = await import('../services/demo.js');
   ({ uploadRoot } = await import('../config/paths.js'));
   const { requestAs } = await import('../api/events.js');

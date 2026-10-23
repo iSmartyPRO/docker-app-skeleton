@@ -308,11 +308,6 @@ export const SETTINGS_GROUPS = [
         keywords: 'crm deals pipeline sales funnel kanban leads clients activities сделки воронка продажи лиды клиенты дела срм црм',
       },
       {
-        id: 'masterplan',
-        defaultIcon: 'siteplan',
-        keywords: 'masterplan site plan chessboard units booking construction real estate генплан мастерплан шахматка юниты брони стройка застройка недвижимость',
-      },
-      {
         id: 'procurement',
         defaultIcon: 'cart',
         keywords: 'procurement purchase requests invoices payments suppliers закупки заявки счета оплаты реестр оплат поставщики снабжение',
@@ -381,6 +376,30 @@ export const SETTINGS_ITEMS = SETTINGS_GROUPS.flatMap((group) =>
     descKey: `settings.${item.id}.desc`,
   }))
 );
+
+/**
+ * Settings → <module> of an installed module package (platform/packages/loader.js,
+ * before the first render): an item of the «modules» group, like a built-in module's.
+ * `labelKey` / `descKey` default to settings.<id>.title / .desc.
+ */
+export function addPackageSettingsItem({ id, icon, keywords = '', labelKey, descKey }) {
+  const group = SETTINGS_GROUPS.find((item) => item.id === 'modules');
+  if (!group || SETTINGS_ITEMS.some((item) => item.id === id)) return null;
+  const item = { id, defaultIcon: icon || 'apps', keywords, package: true };
+  group.items.push(item);
+  const entry = {
+    ...item,
+    permission: group.permission,
+    group: group.id,
+    groupLabelKey: group.labelKey,
+    key: `${SETTINGS_ROOT}/${id}`,
+    path: `${SETTINGS_ROOT}/${id}`,
+    labelKey: labelKey || `settings.${id}.title`,
+    descKey: descKey || `settings.${id}.desc`,
+  };
+  SETTINGS_ITEMS.push(entry);
+  return entry;
+}
 
 /** Settings screens the user may open (view-only with settings.view). */
 export function visibleSettingsItems(can) {

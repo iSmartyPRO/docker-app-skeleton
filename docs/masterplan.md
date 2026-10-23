@@ -4,6 +4,8 @@ A development project (a residential complex, a cottage village) as one live pic
 
 Module id `masterplan`, app `/app/masterplan`, API `/api/app/masterplan`. **Off by default** — an administrator turns it on in *Settings → Modules*, then grants roles (below).
 
+**A module package** (since 1.1.0, [module-packages.md](module-packages.md)): not built into the core; `make module ID=masterplan` builds `dist/modules/masterplan-<version>.zip`, a superadministrator installs it in *Settings → Modules → «Установить из файла»*. Sources stay in the tree (`src/backend/modules/masterplan`, `src/frontend/src/modules/masterplan`, its texts in `src/frontend/src/modules/masterplan/locales`); the manifest is `module.json`, settings defaults and their sanitizer `settings.js`, the schema is migration `001_init` (`schema.js` `createMasterplanSchema`). Upgrading a portal where it was built in: [module-packages.md → Masterplan](module-packages.md#upgrading-a-portal-that-had-masterplan-built-in).
+
 - [What was built](#what-was-built)
 - [Adaptation decisions](#adaptation-decisions)
 - [Roles and zones](#roles-and-zones)

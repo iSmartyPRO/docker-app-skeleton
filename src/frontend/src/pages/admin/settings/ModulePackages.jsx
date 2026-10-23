@@ -89,6 +89,11 @@ export function RestartOverlay({ bootId, onDone }) {
 
 function ModuleCardPreview({ preview, t, locale }) {
   const list = (items, render) => (items?.length ? items.map(render) : <span className="pf-muted">{t('packages.card.none')}</span>);
+  // A module's name in the interface language (apps.<id>.name), else its id.
+  const appName = (id) => {
+    const text = t(`apps.${id}.name`);
+    return text && text !== `apps.${id}.name` ? text : id;
+  };
   const changes = preview.changelog?.[0]?.changes;
   const changeLines = changes ? changes[locale] || changes.en || [] : [];
   return (
@@ -117,14 +122,14 @@ function ModuleCardPreview({ preview, t, locale }) {
         <Descriptions.Item label={t('packages.card.requires')}>
           {list(preview.requires, (link) => (
             <Tooltip key={link.id || link.integration} title={pickText(link.reason, locale)}>
-              <Tag>{link.id ? `${pickText(link.name, locale) || link.id}${link.version ? ` ≥ ${link.version}` : ''}` : link.integration}</Tag>
+              <Tag>{link.id ? `${pickText(link.name, locale) || appName(link.id)}${link.version ? ` ≥ ${link.version}` : ''}` : link.integration}</Tag>
             </Tooltip>
           ))}
         </Descriptions.Item>
         <Descriptions.Item label={t('packages.card.enhances')}>
           {list(preview.enhances, (link) => (
             <Tooltip key={link.id || link.integration} title={pickText(link.what, locale)}>
-              <Tag>{link.id || link.integration}</Tag>
+              <Tag>{link.id ? appName(link.id) : link.integration}</Tag>
             </Tooltip>
           ))}
         </Descriptions.Item>
@@ -328,11 +333,13 @@ export function RemovedPackages({ packages, canManage, onChanged }) {
   const confirmRef = useRef('');
   const removed = (packages || []).filter((item) => item.source === 'package' && item.state === 'removed');
   if (!removed.length) return null;
+  // The name from the last installed manifest, else the interface's app name, else the id.
+  const nameOf = (pkg) => pickText(pkg.name, locale) || (t(`apps.${pkg.id}.name`) !== `apps.${pkg.id}.name` ? t(`apps.${pkg.id}.name`) : pkg.id);
 
   const purge = (pkg) => {
     confirmRef.current = '';
     modal.confirm({
-      title: t('packages.purgeTitle', { module: pkg.id }),
+      title: t('packages.purgeTitle', { module: nameOf(pkg) }),
       content: (
         <div className="pf-dialog">
           <p>{t('packages.purgeText')}</p>
@@ -366,7 +373,7 @@ export function RemovedPackages({ packages, canManage, onChanged }) {
             <header className="pf-card__head">
               <div className="pf-card__title">
                 <div className="pf-card__name">
-                  <strong>{pkg.id}</strong>
+                  <strong>{nameOf(pkg)}</strong>
                   <span className="pf-version">{t('packages.removed.version', { version: pkg.version })}</span>
                 </div>
                 <Tag bordered={false}>{t('packages.state.removed')}</Tag>

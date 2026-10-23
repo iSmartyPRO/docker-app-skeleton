@@ -157,6 +157,9 @@ superadministrators only). Engineering details: [module-packages.md](module-pack
 - **A module that fails to start** is skipped (the portal runs on) and shown as «Не запустился» with the
   error on its card; after an update the previous version is restored automatically.
 - **Inventory** for the future store: `GET /api/admin/modules/inventory` (portal id, core and module versions, signed).
+- **Masterplan is a package** from this core on: after deploying the core, install `masterplan-<version>.zip`
+  at once (its data and settings stay in the database meanwhile) —
+  [module-packages.md → upgrading a portal that had Masterplan built in](module-packages.md#upgrading-a-portal-that-had-masterplan-built-in).
 
 ## Updates from upstream skeleton
 

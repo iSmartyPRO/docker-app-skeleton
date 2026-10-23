@@ -233,19 +233,6 @@ export const MODULE_MANIFEST = {
     docs: { user: 'warehouse', guide: 'docs/warehouse.md' },
     changelog: first(['Stock, receipts and issues, transfers, tools, barcodes, inventory.'], ['Остатки, приход и выдача, перемещения, инструмент, штрихкоды, инвентаризация.'], { ky: ['Калдыктар, кирим жана берүү, которуулар, шаймандар, штрихкоддор, инвентаризация.'], tr: ['Stok, giriş ve çıkışlar, transferler, aletler, barkodlar, sayım.'], zh: ['库存、入库和出库、调拨、工具、条形码、盘点。'] }),
   },
-  masterplan: {
-    name: { en: 'Masterplan', ky: 'Мастерплан', tr: 'Master plan', zh: '总体规划', ru: 'Мастерплан' },
-    version: '1.0.0',
-    category: 'construction',
-    minCore: '1.4.0',
-    requires: [],
-    enhances: [
-      { id: 'crm', what: { en: 'Units linked to CRM deals', ky: 'Объекттер CRM бүтүмдөрү менен байланышкан', tr: 'Bağımsız bölümler CRM fırsatlarına bağlı', zh: '房源单元关联 CRM 交易', ru: 'Юниты связаны со сделками CRM' } },
-      { id: 'companies', what: { en: 'Buyers from the counterparties directory', ky: 'Сатып алуучулар контрагенттер маалымдамасынан', tr: 'Alıcılar cari hesaplar rehberinden', zh: '买方来自往来单位名录', ru: 'Покупатели из справочника контрагентов' } },
-    ],
-    docs: { user: 'masterplan', guide: 'docs/masterplan.md' },
-    changelog: first(['Site plan, chessboard, bookings, pricing, construction progress.'], ['Генплан, шахматка, брони, цены, ход строительства.'], { ky: ['Башкы план, шахматка, брондоолор, баалар, курулуштун жүрүшү.'], tr: ['Vaziyet planı, daire tablosu, rezervasyonlar, fiyatlandırma, inşaat ilerlemesi.'], zh: ['总平面图、房源表、预订、定价、施工进度。'] }),
-  },
   drive: {
     name: { en: 'File server', ky: 'Файл сервери', tr: 'Dosya sunucusu', zh: '文件服务器', ru: 'Файловый сервер' },
     version: '1.0.0',
@@ -394,6 +381,11 @@ export const MODULE_MANIFEST = {
 
 /** Modules built into this core version; installed packages (docs/module-packages.md) are merged in from the disk. */
 export const BUILTIN_MANIFEST_IDS = Object.keys(MODULE_MANIFEST);
+/**
+ * Modules distributed as packages (no longer built into the core) that built-in
+ * modules may name in `enhances`: the link is active once the package is installed.
+ */
+export const PACKAGE_MODULE_IDS = ['masterplan'];
 Object.assign(MODULE_MANIFEST, packageManifestEntries(BUILTIN_MANIFEST_IDS));
 
 /**
@@ -442,9 +434,11 @@ const text = (value) => value && typeof value === 'object' && typeof value.en ==
  * ids, bad versions or categories, missing texts, requirement cycles.
  * `catalogIds`: ids of MODULE_CATALOG; each must have a manifest and back.
  */
-export function validateManifests(manifest = MODULE_MANIFEST, { catalogIds, coreVersion, coreIds = [] } = {}) {
+export function validateManifests(manifest = MODULE_MANIFEST, { catalogIds, coreVersion, coreIds = [], optionalIds = PACKAGE_MODULE_IDS } = {}) {
   const problems = [];
   const ids = new Set(Object.keys(manifest));
+  // `enhances` may also name a module that is installed as a package (or not at all).
+  const linkable = new Set([...ids, ...optionalIds]);
   if (catalogIds) {
     for (const id of catalogIds) if (!ids.has(id)) problems.push(`${id}: no manifest entry`);
     for (const id of ids) if (!catalogIds.includes(id)) problems.push(`${id}: manifest entry without a catalog module`);
@@ -463,7 +457,7 @@ export function validateManifests(manifest = MODULE_MANIFEST, { catalogIds, core
       for (const link of entry[field]) {
         if (link.integration) {
           if (!INTEGRATIONS.includes(link.integration)) problems.push(`${id}: ${field} names unknown integration "${link.integration}"`);
-        } else if (!ids.has(link.id)) problems.push(`${id}: ${field} names unknown module "${link.id}"`);
+        } else if (!(field === 'enhances' ? linkable : ids).has(link.id)) problems.push(`${id}: ${field} names unknown module "${link.id}"`);
         else if (link.id === id) problems.push(`${id}: ${field} names itself`);
         if (!text(link[label])) problems.push(`${id}: ${field} → ${link.id || link.integration} needs ${label} in en and ru`);
       }

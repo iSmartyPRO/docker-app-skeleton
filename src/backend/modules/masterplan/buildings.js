@@ -1,5 +1,4 @@
 import { query } from '../../config/database.js';
-import { getSetting, setSetting } from '../../services/settings.js';
 import { has } from './rules.js';
 import { money } from './util.js';
 
@@ -153,11 +152,12 @@ export async function backfillOldNumbers(client = { query }) {
  * Idempotent: the `series` column of shared media, and the one-time backfill
  * of old numbers (a flag keeps a number someone removed on purpose removed).
  */
-export async function ensureBuildingSchema() {
-  await query(`ALTER TABLE mp_media ADD COLUMN IF NOT EXISTS series VARCHAR(160)`);
-  await query(`CREATE INDEX IF NOT EXISTS mp_media_series_idx ON mp_media (project_id, series) WHERE series IS NOT NULL`);
-  if ((await getSetting('masterplan_old_numbers')) !== 'true') {
-    await backfillOldNumbers();
-    await setSetting('masterplan_old_numbers', 'true');
+export async function ensureBuildingSchema(db = { query }) {
+  await db.query(`ALTER TABLE mp_media ADD COLUMN IF NOT EXISTS series VARCHAR(160)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS mp_media_series_idx ON mp_media (project_id, series) WHERE series IS NOT NULL`);
+  const flag = (await db.query(`SELECT value FROM app_settings WHERE key = 'masterplan_old_numbers'`)).rows[0]?.value;
+  if (flag !== 'true') {
+    await backfillOldNumbers(db);
+    await db.query(`INSERT INTO app_settings (key, value) VALUES ('masterplan_old_numbers', 'true') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`);
   }
 }
