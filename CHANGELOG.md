@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **Remote access — tidier «Add computer» dialog**: the protocol selector (RDP / VNC / Portal VNC) moved to its own full-width row so the address field no longer gets squeezed and its label no longer wraps; the owner and monitoring fields are grouped under a clear «Who sits here & monitoring» heading (distinct from the login block); and choosing Portal VNC now shows a short helper (and a warning when the portal client certificate is not configured yet).
+
 ## [1.17.0] - 2026-10-23
 
 ### Added

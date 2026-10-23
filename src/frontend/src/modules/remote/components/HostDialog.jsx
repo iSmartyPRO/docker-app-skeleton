@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { App, Form, Input, InputNumber, Modal, Popconfirm, Segmented, Select, Switch } from 'antd';
+import { TeamOutlined } from '@ant-design/icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { errorMessage } from '../../../lib/errors';
 import { remoteApi } from '../api';
@@ -95,27 +96,38 @@ export default function HostDialog({ open, host, onClose }) {
         <Form.Item name="name" label={t('remote.host.name')} rules={[{ required: true, message: t('remote.host.nameRequired') }]}>
           <Input maxLength={120} placeholder={kind === 'server' ? 'DC-01' : 'HQ-PC-001'} autoFocus />
         </Form.Item>
+        <Form.Item name="protocol" label={t('remote.host.protocol')} className="rm-proto-field">
+          <Segmented
+            block
+            options={[{ value: 'rdp', label: 'RDP' }, { value: 'vnc', label: 'VNC' }, { value: 'pvnc', label: 'Portal VNC' }]}
+            onChange={(v) => form.setFieldValue('port', DEFAULT_PORT[v])}
+          />
+        </Form.Item>
         <div className="rm-form__row">
-          <Form.Item name="address" label={t('remote.host.address')} rules={[{ required: true }]} style={{ flex: 2 }}>
+          <Form.Item name="address" label={t('remote.host.address')} rules={[{ required: true }]} style={{ flex: 1 }}>
             <Input maxLength={255} placeholder="10.0.0.15" />
           </Form.Item>
-          <Form.Item name="protocol" label={t('remote.host.protocol')}>
-            <Segmented options={[{ value: 'rdp', label: 'RDP' }, { value: 'vnc', label: 'VNC' }, { value: 'pvnc', label: 'Portal VNC' }]} onChange={(v) => form.setFieldValue('port', DEFAULT_PORT[v])} />
-          </Form.Item>
           <Form.Item name="port" label={t('remote.host.port')}>
-            <InputNumber min={1} max={65535} style={{ width: 92 }} />
+            <InputNumber min={1} max={65535} style={{ width: 104 }} />
           </Form.Item>
         </div>
+        {protocol === 'pvnc' && (
+          <p className={`rm-proto-note${remote.settings.pvncReady ? '' : ' is-warn'}`}>
+            {t('remote.host.pvncNote')}
+            {!remote.settings.pvncReady && <> {t('remote.host.pvncNotReady')}</>}
+          </p>
+        )}
 
         {kind === 'workstation' && (
-          <>
-            <Form.Item name="ownerUserId" label={t('remote.host.owner')} help={t('remote.host.ownerHint')}>
+          <div className="rm-people-block">
+            <div className="rm-people-block__head"><TeamOutlined /> {t('remote.host.peopleHead')}</div>
+            <Form.Item name="ownerUserId" label={t('remote.host.owner')} help={t('remote.host.ownerHint')} className="rm-tight-item">
               <Select allowClear showSearch optionFilterProp="label" placeholder={t('remote.host.ownerPick')} options={people.map((p) => ({ value: p.id, label: p.name || p.username }))} />
             </Form.Item>
-            <Form.Item name="monitored" valuePropName="checked" label={t('remote.host.monitored')} help={t('remote.host.monitoredHint')}>
+            <Form.Item name="monitored" valuePropName="checked" label={t('remote.host.monitored')} help={t('remote.host.monitoredHint')} className="rm-tight-item">
               <Switch />
             </Form.Item>
-          </>
+          </div>
         )}
 
         <div className="rm-creds-block">
