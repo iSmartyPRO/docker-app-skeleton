@@ -20,3 +20,5 @@ docs
 # installed from their zip — not part of the core image.
 src/backend/modules/masterplan
 src/frontend/src/modules/masterplan
+src/backend/modules/qr
+src/frontend/src/modules/qr

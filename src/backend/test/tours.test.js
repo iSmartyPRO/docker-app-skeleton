@@ -119,7 +119,7 @@ test('built-in tours: valid definitions, texts in both languages', async () => {
   const { dictionaries } = await import('../../frontend/scripts/i18n-node.mjs');
   const lookup = (dict, path) => path.split('.').reduce((acc, key) => (acc && acc[key] != null ? acc[key] : null), dict);
   const ids = BUILTIN_TOURS.map((t) => t.id);
-  assert.deepEqual(ids.sort(), ['calendar', 'chat', 'companies', 'dashboard', 'drive', 'files', 'kb', 'notifications', 'portal', 'qr', 'remote', 'resources', 'tasks']);
+  assert.deepEqual(ids.sort(), ['calendar', 'chat', 'companies', 'dashboard', 'drive', 'files', 'kb', 'notifications', 'portal', 'remote', 'resources', 'tasks']);
   for (const def of BUILTIN_TOURS) {
     const t = engine.normalizeTour(def);
     for (const key of [t.title, ...t.steps.flatMap((s) => [s.title, s.text])].filter(Boolean)) {

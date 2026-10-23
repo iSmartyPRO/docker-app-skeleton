@@ -11,8 +11,8 @@ import { lazyPage } from '../lib/lazyPage';
  * module files itself. This file is the composition root.
  */
 // Folders of modules distributed as packages (their web/index.js is loaded by
-// platform/packages/loader.js when installed) are left out: masterplan.
-import.meta.glob(['./*/register.js', '!./masterplan/register.js'], { eager: true });
+// platform/packages/loader.js when installed) are left out: masterplan, qr.
+import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js'], { eager: true });
 
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
@@ -164,16 +164,6 @@ export const MODULE_REGISTRY = [
     descKey: 'apps.directory.desc',
     App: lazyPage(() => import('./directory/DirectoryApp')),
     Settings: lazy(() => import('./directory/DirectorySettings')),
-  },
-  {
-    // QR codes (docs/qr.md): branded codes from templates; templates for qr.admin.
-    id: 'qr',
-    path: '/app/qr',
-    icon: 'qr',
-    labelKey: 'apps.qr.name',
-    descKey: 'apps.qr.desc',
-    App: lazyPage(() => import('./qr/QrApp')),
-    Settings: lazy(() => import('./qr/QrSettings')),
   },
   {
     // Remote access & assistance (docs/specs/remote-access.ru.md). Listed only for people with a remote.* permission.

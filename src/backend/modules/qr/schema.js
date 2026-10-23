@@ -1,4 +1,4 @@
-import { query } from '../../config/database.js';
+import { query as poolQuery, withTransaction } from '../../config/database.js';
 import { presetRows } from './presets.js';
 
 /*
@@ -13,7 +13,13 @@ import { presetRows } from './presets.js';
  *   qr_scan_days   scans per code and day, for the chart
  */
 
-export async function ensureQrSchema() {
+/**
+ * Migration 001 (index.js `migrations`, docs/module-packages.md «Migrations»): the schema QR codes
+ * had while built into the core, with CREATE … IF NOT EXISTS — on a portal that already has the
+ * qr_* tables it changes nothing. Every statement goes through `db` (the migration's transaction).
+ */
+export async function createQrSchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS qr_templates (
       id SERIAL PRIMARY KEY,
@@ -60,11 +66,21 @@ export async function ensureQrSchema() {
   `);
   // Ready-made templates, once: a portal that deleted them keeps them deleted.
   const { rows } = await query(`SELECT COUNT(*)::int AS n FROM qr_templates`);
-  if (!rows[0].n) await insertPresets();
+  if (!rows[0].n) await insertPresets(db);
+}
+
+/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+export async function ensureQrSchema() {
+  await withTransaction(async (client) => {
+    // The lock the package migrations take (platform/packages/migrations.js): one at a time.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:qr'))`);
+    await createQrSchema({ query: (text, params) => client.query(text, params) });
+  });
 }
 
 /** Inserts the ready-made templates that are missing (by preset key); returns how many. */
-export async function insertPresets() {
+export async function insertPresets(db = { query: poolQuery }) {
+  const query = (text, params) => db.query(text, params);
   const { rows } = await query(`SELECT preset_key FROM qr_templates WHERE preset_key IS NOT NULL`);
   const have = new Set(rows.map((row) => row.preset_key));
   const { rows: defaults } = await query(`SELECT 1 FROM qr_templates WHERE is_default LIMIT 1`);

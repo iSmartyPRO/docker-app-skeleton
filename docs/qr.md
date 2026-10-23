@@ -1,5 +1,7 @@
 # QR codes
 
+**A module package** (since 1.1.0, [module-packages.md](module-packages.md)): not built into the core; `make module ID=qr` builds `dist/modules/qr-<version>.zip`, a superadministrator installs it in *Settings → Modules → «Установить из файла»*. Sources stay in the tree (`src/backend/modules/qr`, `src/frontend/src/modules/qr`, its texts in `src/frontend/src/modules/qr/locales`); the manifest is `module.json`, settings defaults and their sanitizer `settings.js`, the schema is migration `001_init` (`schema.js` `createQrSchema`). Its anonymous routes (`/api/qr/go/<slug>` behind nginx's `/q/<slug>`, `/api/qr/assets/<file>`) are mounted by the package loader while the module is on. Upgrading a portal where it was built in: [module-packages.md](module-packages.md#upgrading-a-portal-that-had-qr-codes-the-assistant-or-remote-access-built-in).
+
 Branded QR codes for everyone in the portal. A person picks **what the code does**, a **template**
 prepared by the company and, when allowed, adjusts the **design**; the live preview is checked for
 scanning as they go and downloads as PNG (up to 4096 px) or SVG. Website codes can be **dynamic**:

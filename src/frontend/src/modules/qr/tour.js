@@ -1,3 +1,4 @@
+/** Guided tour of QR codes (texts: tour.qr.* in the core tour namespace, copied into the package by module.json localeKeys). */
 export default {
   id: 'qr',
   module: 'qr',

@@ -1,5 +1,5 @@
 /*
- * Built-in tours. Adding one: a file here (see engine.js for the format),
+ * Built-in tours (modules distributed as packages register theirs from modules/<id>/register.js). Adding one: a file here (see engine.js for the format),
  * a line below, its texts in i18n/tours.js (ru + en) and data-tour="…"
  * anchors on the page — docs/extending.md → «Guided tours».
  */
@@ -14,10 +14,9 @@ import calendar from './calendar.js';
 import kb from './kb.js';
 import companies from './companies.js';
 import resources from './resources.js';
-import qr from './qr.js';
 import remote from './remote.js';
 import notifications from './notifications.js';
 
-export const BUILTIN_TOURS = [portal, dashboard, tasks, files, drive, chat, calendar, kb, companies, resources, qr, remote, notifications];
+export const BUILTIN_TOURS = [portal, dashboard, tasks, files, drive, chat, calendar, kb, companies, resources, remote, notifications];
 
 BUILTIN_TOURS.forEach((tour) => registerTour(tour));

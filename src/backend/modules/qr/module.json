@@ -1,0 +1,47 @@
+{
+  "id": "qr",
+  "name": { "en": "QR codes", "ru": "QR-коды", "ky": "QR-коддор", "tr": "QR kodları", "zh": "二维码" },
+  "nameForms": { "ru": { "ins": "QR-кодами" } },
+  "description": {
+    "en": "Branded QR codes from templates: website, vCard, Wi-Fi and more; dynamic website codes with scan counts",
+    "ru": "Фирменные QR-коды по шаблонам: сайт, визитка, Wi-Fi и другие; динамические коды сайта со счётчиком сканирований",
+    "ky": "Үлгүлөр боюнча фирмалык QR-коддор: сайт, визитка, Wi-Fi жана башкалар; сканерлөө эсептегичи бар динамикалык коддор",
+    "tr": "Şablonlardan kurumsal QR kodları: web sitesi, vCard, Wi-Fi ve diğerleri; tarama sayaçlı dinamik web sitesi kodları",
+    "zh": "基于模板的品牌二维码：网站、名片、Wi-Fi 等；带扫描统计的动态网址码"
+  },
+  "version": "1.1.0",
+  "category": "work",
+  "requires": [],
+  "enhances": [],
+  "permissions": ["qr.admin"],
+  "tables": ["qr_%"],
+  "icon": "qr",
+  "docsInfo": { "user": "qr", "guide": "docs/qr.md" },
+  "localeKeys": {
+    "apps": ["qr"],
+    "settings": ["qr"],
+    "permissions": ["groups.module_qr", "qr_*"],
+    "tour": ["qr"]
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-23",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); codes, templates, scan counts, logos and settings are kept."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); коды, шаблоны, счётчики сканирований, логотипы и настройки сохраняются."]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-21",
+      "changes": {
+        "en": ["Website, vCard, Wi-Fi, e-mail, phone, SMS, WhatsApp, Telegram, location, event and text codes; brand templates with locks; logo, colours, gradients, shapes and frames with a live preview and a scan check; dynamic website codes with scan counts; PNG and SVG export."],
+        "ru": ["Коды для сайта, визитки vCard, Wi-Fi, почты, телефона, SMS, WhatsApp, Telegram, места, события и текста; фирменные шаблоны с блокировками; логотип, цвета, градиенты, формы и рамки с мгновенным превью и проверкой сканирования; динамические коды сайта со счётчиком сканирований; выгрузка PNG и SVG."],
+        "ky": ["Сайт, vCard, Wi-Fi, почта, телефон, SMS, WhatsApp, Telegram, жайгашкан жер, иш-чара жана текст үчүн коддор; бекитүүлөрү бар фирмалык үлгүлөр; логотип, түстөр, градиенттер, формалар жана алкактар, ыкчам алдын ала көрүү жана сканерлөө текшерүүсү; сканерлөө эсептегичи бар динамикалык коддор; PNG жана SVG."],
+        "tr": ["Web sitesi, vCard, Wi-Fi, e-posta, telefon, SMS, WhatsApp, Telegram, konum, etkinlik ve metin kodları; kilitli kurumsal şablonlar; anlık önizleme ve tarama kontrolüyle logo, renkler, geçişler, şekiller ve çerçeveler; tarama sayaçlı dinamik web sitesi kodları; PNG ve SVG dışa aktarma."],
+        "zh": ["网站、vCard 名片、Wi-Fi、邮件、电话、短信、WhatsApp、Telegram、位置、活动和文本二维码；可锁定的品牌模板；标志、颜色、渐变、形状和边框，实时预览并检测可扫描性；带扫描统计的动态网址码；导出 PNG 和 SVG。"]
+      }
+    }
+  ]
+}

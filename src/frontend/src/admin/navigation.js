@@ -278,11 +278,6 @@ export const SETTINGS_GROUPS = [
         keywords: 'online resources links home page bookmarks icons онлайн ресурсы ссылки главная страница закладки иконки',
       },
       {
-        id: 'qr',
-        defaultIcon: 'qr',
-        keywords: 'qr codes qr-code vcard wifi branding logo templates dynamic scan куар qr-коды коды визитка вайфай брендирование логотип шаблоны динамические сканирования',
-      },
-      {
         id: 'remote',
         defaultIcon: 'remote',
         keywords: 'remote access desktop rdp vnc guacamole assistance monitoring support удалённый доступ рабочий стол помощь наблюдение поддержка rdp vnc гуакамоле',
