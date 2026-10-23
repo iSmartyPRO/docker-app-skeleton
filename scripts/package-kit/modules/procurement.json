@@ -1,0 +1,179 @@
+{
+  "comment": "Package kit hints for Procurement (docs/package-testing.md «Module kit file»). Procurement requires Approvals (a core service) and links to Counterparties, Files and Chat (built in), Masterplan (projects and objects through the core «objects» source), the CRM (the deal picker) and Contracts (requests under a contract); Warehouse links to it (receipts from purchase requests, the deliverable-requests picker). Masterplan, the CRM, Contracts and Warehouse are installed as linked packages; on the upgrade source (main) Masterplan is already a package, the others are built in.",
+  "enableAlso": [
+    "companies",
+    "chat",
+    "files"
+  ],
+  "packages": [
+    "masterplan",
+    "crm",
+    "contracts",
+    "warehouse"
+  ],
+  "seed": [
+    "companies",
+    "crm",
+    "masterplan",
+    "contracts",
+    "procurement",
+    "warehouse"
+  ],
+  "apiParams": {
+    "id": "SELECT id FROM proc_requests ORDER BY id LIMIT 1",
+    "kind": "projects",
+    "projectRequest": "SELECT id FROM proc_requests WHERE project_id IS NOT NULL ORDER BY id LIMIT 1",
+    "contractRequest": "SELECT id FROM proc_requests WHERE contract_id IS NOT NULL ORDER BY id LIMIT 1",
+    "procContract": "SELECT contract_id FROM proc_requests WHERE contract_id IS NOT NULL ORDER BY id LIMIT 1",
+    "projectId": "SELECT project_id FROM proc_requests WHERE project_id IS NOT NULL ORDER BY id LIMIT 1",
+    "approvalRequest": "SELECT doc_id FROM approval_processes WHERE type = 'procurement.request' ORDER BY id LIMIT 1"
+  },
+  "pageParams": {
+    "id": "SELECT id FROM proc_requests ORDER BY id LIMIT 1"
+  },
+  "links": [
+    {
+      "name": "Procurement → Masterplan projects (core objects source)",
+      "path": "/api/app/procurement/lookup/projects",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404
+      },
+      "alone": {
+        "status": 404
+      }
+    },
+    {
+      "name": "Procurement → objects of a Masterplan project",
+      "path": "/api/app/procurement/lookup/objects?project=:projectId",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Procurement → the CRM deal picker",
+      "path": "/api/app/procurement/lookup/deals",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "maxStatus": 404
+      },
+      "alone": {
+        "status": 404
+      }
+    },
+    {
+      "name": "Procurement → a request's Masterplan project",
+      "path": "/api/app/procurement/requests/:projectRequest",
+      "present": {
+        "status": 200,
+        "has": "request.project.label"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Procurement ↔ Contracts: a request's contract",
+      "path": "/api/app/procurement/requests/:contractRequest",
+      "present": {
+        "status": 200,
+        "has": "request.contract.label"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Contracts → requests under a contract (the contract card's list)",
+      "path": "/api/app/procurement/requests?contract=:procContract",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Warehouse → purchase requests waiting for goods (receipt form picker)",
+      "path": "/api/app/warehouse/lookup/requests",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "status": 404
+      }
+    },
+    {
+      "name": "Approvals → the route of the document type procurement.request",
+      "path": "/api/app/approvals/routes/procurement.request",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "status": 404
+      }
+    },
+    {
+      "name": "Approvals → the route field «Проект» (Masterplan projects through the objects source)",
+      "path": "/api/app/approvals/routes/procurement.request/fields/project/options",
+      "present": {
+        "status": 200,
+        "nonEmpty": "options"
+      },
+      "absent": {
+        "status": 404
+      },
+      "alone": {
+        "status": 200,
+        "empty": "options"
+      }
+    },
+    {
+      "name": "Approvals → the approval of a demo request",
+      "path": "/api/app/approvals/process/procurement.request/:approvalRequest",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "dashboard widget «Закупки»",
+      "path": "/api/app/procurement/widget",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "status": 404
+      }
+    }
+  ],
+  "openToUsers": [
+    "GET /api/app/procurement/meta",
+    "GET /api/app/procurement/people",
+    "GET /api/app/procurement/counters",
+    "GET /api/app/procurement/board",
+    "GET /api/app/procurement/legal-entities"
+  ],
+  "needsOtherScopes": [],
+  "skipApi": [],
+  "openToUsersWhy": {
+    "meta": "module settings (categories, currencies, units), the person's own rights — everyone signed in may file requests (anyoneCanCreate)",
+    "people": "people picker of the request form (names and avatars of active users, as elsewhere in the portal)",
+    "counters": "chip counters of the requests the person may see (numbers only)",
+    "board": "always the 11 status columns; the requests in them follow the same visibility as /requests (none for the plain user)",
+    "legal-entities": "the paying legal entities of the request form (the shared directory, names only)"
+  }
+}

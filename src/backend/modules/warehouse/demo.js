@@ -1,5 +1,6 @@
 import { withTransaction } from '../../config/database.js';
 import { registerDemo } from '../../services/demo.js';
+import { objectSource } from '../../platform/registry.js';
 import { createBins, createWarehouse } from './warehouses.js';
 import { createItem, saveNorms } from './items.js';
 import { createDoc, postDoc, requestDoc, shipDoc } from './documents.js';
@@ -112,8 +113,11 @@ registerDemo({
     const keeper = await ctx.demoUser(STOREKEEPER.key, { displayName: ctx.t(STOREKEEPER.name) });
     const foreman = await ctx.demoUser(FOREMAN.key, { displayName: ctx.t(FOREMAN.name) });
     const req = ctx.request;
-    const projectId = (await ctx.records('mp_projects', 'masterplan'))[0] || null;
-    const project = projectId ? (await ctx.query(`SELECT id, name FROM mp_projects WHERE id = $1`, [projectId])).rows[0] : null;
+    // Masterplan is another package: its demo project and building come through the core «objects» source.
+    const projectId = Number((await ctx.records('mp_projects', 'masterplan'))[0]) || null;
+    const objects = projectId ? await objectSource() : null;
+    const projectName = objects ? await objects.projectLabel(req, projectId).catch(() => null) : null;
+    const project = projectName ? { id: projectId, name: projectName } : null;
     const supplierId = (await ctx.records('cmp_companies', 'companies'))[1] || null;
     const supplierName = ctx.t({ ru: 'АО «Образец»', en: 'Sample JSC', ky: '«Үлгү» АК', tr: 'Numune A.Ş.', zh: '“样本”股份公司' });
 
@@ -303,7 +307,7 @@ registerDemo({
     );
     if (demoRoute) await trackProcess(ctx, APPROVAL_TYPE, writeoff);
     // ── A reserve for the demo apartment building (or a general one) ───────
-    const { rows: building } = projectId ? await ctx.query(`SELECT id, name FROM mp_nodes WHERE project_id = $1 AND code = 'D1'`, [projectId]) : { rows: [] };
+    const building = project ? (await objects.objects(req, { project: projectId, q: 'D1' }).catch(() => [])).filter((node) => /^D1( · |$)/.test(node.label)).map((node) => ({ id: node.id, name: node.label.replace(/^D1 · /, '') })) : [];
     const reserve = await createReserve(req, {
       itemId: items.lamp.id,
       warehouseId: mainId,

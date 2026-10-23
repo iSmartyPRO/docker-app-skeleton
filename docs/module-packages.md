@@ -510,6 +510,10 @@ start-up and listed on Settings → Modules («These modules need an update for 
 - `test/packages-qr-assistant-remote.test.js` (no database): QR codes, the assistant and Remote access are out of every
   core list, their module.json / settings.js, overlay packages, `seal` / `unseal`, late `onHttpServer` hooks, their builds
   (web with `MODULE_BUILD_WEB=1`). `test/packages-qr-assistant-remote.db.test.js` (`PACKAGES2_DB_TEST=1`): the upgrade above.
+- `test/packages-procurement-warehouse.test.js` (no database): Procurement and Warehouse are out of every core list, their
+  module.json / settings.js, registrations in `register(ctx)`, no raw SQL on other packages' tables (Warehouse → Procurement's
+  `api.requestLineQuantities`, Masterplan through the objects source or behind `masterplanTables()`), no foreign keys into other
+  modules, the core files their pages need are shared, their builds (web with `MODULE_BUILD_WEB=1`).
 - `test/module-packages-hardening.test.js` (no database): table ownership (and that its lists cover every
   `CREATE TABLE` of the tree), migration attribution and conflicts, downgrade after removal, core / SDK checks,
   `check-core-upgrade`, files re-verified, boot markers, limits, staging cleanup, backup retention, the deferred
@@ -536,7 +540,7 @@ start-up and listed on Settings → Modules («These modules need an update for 
 - `test/frontend-package-loader.test.js`: the browser loader's decisions (`loaderLogic.js`).
 - Fixture: `test-fixtures/module-hello` (route, table, SQL + JS migration, page, translations, docs).
 
-## Converting a module (checklist; done for Masterplan, QR codes, Robot assistant, Remote access, CRM, Contracts)
+## Converting a module (checklist; done for Masterplan, QR codes, Robot assistant, Remote access, CRM, Contracts, Procurement, Warehouse)
 
 Masterplan was the pilot (`src/backend/modules/masterplan`, `src/frontend/src/modules/masterplan`); copy what it does.
 QR codes (anonymous routes), the robot assistant (no page: `web.page: false`, contributions only) and Remote access
@@ -547,8 +551,12 @@ QR codes (anonymous routes), the robot assistant (no page: `web.page: false`, co
 1. **Boundaries**: `npm run check:modules` is 0 — no imports of other modules' internals; other modules reach it only
    through the registry (`ctx.modules.get(id)?.api`, events, object sources, link providers), never by import, and
    **at call time** (packages load in any order: no `modules.loaded(…)` at import). Raw SQL of other modules on its
-   tables is a smell (today: warehouse / procurement demo and stock read `mp_*`, demos read `crm_deals` /
-   `ctr_contracts`, guarded) — move it behind its `api` or guard it (`to_regclass`, the module on). **No foreign keys
+   tables is a smell — move it behind its `api` or guard it (`to_regclass`, the module on). Done in batch 3: Warehouse
+   reads a request's lines through Procurement's `api.requestLineQuantities` (not `proc_items`); both demos and the
+   Procurement approval field «Проект» go through the core «objects» source; Warehouse reads the names of Masterplan
+   objects stock was issued to only while `mp_nodes` / `mp_projects` exist (`warehouse/access.js masterplanTables`).
+   Left, guarded: the Contracts and Masterplan demo purges clear their ids in `proc_requests` (`.catch`), the
+   Procurement demo purge clears its ids in `wh_docs` (`to_regclass`). **No foreign keys
    from other modules' tables into its tables**: the platform refuses an update and «Удалить данные» of a package
    that other tables reference (`FOREIGN_KEYS`), and the other module could not be installed without it
    (Masterplan dropped its keys into `crm_deals`, migration 002).
@@ -622,6 +630,13 @@ What is left in the core for Masterplan (works when it is absent, fine to keep u
 (`help/content|admin/<lang>/masterplan.js`, `help/registry.jsx` order), its notification kinds
 (`services/notificationCatalog.js`, hidden while absent), the API reference section (`api/reference.js`),
 server-side texts (`src/backend/locales/<lang>/masterplan.js`), the category icon and name forms in `checks.js`.
+
+What is left in the core for Procurement and Warehouse (all work while they are absent): help articles and `HELP_ORDER`
+entries, their notification kinds (`services/notificationCatalog.js`) and webhook event types (`api/events.js`), the API
+reference sections, server-side texts (`src/backend/locales/<lang>/warehouse.js`), their colours / icons in the approvals list
+(`modules/approvals/lib.js`), texts in shared namespaces (copied into the packages by `localeKeys`), name forms in `checks.js`,
+the table prefixes `proc_` / `wh_` in `tableOwnership.js`. The camera scanner, label printing and Excel helpers stay core
+components shared with packages.
 
 ## Upgrading a portal that had Masterplan built in
 
@@ -713,6 +728,36 @@ Rehearsed by `make package-check ID=crm|contracts MODE=all SOURCE_REF=main` (doc
 linked package (main: Masterplan 1.1.0 package, CRM and Contracts built in): the snapshot of the module's tables, settings,
 roles and dashboards is identical before the deploy, with the core alone, after the install, after Masterplan's update and
 after a restart.
+
+## Upgrading a portal that had Procurement or Warehouse built in
+
+The core after 1.20.0 no longer contains Procurement (last built-in 1.0.0) or Warehouse (1.0.0). Their tables (`proc_*`,
+`wh_*` — including the append-only movement journal `wh_moves` and its trigger), files (`uploads/procurement` — invoices,
+payment orders, waybills; `uploads/warehouse` — item photos, document attachments, signatures), settings
+(`settings.modules.procurement|warehouse`), roles, the approval routes and processes of `procurement.request` /
+`warehouse.document`, API token scopes and dashboard widgets stay untouched. Until the packages are installed they are listed
+under «Удалённые модули» (data kept): `/app/procurement` and `/app/warehouse` (with the storekeeper's mobile mode
+`/app/warehouse/m`) are not there, Contracts shows «Закупки выключены» on its card, pay-by / deliver-by reminders, the daily
+low-stock digest and inventory reminders do not run, «Ждёт меня» has no payment, transfer, requisition or hand-over items, and
+a decision on an open approval of a request or a warehouse document fails until its module is back — install them right away.
+
+1. Build the packages with the release core: `make module ID=procurement`, `make module ID=warehouse` (signed) →
+   `procurement-1.1.0.zip`, `warehouse-1.1.0.zip`; `make modules-verify FILE=…` each. The web part of both imports core
+   files shared with packages from this core on (`lib/xlsx`, `components/legalEntities/LegalEntitiesEditor`), so they need
+   the core they are built with or newer.
+2. Usual deploy routine of the core (database backup first).
+3. **Right after the deploy**, install **Procurement**, then **Warehouse** (Warehouse only enhances Procurement — any order
+   works, but Procurement first gives the receipt form its purchase requests at once). Each restart takes 5–10 s. Migrations
+   `001_init` create nothing on this database and record themselves (Warehouse's journal trigger is kept as it is).
+4. They come back as they were (switched on where an administrator had turned them on). Check `/app/procurement` (a request
+   with its invoice, payments and approval; the payments registry), a contract's «Заявки на закупку», `/app/warehouse`
+   (stock, a receipt from a purchase request, the movement journal), `/app/warehouse/m` on a phone (scanner), the dashboard
+   widgets, Settings → Procurement / Warehouse.
+
+Rehearsed by `make package-check ID=procurement|warehouse MODE=all SOURCE_REF=main` (docs/package-testing.md) with the linked
+packages (main: Masterplan 1.1.0 package; CRM, Contracts, Procurement and Warehouse built in): the snapshot of the module's
+tables, settings, roles, dashboards and upload folder is identical before the deploy, with the core alone, after the install, after
+the linked packages are installed and after a restart.
 
 ## Limitations
 

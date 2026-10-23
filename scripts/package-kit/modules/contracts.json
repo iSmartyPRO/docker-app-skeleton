@@ -1,13 +1,13 @@
 {
-  "comment": "Package kit hints for Contracts (docs/package-testing.md «Module kit file»). Contracts requires Approvals (a core service) and links to the CRM (a contract's deal, the deal picker), Masterplan (sales contracts update units; the object picker), Counterparties, Chat and Procurement. The CRM and Masterplan are installed as linked packages; on the upgrade source (main) Masterplan is already a package and the CRM is built in. The seed links one contract to a CRM deal through the API (the demo contracts link Masterplan units, not deals).",
+  "comment": "Package kit hints for Contracts (docs/package-testing.md «Module kit file»). Contracts requires Approvals (a core service) and links to the CRM (a contract's deal, the deal picker), Masterplan (sales contracts update units; the object picker), Counterparties, Chat and Procurement. The CRM, Masterplan and Procurement are installed as linked packages; on the upgrade source (main) Masterplan is already a package, the CRM and Procurement are built in. The seed links one contract to a CRM deal through the API (the demo contracts link Masterplan units, not deals).",
   "enableAlso": [
     "companies",
-    "chat",
-    "procurement"
+    "chat"
   ],
   "packages": [
     "crm",
-    "masterplan"
+    "masterplan",
+    "procurement"
   ],
   "seed": [
     "companies",

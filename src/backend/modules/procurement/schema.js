@@ -1,8 +1,8 @@
-import { query } from '../../config/database.js';
+import { withTransaction } from '../../config/database.js';
 import { registerJob } from '../../services/scheduler.js';
 
 /*
- * Procurement tables (docs/procurement.md#data-model). Idempotent; runs on every start.
+ * Procurement tables (docs/procurement.md#data-model).
  *
  *   proc_requests     the purchase requests (status, money, deadlines, supplier, links)
  *   proc_items        line items of a request
@@ -12,8 +12,15 @@ import { registerJob } from '../../services/scheduler.js';
  *   proc_events       history of the request (approval history is merged in from the approvals service)
  *   proc_views        saved list views per person
  *   proc_counters     the request number sequence (row-locked: no duplicates under concurrency)
+ *
+ * Migration 001 (index.js `migrations`, docs/module-packages.md «Migrations»): the schema Procurement had
+ * while built into the core — CREATE … IF NOT EXISTS / ADD COLUMN IF NOT EXISTS, all idempotent — so on a
+ * portal that already has the proc_* tables it changes nothing. Everything goes through `db` (the
+ * migration's transaction). No foreign keys into other modules' tables (contracts, deals, projects,
+ * counterparties are ids + labels, checked by the module when a link is saved).
  */
-export async function ensureProcurementSchema() {
+export async function createProcurementSchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS proc_requests (
       id SERIAL PRIMARY KEY,
@@ -156,8 +163,19 @@ export async function ensureProcurementSchema() {
     )
   `);
   await query(`INSERT INTO proc_counters (key, value) VALUES ('request', 0) ON CONFLICT (key) DO NOTHING`);
+}
 
+/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+export async function ensureProcurementSchema() {
+  await withTransaction(async (client) => {
+    // The lock the package migrations take (platform/packages/migrations.js): one at a time.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:procurement'))`);
+    await createProcurementSchema({ query: (text, params) => client.query(text, params) });
+  });
+}
+
+/** Background jobs (register(ctx); no database access). */
+export function startProcurement() {
   // Pay-by / deliver-by reminders (once each), every 10 minutes.
-  const { runDeadlines } = await import('./reminders.js');
-  registerJob({ name: 'procurement:deadlines', everyMs: 10 * 60 * 1000, run: () => runDeadlines() });
+  registerJob({ name: 'procurement:deadlines', everyMs: 10 * 60 * 1000, run: async () => (await import('./reminders.js')).runDeadlines() });
 }

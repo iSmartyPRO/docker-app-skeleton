@@ -18,12 +18,17 @@ import {
   toCsv,
   totalsByCurrency,
 } from '../modules/procurement/logic.js';
-import { MODULE_CATALOG, PROCUREMENT_DEFAULTS, resolveModules, sanitizeProcurement } from '../modules/catalog.js';
+import { MODULE_CATALOG, resolveModules } from '../modules/catalog.js';
+import { PROCUREMENT_DEFAULTS, sanitizeProcurement } from '../modules/procurement/settings.js';
+import { sourcePackage } from './helpers/modules.js';
 import { PROCUREMENT_MESSAGES, moneyText } from '../modules/procurement/messages.js';
 import { translator } from '../services/i18n/index.js';
 import { cleanLegalEntity } from '../services/legalEntities.js';
 import { NOTIFICATION_EVENTS } from '../services/notificationCatalog.js';
 import { EVENT_TYPES } from '../api/events.js';
+
+// Procurement is a module package: its catalog entry as an installed package adds it (module.json + settings.js).
+await sourcePackage('procurement');
 
 test('procurement: line items and money', () => {
   const items = cleanItems([

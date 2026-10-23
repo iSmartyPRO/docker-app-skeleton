@@ -42,10 +42,6 @@ export const INTEGRATIONS = ['email', 'telegram', 'whatsapp', 'wazzup', 'matterm
 
 const FIRST = '2026-10-16';
 const first = (en, ru, more = {}) => [{ version: '1.0.0', date: FIRST, changes: { en, ru, ...more } }];
-const APPROVALS = {
-  id: 'approvals',
-  reason: { en: 'Documents go through approval routes', ky: 'Документтер макулдашуу маршруттарынан өтөт', tr: 'Belgeler onay akışlarından geçer', zh: '单据按审批流程流转', ru: 'Документы проходят маршруты согласования' },
-};
 
 export const MODULE_MANIFEST = {
   approvals: {
@@ -163,37 +159,6 @@ export const MODULE_MANIFEST = {
     docs: { user: 'companies', guide: 'docs/companies.md' },
     changelog: first(['Companies and people, registry lookups, careers, history and rating.'], ['Компании и люди, реквизиты из реестров, карьера, история и рейтинг.'], { ky: ['Компаниялар жана адамдар, реестрлерден реквизиттер, карьера, тарых жана рейтинг.'], tr: ['Şirketler ve kişiler, sicil sorguları, kariyer, geçmiş ve puanlama.'], zh: ['公司和联系人、登记信息查询、职业经历、历史和评分。'] }),
   },
-  procurement: {
-    name: { en: 'Procurement', ky: 'Сатып алуулар', tr: 'Satın alma', zh: '采购', ru: 'Закупки' },
-    version: '1.0.0',
-    category: 'supply',
-    minCore: '1.4.0',
-    requires: [APPROVALS],
-    enhances: [
-      { id: 'companies', what: { en: 'Pick suppliers from the directory', ky: 'Жеткирүүчүлөрдү маалымдамадан тандоо', tr: 'Tedarikçileri rehberden seçme', zh: '从名录中选择供应商', ru: 'Выбор поставщиков из справочника' } },
-      { id: 'masterplan', what: { en: 'Requests for a project or object', ky: 'Долбоорго же объектке өтүнмөлөр', tr: 'Bir proje veya şantiye için talepler', zh: '针对项目或工地的申请', ru: 'Заявки на проект или объект' } },
-      { id: 'crm', what: { en: 'Link requests to deals', ky: 'Өтүнмөлөрдү бүтүмдөр менен байланыштыруу', tr: 'Talepleri fırsatlara bağlama', zh: '将申请关联到交易', ru: 'Связь заявок со сделками' } },
-      { id: 'contracts', what: { en: 'Requests under a contract', ky: 'Келишим боюнча өтүнмөлөр', tr: 'Sözleşmeye bağlı talepler', zh: '合同项下的申请', ru: 'Заявки по договору' } },
-      { id: 'files', what: { en: 'Attach invoices from Files', ky: '«Файлдар» бөлүмүнөн эсеп-дүмүрчөктөр', tr: 'Dosyalar\'dan fatura ekleme', zh: '从“文件”添加发票', ru: 'Счета из «Файлов»' } },
-      { id: 'chat', what: { en: 'A conversation in every request', ky: 'Ар бир өтүнмөдө чат', tr: 'Her talepte bir sohbet', zh: '每个申请都有聊天', ru: 'Чат у каждой заявки' } },
-    ],
-    docs: { user: 'procurement', guide: 'docs/procurement.md' },
-    changelog: first(['Purchase requests, approval, payments registry, delivery.'], ['Заявки на закупку, согласование, реестр оплат, поставка.'], { ky: ['Сатып алууга өтүнмөлөр, макулдашуу, төлөмдөр реестри, жеткирүү.'], tr: ['Satın alma talepleri, onay, ödeme kayıt listesi, teslimat.'], zh: ['采购申请、审批、付款台账、交付。'] }),
-  },
-  warehouse: {
-    name: { en: 'Warehouse', ky: 'Кампа', tr: 'Depo', zh: '仓库', ru: 'Склад' },
-    version: '1.0.0',
-    category: 'supply',
-    minCore: '1.4.0',
-    requires: [APPROVALS],
-    enhances: [
-      { id: 'procurement', what: { en: 'Receipts from purchase requests', ky: 'Сатып алууга өтүнмөлөр боюнча кирим', tr: 'Satın alma taleplerinden giriş', zh: '按采购申请入库', ru: 'Приход по заявкам на закупку' } },
-      { id: 'masterplan', what: { en: 'Issues to projects and objects', ky: 'Долбоорлорго жана объекттерге берүү', tr: 'Projelere ve şantiyelere çıkış', zh: '向项目和工地出库', ru: 'Выдача на проекты и объекты' } },
-      { id: 'companies', what: { en: 'Suppliers from the directory', ky: 'Жеткирүүчүлөр маалымдамадан', tr: 'Rehberden tedarikçiler', zh: '供应商来自名录', ru: 'Поставщики из справочника' } },
-    ],
-    docs: { user: 'warehouse', guide: 'docs/warehouse.md' },
-    changelog: first(['Stock, receipts and issues, transfers, tools, barcodes, inventory.'], ['Остатки, приход и выдача, перемещения, инструмент, штрихкоды, инвентаризация.'], { ky: ['Калдыктар, кирим жана берүү, которуулар, шаймандар, штрихкоддор, инвентаризация.'], tr: ['Stok, giriş ve çıkışlar, transferler, aletler, barkodlar, sayım.'], zh: ['库存、入库和出库、调拨、工具、条形码、盘点。'] }),
-  },
   drive: {
     name: { en: 'File server', ky: 'Файл сервери', tr: 'Dosya sunucusu', zh: '文件服务器', ru: 'Файловый сервер' },
     version: '1.0.0',
@@ -267,7 +232,7 @@ export const BUILTIN_MANIFEST_IDS = Object.keys(MODULE_MANIFEST);
  * Modules distributed as packages (no longer built into the core) that built-in
  * modules may name in `enhances`: the link is active once the package is installed.
  */
-export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant', 'remote', 'crm', 'contracts'];
+export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant', 'remote', 'crm', 'contracts', 'procurement', 'warehouse'];
 Object.assign(MODULE_MANIFEST, packageManifestEntries(BUILTIN_MANIFEST_IDS));
 
 /**

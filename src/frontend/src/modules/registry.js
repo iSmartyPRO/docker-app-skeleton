@@ -11,8 +11,9 @@ import { lazyPage } from '../lib/lazyPage';
  * module files itself. This file is the composition root.
  */
 // Folders of modules distributed as packages (their web/index.js is loaded by
-// platform/packages/loader.js when installed) are left out: masterplan, qr, assistant, remote, crm, contracts.
-import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js', '!./assistant/register.js', '!./remote/register.js', '!./crm/register.js', '!./contracts/register.js'], { eager: true });
+// platform/packages/loader.js when installed) are left out: masterplan, qr, assistant, remote, crm, contracts,
+// procurement, warehouse.
+import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js', '!./assistant/register.js', '!./remote/register.js', '!./crm/register.js', '!./contracts/register.js', '!./procurement/register.js', '!./warehouse/register.js'], { eager: true });
 
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
@@ -99,24 +100,8 @@ export const MODULE_REGISTRY = [
     App: lazyPage(() => import('./tasks/TasksApp')),
     Settings: lazy(() => import('./tasks/TasksSettings')),
   },
-  {
-    id: 'procurement',
-    path: '/app/procurement',
-    icon: 'cart',
-    labelKey: 'apps.procurement.name',
-    descKey: 'apps.procurement.desc',
-    App: lazyPage(() => import('./procurement/ProcurementApp')),
-    Settings: lazy(() => import('./procurement/ProcurementSettings')),
-  },
-  {
-    id: 'warehouse',
-    path: '/app/warehouse',
-    icon: 'box',
-    labelKey: 'apps.warehouse.name',
-    descKey: 'apps.warehouse.desc',
-    App: lazyPage(() => import('./warehouse/WarehouseApp')),
-    Settings: lazy(() => import('./warehouse/WarehouseSettings')),
-  },
+
+
   {
     id: 'calendar',
     path: '/app/calendar',

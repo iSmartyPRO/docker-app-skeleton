@@ -36,6 +36,15 @@ async function receivedByProcItem(requestId) {
   return new Map(rows.map((row) => [row.proc_item_id, Number(row.qty)]));
 }
 
+/**
+ * The ordered quantities of a request's lines, through Procurement's public API (never its tables);
+ * null when the installed Procurement does not offer it (the delivery is then marked partial).
+ */
+async function requestLines(requestId) {
+  const lines = procurementApi()?.requestLineQuantities;
+  return typeof lines === 'function' ? lines(requestId) : null;
+}
+
 /** Approved requests waiting for goods (picker of the receipt form). */
 export async function deliverableRequests(req, input = {}) {
   await assertProcurement(req);
@@ -87,9 +96,9 @@ export async function receiptFromRequest(req, input = {}) {
 /** After a receipt with a request is posted: the delivery mark in Procurement (partial while lines are open). */
 export async function markProcurementDelivery(row, actorId) {
   if (!(await modulesState()).procurement || !procurementApi()) return { skipped: 'MODULE_DISABLED' };
-  const { rows: items } = await query(`SELECT id, qty FROM proc_items WHERE request_id = $1`, [row.proc_request_id]);
+  const items = await requestLines(row.proc_request_id);
   const received = await receivedByProcItem(row.proc_request_id);
-  const partial = items.length ? items.some((item) => (received.get(item.id) || 0) < Number(item.qty) - EPS) : false;
+  const partial = items === null ? true : items.length ? items.some((item) => (received.get(item.id) || 0) < Number(item.qty) - EPS) : false;
   const { recordExternalDelivery } = procurementApi();
   const result = await recordExternalDelivery({ requestId: row.proc_request_id, actorId, partial, note: `Склад: ${row.number}`, source: 'warehouse', reference: row.number });
   await logEvent({ query }, 'doc', row.id, actorId, result.skipped ? 'procurement_skipped' : 'procurement_delivered', { requestId: row.proc_request_id, partial, ...(result.skipped ? { reason: result.skipped } : { status: result.status }) });
@@ -99,9 +108,9 @@ export async function markProcurementDelivery(row, actorId) {
 /** After a receipt with a request is reversed: its delivery mark goes back (what is still to come is recomputed). */
 export async function revertProcurementDelivery(row, actorId) {
   if (!(await modulesState()).procurement || !procurementApi()) return { skipped: 'MODULE_DISABLED' };
-  const { rows: items } = await query(`SELECT id, qty FROM proc_items WHERE request_id = $1`, [row.proc_request_id]);
+  const items = await requestLines(row.proc_request_id);
   const received = await receivedByProcItem(row.proc_request_id);
-  const partial = items.length ? items.some((item) => (received.get(item.id) || 0) < Number(item.qty) - EPS) : null;
+  const partial = items?.length ? items.some((item) => (received.get(item.id) || 0) < Number(item.qty) - EPS) : null;
   const { revertExternalDelivery } = procurementApi();
   const result = await revertExternalDelivery({ requestId: row.proc_request_id, actorId, reference: row.number, source: 'warehouse', partial });
   await logEvent({ query }, 'doc', row.id, actorId, result.skipped ? 'procurement_revert_skipped' : 'procurement_reverted', { requestId: row.proc_request_id, ...(result.skipped ? { reason: result.skipped } : { status: result.status }) });

@@ -7,7 +7,8 @@ import { hasPermission } from '../../services/permissions.js';
 import { listLegalEntities } from '../../services/legalEntities.js';
 import { isoDay, wallToInstant } from '../../services/datetime.js';
 import { requestRegional } from '../../services/regional.js';
-import { APPROVAL_TYPE, canSee, modulesState, procContext, procurementSettings } from './access.js';
+import { objectSource } from '../../platform/registry.js';
+import { APPROVAL_TYPE, canSee, procContext, procurementSettings } from './access.js';
 import { approvalTarget, httpError, PAYABLE, readyErrors } from './logic.js';
 import { isoDayOf, logEvent, notifyToPay, requestUrl, usersByIds, webhook, whenCommitted } from './service.js';
 
@@ -65,10 +66,13 @@ export function registerProcurementApproval() {
         key: 'project',
         type: 'ref',
         label: { ru: 'Проект (Мастерплан)', en: 'Project (Masterplan)', ky: 'Долбоор (Мастерплан)', tr: 'Proje (Master plan)', zh: '项目（总体规划）' },
-        options: async () => {
-          if (!(await modulesState()).masterplan) return [];
-          const { rows } = await query(`SELECT id, name FROM mp_projects WHERE archived_at IS NULL ORDER BY sort, id`).catch(() => ({ rows: [] }));
-          return rows.map((row) => ({ value: row.id, label: row.name }));
+        // Projects of the core «objects» source (Masterplan registers one) the route editor sees there;
+        // none while no source module is on. Never Masterplan's tables directly (it is a separate package).
+        options: async (req) => {
+          const source = await objectSource();
+          if (!source) return [];
+          const projects = await source.projects(req, { q: '' }).catch(() => []);
+          return projects.map((project) => ({ value: project.id, label: project.label }));
         },
       },
       { key: 'paymentTerms', type: 'select', label: { ru: 'Условия оплаты', en: 'Payment terms', ky: 'Төлөм шарттары', tr: 'Ödeme koşulları', zh: '付款条件' }, options: [

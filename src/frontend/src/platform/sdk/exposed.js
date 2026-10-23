@@ -44,6 +44,8 @@ export const EXPOSED_CORE = [
   'lib/linkVisit',
   'lib/readme',
   'lib/scanBurst',
+  // Excel exports / imports (exceljs loaded on demand by the core copy): Warehouse reports and imports.
+  'lib/xlsx',
   'lib/lazyPage',
   'lib/search',
   'components/AppFooter',
@@ -56,6 +58,8 @@ export const EXPOSED_CORE = [
   'components/icons/menuIcons',
   'components/readme/ReadmeCard',
   'components/documents/viewers/PdfViewer',
+  // The shared legal entities directory editor (Settings → Legal entities; Procurement's paying entities).
+  'components/legalEntities/LegalEntitiesEditor',
   'components/ui/BarcodeScanner',
   'components/ui/DateTimeField',
   'components/ui/Labels',

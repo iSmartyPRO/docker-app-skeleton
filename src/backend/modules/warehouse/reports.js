@@ -2,7 +2,7 @@ import { query } from '../../config/database.js';
 import { wallToInstant } from '../../services/datetime.js';
 import { requestRegional } from '../../services/regional.js';
 import { decimalSeparator, exportLocale, tr } from '../../services/i18n/index.js';
-import { Params, intOrNull, todayFor, whContext } from './access.js';
+import { Params, intOrNull, masterplanTables, todayFor, whContext } from './access.js';
 import { addDays, cents, day, httpError, q4, toCsv } from './logic.js';
 import { holderLabels, listStock } from './stock.js';
 import { listTools } from './tools.js';
@@ -165,8 +165,8 @@ export async function byObject(req, input = {}) {
   const { from, to, start, end } = await period(req, { from: input.from || '2000-01-01', to: input.to });
   // A project includes its objects.
   const holders = [{ type, id }];
-  if (type === 'project') {
-    const { rows } = await query(`SELECT id FROM mp_nodes WHERE project_id = $1`, [id]).catch(() => ({ rows: [] }));
+  if (type === 'project' && (await masterplanTables())) {
+    const { rows } = await query(`SELECT id FROM mp_nodes WHERE project_id = $1`, [id]);
     for (const row of rows) holders.push({ type: 'object', id: row.id });
   }
   const p = new Params();

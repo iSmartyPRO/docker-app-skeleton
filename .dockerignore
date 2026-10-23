@@ -30,3 +30,7 @@ src/backend/modules/crm
 src/frontend/src/modules/crm
 src/backend/modules/contracts
 src/frontend/src/modules/contracts
+src/backend/modules/procurement
+src/frontend/src/modules/procurement
+src/backend/modules/warehouse
+src/frontend/src/modules/warehouse

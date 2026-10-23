@@ -293,16 +293,6 @@ export const SETTINGS_GROUPS = [
         keywords: 'tasks projects kanban board todo задачи проекты канбан доска',
       },
       {
-        id: 'procurement',
-        defaultIcon: 'cart',
-        keywords: 'procurement purchase requests invoices payments suppliers закупки заявки счета оплаты реестр оплат поставщики снабжение',
-      },
-      {
-        id: 'warehouse',
-        defaultIcon: 'box',
-        keywords: 'warehouse stock inventory items tools barcode склад остатки номенклатура инструмент штрихкод кладовщик приход выдача списание',
-      },
-      {
         id: 'employees',
         defaultIcon: 'people',
         keywords: 'employees staff people hr personnel clearances positions org chart birthdays сотрудники персонал кадры допуски должности оргсхема дни рождения табельный',

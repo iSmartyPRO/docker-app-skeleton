@@ -1,0 +1,55 @@
+{
+  "id": "warehouse",
+  "name": { "en": "Warehouse", "ru": "Склад", "ky": "Кампа", "tr": "Depo", "zh": "仓库" },
+  "nameForms": { "ru": { "ins": "Складом" } },
+  "description": {
+    "en": "Stock, receipts and issues, transfers, tools, barcodes",
+    "ru": "Остатки, приход и выдача, перемещения, инструмент, штрихкоды",
+    "ky": "Калдыктар, кирим жана берүү, которуулар, шаймандар, штрихкоддор",
+    "tr": "Stok, giriş ve çıkışlar, transferler, aletler, barkodlar",
+    "zh": "库存、入库和出库、调拨、工具、条形码"
+  },
+  "version": "1.1.0",
+  "category": "supply",
+  "requires": [
+    { "id": "approvals", "reason": { "en": "Documents go through approval routes", "ky": "Документтер макулдашуу маршруттарынан өтөт", "tr": "Belgeler onay akışlarından geçer", "zh": "单据按审批流程流转", "ru": "Документы проходят маршруты согласования" } }
+  ],
+  "enhances": [
+    { "id": "procurement", "what": { "en": "Receipts from purchase requests", "ky": "Сатып алууга өтүнмөлөр боюнча кирим", "tr": "Satın alma taleplerinden giriş", "zh": "按采购申请入库", "ru": "Приход по заявкам на закупку" } },
+    { "id": "masterplan", "what": { "en": "Issues to projects and objects", "ky": "Долбоорлорго жана объекттерге берүү", "tr": "Projelere ve şantiyelere çıkış", "zh": "向项目和工地出库", "ru": "Выдача на проекты и объекты" } },
+    { "id": "companies", "what": { "en": "Suppliers from the directory", "ky": "Жеткирүүчүлөр маалымдамадан", "tr": "Rehberden tedarikçiler", "zh": "供应商来自名录", "ru": "Поставщики из справочника" } }
+  ],
+  "permissions": ["warehouse.view", "warehouse.request", "warehouse.operate", "warehouse.writeoff", "warehouse.inventory", "warehouse.cost", "warehouse.backdate", "warehouse.admin"],
+  "tables": ["wh_%"],
+  "icon": "box",
+  "docsInfo": { "user": "warehouse", "guide": "docs/warehouse.md" },
+  "localeKeys": {
+    "apps": ["warehouse"],
+    "settings": ["warehouse"],
+    "permissions": ["groups.module_warehouse", "warehouse_*"],
+    "notifyPrefs": ["groups.warehouse", "events.warehouse_*"],
+    "tour": ["warehouse"],
+    "dashboard": ["widgets.warehouseLow", "widgets.warehouseIncoming", "widgets.warehouseMyTools"]
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-23",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); items, warehouses, stock, documents, the movement journal, tools, inventory counts and settings are kept."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); номенклатура, склады, остатки, документы, журнал движений, инструмент, инвентаризации и настройки сохраняются."]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-16",
+      "changes": {
+        "en": ["Stock, receipts and issues, transfers, tools, barcodes, inventory."],
+        "ru": ["Остатки, приход и выдача, перемещения, инструмент, штрихкоды, инвентаризация."],
+        "ky": ["Калдыктар, кирим жана берүү, которуулар, шаймандар, штрихкоддор, инвентаризация."],
+        "tr": ["Stok, giriş ve çıkışlar, transferler, aletler, barkodlar, sayım."],
+        "zh": ["库存、入库和出库、调拨、工具、条形码、盘点。"]
+      }
+    }
+  ]
+}

@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MODULE_CATALOG, WAREHOUSE_DEFAULTS, resolveModules, sanitizeWarehouse } from '../modules/catalog.js';
+import { MODULE_CATALOG, resolveModules } from '../modules/catalog.js';
+import { WAREHOUSE_DEFAULTS, sanitizeWarehouse } from '../modules/warehouse/settings.js';
+import { sourcePackage } from './helpers/modules.js';
+
+// Warehouse is a module package: its catalog entry as an installed package adds it (module.json + settings.js).
+await sourcePackage('warehouse');
 import {
   COST_KEYS,
   INSTANCE_STATES,

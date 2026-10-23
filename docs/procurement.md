@@ -2,6 +2,8 @@
 
 A [module](modules.md) for purchase requests: an employee files a request with the invoice, it goes through [approval](approvals.md), lands in the accounting **payments registry** by itself, is paid (in one or several payments) and delivered. Spec: [specs/business-processes.ru.md](specs/business-processes.ru.md) §5. The module is **off by default**; turn it on in *Settings → Modules*.
 
+**A module package** (since 1.1.0, [module-packages.md](module-packages.md)): not built into the core; `make module ID=procurement` builds `dist/modules/procurement-<version>.zip`. It **requires Approvals** (a core service); Counterparties, Masterplan (through the core «objects» source), the CRM, Contracts, Files and Chat are optional links reached at call time (packages load in any order). Warehouse uses its public `api` (`api.js`: requests, delivery marks, `requestLineQuantities` — Warehouse no longer reads `proc_items`). Sources stay in the tree (`src/backend/modules/procurement`, `src/frontend/src/modules/procurement`, texts in its `locales`); `module.json`, `settings.js` (defaults and sanitizer), migration `001_init` (`schema.js` `createProcurementSchema`). The approval type, the accounting «Ждёт меня» items, request chats and the deadline job are registered in `register(ctx)`. No table has a foreign key into another module's tables (contracts, deals, projects, objects and suppliers are ids + labels). Upgrading a portal where it was built in: [module-packages.md](module-packages.md#upgrading-a-portal-that-had-procurement-or-warehouse-built-in).
+
 - [Screens](#screens)
 - [Statuses and transitions](#statuses-and-transitions)
 - [Permissions and visibility](#permissions-and-visibility)

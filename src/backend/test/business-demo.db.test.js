@@ -34,12 +34,16 @@ async function setup() {
   db = await import('../config/database.js');
   const { bootstrapSchema } = await import('../services/schema.js');
   await bootstrapSchema();
-  // Masterplan, the CRM and Contracts are module packages: from their sources in the tree, as if installed (schema = their migrations).
+  // Masterplan, the CRM, Contracts, Procurement and Warehouse are module packages: from their sources in the tree,
+  // as if installed (schema = their migrations).
   const { sourcePackage } = await import('./helpers/modules.js');
-  const packages = [await sourcePackage('crm'), await sourcePackage('contracts'), await sourcePackage('masterplan')];
+  const packages = [];
+  for (const id of ['crm', 'contracts', 'masterplan', 'procurement', 'warehouse']) packages.push(await sourcePackage(id));
   await (await import('../modules/crm/schema.js')).ensureCrmSchema();
   await (await import('../modules/contracts/schema.js')).ensureContractsSchema();
   await (await import('../modules/masterplan/schema.js')).ensureMasterplanSchema();
+  await (await import('../modules/procurement/schema.js')).ensureProcurementSchema();
+  await (await import('../modules/warehouse/schema.js')).ensureWarehouseSchema();
   await (await import('../platform/registry.js')).activateModules(packages);
   demo = await import('../services/demo.js');
   ({ uploadRoot } = await import('../config/paths.js'));

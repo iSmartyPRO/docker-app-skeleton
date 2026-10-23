@@ -1,8 +1,8 @@
-import { query } from '../../config/database.js';
+import { withTransaction } from '../../config/database.js';
 import { registerJob } from '../../services/scheduler.js';
 
 /*
- * Warehouse tables (docs/warehouse.md#data-model). Idempotent; runs on every start.
+ * Warehouse tables (docs/warehouse.md#data-model).
  *
  *   wh_categories     category tree of items (+ custom attribute definitions)
  *   wh_items          nomenclature: units with factors, tracking type, supplier, prices, attributes
@@ -25,9 +25,17 @@ import { registerJob } from '../../services/scheduler.js';
  *   wh_notices        «sent once» markers of notifications (low-stock digest, expiry, service…)
  *
  * Inventory sessions (wh_inv_*: counting by several people, reconciliation)
- * are created by ensureInventorySchema() below and produce one `inventory` act each.
+ * are created by createInventorySchema() below and produce one `inventory` act each.
+ *
+ * Migration 001 (index.js `migrations`, docs/module-packages.md «Migrations»): the schema Warehouse had
+ * while built into the core — CREATE … IF NOT EXISTS / ADD COLUMN IF NOT EXISTS, all idempotent — so on a
+ * portal that already has the wh_* tables it changes nothing. Everything goes through `db` (the
+ * migration's transaction). No foreign keys into other modules' tables: purchase requests, contracts,
+ * deals, Masterplan objects and counterparties are ids + labels (Procurement, Contracts, the CRM and
+ * Masterplan are separate packages; the module checks a link when it is saved).
  */
-export async function ensureWarehouseSchema() {
+export async function createWarehouseSchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS wh_categories (
       id SERIAL PRIMARY KEY,
@@ -328,8 +336,14 @@ export async function ensureWarehouseSchema() {
     END;
     $$ LANGUAGE plpgsql
   `);
-  await query(`DROP TRIGGER IF EXISTS wh_moves_immutable_trg ON wh_moves`);
-  await query(`CREATE TRIGGER wh_moves_immutable_trg BEFORE UPDATE OR DELETE ON wh_moves FOR EACH ROW EXECUTE FUNCTION wh_moves_immutable()`);
+  // Created once (a portal that had the module built in keeps its trigger as it is).
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'wh_moves_immutable_trg' AND tgrelid = 'wh_moves'::regclass) THEN
+        CREATE TRIGGER wh_moves_immutable_trg BEFORE UPDATE OR DELETE ON wh_moves FOR EACH ROW EXECUTE FUNCTION wh_moves_immutable();
+      END IF;
+    END $$
+  `);
   await query(`
     CREATE TABLE IF NOT EXISTS wh_reserves (
       id SERIAL PRIMARY KEY,
@@ -396,17 +410,30 @@ export async function ensureWarehouseSchema() {
   if (!hadDateFixed) await query(`UPDATE wh_docs SET date_fixed = TRUE WHERE status IN ('draft', 'requested', 'pending', 'approved') AND ABS(EXTRACT(EPOCH FROM (doc_date - created_at))) > 120`);
   // reserve_taken: how much of the line's reserve the posting consumed (a storno gives it back).
   await query(`ALTER TABLE wh_doc_lines ADD COLUMN IF NOT EXISTS reserve_taken NUMERIC(18,4)`);
-  // Approval processes do not publish warehouse sums (approval.js): clear what older ones stored.
-  await query(`UPDATE approval_processes SET amount = NULL, currency = NULL WHERE type = 'warehouse.document' AND amount IS NOT NULL`).catch(() => {});
+  // Approval processes do not publish warehouse sums (approval.js): clear what older ones stored
+  // (approval_processes belongs to the core approvals service; a failed statement would abort the migration).
+  if ((await query(`SELECT to_regclass('approval_processes') IS NOT NULL AS ok`)).rows[0]?.ok) {
+    await query(`UPDATE approval_processes SET amount = NULL, currency = NULL WHERE type = 'warehouse.document' AND amount IS NOT NULL`);
+  }
 
-  await ensureInventorySchema();
+  await createInventorySchema(db);
+}
 
+/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+export async function ensureWarehouseSchema() {
+  await withTransaction(async (client) => {
+    // The lock the package migrations take (platform/packages/migrations.js): one at a time.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:warehouse'))`);
+    await createWarehouseSchema({ query: (text, params) => client.query(text, params) });
+  });
+}
+
+/** Background jobs (register(ctx); no database access). */
+export function startWarehouse() {
   // Low-stock digest, expiring batches, tool service and overdue tools, expired reserves.
-  const { runDaily } = await import('./jobs.js');
-  registerJob({ name: 'warehouse:daily', everyMs: 30 * 60 * 1000, run: () => runDaily() });
+  registerJob({ name: 'warehouse:daily', everyMs: 30 * 60 * 1000, run: async () => (await import('./jobs.js')).runDaily() });
   // Reminders of regular partial inventories (schedules «каждые N дней по категории X»).
-  const { runInventoryReminders } = await import('./inventory.js');
-  registerJob({ name: 'warehouse:inventory', everyMs: 60 * 60 * 1000, run: () => runInventoryReminders() });
+  registerJob({ name: 'warehouse:inventory', everyMs: 60 * 60 * 1000, run: async () => (await import('./inventory.js')).runInventoryReminders() });
 }
 
 /*
@@ -422,7 +449,8 @@ export async function ensureWarehouseSchema() {
  *   wh_inv_recounts   recount requests (a whole bin or one item in it)
  *   wh_inv_schedules  regular partial counts «every N days by category X» with reminders
  */
-async function ensureInventorySchema() {
+async function createInventorySchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS wh_inv_schedules (
       id SERIAL PRIMARY KEY,

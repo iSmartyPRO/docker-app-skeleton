@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - **CRM and Contracts are installable module packages** and no longer built into the core — install their packages right after this update (CRM first, then Contracts), and update Masterplan to 1.2.0; their data, settings, roles and approval routes are kept (see [docs/module-packages.md](docs/module-packages.md#upgrading-a-portal-that-had-the-crm-or-contracts-built-in)).
+- **Procurement and Warehouse are installable module packages** and no longer built into the core — install their packages right after this update (Procurement first, then Warehouse); their requests, payments, stock, documents, the movement journal, files, settings, roles and approval routes are kept (see [docs/module-packages.md](docs/module-packages.md#upgrading-a-portal-that-had-procurement-or-warehouse-built-in)).
 - **Masterplan 1.2.0 works without the CRM**: units and bookings keep their deal without a database link into the CRM's tables, so the CRM can be installed, updated and removed on its own.
 
 ### Fixed

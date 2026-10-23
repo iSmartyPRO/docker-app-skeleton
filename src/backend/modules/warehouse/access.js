@@ -26,6 +26,17 @@ export async function warehouseSettings() {
   return { ...parsed.modules.warehouse.settings };
 }
 
+/**
+ * Masterplan is another package: stock issued to its objects and projects keeps their names
+ * readable from its tables while they exist (also while Masterplan is switched off or removed with
+ * its data kept); without them the labels stored on the documents are used. Read-only, never joined
+ * into the module's own queries, no foreign keys.
+ */
+export async function masterplanTables() {
+  const { rows } = await query(`SELECT to_regclass('mp_nodes') IS NOT NULL AND to_regclass('mp_projects') IS NOT NULL AS ok`);
+  return Boolean(rows[0]?.ok);
+}
+
 export async function modulesState() {
   const parsed = parseSettings(await getSettings());
   const on = (id) => Boolean(parsed.modules[id]?.enabled);

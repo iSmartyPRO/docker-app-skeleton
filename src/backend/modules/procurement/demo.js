@@ -1,4 +1,5 @@
 import { registerDemo } from '../../services/demo.js';
+import { pickerLabel } from '../../platform/pickers.js';
 import { cancelRequest, closeRequest, createRequest, logEvent, submitRequest } from './service.js';
 import { recordExternalDelivery } from './money.js';
 import { APPROVAL_TYPE, procurementSettings } from './access.js';
@@ -103,11 +104,15 @@ registerDemo({
       await ctx.track('legal_entities', entityId);
     }
     // Links to other demos (validated by the module; dropped when not available).
+    // Masterplan and Contracts are other packages: their demo records are read through the core pickers
+    // (the «objects» source, the «Связи» provider contracts.contract), never their tables.
     const supplierId = (await ctx.records('cmp_companies', 'companies'))[1] || null;
     const projectId = (await ctx.records('mp_projects', 'masterplan'))[0] || null;
-    const project = projectId ? (await ctx.query(`SELECT name FROM mp_projects WHERE id = $1`, [projectId])).rows[0] : null;
+    const projectLabel = projectId ? await pickerLabel(ctx.request, 'projectId', projectId).catch(() => null) : null;
+    const project = projectLabel ? { name: projectLabel } : null;
     const contractIds = await ctx.records('ctr_contracts', 'contracts');
-    const contract = contractIds[2] ? (await ctx.query(`SELECT id, number, title FROM ctr_contracts WHERE id = $1`, [contractIds[2]])).rows[0] : null;
+    const contractLabel = contractIds[2] ? await pickerLabel(ctx.request, 'contractId', Number(contractIds[2])).catch(() => null) : null;
+    const contract = contractLabel ? { id: Number(contractIds[2]), label: contractLabel } : null;
 
     for (const def of REQUESTS) {
       const items = (def.items || []).map(([name, qty, unit, usd]) => ({ name: ctx.t(name), qty, unit, price: demoMoney(usd, currency) }));
@@ -129,7 +134,7 @@ registerDemo({
       };
       if (supplierId) input.supplierCompanyId = supplierId;
       if (def.project && project) Object.assign(input, { projectId, projectLabel: project.name });
-      if (def.contract && contract) Object.assign(input, { contractId: contract.id, contractLabel: `${contract.number} · ${contract.title}` });
+      if (def.contract && contract) Object.assign(input, { contractId: contract.id, contractLabel: contract.label });
       const created = await createRequest(ctx.request, input, { dropLinks: true });
       const id = created.request?.id ?? created.id;
       await ctx.track('proc_requests', id);
@@ -188,7 +193,8 @@ registerDemo({
       await dropProcesses(ctx, APPROVAL_TYPE, ids);
       await dropEntityChats(ctx.query, 'procurement', ids);
       await dropNotifications(ctx.query, ids.map((id) => `/app/procurement/requests/${id}`));
-      await ctx.query(`UPDATE wh_docs SET proc_request_id = NULL WHERE proc_request_id = ANY($1::int[])`, [ids]).catch(() => {});
+      // Warehouse receipts made from these requests keep their label, not the id (no foreign key: Warehouse is another package).
+      if ((await ctx.query(`SELECT to_regclass('wh_docs') IS NOT NULL AS ok`)).rows[0]?.ok) await ctx.query(`UPDATE wh_docs SET proc_request_id = NULL WHERE proc_request_id = ANY($1::int[])`, [ids]);
       await ctx.query(`DELETE FROM proc_requests WHERE id = ANY($1::int[])`, [ids]);
       await removeDemoBlobs(rows.map((row) => row.storage_key));
     }

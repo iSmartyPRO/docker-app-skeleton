@@ -1,0 +1,58 @@
+{
+  "id": "procurement",
+  "name": { "en": "Procurement", "ru": "Закупки", "ky": "Сатып алуулар", "tr": "Satın alma", "zh": "采购" },
+  "nameForms": { "ru": { "ins": "Закупками" } },
+  "description": {
+    "en": "Purchase requests: approval, payments registry, delivery",
+    "ru": "Заявки на закупку: согласование, реестр оплат, поставка",
+    "ky": "Сатып алууга өтүнмөлөр: макулдашуу, төлөмдөр реестри, жеткирүү",
+    "tr": "Satın alma talepleri: onay, ödeme kaydı, teslimat",
+    "zh": "采购申请：审批、付款台账、交货"
+  },
+  "version": "1.1.0",
+  "category": "supply",
+  "requires": [
+    { "id": "approvals", "reason": { "en": "Documents go through approval routes", "ky": "Документтер макулдашуу маршруттарынан өтөт", "tr": "Belgeler onay akışlarından geçer", "zh": "单据按审批流程流转", "ru": "Документы проходят маршруты согласования" } }
+  ],
+  "enhances": [
+    { "id": "companies", "what": { "en": "Pick suppliers from the directory", "ky": "Жеткирүүчүлөрдү маалымдамадан тандоо", "tr": "Tedarikçileri rehberden seçme", "zh": "从名录中选择供应商", "ru": "Выбор поставщиков из справочника" } },
+    { "id": "masterplan", "what": { "en": "Requests for a project or object", "ky": "Долбоорго же объектке өтүнмөлөр", "tr": "Bir proje veya şantiye için talepler", "zh": "针对项目或工地的申请", "ru": "Заявки на проект или объект" } },
+    { "id": "crm", "what": { "en": "Link requests to deals", "ky": "Өтүнмөлөрдү бүтүмдөр менен байланыштыруу", "tr": "Talepleri fırsatlara bağlama", "zh": "将申请关联到交易", "ru": "Связь заявок со сделками" } },
+    { "id": "contracts", "what": { "en": "Requests under a contract", "ky": "Келишим боюнча өтүнмөлөр", "tr": "Sözleşmeye bağlı talepler", "zh": "合同项下的申请", "ru": "Заявки по договору" } },
+    { "id": "files", "what": { "en": "Attach invoices from Files", "ky": "«Файлдар» бөлүмүнөн эсеп-дүмүрчөктөр", "tr": "Dosyalar'dan fatura ekleme", "zh": "从“文件”添加发票", "ru": "Счета из «Файлов»" } },
+    { "id": "chat", "what": { "en": "A conversation in every request", "ky": "Ар бир өтүнмөдө чат", "tr": "Her talepte bir sohbet", "zh": "每个申请都有聊天", "ru": "Чат у каждой заявки" } }
+  ],
+  "permissions": ["procurement.create", "procurement.view_all", "procurement.pay", "procurement.admin"],
+  "tables": ["proc_%"],
+  "icon": "cart",
+  "docsInfo": { "user": "procurement", "guide": "docs/procurement.md" },
+  "localeKeys": {
+    "apps": ["procurement"],
+    "settings": ["procurement"],
+    "permissions": ["groups.module_procurement", "procurement_*"],
+    "notifyPrefs": ["groups.procurement", "events.procurement_*"],
+    "tour": ["procurement"],
+    "dashboard": ["widgets.procurement"]
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-23",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); requests, items, invoices, payments, deliveries, history, saved views and settings are kept."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); заявки, позиции, счета, оплаты, поставки, история, сохранённые виды и настройки сохраняются."]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-16",
+      "changes": {
+        "en": ["Purchase requests, approval, payments registry, delivery."],
+        "ru": ["Заявки на закупку, согласование, реестр оплат, поставка."],
+        "ky": ["Сатып алууга өтүнмөлөр, макулдашуу, төлөмдөр реестри, жеткирүү."],
+        "tr": ["Satın alma talepleri, onay, ödeme kayıt listesi, teslimat."],
+        "zh": ["采购申请、审批、付款台账、交付。"]
+      }
+    }
+  ]
+}

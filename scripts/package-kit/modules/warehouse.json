@@ -1,0 +1,203 @@
+{
+  "comment": "Package kit hints for Warehouse (docs/package-testing.md «Module kit file»). Warehouse requires Approvals (a core service) and links to Procurement (receipts from purchase requests: the picker, a receipt draft made from a request, delivery marks through Procurement's public API), Masterplan (issues to projects and objects through the core «objects» source; names of issued-to objects while Masterplan's tables exist) and Counterparties. Procurement and Masterplan are installed as linked packages; on the upgrade source (main) Masterplan is already a package and Procurement is built in. The seed makes a receipt draft from an approved demo purchase request through the API. «Everyone sees stock» is switched off by the seed, so the plain user's answers are filtered (on by default: every signed-in person sees stock without sums).",
+  "enableAlso": [
+    "companies"
+  ],
+  "packages": [
+    "masterplan",
+    "procurement"
+  ],
+  "seed": [
+    "companies",
+    "masterplan",
+    "procurement",
+    "warehouse"
+  ],
+  "seedRequests": [
+    {
+      "method": "PUT",
+      "path": "/api/admin/settings",
+      "body": {
+        "modules": {
+          "warehouse": {
+            "enabled": true,
+            "settings": {
+              "everyoneCanView": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/app/warehouse/lookup/requests",
+      "save": "requests"
+    },
+    {
+      "method": "GET",
+      "path": "/api/app/warehouse/warehouses",
+      "save": "warehouses"
+    },
+    {
+      "path": "/api/app/warehouse/documents/from-procurement",
+      "body": {
+        "requestId": "@requests.items.0.id",
+        "warehouseId": "@warehouses.warehouses.0.id"
+      },
+      "save": "receipt",
+      "expectStatus": 201
+    }
+  ],
+  "apiParams": {
+    "id": "SELECT id FROM wh_docs ORDER BY id LIMIT 1",
+    "kind": "turnover",
+    "procDoc": "SELECT id FROM wh_docs WHERE proc_request_id IS NOT NULL ORDER BY id LIMIT 1",
+    "projectId": "SELECT project_id FROM wh_warehouses WHERE project_id IS NOT NULL ORDER BY id LIMIT 1",
+    "objectReserve": "SELECT target_id FROM wh_reserves WHERE target_type = 'object' AND target_id IS NOT NULL ORDER BY id LIMIT 1",
+    "approvalDoc": "SELECT doc_id FROM approval_processes WHERE type = 'warehouse.document' ORDER BY id LIMIT 1"
+  },
+  "pageParams": {
+    "id": "SELECT id FROM wh_docs ORDER BY id LIMIT 1",
+    "type": "receipt"
+  },
+  "pages": [
+    {
+      "path": "/app/warehouse/m",
+      "expectPrefix": "/app/warehouse"
+    },
+    {
+      "path": "/app/warehouse/m/find",
+      "expectPrefix": "/app/warehouse"
+    },
+    {
+      "path": "/app/warehouse/m/accept",
+      "expectPrefix": "/app/warehouse"
+    },
+    {
+      "path": "/app/warehouse/m/inventory",
+      "expectPrefix": "/app/warehouse"
+    }
+  ],
+  "links": [
+    {
+      "name": "Warehouse → Procurement: requests waiting for goods (receipt picker)",
+      "path": "/api/app/warehouse/lookup/requests",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404
+      },
+      "alone": {
+        "status": 404
+      }
+    },
+    {
+      "name": "Warehouse ↔ Procurement: a receipt made from a purchase request",
+      "path": "/api/app/warehouse/documents/:procDoc",
+      "present": {
+        "status": 200,
+        "has": "document.procurement.id"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Procurement ← Warehouse: the request of that receipt",
+      "path": "/api/app/procurement/requests?pageSize=5",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Warehouse → Masterplan projects (core objects source)",
+      "path": "/api/app/warehouse/lookup/projects",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404
+      },
+      "alone": {
+        "status": 404
+      }
+    },
+    {
+      "name": "Warehouse → materials by a Masterplan project (its objects included)",
+      "path": "/api/app/warehouse/reports/by-object?holderType=project&holderId=:projectId",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Warehouse → reserves under a Masterplan object",
+      "path": "/api/app/warehouse/reserves",
+      "present": {
+        "status": 200,
+        "nonEmpty": "reserves"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "Approvals → the route of the document type warehouse.document",
+      "path": "/api/app/approvals/routes/warehouse.document",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "status": 404
+      }
+    },
+    {
+      "name": "Approvals → the approval of a demo write-off",
+      "path": "/api/app/approvals/process/warehouse.document/:approvalDoc",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    },
+    {
+      "name": "dashboard widgets (below minimum, incoming, my tools)",
+      "path": "/api/app/warehouse/widget",
+      "present": {
+        "status": 200,
+        "has": "belowMin.count"
+      },
+      "absent": {
+        "status": 404
+      }
+    }
+  ],
+  "openToUsers": [
+    "GET /api/app/warehouse/meta",
+    "GET /api/app/warehouse/people",
+    "GET /api/app/warehouse/groups",
+    "GET /api/app/warehouse/categories",
+    "GET /api/app/warehouse/stock/hints",
+    "GET /api/app/warehouse/documents/counters"
+  ],
+  "needsOtherScopes": [],
+  "skipApi": [],
+  "openToUsersWhy": {
+    "meta": "settings the forms need (currencies, units, prefixes, thresholds) and the warehouses the person sees (filtered: none for the plain user); the longest list is the units",
+    "people": "people picker (recipients, MOL, counters: names and avatars of active users, as elsewhere in the portal)",
+    "groups": "group picker of the zones-of-responsibility editor (group names, as in the roles editor)",
+    "categories": "the item category tree (names, no stock)",
+    "stock/hints": "line hints of a document form; empty without item ids, and only for warehouses the person sees",
+    "documents/counters": "chip counters of the documents the person may see (numbers only)"
+  }
+}

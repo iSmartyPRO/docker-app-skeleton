@@ -1,5 +1,5 @@
 import { query, withTransaction } from '../../config/database.js';
-import { Params, intOrNull, isoDayOf, logEvent, text, todayFor, usersByIds, whContext } from './access.js';
+import { Params, intOrNull, isoDayOf, logEvent, masterplanTables, text, todayFor, usersByIds, whContext } from './access.js';
 import { EPS, RESERVE_TARGETS, STOCK_CHIPS, addDays, day, httpError, num, q4, stockFlags, unitFactor, toBaseQty } from './logic.js';
 
 /*
@@ -20,12 +20,14 @@ export async function holderLabels(rows) {
   const projects = ids('project');
   const transits = ids('transit');
   if (employees.length) for (const [id, user] of await usersByIds(employees)) out.set(`employee:${id}`, user.name);
-  if (objects.length) {
-    const { rows: nodes } = await query(`SELECT n.id, n.code, n.name, p.name AS project FROM mp_nodes n LEFT JOIN mp_projects p ON p.id = n.project_id WHERE n.id = ANY($1::int[])`, [objects]).catch(() => ({ rows: [] }));
+  // Masterplan objects / projects: their names while Masterplan's tables exist (access.js masterplanTables).
+  const masterplan = (objects.length || projects.length) && (await masterplanTables());
+  if (objects.length && masterplan) {
+    const { rows: nodes } = await query(`SELECT n.id, n.code, n.name, p.name AS project FROM mp_nodes n LEFT JOIN mp_projects p ON p.id = n.project_id WHERE n.id = ANY($1::int[])`, [objects]);
     for (const node of nodes) out.set(`object:${node.id}`, [node.project, [node.code, node.name].filter(Boolean).join(' · ')].filter(Boolean).join(' / '));
   }
-  if (projects.length) {
-    const { rows: list } = await query(`SELECT id, name FROM mp_projects WHERE id = ANY($1::int[])`, [projects]).catch(() => ({ rows: [] }));
+  if (projects.length && masterplan) {
+    const { rows: list } = await query(`SELECT id, name FROM mp_projects WHERE id = ANY($1::int[])`, [projects]);
     for (const project of list) out.set(`project:${project.id}`, project.name);
   }
   if (transits.length) {
