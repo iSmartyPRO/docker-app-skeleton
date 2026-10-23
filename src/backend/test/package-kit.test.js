@@ -152,6 +152,8 @@ test('verdicts: superadmin, tokens, users without permissions (filtered answers)
   assert.equal(j('anonymous', 401).ok, true);
   assert.equal(j('anonymous', 200).ok, false);
   assert.equal(j('anonymous', 200, { open: true }).ok, true);
+  assert.equal(j('anonymous', 302, { open: true }).ok, true, 'a public redirect');
+  assert.equal(j('anonymous', 302).ok, false);
   assert.throws(() => j('nobody', 200), /unknown caller/);
 });
 

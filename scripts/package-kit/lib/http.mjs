@@ -11,7 +11,9 @@ export class Client {
   }
 
   headers(extra = {}) {
-    const headers = { accept: 'application/json', ...extra };
+    // The kit is an automated client and says so: modules that count human visits (QR scans of /api/qr/go/:slug)
+    // leave its probes out, so the data snapshots stay comparable.
+    const headers = { accept: 'application/json', 'user-agent': 'portal-package-kit/1 (bot; automated checks)', ...extra };
     if (this.token) headers.authorization = `Bearer ${this.token}`;
     else if (this.cookies.size) headers.cookie = [...this.cookies].map(([k, v]) => `${k}=${v}`).join('; ');
     return headers;

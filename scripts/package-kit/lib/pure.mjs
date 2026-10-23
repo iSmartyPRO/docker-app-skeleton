@@ -326,7 +326,8 @@ export function judgeStatus(who, status, { open = false, timeout = false, code =
       return { ok: false, note: `${status}: a token without the module's scope got through` };
     case 'anonymous':
       if (status === 401 || status === 403 || status === 404) return { ok: true, note: String(status) };
-      if (status < 300 && open) return { ok: true, note: `${status} (public)` };
+      // A public route may answer with a redirect (a dynamic QR code → its target, a share link).
+      if (status < 400 && open) return { ok: true, note: `${status} (public)` };
       return { ok: false, note: `${status} for an anonymous visitor` };
     default:
       throw new Error(`unknown caller ${who}`);
