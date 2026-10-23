@@ -5,10 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-10-23
+
 ### Changed
 
 - **Remote access — one-click connect**: «Connect» now starts the session and opens the viewer in a single click, using the connection settings configured on the computer or application (the gear). The gear gained a «Credentials on connect» choice — the computer's own saved credentials, a password-manager entry, or «ask each time». For a one-off login, the card's ⋮ menu has «Connect with credentials…», which opens the full dialog.
-
 
 ## [1.14.1] - 2026-10-22
 
@@ -669,7 +670,8 @@ The admin console redesign and hardening pass. See [docs/audit.md](docs/audit.md
 
 - Initial skeleton: setup wizard, authentication, cabinet, admin console, theming, integrations stubs, IP lists, Docker packaging.
 
-[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.14.1...HEAD
+[Unreleased]: https://github.com/iSmartyPRO/docker-app-skeleton/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.15.0
 [1.14.1]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.14.1
 [1.14.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.14.0
 [1.13.0]: https://github.com/iSmartyPRO/docker-app-skeleton/releases/tag/v1.13.0
