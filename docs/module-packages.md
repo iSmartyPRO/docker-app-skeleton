@@ -566,9 +566,14 @@ The core of this version no longer contains Masterplan; its tables (`mp_*`), fil
    from contracts (`ctr_contracts.mp_node_id`) follow the contracts' current state (docs/masterplan.md «Catching up
    with Contracts»); Settings → Masterplan → «Сверить с договорами» runs it again on demand.
 
-Rehearsed on a copy of the test database (`audit`): the core alone boots, mp_* row counts and checksums are unchanged,
-after the install the same data is shown and `module_migrations` has `001_init`. If the package cannot be installed
-at once, nothing is lost — only the module is unavailable until it is.
+Rehearsed on a restored production dump (v1.18.0, no `installed_modules` table; 2026-10-23, outgoing integrations
+switched off in the copy, scheduler off): the new core boots and lists Masterplan under «Удалённые модули» with the
+reinstall hint; a save of another module's settings in the window keeps `settings.modules.masterplan`; the zip, signed
+with a key the portal trusts and `MODULES_DEV` off, installs as a new module, the app restarts, `module_migrations`
+has `001_init`, the automatic catch-up runs once (and not again at the next restart); counts and checksums of every
+`mp_*` table, of the Masterplan settings and roles are identical before the deploy, with the core alone, after the
+install and after another restart; the plan, chessboard, registry, dashboard and settings pages show the data.
+If the package cannot be installed at once, nothing is lost — only the module is unavailable until it is.
 
 ## Limitations
 
