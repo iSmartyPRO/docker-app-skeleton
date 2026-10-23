@@ -74,8 +74,8 @@ build when `src/frontend` changed since the last run.
    without demo data is a warning — the data checks then cover what its migrations create.
 6. Two API tokens: one with `account: read` only, one with `<id>: read`.
 7. **Every GET route the package mounts**, read from its own router stack (`lib/introspect.mjs` imports the
-   installed `server/index.js` as the loader does and walks `routes(ctx)`; the API reference does not list package
-   routes, see «Platform notes»). Parameters come from `apiParams` of the kit file (SQL against the run's
+   installed `server/index.js` as the loader does and walks `routes(ctx)`). The API reference
+   (`/api/developer/reference`) and `openapi.json` must list every one of them (all methods). Parameters come from `apiParams` of the kit file (SQL against the run's
    database), else `1`. Called as:
 
    | caller | passes when |
@@ -112,8 +112,9 @@ build when `src/frontend` changed since the last run.
 14. **Reinstall** the same version: loaded again, snapshot identical.
 15. **Remove again, then «Удалить данные»**: the tables dropped are exactly the module's tables (the list of all
     tables before/after), a backup file exists in `.backups/<id>/`, no `installed_modules` row, no
-    `module_migrations`, no settings block. What stays behind by design (app_settings keys the module writes itself,
-    upload files) makes it a warning.
+    `module_migrations`, no settings block; when `uploads/<id>` held files, the backup has their archive
+    (`backup.uploads`, same file count) and the folder is gone. What stays behind by design (app_settings keys the
+    module writes itself, files in other `uploadFolders` of the kit file) makes it a warning.
 16. Boot logs scanned for `TypeError` / `ReferenceError` / uncaught errors (warning).
 
 **Snapshot** (`lib/db.mjs snapshot`): for each table of the module (the platform's own rule: `<id>_*`, legacy
@@ -136,8 +137,8 @@ sha256; other folders with `uploadFolders` in the kit file).
    are recorded as the module's; a save of another module's settings and of the dashboard in this window keeps
    everything (snapshot = A); link probes «module absent»; core pages render.
 4. Install the signed package over HTTP → loaded, migrations recorded (001 runs on the existing tables) →
-   snapshot = A, the module's widget types available again, GET sweep as superadmin and as the user holding the
-   kept role, link probes «package installed», all module pages in Playwright.
+   snapshot = A, the module's widget types available again, the API reference lists its routes, GET sweep as
+   superadmin and as the user holding the kept role, link probes «package installed», all module pages in Playwright.
 5. Restart → snapshot = A.
 
 ## Reading the report
@@ -207,8 +208,11 @@ Package check masterplan (all) — PASS: 73 passed, 0 failed, 2 warnings, 0 skip
   `addPackageSettingsItem()` builds the item without `section`, so `sectionForPath()` returns `undefined` and
   `AdminLayout.jsx` reads `SECTIONS[undefined].path`. Built-in items get `section: group.section || 'settings'`.
   The Masterplan run passes with that one line added (checked with `--front-dist` on a patched build).
-- Package routes are missing from the API reference (`/api/developer/reference`, `openapi.json`):
-  `api/introspect.js` walks `MOUNTED` (built-in modules) only; the kit reads the package's router itself.
-- «Удалить данные» leaves the module's upload folder (`uploads/masterplan`, 6 demo files) besides the documented
-  `app_settings` keys.
+- Package routes were missing from the API reference (`/api/developer/reference`, `openapi.json`):
+  `api/introspect.js` walked `MOUNTED` (built-in modules) only. Fixed: it also walks the routers of the loaded
+  packages (`loader.js packageMounts()`); a package without a hand-written section gets one named after its
+  manifest. The kit checks it (fresh step 7, upgrade step 4).
+- «Удалить данные» left the module's upload folder (`uploads/masterplan`, 6 demo files). Fixed: the purge backup
+  archives `uploads/<id>` (`<file>.uploads.tar.gz`) and the folder is removed (module-packages.md «Backups»); the
+  `app_settings` keys the module writes itself still stay (documented).
 - Masterplan's own settings page (`/app/masterplan/settings`) asks `/api/app/crm/pipelines` with CRM switched off (404, handled by the page — a warning).

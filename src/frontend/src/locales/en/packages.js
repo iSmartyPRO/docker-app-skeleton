@@ -59,7 +59,7 @@ export default {
     version: 'Last version {version}',
   },
   purgeTitle: 'Delete the data of «{module}»?',
-  purgeText: 'A fresh backup of the module’s tables is made first; then its tables and settings are deleted. This cannot be undone from the portal.',
+  purgeText: 'A fresh backup of the module’s tables and files (uploads/{id}) is made first; then its tables, settings and files are deleted. This cannot be undone from the portal.',
   purgeConfirm: 'Type {id} to confirm',
   purgeOk: 'Back up and delete',
   purged: 'Data deleted. Backup: {file}',

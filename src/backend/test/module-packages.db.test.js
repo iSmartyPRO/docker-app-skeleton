@@ -36,6 +36,8 @@ async function setup() {
   const root = mkdtempSync(join(tmpdir(), 'portal-pkg-db-'));
   const modulesDir = join(root, 'modules');
   process.env.MODULES_DIR = modulesDir;
+  // Before config/paths.js loads: «Удалить данные» archives and removes uploads/<id>.
+  process.env.UPLOAD_DIR = join(root, 'uploads');
   process.env.MODULE_BACKUP_PGDUMP = '0';
   // The first boot after an update is confirmed at once (the settle window has its own test).
   process.env.MODULE_BOOT_SETTLE_MS = '0';
@@ -626,9 +628,40 @@ test('removal is refused while another module requires it; data is deleted only 
   assert.deepEqual(downgrade.problems.map((item) => item.message.ru), ['Была установлена 1.5.2 (её данные сохранены), в файле 1.0.0 — понижение запрещено']);
   await assert.rejects(uninstallPackage('hello', { actor: ACTOR }), (err) => err.problems[0].code === 'NOT_INSTALLED');
   await assert.rejects(purgeModuleData('hello', { actor: ACTOR }), (err) => err.problems[0].code === 'CONFIRM_REQUIRED');
+  // The module's files (uploads/hello) go with its data, into the backup first; other folders stay.
+  const uploads = process.env.UPLOAD_DIR;
+  mkdirSync(join(uploads, 'hello', 'sub'), { recursive: true });
+  writeFileSync(join(uploads, 'hello', 'a.txt'), 'alpha');
+  writeFileSync(join(uploads, 'hello', 'sub', 'b.bin'), Buffer.alloc(1000, 7));
+  mkdirSync(join(uploads, 'hellodep'), { recursive: true });
+  writeFileSync(join(uploads, 'hellodep', 'keep.txt'), 'other module');
   const purged = await purgeModuleData('hello', { actor: ACTOR, confirm: 'hello' });
   assert.deepEqual(purged.tables, ['hello_messages']);
   assert.ok(existsSync(purged.backup.file) && purged.backup.bytes > 0, 'a fresh backup was made first');
+  assert.deepEqual(purged.files, { folder: 'hello', files: 2, bytes: 1005 });
+  assert.ok(purged.backup.uploads && existsSync(purged.backup.uploads.file), 'the upload folder is in the backup');
+  assert.equal(purged.backup.uploads.files, 2);
+  assert.equal(statSync(purged.backup.uploads.file).mode & 0o777, 0o600);
+  assert.ok(!existsSync(join(uploads, 'hello')), 'the upload folder is removed');
+  assert.equal(readFileSync(join(uploads, 'hellodep', 'keep.txt'), 'utf8'), 'other module');
+  {
+    const backup = await import('../platform/packages/backup.js');
+    const meta = backup.listBackups('hello').find((item) => item.file === purged.backup.file);
+    assert.equal(meta.uploads.file, purged.backup.uploads.file, 'the description names the archive');
+    // The archive restores the folder as it was.
+    await backup.restoreUploads(meta);
+    assert.equal(readFileSync(join(uploads, 'hello', 'a.txt'), 'utf8'), 'alpha');
+    assert.equal(statSync(join(uploads, 'hello', 'sub', 'b.bin')).size, 1000);
+    rmSync(join(uploads, 'hello'), { recursive: true, force: true });
+    // An archive with anything outside <id>/ is refused as a whole.
+    const { execFileSync } = await import('node:child_process');
+    const evil = join(ctx.root, 'evil.tar.gz');
+    execFileSync('tar', ['-czf', evil, '-C', uploads, 'hellodep']);
+    await assert.rejects(backup.restoreUploads({ id: 'hello', uploads: { file: evil } }), /outside hello\//);
+    // A module without an upload folder: nothing archived, nothing removed.
+    assert.equal(await backup.archiveUploads('nofiles', join(ctx.root, 'none.tar.gz')), null);
+    assert.equal(backup.removeUploads('nofiles'), null);
+  }
   assert.ok(!(await tableExists('hello_messages')));
   assert.equal((await ctx.db.query(`SELECT count(*)::int AS n FROM installed_modules WHERE id = 'hello'`)).rows[0].n, 0);
   assert.equal((await ctx.db.query(`SELECT count(*)::int AS n FROM module_migrations WHERE module_id = 'hello'`)).rows[0].n, 0);
@@ -705,8 +738,13 @@ test('«Пакеты на сервере»: a signed zip in incoming/ is listed,
   assert.equal(result.incomingMoved, true);
   assert.ok(!existsSync(join(incoming, 'hello-2.0.0.zip')));
   assert.deepEqual(readFileSync(join(incoming, 'installed', 'hello-2.0.0.zip')), zip);
-  const row = (await ctx.db.query(`SELECT detail FROM security_events WHERE kind = 'module_package' AND username = $1 AND detail_code = 'module_installed' ORDER BY id DESC LIMIT 1`, [ACTOR])).rows[0];
-  assert.match(row.detail, /hello 2\.0\.0 installed from server file hello-2\.0\.0\.zip/);
+  // The journal is written without waiting (installer.js journal()): look for the row for a moment.
+  let row = null;
+  for (let attempt = 0; attempt < 50 && !row; attempt += 1) {
+    row = (await ctx.db.query(`SELECT detail FROM security_events WHERE kind = 'module_package' AND username = $1 AND detail_code = 'module_installed' AND detail LIKE 'hello 2.0.0 %' ORDER BY id DESC LIMIT 1`, [ACTOR])).rows[0];
+    if (!row) await new Promise((done) => setTimeout(done, 100));
+  }
+  assert.match(row?.detail || '', /hello 2\.0\.0 installed from server file hello-2\.0\.0\.zip/);
   await uninstallPackage('hello', { actor: ACTOR, restart: false });
   await purgeModuleData('hello', { actor: ACTOR, confirm: 'hello' });
 });

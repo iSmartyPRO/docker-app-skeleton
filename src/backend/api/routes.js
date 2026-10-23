@@ -11,9 +11,9 @@ import { areaList, createTemplate, deleteTemplate, listTemplates, resourceOption
 import { listRequests, requestStats } from './log.js';
 import { createWebhook, deleteWebhook, getWebhook, listDeliveries, listWebhooks, pingWebhook, redeliver, rotateWebhookSecret, updateWebhook } from './webhooks.js';
 import { EVENT_CATALOG } from './events.js';
-import { endpoints } from './introspect.js';
+import { endpoints, referenceSections } from './introspect.js';
 import { openApi } from './openapi.js';
-import { ERRORS, SECTIONS } from './reference.js';
+import { ERRORS } from './reference.js';
 import { localeOrDefault } from '../services/i18n/index.js';
 
 /*
@@ -185,7 +185,7 @@ export function developerRoutes() {
       app: { name: parsed.appName, version: parsed.appVersion },
       origin: originOf(req),
       base: `${originOf(req)}/api/v1`,
-      sections: SECTIONS.filter((section) => list.some((endpoint) => endpoint.section === section.key)),
+      sections: referenceSections().filter((section) => list.some((endpoint) => endpoint.section === section.key)),
       endpoints: list,
       areas: areaList(modules).filter((area) => !area.module || modules[area.module]?.enabled),
       errors: ERRORS,

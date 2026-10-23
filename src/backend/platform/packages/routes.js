@@ -23,7 +23,7 @@ import { BOOT_ID, restartPending } from './restart.js';
  *   POST   /admin/modules/packages/install          { token } → install / update, then restart       (superadmin)
  *   DELETE /admin/modules/packages/:id              remove the code (data kept), then restart         (superadmin)
  *   POST   /admin/modules/packages/:id/backup       back up the module's tables now                   (superadmin)
- *   POST   /admin/modules/packages/:id/purge        { confirm: id } backup, then drop its data        (superadmin)
+ *   POST   /admin/modules/packages/:id/purge        { confirm: id } backup (tables + uploads/<id>), then drop its data and files (superadmin)
  *   GET    /admin/modules/inventory[?challenge=…]   installed modules, core version, portal id (store, spec §6.6); the challenge is signed with it
  *
  * Refusals answer { success: false, code, error, problems: [{ code, params, message: { ru, en } }] }.
@@ -123,7 +123,14 @@ export function packageRoutes() {
   }));
   admin.post('/packages/:id/purge', superadminOnly, wrap(async (req, res) => {
     const result = await purgeModuleData(req.params.id, { actor: who(req), ip: req.ip, confirm: req.body?.confirm });
-    res.json({ success: true, id: result.id, tables: result.tables, backup: { file: result.backup.file.split('/').pop(), format: result.backup.format, bytes: result.backup.bytes } });
+    const uploads = result.backup.uploads;
+    res.json({
+      success: true,
+      id: result.id,
+      tables: result.tables,
+      files: result.files,
+      backup: { file: result.backup.file.split('/').pop(), format: result.backup.format, bytes: result.backup.bytes, uploads: uploads ? { file: uploads.file.split('/').pop(), files: uploads.files, bytes: uploads.bytes } : null },
+    });
   }));
   admin.get('/inventory', settingsAdmins, wrap(async (req, res) => {
     const challenge = typeof req.query.challenge === 'string' && req.query.challenge ? req.query.challenge : null;

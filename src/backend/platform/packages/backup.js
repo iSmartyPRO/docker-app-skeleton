@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import config from '../../config/app.js';
+import { uploadRoot } from '../../config/paths.js';
 import { query, withTransaction } from '../../config/database.js';
 import { appliedMigrations, recordedTables } from './store.js';
 import { MODULE_TABLES, mayOwnTable } from './tableOwnership.js';
@@ -28,6 +29,11 @@ import { backupsDir } from './paths.js';
  * <file>.json describes it. Files are 0600, folders 0700 (they hold full table data).
  *
  *   $MODULES_DIR/.backups/<id>/<id>-<version>-<UTC stamp>-<reason>.{dump|ndjson.gz,json}
+ *
+ * The backup before «Удалить данные» also holds the module's upload folder
+ * (uploads/<id>, the convention every module follows for its files) as
+ * <file>.uploads.tar.gz; restoreBackup puts it back when a backup has one.
+ * Update backups do not: an update leaves the folder where it is.
  *
  * Retention (pruneBackups, after every backup): the newest MODULE_BACKUP_KEEP
  * (5) per module, and at most MODULE_BACKUP_MAX_MB (2048) in all — the oldest go
@@ -222,7 +228,7 @@ function createPrivateFile(file) {
  * removed only after a fresh backup» holds. When pg_dump fails the NDJSON
  * format is used instead (an update is not blocked by the client tools).
  */
-export async function backupModule({ id, version, manifest = null, reason = 'manual' }) {
+export async function backupModule({ id, version, manifest = null, reason = 'manual', uploads = false }) {
   const dir = resolve(backupsDir(), id);
   mkdirSync(dir, { recursive: true, mode: PRIVATE_DIR });
   try {
@@ -258,7 +264,17 @@ export async function backupModule({ id, version, manifest = null, reason = 'man
       throw new Error(`Backup of ${id} failed: ${err.message}`);
     }
   }
-  const meta = { id, version, file, format, tables, migrations, reason, createdAt: header.createdAt, bytes: statSync(file).size };
+  let uploadsPart = null;
+  if (uploads) {
+    try {
+      uploadsPart = await archiveUploads(id, `${base}.uploads.tar.gz`);
+    } catch (err) {
+      rmSync(file, { force: true });
+      rmSync(`${base}.uploads.tar.gz`, { force: true });
+      throw new Error(`Backup of ${id} failed: its upload folder could not be archived: ${err.message.split('\n')[0]}`);
+    }
+  }
+  const meta = { id, version, file, format, tables, migrations, reason, createdAt: header.createdAt, bytes: statSync(file).size, ...(uploadsPart ? { uploads: uploadsPart } : {}) };
   writeFileSync(`${base}.json`, `${JSON.stringify(meta, null, 2)}\n`, { mode: PRIVATE_FILE });
   await pruneBackups({ keepFile: file }).catch((err) => console.warn(`Module backups: pruning failed: ${err.message}`));
   return meta;
@@ -269,6 +285,7 @@ const maxTotalBytes = () => Math.max(1, Number.parseInt(process.env.MODULE_BACKU
 
 function removeBackup(meta) {
   rmSync(meta.file, { force: true });
+  if (meta.uploads?.file) rmSync(meta.uploads.file, { force: true });
   rmSync(meta.file.replace(/\.(dump|ndjson\.gz)$/, '.json'), { force: true });
 }
 
@@ -302,13 +319,13 @@ export async function pruneBackups({ keepFile = null, rowFiles = null } = {}) {
     });
   }
   let total = 0;
-  for (const id of readdirSync(root)) if (/^[a-z][a-z0-9_]{1,31}$/.test(id)) for (const meta of listBackups(id)) total += meta.bytes || 0;
+  for (const id of readdirSync(root)) if (/^[a-z][a-z0-9_]{1,31}$/.test(id)) for (const meta of listBackups(id)) total += (meta.bytes || 0) + (meta.uploads?.bytes || 0);
   candidates.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
   for (const meta of candidates) {
     if (total <= maxTotalBytes()) break;
     removeBackup(meta);
     removed.push(meta.file);
-    total -= meta.bytes || 0;
+    total -= (meta.bytes || 0) + (meta.uploads?.bytes || 0);
   }
   return removed;
 }
@@ -407,9 +424,88 @@ export async function restoreBackup(meta) {
     await run('pg_restore', ['--clean', '--if-exists', '--single-transaction', '--no-owner', '--no-privileges', '-d', String(config.postgres.database || ''), meta.file]);
     // The schema is the backup's again: so are the applied migrations.
     await query(`DELETE FROM module_migrations WHERE module_id = $1 AND NOT (migration_id = ANY($2))`, [meta.id, kept]);
-    return;
+  } else await restoreNdjson(meta);
+  if (meta.uploads?.file) await restoreUploads(meta);
+}
+
+// ── Upload folders ──────────────────────────────────────────────────────────
+
+/** The folder a module keeps its files in: uploads/<id> (UPLOAD_DIR/<id>). */
+export function uploadFolderOf(id) {
+  if (!/^[a-z][a-z0-9_]{1,31}$/.test(String(id || ''))) throw new Error(`bad module id ${id}`);
+  return resolve(uploadRoot, id);
+}
+
+/** Files under a folder: { files, bytes } (links are not followed). */
+function folderStats(dir) {
+  let files = 0;
+  let bytes = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
+    if (!entry.isFile()) continue;
+    files += 1;
+    bytes += statSync(join(entry.parentPath ?? entry.path, entry.name)).size;
   }
-  await restoreNdjson(meta);
+  return { files, bytes };
+}
+
+/**
+ * tar.gz of uploads/<id> (entries `<id>/…`, relative to the upload root) into `file`.
+ * null when the module has no upload folder.
+ */
+export async function archiveUploads(id, file) {
+  const dir = uploadFolderOf(id);
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return null;
+  const stats = folderStats(dir);
+  createPrivateFile(file);
+  await run('tar', ['-czf', file, '-C', resolve(uploadRoot), id]);
+  chmodSync(file, PRIVATE_FILE);
+  return { file, folder: id, files: stats.files, sourceBytes: stats.bytes, bytes: statSync(file).size };
+}
+
+/** Entry names of a tar.gz (`tar -tzf`). */
+function tarEntries(file) {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn('tar', ['-tzf', file], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    let err = '';
+    child.stdout.on('data', (chunk) => {
+      out += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      err = (err + chunk).slice(-2000);
+    });
+    child.on('error', reject);
+    child.on('close', (code) => (code === 0 ? resolvePromise(out.split('\n').filter(Boolean)) : reject(new Error(`tar -t failed (${code}): ${err.trim()}`))));
+  });
+}
+
+/**
+ * Puts the upload folder of a backup back (extracted over uploads/, files of the
+ * archive replace files of the same name). Every entry must stay inside
+ * `<id>/` — anything else refuses the whole archive.
+ */
+export async function restoreUploads(meta) {
+  const part = meta?.uploads;
+  if (!part?.file || !existsSync(part.file)) throw new Error('upload archive not found');
+  const id = meta.id;
+  uploadFolderOf(id);
+  const entries = await tarEntries(part.file);
+  const bad = entries.find((name) => {
+    const clean = name.replace(/^\.\//, '');
+    return !(clean === id || clean === `${id}/` || clean.startsWith(`${id}/`)) || clean.split('/').includes('..');
+  });
+  if (bad) throw new Error(`upload archive of ${id} holds ${bad}, outside ${id}/`);
+  mkdirSync(resolve(uploadRoot), { recursive: true });
+  await run('tar', ['-xzf', part.file, '-C', resolve(uploadRoot)]);
+}
+
+/** Removes uploads/<id> (after a backup). → { files, bytes } that were there, or null. */
+export function removeUploads(id) {
+  const dir = uploadFolderOf(id);
+  if (!existsSync(dir)) return null;
+  const stats = statSync(dir).isDirectory() ? folderStats(dir) : { files: 1, bytes: statSync(dir).size };
+  rmSync(dir, { recursive: true, force: true });
+  return stats;
 }
 
 /** Drops the module's tables and forgets its migrations (after a backup — the installer makes one first). */

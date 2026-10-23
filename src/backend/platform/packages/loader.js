@@ -103,6 +103,15 @@ export function packagesRouter() {
 }
 
 export const loadedModule = (id) => LOADED.get(id) || null;
+
+/**
+ * Routers of the loaded packages as mounted, for the API reference: [{ prefix, router, module, version, name }]
+ * (the same shape as modules/index.js MOUNTED).
+ */
+export const packageMounts = () =>
+  [...LOADED.values()]
+    .filter((record) => record.source === 'package' && record.router)
+    .map((record) => ({ prefix: `/app/${record.id}`, router: record.router, module: record.id, version: record.version, name: record.manifest?.name || null }));
 export const loadedModules = () => [...LOADED.values()];
 
 /** Records a module built into the image (modules/index.js calls this for each). */
@@ -244,6 +253,8 @@ function mount(record) {
   const { module, id } = record;
   if (typeof module.routes === 'function') {
     const routes = module.routes(record.context);
+    // Kept for the API reference (api/introspect.js), like modules/index.js MOUNTED for built-in modules.
+    record.router = routes;
     packageRouter.use(`/app/${id}`, enabledOnly(id), requireAuth, routes);
   }
   if (typeof module.publicRoutes === 'function') packageRouter.use(module.publicPrefix, enabledOnly(id), module.publicRoutes());

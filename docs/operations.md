@@ -181,6 +181,9 @@ or «Пакеты на сервере», superadministrators only). Engineering 
 
   Then put the matching package version back (`data/modules/<id>/current` naming a version folder that is there) and
   start the app. NDJSON backups (`.ndjson.gz`) hold data only; they are restored by the app, not by hand.
+  The backup made by «Удалить данные» also has `<file>.uploads.tar.gz` — the module's upload folder `uploads/<id>`,
+  removed by the purge. To put the files back: `tar -xzf data/modules/.backups/<id>/<file>.uploads.tar.gz -C <uploads folder>`
+  (the folder mounted as the app's uploads; the archive holds `<id>/…` only).
 - **Core updates**: `make deploy` runs `make check-core-upgrade` first — before the release commit and tag are made,
   against the version about to be released (`scripts/release.mjs --next-version`) — it reads `data/modules/*/current`
   and refuses the deploy when an installed package was built for another core major (or a newer core / SDK) than the

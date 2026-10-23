@@ -1,5 +1,5 @@
-import { endpoints } from './introspect.js';
-import { ERRORS, SECTIONS } from './reference.js';
+import { endpoints, referenceSections } from './introspect.js';
+import { ERRORS } from './reference.js';
 import { EVENT_CATALOG } from './events.js';
 import { pick } from '../services/i18n/index.js';
 
@@ -24,6 +24,7 @@ function schemaFor(type) {
 
 export function openApi({ origin, lang = 'en', appName = 'Portal', version = '1.0.0' }) {
   const paths = {};
+  const sections = referenceSections();
   for (const endpoint of endpoints()) {
     const path = endpoint.path.replace(/:(\w+)(\([^)]*\))?/g, '{$1}').replace(/(.)\/$/, '$1');
     const doc = endpoint.doc || {};
@@ -34,7 +35,7 @@ export function openApi({ origin, lang = 'en', appName = 'Portal', version = '1.
       }
     }
     const operation = {
-      tags: [text(SECTIONS.find((section) => section.key === endpoint.section)?.title, lang)],
+      tags: [text(sections.find((section) => section.key === endpoint.section)?.title, lang)],
       summary: text(doc.summary, lang) || `${endpoint.method} ${endpoint.path}`,
       description: [text(doc.description, lang), endpoint.area ? `Scope: \`${endpoint.area}:${endpoint.level}\`` : ''].filter(Boolean).join('\n\n'),
       operationId: `${endpoint.method.toLowerCase()}${path.replace(/[{}]/g, '').replace(/[^A-Za-z0-9]+(.)?/g, (_, c) => (c ? c.toUpperCase() : ''))}`,
@@ -74,7 +75,7 @@ export function openApi({ origin, lang = 'en', appName = 'Portal', version = '1.
     },
     servers: [{ url: `${origin}/api/v1` }],
     security: [{ bearer: [] }],
-    tags: SECTIONS.map((section) => ({ name: text(section.title, lang), description: text(section.intro, lang) })),
+    tags: sections.map((section) => ({ name: text(section.title, lang), description: text(section.intro, lang) })),
     paths,
     components: {
       securitySchemes: { bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'pat_…' }, apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' } },

@@ -480,7 +480,7 @@ export function RemovedPackages({ packages, canManage, onChanged }) {
       title: t('packages.purgeTitle', { module: nameOf(pkg) }),
       content: (
         <div className="pf-dialog">
-          <p>{t('packages.purgeText')}</p>
+          <p>{t('packages.purgeText', { id: pkg.id })}</p>
           <Input placeholder={t('packages.purgeConfirm', { id: pkg.id })} onChange={(event) => (confirmRef.current = event.target.value.trim())} />
         </div>
       ),

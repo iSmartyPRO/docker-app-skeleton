@@ -459,6 +459,14 @@ into tables of the same structure (same applied migrations): generated columns a
 written with `OVERRIDING SYSTEM VALUE`, and every serial / identity sequence is set past the restored values
 (`setval`). A rollback does not restore it automatically (`last_rollback.ok = false`). For restoring a pg_dump
 backup by hand see operations.md «Module packages». Taken before every update, before «Удалить данные» and on «Резервная копия».
+The backup before «Удалить данные» also holds the module's **upload folder** `uploads/<id>` (every module keeps its
+files there: Masterplan `uploads/masterplan`, QR `uploads/qr`) as `<file>.uploads.tar.gz` next to it (0600; `uploads`
+in the `.json` description: archive, file count, bytes); when the folder cannot be archived nothing is deleted.
+After the tables are dropped the folder is removed; the answer of `POST …/purge` reports `files` and
+`backup.uploads`. `restoreBackup()` extracts the archive back over `uploads/` when a backup has one (entries outside
+`<id>/` refuse the whole archive). Update backups have no archive: an update and its rollback leave the folder
+where it is (migrations change tables, not files), so a rollback has nothing to put back. Retention counts the
+archive with its backup and removes them together.
 Retention after each backup: `MODULE_BACKUP_KEEP` (5) per module, `MODULE_BACKUP_MAX_MB` (2048) in all; the newest
 of each module and the ones `installed_modules.backup_file` points at stay. Staging uploads expire after an hour
 (cleaned at boot and every 15 minutes).
@@ -676,7 +684,8 @@ a password sealed while built in opens; Remote's link to Directory is active onl
 - No source mode for development: a converted module runs only from its zip (`make module … UNSIGNED=1`,
   `MODULES_DEV=1`); tests load it from source (`test/helpers/modules.js`).
 - `app_settings` keys a module writes itself (Masterplan: `masterplan_seeded`, `masterplan_old_numbers`) are not
-  removed by «Удалить данные».
+  removed by «Удалить данные» (its upload folder `uploads/<id>` is: archived into the backup first). Files a module
+  keeps outside `uploads/<id>` stay.
 - No automatic preinstall of base modules from zips in the image yet (spec stage 5).
 - One install / update / remove at a time per process; the restart makes concurrent work moot.
 - A package that crashes the process later than the probation window is not rolled back automatically: its

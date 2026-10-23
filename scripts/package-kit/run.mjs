@@ -33,7 +33,7 @@ import {
 import { baseEnv, freePort, run, sleep, stopAll, stop, ownPids } from './lib/proc.mjs';
 import { Client, expectOk } from './lib/http.mjs';
 import { Backend } from './lib/backend.mjs';
-import { Db, allTables, appliedMigrations, moduleTableNames, packageRow, snapshot } from './lib/db.mjs';
+import { Db, allTables, filesDigest, appliedMigrations, moduleTableNames, packageRow, snapshot } from './lib/db.mjs';
 import { buildPackage, makeKeys, readPackage, tampered, untrusted, variant, verifyPackage } from './lib/package.mjs';
 import { buildFrontend, startPreview } from './lib/frontend.mjs';
 import { browse, playwrightModules } from './lib/browser.mjs';
@@ -275,6 +275,26 @@ async function introspect(ctx, portal, version) {
 }
 
 /** GET every route as each caller; one step per caller. */
+/** The API reference (/api/developer/reference) and openapi.json list every route the package mounts. */
+async function referenceStep(ctx, phase, admin, routes, label = '') {
+  await ctx.report.step(phase, `API reference + OpenAPI list the package routes${label}`, async () => {
+    const ref = expectOk(await admin.get('/api/developer/reference'), 'reference');
+    const spec = await admin.get('/api/developer/openapi.json');
+    if (spec.status !== 200) return fail(`openapi.json ${spec.status}`);
+    const trim = (path) => path.replace(/(.)\/$/, '$1');
+    const listed = new Set((ref.endpoints || []).map((e) => `${e.method} ${trim(`/api${e.path}`)}`));
+    const openapi = new Set(Object.entries(spec.body?.paths || {}).flatMap(([path, ops]) => Object.keys(ops).map((m) => `${m.toUpperCase()} /api${path}`)));
+    const asOpenApi = (route) => `${route.method} ${route.path.replace(/:(\w+)(\([^)]*\))?/g, '{$1}').replace(/(.)\/$/, '$1')}`;
+    const own = routes.routes || [];
+    const missing = own.filter((r) => !listed.has(`${r.method} ${trim(r.path)}`)).map((r) => `${r.method} ${r.path}`);
+    const missingSpec = own.filter((r) => !openapi.has(asOpenApi(r))).map((r) => `${r.method} ${r.path}`);
+    const problems = [...missing.map((m) => `reference: ${m}`), ...missingSpec.map((m) => `openapi: ${m}`)];
+    if (problems.length) return fail(`${problems.length} of ${own.length * 2} missing: ${problems.slice(0, 6).join(', ')}`, problems);
+    const section = (ref.sections || []).find((item) => (item.prefix || []).includes(`/app/${ctx.args.id}`));
+    return `${own.length} routes in both; section ${section ? section.key : '(none)'}`;
+  }, { critical: false });
+}
+
 async function sweep(ctx, phase, portal, callers, routes, label = '') {
   const id = ctx.args.id;
   const params = await resolveParams(ctx, portal.database, ctx.config.apiParams);
@@ -543,6 +563,7 @@ async function phaseFresh(ctx) {
     const gets = found.routes.filter((r) => r.method === 'GET').length;
     return { value: found, note: `${found.routes.length} routes (${gets} GET), ${found.public.length} public${found.skipped.length ? `; unreadable: ${found.skipped.join(', ')}` : ''}`, status: found.routes.length ? 'pass' : 'warn' };
   });
+  await referenceStep(ctx, P, admin, routes);
   await sweep(ctx, P, portal, [
     { who: 'superadmin', client: admin },
     { who: 'scoped-token', client: tokens.scoped },
@@ -659,6 +680,8 @@ async function phaseFresh(ctx) {
     await uninstall(portal, admin, id);
     const own = await ctx.db.with(portal.database, (c) => moduleTableNames(c, BACKEND, id, ctx.manifest.tables || []));
     const tablesBefore = await ctx.db.with(portal.database, allTables);
+    // uploads/<id> goes into the backup (<file>.uploads.tar.gz) and is removed; other kit upload folders are not the platform's.
+    const ownFilesBefore = filesDigest(portal.uploadDir, [id]).count;
     const res = expectOk(await admin.post(`/api/admin/modules/packages/${id}/purge`, { confirm: id }, { timeoutMs: 300_000 }), 'purge');
     const tablesAfter = await ctx.db.with(portal.database, allTables);
     const dropped = tablesBefore.filter((t) => !tablesAfter.includes(t)).sort();
@@ -668,6 +691,13 @@ async function phaseFresh(ctx) {
     if (added.length) problems.push(`new tables ${added.join(', ')}`);
     const backupFile = res.backup?.file ? join(portal.modulesDir, '.backups', id, res.backup.file) : null;
     if (!backupFile || !existsSync(backupFile)) problems.push(`backup file ${res.backup?.file} not found`);
+    if (ownFilesBefore) {
+      const archive = res.backup?.uploads?.file ? join(portal.modulesDir, '.backups', id, res.backup.uploads.file) : null;
+      if (!archive || !existsSync(archive)) problems.push(`uploads/${id} held ${ownFilesBefore} files, the backup has no archive of them`);
+      else if (res.backup.uploads.files !== ownFilesBefore) problems.push(`the upload archive holds ${res.backup.uploads.files} files, uploads/${id} had ${ownFilesBefore}`);
+    }
+    const ownFilesAfter = filesDigest(portal.uploadDir, [id]).count;
+    if (ownFilesAfter) problems.push(`${ownFilesAfter} files left in uploads/${id}`);
     const leftovers = await ctx.db.with(portal.database, async (c) => ({ row: await packageRow(c, id), migrations: await appliedMigrations(c, id), settings: (await snapshot(c, BACKEND, id, { manifestTables: ctx.manifest.tables || [] })).settings }));
     if (leftovers.row) problems.push(`installed_modules row left: ${leftovers.row.state}`);
     if (leftovers.migrations.length) problems.push(`module_migrations left: ${leftovers.migrations.join(', ')}`);
@@ -676,8 +706,9 @@ async function phaseFresh(ctx) {
     const rest = await snap(ctx, portal);
     const kept = Object.keys(rest.appSettings);
     const leftover = [kept.length ? `app_settings keys the module wrote itself: ${kept.join(', ')}` : null, rest.files.count ? `${rest.files.count} upload files (${(ctx.config.uploadFolders || [id]).map((f) => `uploads/${f}`).join(', ')})` : null].filter(Boolean);
-    if (leftover.length) return warn(`dropped ${dropped.length} tables (exactly the module's), backup ${res.backup.format}; left behind: ${leftover.join('; ')} (known limitation, docs/module-packages.md)`);
-    return `dropped ${dropped.length} tables (exactly the module's), backup ${res.backup.format} ${res.backup.file} (${res.backup.bytes} bytes)`;
+    const filesNote = ownFilesBefore ? `, ${ownFilesBefore} files of uploads/${id} archived and removed` : '';
+    if (leftover.length) return warn(`dropped ${dropped.length} tables (exactly the module's), backup ${res.backup.format}${filesNote}; left behind: ${leftover.join('; ')} (known limitation, docs/module-packages.md)`);
+    return `dropped ${dropped.length} tables (exactly the module's)${filesNote}, backup ${res.backup.format} ${res.backup.file} (${res.backup.bytes} bytes)`;
   });
   await ctx.report.step(P, 'boot logs: no unexpected errors', async () => {
     const lines = portal.backend.grep(/(Unhandled|TypeError|ReferenceError|SyntaxError|uncaught)/i);
@@ -816,6 +847,7 @@ async function phaseUpgrade(ctx) {
   });
   const user = new Client(after.backend.base, { name: 'user' });
   await user.login(USER.username, USER.password);
+  await referenceStep(ctx, P, admin, routes, ' after the upgrade');
   await sweep(ctx, P, after, [{ who: 'superadmin', client: admin }, { who: 'holder', client: user }], routes, ' after the upgrade');
   await linkProbes(ctx, P, admin, 'present', 'package installed', after.database);
   ui = ui || (await ensureUi(ctx, after));

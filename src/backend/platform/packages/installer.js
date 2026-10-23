@@ -13,7 +13,7 @@ import { SDK_VERSION } from '../sdk/version.js';
 import { openPackage, writePackageFiles, PackageError } from './archive.js';
 import { badPackage, checkInstall, checkUninstall } from './checks.js';
 import { clearBootMarker, readManifestAt, readPointer, writePointer } from './disk.js';
-import { backupModule, dropModuleData, foreignKeysInto, moduleTables } from './backup.js';
+import { backupModule, dropModuleData, foreignKeysInto, moduleTables, removeUploads } from './backup.js';
 import { getModuleRow, listModuleRows, saveModuleRow } from './store.js';
 import { installedIndex } from './loader.js';
 import { normalizeManifest } from './manifestFile.js';
@@ -41,8 +41,9 @@ import { BOOT_ID, requestRestart, restartPending } from './restart.js';
  *                   journal → restart. A new module is installed switched off.
  *   uninstall(id)   refused while other modules require it; the code is
  *                   deleted, the data (tables, settings) stays
- *   purgeData(id)   only for a removed module: a fresh backup first, then its
- *                   tables are dropped and its settings forgotten
+ *   purgeData(id)   only for a removed module: a fresh backup first (tables +
+ *                   uploads/<id>), then its tables are dropped, its settings
+ *                   forgotten and its upload folder removed
  *
  * Install, uninstall and purge are refused (409) while a restart is pending:
  * the restart would cut them off half-way. The prepare child is killed when
@@ -339,9 +340,10 @@ export async function uninstallPackage(id, { actor = null, ip = null, restart = 
 }
 
 /**
- * «Удалить данные» of a removed module: a fresh backup is made first (the data
- * is not touched when it fails), then the module's tables are dropped and its
- * stored settings forgotten. `confirm` must repeat the module id.
+ * «Удалить данные» of a removed module: a fresh backup is made first — its tables
+ * and its upload folder uploads/<id> (nothing is touched when it fails) — then
+ * the module's tables are dropped, its stored settings forgotten and the upload
+ * folder removed. `confirm` must repeat the module id.
  */
 export async function purgeModuleData(id, { actor = null, ip = null, confirm = null } = {}) {
   return exclusive(async () => {
@@ -351,14 +353,26 @@ export async function purgeModuleData(id, { actor = null, ip = null, confirm = n
     if (confirm !== id) throw problemError(400, [simpleProblem('CONFIRM_REQUIRED', `Для подтверждения введите «${id}»`, `Type “${id}” to confirm`)]);
     const manifest = row.manifest || {};
     await refuseForeignKeys(id, await moduleTables(id, manifest), { purge: true });
-    const backup = await backupModule({ id, version: row.version, manifest, reason: 'purge' });
+    // The backup holds the tables and the upload folder (uploads/<id>); nothing is deleted when either fails.
+    const backup = await backupModule({ id, version: row.version, manifest, reason: 'purge', uploads: true });
     if (!backup?.file || !existsSync(backup.file) || statSync(backup.file).size === 0) throw problemError(500, [simpleProblem('BACKUP_FAILED', 'Резервная копия не создана — данные не удалены', 'The backup was not made — nothing was deleted')]);
     const tables = await dropModuleData(id, manifest);
     await query(`UPDATE app_settings SET value = (value::jsonb - $1::text)::text, updated_at = NOW() WHERE key = 'modules' AND value ~ '^\\s*\\{'`, [id]);
     invalidateSettings();
     await query(`DELETE FROM installed_modules WHERE id = $1`, [id]);
-    journal({ actor, ip, code: 'module_data_removed', detail: `${id}: data removed (${tables.length} tables), backup ${backup.file.split('/').pop()}`.slice(0, 200), params: { module: id, tables: tables.length } });
-    return { id, tables, backup: { file: backup.file, format: backup.format, bytes: backup.bytes } };
+    let files = null;
+    try {
+      files = removeUploads(id);
+    } catch (err) {
+      console.warn(`Module ${id}: its upload folder could not be removed: ${err.message}`);
+    }
+    journal({ actor, ip, code: 'module_data_removed', detail: `${id}: data removed (${tables.length} tables, ${files?.files || 0} files), backup ${backup.file.split('/').pop()}`.slice(0, 200), params: { module: id, tables: tables.length, files: files?.files || 0 } });
+    return {
+      id,
+      tables,
+      files: files ? { folder: id, files: files.files, bytes: files.bytes } : null,
+      backup: { file: backup.file, format: backup.format, bytes: backup.bytes, uploads: backup.uploads ? { file: backup.uploads.file, files: backup.uploads.files, bytes: backup.uploads.bytes } : null },
+    };
   });
 }
 
