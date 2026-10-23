@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Remote access — Portal VNC install centre**: a new admin page (the «Portal VNC» button in the Computers header) that brings you to the installer in a couple of clicks. It fetches the latest [Portal VNC](https://github.com/iSmartyPRO/portal-vnc) agent release and offers direct `.msi`/`.zip` download buttons, with a step-by-step install guide (service on port 7654, firewall rule, `allowedClients`, GPO deployment). If the portal cannot reach GitHub it falls back to the last known release; the links point at GitHub so the download runs in the administrator's browser regardless. See [docs/specs/remote-access.ru.md](docs/specs/remote-access.ru.md#portal-vnc--собственный-агент-и-центр-установки).
+
+### Changed
+
+- **Remote access — standard VNC credentials**: the connect dialog now lets a VNC session's password come from the password manager, Passbolt or a one-off manual entry (password-only), not just the credentials saved on the computer.
+
 ## [1.15.0] - 2026-10-23
 
 ### Changed

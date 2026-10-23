@@ -827,3 +827,107 @@
 .rm-apptile__text { display: flex; flex-direction: column; min-width: 0; }
 .rm-apptile__text small { color: var(--da-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rm-apptile__tools { display: inline-flex; flex: none; padding-right: 8px; }
+
+/* ── Portal VNC install centre ─────────────────────────────────────────── */
+.pvnc-hero {
+  position: relative;
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+  padding: 26px 28px;
+  margin-bottom: 26px;
+  border: 1px solid var(--da-hairline);
+  border-radius: calc(var(--da-radius) * 1.4);
+  background: linear-gradient(135deg, var(--da-surface-raised), var(--da-surface));
+  box-shadow: var(--da-shadow);
+  overflow: hidden;
+}
+.pvnc-hero__glow {
+  position: absolute;
+  inset: -40% 50% auto -10%;
+  height: 220px;
+  background: radial-gradient(60% 100% at 20% 0%, var(--da-tint-strong), transparent 70%);
+  opacity: 0.7;
+  pointer-events: none;
+}
+.pvnc-hero__badge {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  font-size: 30px;
+  color: #fff;
+  background: linear-gradient(145deg, var(--da-primary), color-mix(in srgb, var(--da-primary) 60%, #1a4bd6));
+  box-shadow: 0 10px 26px -10px var(--da-primary);
+}
+.pvnc-hero__body { position: relative; flex: 1; min-width: 0; }
+.pvnc-hero__titlerow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pvnc-hero__titlerow h2 { margin: 0; font-size: 22px; font-weight: 700; color: var(--da-text); }
+.pvnc-tag {
+  background: var(--da-tint);
+  color: var(--da-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-radius: 999px;
+}
+.pvnc-hero__what { margin: 8px 0 16px; color: var(--da-muted); max-width: 64ch; line-height: 1.55; }
+
+.pvnc-dl { display: flex; gap: 12px; flex-wrap: wrap; }
+.pvnc-dl .ant-btn { height: 46px; padding-inline: 20px; border-radius: 12px; font-weight: 600; }
+.pvnc-dl__size { margin-left: 8px; opacity: 0.7; font-weight: 500; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.pvnc-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; margin-top: 16px; font-size: 13px; color: var(--da-muted); }
+.pvnc-meta__links { display: inline-flex; gap: 18px; flex-wrap: wrap; }
+.pvnc-meta__links a { color: var(--da-primary); font-weight: 500; }
+.pvnc-offline { margin: 10px 0 0; font-size: 12px; color: var(--da-faint); }
+
+.pvnc-h3 { margin: 4px 0 14px; font-size: 16px; font-weight: 700; color: var(--da-text); }
+.pvnc-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0 0 24px; padding: 0; list-style: none; }
+.pvnc-step {
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--da-hairline);
+  border-radius: var(--da-radius);
+  background: var(--da-surface-raised);
+  transition: box-shadow var(--da-ease), transform var(--da-ease);
+}
+.pvnc-step:hover { box-shadow: var(--da-shadow); transform: translateY(-1px); }
+.pvnc-step__n {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--da-primary);
+  background: var(--da-tint);
+}
+.pvnc-step strong { display: block; color: var(--da-text); margin-bottom: 4px; }
+.pvnc-step p { margin: 0; color: var(--da-muted); font-size: 13px; line-height: 1.5; }
+
+.pvnc-cards { margin-bottom: 20px; }
+.pvnc-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border: 1px solid var(--da-hairline);
+  border-radius: var(--da-radius);
+  background: var(--da-surface-raised);
+}
+.pvnc-card .anticon { font-size: 22px; color: var(--da-primary); margin-top: 2px; }
+.pvnc-card strong { display: block; color: var(--da-text); margin-bottom: 4px; }
+.pvnc-card p { margin: 0; color: var(--da-muted); font-size: 13px; line-height: 1.5; }
+
+.pvnc-note { border-radius: var(--da-radius); }
+
+@media (max-width: 720px) {
+  .pvnc-hero { flex-direction: column; gap: 16px; padding: 20px; }
+  .pvnc-steps { grid-template-columns: 1fr; }
+}

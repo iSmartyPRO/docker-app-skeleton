@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Dropdown, Empty, Segmented, Tag, Tooltip } from 'antd';
-import { AppstoreOutlined, CloudServerOutlined, DesktopOutlined, EyeOutlined, HistoryOutlined, KeyOutlined, MoreOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, CloudDownloadOutlined, CloudServerOutlined, DesktopOutlined, EyeOutlined, HistoryOutlined, KeyOutlined, MoreOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
 import { MenuIcon } from '../../../components/icons/menuIcons';
 import { useLocale } from '../../../context/LocaleContext';
 import ModuleHeader from '../../shared/ModuleHeader';
@@ -86,6 +86,7 @@ export default function Catalogue() {
           { key: 'apps', icon: <AppstoreOutlined />, label: t('remote.apps.title'), onClick: () => navigate('/app/remote/apps') },
           { key: 'vault', icon: <KeyOutlined />, label: t('remote.vault.title'), onClick: () => navigate('/app/remote/vault') },
           { key: 'my', icon: <SafetyCertificateOutlined />, label: t('remote.my.title'), onClick: () => navigate('/app/remote/my') },
+          remote.can.admin && { key: 'pvnc', icon: <CloudDownloadOutlined />, label: t('remote.pvnc.nav'), onClick: () => navigate('/app/remote/portal-vnc') },
           remote.can.admin && { key: 'journal', icon: <HistoryOutlined />, label: t('remote.journal.title'), onClick: () => navigate('/app/remote/journal') },
           remote.can.admin && { key: 'add', primary: true, icon: <PlusOutlined />, label: t('remote.catalogue.add'), onClick: () => setEditing({}) },
         ]}

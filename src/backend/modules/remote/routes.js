@@ -22,6 +22,7 @@ import {
   saveHost,
   startSession,
 } from './service.js';
+import { portalVncRelease } from './portalVnc.js';
 import { deleteCredential, listCredentials, saveCredential } from './credentials.js';
 import { deletePassbolt, getPassbolt, listResources, passboltEnabled, savePassbolt, testPassbolt } from './passbolt.js';
 
@@ -39,6 +40,9 @@ export function privateRoutes() {
   router.get('/', view, wrap(async (req, res) => res.json({ success: true, ...(await bootstrap(req.remote_ctx)) })));
   router.get('/hosts', view, wrap(async (req, res) => res.json({ success: true, hosts: await listHosts(req.remote_ctx) })));
   router.get('/apps', view, wrap(async (req, res) => res.json({ success: true, apps: await listApps(req.remote_ctx) })));
+
+  // Portal VNC install centre: the latest agent release with direct download links.
+  router.get('/portal-vnc', view, wrap(async (req, res) => res.json({ success: true, release: await portalVncRelease() })));
 
   router.post('/sessions', operator, wrap(async (req, res) => res.json({ success: true, ...(await startSession(req.remote_ctx, req.body || {})) })));
   router.post('/sessions/:id/end', wrap(async (req, res) => res.json({ success: true, session: await endSession(req.remote_ctx, req.params.id, req.body || {}) })));

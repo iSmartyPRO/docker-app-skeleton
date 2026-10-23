@@ -11,7 +11,7 @@ import { useRemote } from '../RemoteContext';
  * typed in manually. `value` is { source, id, username, domain, password };
  * the dialog passes `value` as the session's `auth` plus manual fields.
  */
-export default function CredentialPicker({ host, value, onChange }) {
+export default function CredentialPicker({ host, value, onChange, passwordOnly = false }) {
   const { t } = useLocale();
   const remote = useRemote();
   const [vault, setVault] = useState(null);
@@ -80,8 +80,8 @@ export default function CredentialPicker({ host, value, onChange }) {
 
       {value.source === 'manual' && (
         <div className="rm-creds-pick__sub rm-creds__row">
-          <Input prefix={<EditOutlined />} placeholder={t('remote.host.credUser')} value={value.username || ''} onChange={(e) => set({ username: e.target.value })} autoComplete="off" />
-          <Input placeholder={t('remote.host.credDomain')} value={value.domain || ''} onChange={(e) => set({ domain: e.target.value })} style={{ maxWidth: 150 }} autoComplete="off" />
+          {!passwordOnly && <Input prefix={<EditOutlined />} placeholder={t('remote.host.credUser')} value={value.username || ''} onChange={(e) => set({ username: e.target.value })} autoComplete="off" />}
+          {!passwordOnly && <Input placeholder={t('remote.host.credDomain')} value={value.domain || ''} onChange={(e) => set({ domain: e.target.value })} style={{ maxWidth: 150 }} autoComplete="off" />}
           <Input.Password prefix={<LockOutlined />} placeholder={t('remote.host.credPassword')} value={value.password || ''} onChange={(e) => set({ password: e.target.value })} autoComplete="new-password" />
         </div>
       )}

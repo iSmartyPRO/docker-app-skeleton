@@ -8,6 +8,7 @@ import Applications from './pages/Applications';
 import Journal from './pages/Journal';
 import MyComputer from './pages/MyComputer';
 import Vault from './pages/Vault';
+import PortalVnc from './pages/PortalVnc';
 import '../shared/module.css';
 import './remote.css';
 
@@ -24,6 +25,7 @@ export default function RemoteApp() {
               <Route path="apps" element={<Applications />} />
               <Route path="my" element={<MyComputer />} />
               <Route path="vault" element={<Vault />} />
+              <Route path="portal-vnc" element={<PortalVnc />} />
               <Route path="journal" element={<Journal />} />
               <Route path="*" element={<Navigate to="/app/remote" replace />} />
             </Routes>

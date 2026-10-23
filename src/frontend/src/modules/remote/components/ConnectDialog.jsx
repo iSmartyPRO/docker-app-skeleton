@@ -33,7 +33,7 @@ export default function ConnectDialog({ open, host, app, mode, onClose }) {
   if (!host) return null;
   const isServer = host.kind === 'server' || host.kind === 'app' || Boolean(app);
   const isMonitor = mode === 'monitor' && !isServer;
-  const needsRdpCreds = host.protocol === 'rdp';
+  const needsCreds = host.protocol === 'rdp' || host.protocol === 'vnc';
 
   const start = async () => {
     if (auth.source === 'passbolt' && !auth.id) { message.warning(t('remote.creds.passboltChoose')); return; }
@@ -107,7 +107,7 @@ export default function ConnectDialog({ open, host, app, mode, onClose }) {
             <p className="rm-muted" style={{ marginTop: 8 }}>{t('remote.connect.controlConsent')}</p>
           )}
 
-          {needsRdpCreds && <CredentialPicker host={host} value={auth} onChange={setAuth} />}
+          {needsCreds && <CredentialPicker host={host} value={auth} onChange={setAuth} passwordOnly={host.protocol === 'vnc'} />}
         </>
       ) : (
         <div className="rm-viewer">
