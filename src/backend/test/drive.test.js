@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { resolveModules, sanitizeModules } from '../modules/catalog.js';
 import { cleanName, cleanPath, joinPath, parentOf, relativeTo, within } from '../modules/drive/paths.js';
 import { uncOf } from '../modules/drive/service.js';
+import { sourcePackage } from './helpers/modules.js';
+
+// The File server is a module package: its catalog entry as an installed package adds it (module.json + settings.js).
+await sourcePackage('drive');
 
 test('drive paths stay inside the share', () => {
   assert.equal(cleanPath('Reports\\2026//Q1.xlsx'), 'Reports/2026/Q1.xlsx');

@@ -159,19 +159,6 @@ export const MODULE_MANIFEST = {
     docs: { user: 'companies', guide: 'docs/companies.md' },
     changelog: first(['Companies and people, registry lookups, careers, history and rating.'], ['Компании и люди, реквизиты из реестров, карьера, история и рейтинг.'], { ky: ['Компаниялар жана адамдар, реестрлерден реквизиттер, карьера, тарых жана рейтинг.'], tr: ['Şirketler ve kişiler, sicil sorguları, kariyer, geçmiş ve puanlama.'], zh: ['公司和联系人、登记信息查询、职业经历、历史和评分。'] }),
   },
-  drive: {
-    name: { en: 'File server', ky: 'Файл сервери', tr: 'Dosya sunucusu', zh: '文件服务器', ru: 'Файловый сервер' },
-    version: '1.0.0',
-    category: 'infrastructure',
-    minCore: '1.4.0',
-    requires: [],
-    enhances: [
-      { integration: 'activeDirectory', what: { en: 'Folder access groups, the domain password for shares', ky: 'Папкаларга кирүү укугунун топтору, жалпы папкалар үчүн домендик сырсөз', tr: 'Klasör erişim grupları, paylaşımlar için etki alanı parolası', zh: '文件夹访问组、共享的域密码', ru: 'Группы доступа к папкам, доменный пароль для шар' } },
-      { integration: 'documents', what: { en: 'Office previews and online editing', ky: 'Office документтерин көрүү жана онлайн түзөтүү', tr: 'Office önizlemeleri ve çevrimiçi düzenleme', zh: 'Office 文档预览和在线编辑', ru: 'Просмотр и онлайн-редактирование документов Office' } },
-    ],
-    docs: { user: 'drive', guide: 'docs/drive.md' },
-    changelog: first(['SMB shares as one drive, links, activity log, folder access management.'], ['SMB-шары как единый диск, ссылки, журнал действий, управление доступом к папкам.'], { ky: ['SMB жалпы папкалары бир диск катары, шилтемелер, аракеттер журналы, папкаларга кирүү укугун башкаруу.'], tr: ['Tek sürücü olarak SMB paylaşımları, bağlantılar, etkinlik günlüğü, klasör erişim yönetimi.'], zh: ['SMB 共享合为一个网盘、链接、操作日志、文件夹访问权限管理。'] }),
-  },
   org: {
     name: { en: 'Org structure', ky: 'Уюмдук түзүм', tr: 'Organizasyon yapısı', zh: '组织架构', ru: 'Оргструктура' },
     version: '1.0.0',
@@ -185,45 +172,6 @@ export const MODULE_MANIFEST = {
       ['Дерево подразделений с настраиваемыми типами, руководителями, назначениями и часовыми поясами; перетаскивание с историей; оргсхема; managerOf() для модулей и согласований.'], { ky: ['Жөндөлүүчү түрлөрү, жетекчилери, багыттары жана саат алкактары бар бөлүмдөрдүн дарагы; тарыхы сакталган сүйрөп жылдыруу; уюмдук схема; модулдар жана макулдашуулар үчүн managerOf().'], tr: ['Yapılandırılabilir türler, amirler, amaçlar ve saat dilimleriyle birim ağacı; geçmişiyle sürükle-bırak; organizasyon şeması; modüller ve onaylar için managerOf().'], zh: ['部门树，可配置类型、负责人、用途和时区；拖放调整并保留历史；组织架构图；供模块和审批使用的 managerOf()。'] }
     ),
   },
-  employees: {
-    name: { en: 'Employees', ky: 'Кызматкерлер', tr: 'Çalışanlar', zh: '员工', ru: 'Сотрудники' },
-    version: '1.0.0',
-    category: 'people',
-    minCore: '1.4.0',
-    requires: [{ id: 'org', reason: { en: 'Employees belong to units of the org structure', ky: 'Кызматкерлер уюмдук түзүмдүн бөлүмдөрүнө катталат', tr: 'Çalışanlar organizasyon yapısının birimlerine bağlıdır', zh: '员工隶属于组织架构中的部门', ru: 'Сотрудники числятся в подразделениях оргструктуры' } }],
-    enhances: [
-      { id: 'dashboard', what: { en: 'Birthdays and work anniversaries widget', ky: 'Туулган күндөр жана иш жылдыктары виджети', tr: 'Doğum günleri ve iş yıl dönümleri pencere öğesi', zh: '生日和入职周年小组件', ru: 'Виджет дней рождения и годовщин' } },
-      { integration: 'activeDirectory', what: { en: 'The AD account field on the employee card', ky: 'Кызматкердин карточкасында «AD эсептик жазуусу» талаасы', tr: 'Çalışan kartındaki AD hesabı alanı', zh: '员工卡片中的 AD 账户字段', ru: 'Поле «Учётная запись AD» в карточке сотрудника' } },
-    ],
-    docs: { user: 'employees', guide: 'docs/employees.md' },
-    changelog: first(
-      ['Registry and cards, positions, documents, skills and clearances with reminders, portal user link, org chart, Excel import, birthdays widget.'],
-      ['Реестр и карточки, должности, документы, навыки и допуски с напоминаниями, связь с пользователем портала, оргсхема, импорт из Excel, виджет дней рождения.'], { ky: ['Реестр жана карточкалар, кызмат орундары, документтер, эскертүүлөрү бар көндүмдөр жана уруксаттар, портал колдонуучусу менен байланыш, уюмдук схема, Excel\'ден импорт, туулган күндөр виджети.'], tr: ['Kayıt listesi ve kartlar, pozisyonlar, belgeler, hatırlatıcılı beceriler ve yetki belgeleri, portal kullanıcısı bağlantısı, organizasyon şeması, Excel\'den içe aktarma, doğum günleri pencere öğesi.'], zh: ['台账和卡片、职位、证件、带提醒的技能和资质证书、门户用户关联、组织架构图、Excel 导入、生日小组件。'] }
-    ),
-  },
-  directory: {
-    name: { en: 'AD directory', ky: 'AD каталогу', tr: 'AD dizini', zh: 'AD 目录', ru: 'Каталог AD' },
-    version: '1.0.0',
-    category: 'infrastructure',
-    minCore: '1.4.0',
-    requires: [
-      {
-        integration: 'activeDirectory',
-        reason: { en: 'Users, groups and OUs are read from and written to Active Directory', ky: 'Колдонуучулар, топтор жана OU Active Directory\'ден окулат жана анда өзгөртүлөт', tr: 'Kullanıcılar, gruplar ve OU\'lar Active Directory\'den okunur ve orada değiştirilir', zh: '用户、组和 OU 从 Active Directory 读取并写回', ru: 'Пользователи, группы и OU читаются из Active Directory и меняются в нём' },
-        // May be switched on without it: the module page then explains the setup and can show the demo directory.
-        demo: true,
-      },
-    ],
-    enhances: [
-      { id: 'employees', what: { en: 'Link AD accounts to employee cards and create them from a card', ky: 'AD эсептик жазууларын кызматкерлердин карточкалары менен байланыштыруу жана карточкадан түзүү', tr: 'AD hesaplarını çalışan kartlarına bağlama ve karttan oluşturma', zh: '将 AD 账户关联到员工卡片，并从卡片创建账户', ru: 'Связывать учётные записи AD с карточками сотрудников и создавать их из карточки' } },
-      { id: 'drive', what: { en: 'Folder access groups (sg_…) are managed in File server → Access', ky: 'Папкаларга кирүү укугунун топтору (sg_…) «Файл сервери → Кирүү укугу» бөлүмүндө башкарылат', tr: 'Klasör erişim grupları (sg_…) Dosya sunucusu → Erişim bölümünden yönetilir', zh: '文件夹访问组（sg_…）在“文件服务器 → 访问权限”中管理', ru: 'Группы доступа к папкам (sg_…) управляются в «Файловый сервер → Доступ»' } },
-    ],
-    docs: { user: 'directory', guide: 'docs/directory.md' },
-    changelog: first(
-      ['OU tree within a managed root, users, groups and computers, account actions under the administrator’s own AD account, password reset over LDAPS / StartTLS, journal, demo directory.'],
-      ['Дерево OU внутри корня управления, пользователи, группы и компьютеры, действия с учётными записями от AD-учётки администратора, сброс пароля по LDAPS / StartTLS, журнал, демо-каталог.'], { ky: ['Башкаруу тамырынын ичиндеги OU дарагы, колдонуучулар, топтор жана компьютерлер, администратордун өз AD эсептик жазуусу аркылуу аракеттер, LDAPS / StartTLS аркылуу сырсөздү калыбына келтирүү, журнал, демо каталог.'], tr: ['Yönetilen kök içinde OU ağacı, kullanıcılar, gruplar ve bilgisayarlar, yöneticinin kendi AD hesabıyla hesap işlemleri, LDAPS / StartTLS üzerinden parola sıfırlama, günlük, demo dizini.'], zh: ['受管根节点下的 OU 树、用户、组和计算机，以管理员本人 AD 账户执行账户操作，通过 LDAPS / StartTLS 重置密码，日志，演示目录。'] }
-    ),
-  },
 };
 
 /** Modules built into this core version; installed packages (docs/module-packages.md) are merged in from the disk. */
@@ -232,7 +180,7 @@ export const BUILTIN_MANIFEST_IDS = Object.keys(MODULE_MANIFEST);
  * Modules distributed as packages (no longer built into the core) that built-in
  * modules may name in `enhances`: the link is active once the package is installed.
  */
-export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant', 'remote', 'crm', 'contracts', 'procurement', 'warehouse'];
+export const PACKAGE_MODULE_IDS = ['masterplan', 'qr', 'assistant', 'remote', 'crm', 'contracts', 'procurement', 'warehouse', 'employees', 'directory', 'drive'];
 Object.assign(MODULE_MANIFEST, packageManifestEntries(BUILTIN_MANIFEST_IDS));
 
 /**

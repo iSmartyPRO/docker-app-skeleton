@@ -1,0 +1,54 @@
+{
+  "id": "employees",
+  "name": { "en": "Employees", "ru": "Сотрудники", "ky": "Кызматкерлер", "tr": "Çalışanlar", "zh": "员工" },
+  "nameForms": { "ru": { "ins": "Сотрудниками" } },
+  "description": {
+    "en": "Registry and cards of people, positions, documents, clearances, org chart",
+    "ru": "Реестр и карточки сотрудников, должности, документы, допуски, оргсхема",
+    "ky": "Кызматкерлердин реестри жана карточкалары, кызмат орундары, документтер, уруксаттар, уюмдук схема",
+    "tr": "Çalışan kayıt listesi ve kartları, pozisyonlar, belgeler, yetki belgeleri, organizasyon şeması",
+    "zh": "员工台账和卡片、职位、证件、资质证书、组织架构图"
+  },
+  "version": "1.1.0",
+  "category": "people",
+  "requires": [
+    { "id": "org", "reason": { "en": "Employees belong to units of the org structure", "ky": "Кызматкерлер уюмдук түзүмдүн бөлүмдөрүнө катталат", "tr": "Çalışanlar organizasyon yapısının birimlerine bağlıdır", "zh": "员工隶属于组织架构中的部门", "ru": "Сотрудники числятся в подразделениях оргструктуры" } }
+  ],
+  "enhances": [
+    { "id": "dashboard", "what": { "en": "Birthdays and work anniversaries widget", "ky": "Туулган күндөр жана иш жылдыктары виджети", "tr": "Doğum günleri ve iş yıl dönümleri pencere öğesi", "zh": "生日和入职周年小组件", "ru": "Виджет дней рождения и годовщин" } },
+    { "integration": "activeDirectory", "what": { "en": "The AD account field on the employee card", "ky": "Кызматкердин карточкасында «AD эсептик жазуусу» талаасы", "tr": "Çalışan kartındaki AD hesabı alanı", "zh": "员工卡片中的 AD 账户字段", "ru": "Поле «Учётная запись AD» в карточке сотрудника" } }
+  ],
+  "permissions": ["employees.view", "employees.hr", "employees.admin"],
+  "tables": ["employees", "emp_%"],
+  "icon": "people",
+  "docsInfo": { "user": "employees", "guide": "docs/employees.md" },
+  "localeKeys": {
+    "apps": ["employees"],
+    "settings": ["employees"],
+    "permissions": ["groups.module_employees", "employees_*"],
+    "notifyPrefs": ["groups.employees", "events.employees_*"],
+    "tour": ["employees"],
+    "dashboard": ["widgets.employeesCelebrations"]
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-24",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); cards, positions, documents, skills and clearances, history, portal account links and settings are kept. The AD directory reads the cards' AD logins through the module's API."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); карточки, должности, документы, навыки и допуски, история, связи с учётными записями портала и настройки сохраняются. Каталог AD читает AD-логины карточек через API модуля."]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-16",
+      "changes": {
+        "en": ["Registry and cards, positions, documents, skills and clearances with reminders, portal user link, org chart, Excel import, birthdays widget."],
+        "ru": ["Реестр и карточки, должности, документы, навыки и допуски с напоминаниями, связь с пользователем портала, оргсхема, импорт из Excel, виджет дней рождения."],
+        "ky": ["Реестр жана карточкалар, кызмат орундары, документтер, эскертүүлөрү бар көндүмдөр жана уруксаттар, портал колдонуучусу менен байланыш, уюмдук схема, Excel'ден импорт, туулган күндөр виджети."],
+        "tr": ["Kayıt listesi ve kartlar, pozisyonlar, belgeler, hatırlatıcılı beceriler ve yetki belgeleri, portal kullanıcısı bağlantısı, organizasyon şeması, Excel'den içe aktarma, doğum günleri pencere öğesi."],
+        "zh": ["台账和卡片、职位、证件、带提醒的技能和资质证书、门户用户关联、组织架构图、Excel 导入、生日小组件。"]
+      }
+    }
+  ]
+}

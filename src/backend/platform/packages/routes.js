@@ -66,11 +66,13 @@ const who = (req) => req.user?.username || req.userRow?.username || null;
 export function packageRoutes() {
   const router = Router();
 
-  // Anonymous visitors (the sign-in page, public links) get the boot id only: which modules run is not public.
+  // Anonymous visitors (the sign-in page) get the boot id only: which modules run is not public. On a public page
+  // of a package (`?path=/d/<token>`, manifest web.publicPaths) they get that one package, when it is on.
   router.get('/modules/installed', optionalAuth, wrap(async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const signedIn = Boolean(req.userRow && req.userRow.is_active !== false && req.userRow.is_blocked !== true);
-    res.json({ success: true, ...(await shellPackages({ signedIn })), restarting: Boolean(restartPending()) });
+    const path = typeof req.query.path === 'string' ? req.query.path.slice(0, 300) : '';
+    res.json({ success: true, ...(await shellPackages({ signedIn, path })), restarting: Boolean(restartPending()) });
   }));
 
   const admin = Router();

@@ -1,6 +1,5 @@
-import { query } from '../../config/database.js';
+import { withTransaction } from '../../config/database.js';
 import { registerJob } from '../../services/scheduler.js';
-import { runClearanceReminders } from './jobs.js';
 
 /*
  * Employees tables (docs/employees.md → Data model):
@@ -14,8 +13,15 @@ import { runClearanceReminders } from './jobs.js';
  *   emp_files       documents of the card (and nothing else; the photo is employees.photo_key)
  *   emp_events      history of the card
  *   emp_notices     reminders already sent (one row per clearance, expiry date and threshold)
+ *
+ * Migration 001 (index.js `migrations`, docs/module-packages.md «Migrations»): the schema Employees had
+ * while built into the core — CREATE … IF NOT EXISTS, all idempotent — so on a portal that already has
+ * these tables it changes nothing. Everything goes through `db` (the migration's transaction). Its
+ * foreign keys point at core tables only (users, org_units); no other module's table points at these
+ * (org_units.head_employee_id is a plain id the org structure resolves through the people provider).
  */
-export async function ensureEmployeesSchema() {
+export async function createEmployeesSchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS emp_positions (
       id SERIAL PRIMARY KEY,
@@ -113,6 +119,18 @@ export async function ensureEmployeesSchema() {
      FROM employees e
      WHERE e.user_id = u.id AND u.first_name IS NULL AND COALESCE(e.first_name, '') <> ''`
   );
+}
 
-  registerJob({ name: 'employees:clearances', everyMs: 30 * 60 * 1000, run: () => runClearanceReminders() });
+/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+export async function ensureEmployeesSchema() {
+  await withTransaction(async (client) => {
+    // The lock the package migrations take (platform/packages/migrations.js): one at a time.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:employees'))`);
+    await createEmployeesSchema({ query: (text, params) => client.query(text, params) });
+  });
+}
+
+/** Background jobs (register(ctx); no database access). */
+export function startEmployees() {
+  registerJob({ name: 'employees:clearances', everyMs: 30 * 60 * 1000, run: async () => (await import('./jobs.js')).runClearanceReminders() });
 }

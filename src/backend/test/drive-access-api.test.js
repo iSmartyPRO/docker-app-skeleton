@@ -1,8 +1,21 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
-import { moduleRouter } from '../modules/index.js';
-import { endpoints, mountPathOf } from '../api/introspect.js';
+import { sourcePackage } from './helpers/modules.js';
+
+// The File server is a module package: its catalog entry first — api/scopes.js reads the module ids once, at
+// import, and the module's own files import it (as catalog.js does at boot for a package found on disk).
+const { MODULE_CATALOG } = await import('../modules/catalog.js');
+const { platformCatalogEntry } = await import('../platform/packages/manifestFile.js');
+if (!MODULE_CATALOG.some((entry) => entry.id === 'drive')) {
+  MODULE_CATALOG.push(platformCatalogEntry({ id: 'drive', permissions: ['drive.admin', 'drive.audit', 'drive.access'], settings: { defaultEnabled: false, defaults: {}, public: [] } }));
+}
+const drive = await sourcePackage('drive');
+const { moduleRouter } = await import('../modules/index.js');
+const { endpoints, mountPathOf } = await import('../api/introspect.js');
+const { resetLoader, setLoadedForTests } = await import('../platform/packages/loader.js');
+
+after(() => resetLoader());
 
 /* The API reference reads nested routers too: the File server's «Доступ» lives in router.use('/access', …). */
 
@@ -16,8 +29,10 @@ test('mount paths of nested routers are read back from Express layers', () => {
   assert.deepEqual(outer.stack.map(mountPathOf), ['/access', '/a.b/:id/x-y', '', null]);
 });
 
-test('the API reference lists the File server access routes', () => {
+test('the API reference lists the File server access routes', async () => {
   moduleRouter();
+  // Its routes are listed once it is loaded (loader.js packageMounts).
+  setLoadedForTests({ id: 'drive', version: drive.version, manifest: { name: { en: 'File server', ru: 'Файловый сервер' } }, router: drive.routes() });
   const list = endpoints();
   const keys = new Set(list.map((endpoint) => `${endpoint.method} ${endpoint.path}`));
   for (const key of ['GET /app/drive/access/at', 'GET /app/drive/access/folders/:key', 'POST /app/drive/access/members', 'POST /app/drive/access/journal/:id/undo', 'GET /app/drive/access/ntfs/acl', 'POST /app/drive/access/ntfs/apply']) {

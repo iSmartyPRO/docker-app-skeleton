@@ -1,6 +1,6 @@
 # Employees
 
-The registry of everyone who works for the company — with or without access to the portal (spec [platform-2.0](specs/platform-2.0.ru.md) §4). Module id `employees`, category **People**, **off by default**. It requires the core [org structure](org-structure.md) (units and sites) and lends it heads, explicit managers and headcount.
+The registry of everyone who works for the company — with or without access to the portal (spec [platform-2.0](specs/platform-2.0.ru.md) §4). Module id `employees`, category **People**, **off by default**. It requires the core [org structure](org-structure.md) (units and sites) and lends it heads, explicit managers and headcount. A module package (docs/module-packages.md, `make module ID=employees`), not built into the core; other modules reach it through its `api.js` (the AD directory: the «AD» section of cards and the cards' AD logins).
 
 - [Screens](#screens)
 - [Permissions and visibility](#permissions-and-visibility)

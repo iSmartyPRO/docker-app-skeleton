@@ -1,0 +1,95 @@
+{
+  "comment": "Package kit hints for the AD directory (docs/package-testing.md «Module kit file»). It requires the Active Directory integration with `demo: true`: the kit never configures a real AD — the demo directory (ad_demo_objects, seeded while AD is not set up) is what every route reads and writes. Employees and the File server are linked packages. Employees: the «AD» section of employee cards (registerEmployeeExtension) and the card links (Employees api.js: cardsForAdAccounts, findCardsByName, setAdAccount, clearAdAccount — no SQL on the employees tables). The File server: its AD connection and the people's stored AD passwords (real directory only: without the File server it answers 409 DRIVE_MISSING; the demo needs none of it) and the folder access groups (sg_…) it manages, which the directory shows and refuses to change. The demo directory links three demo employee cards to its accounts (employees.ad_account, through its own seed, guarded while the employees table is missing).",
+  "enableAlso": [],
+  "sessionsOnly": true,
+  "sessionsOnlyWhy": "api/scopes.js BLOCKED: /app/directory is never open to API tokens (it changes Active Directory as the person's own domain account), so the token with the directory scope gets 403 ROUTE_NOT_AVAILABLE",
+  "packages": [
+    "employees",
+    "drive"
+  ],
+  "backendEnv": {
+    "SMBGATE_PYTHON": "@kit/fakes/python-smbgate"
+  },
+  "seed": [
+    "employees",
+    "directory"
+  ],
+  "seedRequests": [],
+  "apiParams": {
+    "adCard": "SELECT id FROM employees WHERE ad_account IS NOT NULL ORDER BY id LIMIT 1",
+    "empName": "SELECT substr(last_name, 1, 3) FROM employees WHERE status = 'active' ORDER BY id LIMIT 1"
+  },
+  "pageParams": {},
+  "links": [
+    {
+      "name": "AD directory → Employees: the link picker finds employee cards (Employees api.findCardsByName)",
+      "path": "/api/app/directory/employees?q=:empName",
+      "present": {
+        "status": 200,
+        "nonEmpty": "employees"
+      },
+      "absent": {
+        "status": 404
+      },
+      "alone": {
+        "status": 409
+      }
+    },
+    {
+      "name": "Employees ← AD directory: the «AD» section of a card",
+      "path": "/api/app/employees/employees/:adCard",
+      "present": {
+        "status": 200,
+        "has": "extensions.ad"
+      },
+      "absent": {
+        "maxStatus": 404
+      },
+      "absentWhy": "fresh: the linked package answers without the directory; upgrade window: the linked packages are installed after it (404)"
+    },
+    {
+      "name": "AD directory → File server: the folder access group prefix and state (works without the File server)",
+      "path": "/api/app/directory/",
+      "present": {
+        "status": 200,
+        "has": "drive.prefix"
+      },
+      "absent": {
+        "status": 404
+      },
+      "alone": {
+        "status": 200,
+        "has": "drive.prefix"
+      }
+    },
+    {
+      "name": "AD directory: groups of the demo directory, folder access groups (sg_…) marked",
+      "path": "/api/app/directory/objects?kinds=group&scope=sub&pageSize=100",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "status": 404
+      },
+      "alone": {
+        "status": 200,
+        "nonEmpty": "items"
+      }
+    },
+    {
+      "name": "File server ← AD directory: the File server answers with and without the directory",
+      "path": "/api/app/drive/connections",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "maxStatus": 404
+      },
+      "absentWhy": "fresh: the linked package answers without the directory; upgrade window: the linked packages are installed after it (404)"
+    }
+  ],
+  "openToUsers": [],
+  "needsOtherScopes": [],
+  "skipApi": []
+}

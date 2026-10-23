@@ -1,0 +1,5 @@
+#!/bin/sh
+# $SMBGATE_PYTHON of the package kit (docs/package-testing.md «Fakes»): the File server package runs
+# `$SMBGATE_PYTHON <its gateway/smbgate.py> <socket>`; this runs the kit's fake gateway on that socket instead
+# (in-memory read-only share, no network). -I: isolated mode, nothing from the current folder is imported.
+exec python3 -I "$(dirname "$0")/smbgate-fake.py" "$2"

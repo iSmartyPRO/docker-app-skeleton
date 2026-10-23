@@ -32,11 +32,15 @@ import { DEMO_EXCLUDED, DEMO_ROOT } from '../modules/directory/demoDirectory.js'
 import { setClientFactory, verifyBind } from '../modules/drive/access/directory.js';
 import driveModule from '../modules/drive/index.js';
 import { registerModule } from '../platform/registry.js';
-import { DIRECTORY_DEFAULTS, sanitizeDirectory } from '../modules/catalog.js';
+import { DIRECTORY_DEFAULTS, sanitizeDirectory } from '../modules/directory/settings.js';
+import { sourcePackage } from './helpers/modules.js';
 import { MODULE_MANIFEST } from '../modules/manifest.js';
 import { planModuleChanges, moduleStatus } from '../modules/dependencies.js';
 import { classify } from '../api/scopes.js';
 import { fakeDirectory } from '../test-fixtures/ldap-fake.mjs';
+
+// The AD directory is a module package: its manifest and catalog entries as an installed package adds them.
+await sourcePackage('directory');
 
 // The directory reaches the File server's AD connection through the core registry (Drive is an optional link).
 registerModule(driveModule);

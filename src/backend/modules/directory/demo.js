@@ -147,6 +147,8 @@ export function demoObjects(t, { now = new Date(), employees = [] } = {}) {
 
 async function demoEmployees(ctx) {
   try {
+    // Employees is a separate package (its demo cards are tracked under its name): only while its table exists.
+    if (!(await ctx.query(`SELECT to_regclass('employees') IS NOT NULL AS ok`)).rows[0]?.ok) return [];
     const ids = (await ctx.records('employees', 'employees')).map(Number).filter(Boolean);
     if (!ids.length) return [];
     const { rows } = await ctx.query(
@@ -167,6 +169,8 @@ async function demoEmployees(ctx) {
  * gets its login back when the card is still empty. Exported for tests.
  */
 export async function revertDemoEmployeeLinks(run) {
+  // Employees is a separate package: its cards may not exist on this portal.
+  if (!(await run(`SELECT to_regclass('employees') IS NOT NULL AS ok`)).rows[0]?.ok) return 0;
   const { rows } = await run(
     `SELECT id, action, details FROM ad_journal WHERE demo = TRUE AND ok = TRUE AND action IN ('employee_link', 'employee_unlink') ORDER BY id DESC`
   );

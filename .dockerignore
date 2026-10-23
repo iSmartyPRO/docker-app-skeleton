@@ -34,3 +34,9 @@ src/backend/modules/procurement
 src/frontend/src/modules/procurement
 src/backend/modules/warehouse
 src/frontend/src/modules/warehouse
+src/backend/modules/employees
+src/frontend/src/modules/employees
+src/backend/modules/directory
+src/frontend/src/modules/directory
+src/backend/modules/drive
+src/frontend/src/modules/drive

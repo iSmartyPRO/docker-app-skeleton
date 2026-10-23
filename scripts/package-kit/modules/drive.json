@@ -1,0 +1,221 @@
+{
+  "comment": "Package kit hints for the File server (docs/package-testing.md «Module kit file»). No demo data (its folders live on a real SMB server): the seed makes a group, a server, a folder entry visible to that group only, two public links, a favourite and a listing through the module's own API. The server is 127.0.0.1:9 and is never contacted: backendEnv points the package's gateway at the kit's fake (fakes/python-smbgate → fakes/smbgate-fake.py), an in-memory read-only share on the gateway's private socket — no SMB server, no domain controller, nothing on the network. With it the folder routes, the public link /d/<token> (also the shell list an anonymous visitor of that page gets: manifest web.publicPaths) and previews answer for real; writes answer 403 ACCESS_DENIED (read-only share), thumbnails 415. «Доступ» (AD groups, NTFS) stays switched off (404 DRIVE_ACCESS_DISABLED): it needs a real Active Directory. The AD directory is a linked package (demo directory): it shows the folder access groups (sg_…) and refuses to change them; the File server lends it its AD connection and the stored AD passwords (real AD only). Tasks attach File server files through the browser-side module API (provideModule), nothing on the server.",
+  "enableAlso": [],
+  "sessionsOnly": [
+    "GET /api/app/drive/access",
+    "GET /api/app/drive/access/**"
+  ],
+  "sessionsOnlyWhy": "«Доступ» changes Active Directory and NTFS as the person's own domain account: API tokens are refused there (403 FA_NO_TOKENS, drive/access/routes.js), whatever their scopes",
+  "appendOnly": [
+    "drive_activity"
+  ],
+  "appendOnlyWhy": "the activity log records the kit's own folder listings, file views and link visits (drive.audit): its rows may only grow between snapshots",
+  "packages": [
+    "directory"
+  ],
+  "backendEnv": {
+    "SMBGATE_PYTHON": "@kit/fakes/python-smbgate"
+  },
+  "seed": [
+    "directory"
+  ],
+  "seedRequests": [
+    {
+      "method": "POST",
+      "path": "/api/admin/groups",
+      "body": {
+        "name": "Kit drive users"
+      },
+      "save": "group"
+    },
+    {
+      "path": "/api/app/drive/admin/servers",
+      "body": {
+        "name": "Kit fake server",
+        "host": "127.0.0.1",
+        "port": 9,
+        "domain": "KIT",
+        "auth": "service",
+        "serviceUser": "kit",
+        "servicePassword": "kit-secret-1"
+      },
+      "save": "server"
+    },
+    {
+      "path": "/api/app/drive/admin/servers/@server.server.id/shares",
+      "body": {
+        "title": "Kit share",
+        "share": "kit",
+        "groupIds": [
+          "@group.id"
+        ],
+        "description": "package kit"
+      },
+      "save": "share"
+    },
+    {
+      "path": "/api/app/drive/shares/@share.share.id/links",
+      "body": {
+        "path": "Documents",
+        "permissions": [
+          "view",
+          "download"
+        ],
+        "title": "Kit folder link"
+      },
+      "save": "folderLink"
+    },
+    {
+      "path": "/api/app/drive/shares/@share.share.id/links",
+      "body": {
+        "path": "readme.txt",
+        "permissions": [
+          "view",
+          "download"
+        ]
+      },
+      "save": "fileLink"
+    },
+    {
+      "path": "/api/app/drive/favorites",
+      "body": {
+        "shareId": "@share.share.id",
+        "path": "Documents",
+        "dir": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/app/drive/shares/@share.share.id/list?path=Documents"
+    }
+  ],
+  "apiParams": {
+    "id": "SELECT id FROM drive_shares ORDER BY id LIMIT 1",
+    "share": "SELECT id FROM drive_shares ORDER BY id LIMIT 1",
+    "serverId": "SELECT id FROM drive_servers ORDER BY id LIMIT 1",
+    "token": "SELECT token FROM drive_links WHERE kind = 'dir' ORDER BY id LIMIT 1",
+    "fileToken": "SELECT token FROM drive_links WHERE kind = 'file' ORDER BY id LIMIT 1"
+  },
+  "pageParams": {
+    "shareId": "SELECT id FROM drive_shares ORDER BY id LIMIT 1",
+    "token": "SELECT token FROM drive_links WHERE kind = 'dir' ORDER BY id LIMIT 1"
+  },
+  "pages": [
+    {
+      "path": "/d/:token",
+      "expectPrefix": "/d/"
+    },
+    {
+      "path": "/app/drive/s/:shareId/Documents",
+      "expectPrefix": "/app/drive/s/"
+    }
+  ],
+  "links": [
+    {
+      "name": "File server home: the folder entry and its state through the gateway (fake share)",
+      "path": "/api/app/drive/",
+      "present": {
+        "status": 200,
+        "nonEmpty": "shares"
+      },
+      "absent": {
+        "status": 404
+      }
+    },
+    {
+      "name": "a folder of the share through the gateway",
+      "path": "/api/app/drive/shares/:share/list?path=Documents",
+      "present": {
+        "status": 200,
+        "nonEmpty": "entries"
+      },
+      "absent": {
+        "status": 404
+      }
+    },
+    {
+      "name": "public link /d/<token> for an anonymous visitor (folder, through the gateway)",
+      "path": "/api/d/:token",
+      "anonymous": true,
+      "present": {
+        "status": 200,
+        "nonEmpty": "entries"
+      },
+      "absent": {
+        "status": 404
+      }
+    },
+    {
+      "name": "public link: a file of the shared folder for an anonymous visitor",
+      "path": "/api/d/:fileToken/file",
+      "anonymous": true,
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "status": 404
+      }
+    },
+    {
+      "name": "shell list of an anonymous visitor of /d/<token>: the package and nothing else (web.publicPaths)",
+      "path": "/api/modules/installed?path=/d/:token",
+      "anonymous": true,
+      "present": {
+        "status": 200,
+        "nonEmpty": "modules"
+      },
+      "absent": {
+        "status": 200,
+        "empty": "modules"
+      },
+      "oldCore": {
+        "status": 200
+      },
+      "oldCoreWhy": "built into the old core: its public page needs no package list"
+    },
+    {
+      "name": "shell list of an anonymous visitor elsewhere: no packages",
+      "path": "/api/modules/installed?path=/login",
+      "anonymous": true,
+      "present": {
+        "status": 200,
+        "empty": "modules"
+      },
+      "absent": {
+        "status": 200,
+        "empty": "modules"
+      }
+    },
+    {
+      "name": "«Доступ» (AD folder groups): switched off without a real AD — graceful",
+      "path": "/api/app/drive/access/",
+      "present": {
+        "status": 404
+      },
+      "absent": {
+        "status": 404
+      }
+    },
+    {
+      "name": "AD directory ← File server: folder access group prefix and state (the directory answers without the File server; on the upgrade it is installed after it)",
+      "path": "/api/app/directory/",
+      "present": {
+        "status": 200,
+        "has": "drive.prefix"
+      },
+      "absent": {
+        "maxStatus": 404
+      }
+    }
+  ],
+  "openToUsers": [
+    "GET /api/app/drive/connections",
+    "GET /api/app/drive/link-slugs/check"
+  ],
+  "openToUsersWhy": {
+    "connections": "the person's own connection state per file server (server names, never others' accounts): every signed-in person uses the File server",
+    "link-slugs/check": "is a custom link address free (answers for the asking person only)"
+  },
+  "needsOtherScopes": [],
+  "skipApi": []
+}

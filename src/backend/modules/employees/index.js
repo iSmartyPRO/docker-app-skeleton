@@ -1,11 +1,14 @@
 import { query } from '../../config/database.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { registerPeopleProvider } from '../org/api.js';
-import { ensureEmployeesSchema } from './schema.js';
+import { createEmployeesSchema, startEmployees } from './schema.js';
 import { privateRoutes } from './routes.js';
 import { fullName } from './logic.js';
 import { rightsOf } from './access.js';
+import { sanitizeSettings } from './settings.js';
 import * as api from './api.js';
+// Demo data (Settings → Modules → Demo data): registerDemo at import time.
+import './demo.js';
 
 /*
  * Employees (spec docs/specs/platform-2.0.ru.md §4, docs/employees.md): the
@@ -13,16 +16,23 @@ import * as api from './api.js';
  * units and sites of the org structure, managers, documents, skills and
  * clearances. Off by default.
  *
- * At import time it lends the core org structure what only it knows (heads
- * that are employees, explicit managers, headcount) through
- * registerPeopleProvider; while the module is off the org structure works
- * from portal accounts alone.
+ * Distributed as a module package (docs/module-packages.md), not built into the
+ * core: scripts/build-module.mjs bundles this file into server/index.js,
+ * module.json holds the manifest facts, settings.js the settings defaults and
+ * sanitizer. It requires the org structure (core); the AD directory adds the «AD»
+ * section of the card through registerEmployeeExtension and reads the cards' AD
+ * logins through api.js (never the tables).
+ *
+ * register(ctx) lends the core org structure what only it knows (heads that are
+ * employees, explicit managers, headcount) through registerPeopleProvider; while
+ * the module is off or not installed the org structure works from portal
+ * accounts alone.
  */
 
 const WORKING = `status IN ('active', 'vacation')`;
 const photoUrl = (row) => (row.photo_key ? `/api/app/employees/employees/${row.id}/photo` : null);
 
-registerPeopleProvider({
+const peopleProvider = {
   enabled: async () => Boolean(parseSettings(await getSettings()).modules.employees?.enabled),
   usersOfEmployees: async (ids) => {
     const list = [...new Set(ids.filter(Boolean).map(Number))];
@@ -74,14 +84,19 @@ registerPeopleProvider({
     );
     return rows.map((row) => ({ id: row.id, name: fullName(row), photoUrl: photoUrl(row), userId: row.user_id || null, position: row.position || null }));
   },
-});
+};
 
 export default {
   id: 'employees',
-  schema: ensureEmployeesSchema,
+  // 001 is the schema Employees had while built into the core: CREATE … IF NOT EXISTS, so on a portal
+  // that already has the tables it changes nothing. Later changes: migrations/NNN_name.sql|js.
+  migrations: [{ id: '001_init', up: createEmployeesSchema }],
   routes: privateRoutes,
+  sanitizeSettings,
   api,
   register(ctx) {
+    registerPeopleProvider(peopleProvider);
+    startEmployees();
     // Birthdays and work anniversaries on the dashboard (the module's privacy setting applies).
     ctx.registerWidget({ type: 'employeesCelebrations' });
   },

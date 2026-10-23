@@ -37,12 +37,8 @@ export const MODULE_UI = {
   files: { tour: null },
   kb: { tour: null },
   companies: { tour: null },
-  drive: { tour: null },
   // Tours registered in each module's register.js.
   org: { tour: 'org' },
-  employees: { tour: 'employees' },
-  // Registered in modules/directory/register.js.
-  directory: { tour: 'directory' },
 };
 
 /** Category icons (MenuIcon names) for the Modules page; labels are i18n platform.categories.<id>. */

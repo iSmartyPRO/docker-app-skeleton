@@ -1,0 +1,117 @@
+{
+  "comment": "Package kit hints for Employees (docs/package-testing.md «Module kit file»). Employees requires the org structure (a core service): it lends it heads, managers, headcount and the employee search through the people provider (register(ctx)); while it is missing the org structure answers from portal accounts alone (`employees: null`). The AD directory (a linked package, demo directory seeded) adds the «AD» section of the card (extensions.ad) and reads the cards' AD logins through Employees' api.js. Warehouse issues stock and tools to portal accounts (holder type «employee» = a user, not a card): there is no data link with employee cards — the probes check that Warehouse answers the same with and without Employees. The demo seeds the org structure first.",
+  "enableAlso": [],
+  "packages": [
+    "directory",
+    "warehouse"
+  ],
+  "seed": [
+    "employees",
+    "directory",
+    "warehouse"
+  ],
+  "seedRequests": [],
+  "apiParams": {
+    "id": "SELECT id FROM employees ORDER BY id LIMIT 1",
+    "adCard": "SELECT id FROM employees WHERE ad_account IS NOT NULL ORDER BY id LIMIT 1",
+    "fileId": "SELECT id FROM emp_files ORDER BY id LIMIT 1"
+  },
+  "pageParams": {
+    "id": "SELECT id FROM employees ORDER BY id LIMIT 1"
+  },
+  "links": [
+    {
+      "name": "Org structure ← Employees: the head picker lists employee cards (people provider)",
+      "path": "/api/app/org/people",
+      "present": {
+        "status": 200,
+        "nonEmpty": "employees"
+      },
+      "absent": {
+        "status": 200,
+        "lacks": "employees"
+      },
+      "alone": {
+        "status": 200,
+        "nonEmpty": "employees"
+      }
+    },
+    {
+      "name": "Org chart ← Employees: headcount per unit from the cards",
+      "path": "/api/app/org/chart",
+      "present": {
+        "status": 200,
+        "nonEmpty": "tree"
+      },
+      "absent": {
+        "status": 200,
+        "nonEmpty": "tree"
+      }
+    },
+    {
+      "name": "Employees ← AD directory: the «AD» section of a card (extension)",
+      "path": "/api/app/employees/employees/:adCard",
+      "present": {
+        "status": 200,
+        "has": "extensions.ad"
+      },
+      "absent": {
+        "status": 404
+      },
+      "alone": {
+        "status": 200,
+        "lacks": "extensions.ad"
+      }
+    },
+    {
+      "name": "AD directory → Employees: AD accounts with their employee cards (Employees api.cardsForAdAccounts)",
+      "path": "/api/app/directory/objects?kinds=user&scope=sub&pageSize=100",
+      "present": {
+        "status": 200,
+        "nonEmpty": "items"
+      },
+      "absent": {
+        "maxStatus": 404
+      },
+      "absentWhy": "fresh: the linked package answers without Employees; upgrade window: the linked packages are installed after it (404)"
+    },
+    {
+      "name": "Warehouse: tools by holder (portal accounts) answer with and without Employees",
+      "path": "/api/app/warehouse/reports/tools",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "maxStatus": 404
+      },
+      "absentWhy": "fresh: the linked package answers without Employees; upgrade window: the linked packages are installed after it (404)"
+    },
+    {
+      "name": "dashboard widget: birthdays and anniversaries",
+      "path": "/api/app/employees/widget/celebrations",
+      "present": {
+        "status": 200
+      },
+      "absent": {
+        "status": 404
+      }
+    }
+  ],
+  "openToUsers": [
+    "GET /api/app/employees/meta",
+    "GET /api/app/employees/counters",
+    "GET /api/app/employees/positions",
+    "GET /api/app/employees/widget/celebrations"
+  ],
+  "openToUsersWhy": {
+    "meta": "the person's own rights, their linked card id and the setting texts the pages need",
+    "counters": "chip counters of the cards the person may see",
+    "positions": "the positions directory (names), as before the conversion",
+    "widget/celebrations": "the birthdays widget follows the module's privacy setting («all»: day and month to everyone who sees the directory)"
+  },
+  "needsOtherScopes": [],
+  "skipApi": [],
+  "uploadFolders": [
+    "employees"
+  ]
+}

@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DRIVE_ACCESS_DEFAULTS, MODULE_CATALOG, resolveModules, sanitizeModules, sanitizeDriveAccess, sanitizeProjectAliases } from '../modules/catalog.js';
+import { MODULE_CATALOG, resolveModules, sanitizeModules } from '../modules/catalog.js';
+import { DRIVE_ACCESS_DEFAULTS, sanitizeDriveAccess, sanitizeProjectAliases } from '../modules/drive/settings.js';
+import { sourcePackage } from './helpers/modules.js';
 import {
   ancestorFolders,
   buildFolders,
@@ -52,6 +54,9 @@ import { credentialProblem, resolveCredential } from '../modules/drive/access/cr
 import { journalFilter, kindOf } from '../modules/drive/access/journal.js';
 import { aliasCode, applyMembership, creationPlan, suggestName } from '../modules/drive/access/service.js';
 import { attachGroupsToNtfs, registerNtfsAttach } from '../modules/drive/access/ntfsHook.js';
+
+// The File server is a module package: its catalog entry as an installed package adds it (module.json + settings.js).
+await sourcePackage('drive');
 
 const SETTINGS = { ...DRIVE_ACCESS_DEFAULTS, defaultProject: 'co', shareMap: [{ shareId: 1, prefix: 'W:' }] };
 
@@ -612,6 +617,8 @@ test('each membership change is journalled with its result', async () => {
 });
 
 test('the NTFS hook is pending until the engine registers', async () => {
+  // The File server's entry (loaded above through sourcePackage) registers the engine: start without it.
+  registerNtfsAttach(null);
   assert.deepEqual(await attachGroupsToNtfs({}), { status: 'pending', code: 'FA_NTFS_NOT_AVAILABLE' });
   registerNtfsAttach(async (input) => ({ status: 'applied', got: input.groups.length }));
   assert.deepEqual(await attachGroupsToNtfs({ groups: [1, 2] }), { status: 'applied', got: 2 });

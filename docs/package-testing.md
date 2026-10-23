@@ -187,11 +187,29 @@ Package check masterplan (all) — PASS: 73 passed, 0 failed, 2 warnings, 0 skip
 | `openToUsers` | `["GET /api/app/<id>/meta", …]` readable by everyone signed in (reference lists); give reasons next to it |
 | `needsOtherScopes` | routes that also need another area's token scope |
 | `skipApi` | routes the sweep must not call (`*` one segment, `**` the rest) |
-| `links` | `[{ name, path, present: { status, nonEmpty }, absent: { maxStatus, empty } }]` — probes of the links with other modules (or of the module's public side), called with both installed and with this module missing; `alone` (same keys) is checked in the fresh phase before the linked `packages` are installed (probes without it are not run then); `oldCore` (same keys) replaces `present` on the `SOURCE_REF` core when the built-in module answered differently there (give the reason in `oldCoreWhy`). `has` / `lacks` check that a value at a path of the answer is (not) there; `websocket: true` sends a WebSocket upgrade instead (raw HTTP, no frames) and compares the status line: `{ status }` or `{ not }` (Remote's tunnels) |
+| `links` | `[{ name, path, present: { status, nonEmpty }, absent: { maxStatus, empty } }]` — probes of the links with other modules (or of the module's public side), called with both installed and with this module missing; `alone` (same keys) is checked in the fresh phase before the linked `packages` are installed (probes without it are not run then); `oldCore` (same keys) replaces `present` on the `SOURCE_REF` core when the built-in module answered differently there (give the reason in `oldCoreWhy`). `has` / `lacks` check that a value at a path of the answer is (not) there; `websocket: true` sends a WebSocket upgrade instead (raw HTTP, no frames) and compares the status line: `{ status }` or `{ not }` (Remote's tunnels); `anonymous: true` calls it without a session (a public page of the package, the shell list a visitor gets) |
 | `pages`, `replacePages` | extra pages (`"/app/crm"` or `{ path, expectPrefix }`); `replacePages: true` uses only these |
 | `ignoreBrowser` | regular expressions of browser messages to ignore |
 | `uploadFolders` | folders under `uploads/` that hold the module's files (default `[<id>]`) |
 | `waitMs` | wait per page (default 4500; pages with live streams never reach network idle) |
+| `sessionsOnly` | `true`: the module's area is never open to API tokens (`api/scopes.js` BLOCKED: the AD directory); or route patterns (`["GET /api/app/drive/access/**"]`: the File server's «Доступ», 403 `FA_NO_TOKENS`): the token with the module's scope then expects a 403 there, and with `true` the API reference must *not* list the routes (it documents what tokens may call); give the reason in `sessionsOnlyWhy`. Anonymous callers of public routes may answer any 4xx (a placeholder parameter), never 5xx |
+| `appendOnly` | log tables the kit's own requests add rows to (the File server's `drive_activity`): in snapshot comparisons their rows may only grow; give the reason in `appendOnlyWhy` |
+| `backendEnv` | extra environment of the kit's backends for the module's fakes — only `SMBGATE_*`; a value `@kit/fakes/<file>` is a file of `scripts/package-kit/fakes/` (`{ "SMBGATE_PYTHON": "@kit/fakes/python-smbgate" }`, see «Fakes») |
+
+## Fakes
+
+`scripts/package-kit/fakes/` holds stand-ins for what a module reaches outside the portal, so the kit never touches a real
+server:
+
+- `python-smbgate` + `smbgate-fake.py` — the File server's SMB gateway. The package starts `$SMBGATE_PYTHON <its
+  gateway/smbgate.py> <socket>`; the kit file's `backendEnv` points `SMBGATE_PYTHON` at `python-smbgate`, which runs the fake on
+  that socket instead (`python3 -I`, standard library only). Same protocol (key header, `X-Gate` parameters, JSON answers, raw
+  file bodies), one small in-memory read-only folder tree for every server and share; no network connection is ever made.
+  Writes answer 403 `ACCESS_DENIED`, thumbnails 415, unknown operations 404, like the real gateway. Used by `drive.json` and by
+  `directory.json` (the File server as a linked package), on the old core of the upgrade phase too.
+
+The AD directory needs no fake: with the Active Directory integration not set up it works on its demo directory (database
+rows), and the File server's «Доступ» stays off (404 `DRIVE_ACCESS_DISABLED`).
 
 ## Files
 

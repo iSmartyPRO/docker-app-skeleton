@@ -5,7 +5,8 @@ import { recordSecurityEvent } from '../../services/security.js';
 import { assertCanManage, createUser } from '../../services/users.js';
 import { getUserAccess } from '../../services/rbac.js';
 import { unlinkDirectory } from '../../services/userLinks.js';
-import { DIRECTORY_DEFAULTS } from '../catalog.js';
+import { DIRECTORY_DEFAULTS } from './settings.js';
+import { employeesApi } from './employeesLink.js';
 import { actorCredential, credentialStatus, isImpersonation, markAllStale, markLoginsStale, parkCredential, savePassword } from './driveLink.js';
 import { canonDn, childDn, firstRdn, isUnder, nameOf, parentDn, parseDn } from './dn.js';
 import { DEMO_BASE, DEMO_EXCLUDED, DEMO_ROOT, demoDirectoryExists, demoProvider } from './demoDirectory.js';
@@ -260,19 +261,17 @@ async function portalLinks(objects) {
 
 async function employeeLinks(ctx, objects, users) {
   if (!ctx.employees || !ctx.rights.employeesView || !objects.length) return new Map();
+  const api = employeesApi();
+  if (!api) return new Map();
   const names = objects.flatMap((object) => [object.login, object.upn]).filter(Boolean).map((value) => value.toLowerCase());
   const userIds = [...users.values()].map((user) => user.id);
   try {
-    const { rows } = await query(
-      `SELECT id, last_name, first_name, middle_name, status, LOWER(ad_account) AS ad_account, user_id FROM employees
-        WHERE LOWER(ad_account) = ANY($1::text[]) OR user_id = ANY($2::int[])`,
-      [names, userIds]
-    );
+    const rows = await api.cardsForAdAccounts({ logins: names, userIds });
     const out = new Map();
     for (const object of objects) {
       const user = users.get(object.dn);
-      const row = rows.find((item) => (item.ad_account && [object.login, object.upn].filter(Boolean).map((v) => v.toLowerCase()).includes(item.ad_account)) || (user && item.user_id === user.id));
-      if (row) out.set(object.dn, { id: row.id, name: [row.last_name, row.first_name, row.middle_name].filter(Boolean).join(' '), status: row.status, by: row.ad_account ? 'adAccount' : 'user' });
+      const row = rows.find((item) => (item.adAccount && [object.login, object.upn].filter(Boolean).map((v) => v.toLowerCase()).includes(item.adAccount)) || (user && item.userId === user.id));
+      if (row) out.set(object.dn, { id: row.id, name: row.name, status: row.status, by: row.adAccount ? 'adAccount' : 'user' });
     }
     return out;
   } catch {
@@ -1118,51 +1117,41 @@ export async function unlinkPortalUser(req, { dn }) {
 
 function requireEmployeeLinks(ctx) {
   requireReady(ctx);
-  if (!ctx.employees) throw httpError(409, 'The Employees module is off', 'EMPLOYEES_OFF');
+  const api = ctx.employees ? employeesApi() : null;
+  if (!api) throw httpError(409, 'The Employees module is off', 'EMPLOYEES_OFF');
   if (!ctx.rights.employeesHr) throw httpError(403, 'Linking employees needs the employees.hr permission', 'FORBIDDEN');
+  return api;
 }
 
 /** Employees (HR view) whose name contains `q`, for the link picker. */
 export async function findEmployees(req, q) {
   const ctx = await directoryContext(req);
-  requireEmployeeLinks(ctx);
-  const text = String(q || '').trim().slice(0, 60);
-  if (text.length < 2) return [];
-  const like = `%${text.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
-  const { rows } = await query(
-    `SELECT id, last_name, first_name, middle_name, status, ad_account FROM employees
-      WHERE (last_name || ' ' || first_name || ' ' || COALESCE(middle_name, '')) ILIKE $1 OR (first_name || ' ' || last_name) ILIKE $1
-      ORDER BY LOWER(last_name), LOWER(first_name) LIMIT 20`,
-    [like]
-  );
-  return rows.map((row) => ({ id: row.id, name: [row.last_name, row.first_name, row.middle_name].filter(Boolean).join(' '), status: row.status, adAccount: row.ad_account }));
+  const api = requireEmployeeLinks(ctx);
+  const rows = await api.findCardsByName(q, 20);
+  return rows.map((row) => ({ id: row.id, name: row.name, status: row.status, adAccount: row.adAccount }));
 }
 
 /** Writes the AD login into the employee card (employees.ad_account). */
 export async function linkEmployee(req, { dn, employeeId, login: knownLogin }) {
   const ctx = await directoryContext(req);
-  requireEmployeeLinks(ctx);
+  const api = requireEmployeeLinks(ctx);
   const object = knownLogin ? { dn, login: knownLogin, name: nameOf(dn), kind: 'user' } : await loadObject(ctx, String(dn || ''), { kinds: ['user'] });
   const id = Number(employeeId) || 0;
-  const { rows } = await query(
-    `UPDATE employees e SET ad_account = $2, updated_at = NOW() FROM (SELECT id, ad_account FROM employees WHERE id = $1) old
-      WHERE e.id = old.id RETURNING e.id, e.last_name, e.first_name, old.ad_account AS before`,
-    [id, object.login]
-  );
-  if (!rows[0]) throw httpError(404, 'Employee not found', 'NOT_FOUND');
+  const card = await api.setAdAccount(id, object.login);
+  if (!card) throw httpError(404, 'Employee not found', 'NOT_FOUND');
   // `before`: the demo purge puts the card back from the journal (demo logins never survive it).
-  await record(actorOf(req, null), { action: 'employee_link', target: target(object), details: { guid: object.guid || null, employeeId: id, login: object.login, before: rows[0].before || null } }, { demo: ctx.mode === 'demo' });
-  return { employee: { id, name: `${rows[0].last_name} ${rows[0].first_name}` } };
+  await record(actorOf(req, null), { action: 'employee_link', target: target(object), details: { guid: object.guid || null, employeeId: id, login: object.login, before: card.before || null } }, { demo: ctx.mode === 'demo' });
+  return { employee: { id, name: card.name } };
 }
 
 export async function unlinkEmployee(req, { employeeId }) {
   const ctx = await directoryContext(req);
-  requireEmployeeLinks(ctx);
+  const api = requireEmployeeLinks(ctx);
   const id = Number(employeeId) || 0;
-  const { rows } = await query(`UPDATE employees e SET ad_account = NULL, updated_at = NOW() FROM (SELECT id, ad_account FROM employees WHERE id = $1) old WHERE e.id = old.id RETURNING old.ad_account`, [id]);
-  if (!rows[0]) throw httpError(404, 'Employee not found', 'NOT_FOUND');
-  await record(actorOf(req, null), { action: 'employee_unlink', target: null, details: { employeeId: id, login: rows[0].ad_account } }, { demo: ctx.mode === 'demo' });
-  return { outcome: rows[0].ad_account ? 'changed' : 'unchanged' };
+  const card = await api.clearAdAccount(id);
+  if (!card) throw httpError(404, 'Employee not found', 'NOT_FOUND');
+  await record(actorOf(req, null), { action: 'employee_unlink', target: null, details: { employeeId: id, login: card.before } }, { demo: ctx.mode === 'demo' });
+  return { outcome: card.before ? 'changed' : 'unchanged' };
 }
 
 /**

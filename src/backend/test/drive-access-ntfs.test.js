@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Readable } from 'stream';
 import express from 'express';
 import { ACE_FLAGS, _setDeps as setEngineDeps, listJobs as listEngineJobs, waitForJob } from '../modules/drive/acl.js';
-import { DRIVE_ACCESS_DEFAULTS } from '../modules/catalog.js';
+import { DRIVE_ACCESS_DEFAULTS } from '../modules/drive/settings.js';
 import { describeGroup, buildPairs as buildFolders } from '../modules/drive/access/naming.js';
 import { _setNtfsDeps, _waitForReport, cancelReport, isDomainRoot, startReport } from '../modules/drive/access/ntfs.js';
 import {

@@ -107,12 +107,14 @@ const tableOf = (module) => {
 export const slugIndexName = (module) => `${tableOf(module)}_slug_uidx`;
 
 /** The slug column with its case-insensitive unique index, and the hold list. Idempotent. */
-export async function ensureSlugSchema(module) {
+export async function ensureSlugSchema(module, db = { query }) {
+  // `db`: a package migration passes its transaction (every statement on that connection).
+  const run = (text, params) => db.query(text, params);
   const table = tableOf(module);
-  await query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS slug VARCHAR(${SLUG_MAX})`);
-  await query(`CREATE UNIQUE INDEX IF NOT EXISTS ${slugIndexName(module)} ON ${table} (LOWER(slug)) WHERE slug IS NOT NULL`);
+  await run(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS slug VARCHAR(${SLUG_MAX})`);
+  await run(`CREATE UNIQUE INDEX IF NOT EXISTS ${slugIndexName(module)} ON ${table} (LOWER(slug)) WHERE slug IS NOT NULL`);
   // Addresses that were in use recently (changed or deleted): held for their author.
-  await query(`
+  await run(`
     CREATE TABLE IF NOT EXISTS link_slug_holds (
       module VARCHAR(16) NOT NULL,
       slug VARCHAR(${SLUG_MAX}) NOT NULL,

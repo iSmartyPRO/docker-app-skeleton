@@ -1,3 +1,4 @@
+/** Guided tour of the File server (texts: tour.drive.*, copied into the package by module.json localeKeys); registered by register.js. */
 export default {
   id: 'drive',
   module: 'drive',

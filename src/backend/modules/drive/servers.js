@@ -1,5 +1,5 @@
 import { query, withTransaction } from '../../config/database.js';
-import { seal } from '../../services/crypto.js';
+import { seal } from '../../services/secrets.js';
 import { HEX, clean, httpError, intId } from '../shared/acl.js';
 import { credentialFor, directoryDomain, serverParams } from './credentials.js';
 import { gateCall } from './gate.js';

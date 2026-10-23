@@ -4,6 +4,8 @@ A [module](modules.md) that turns the company's Windows file servers (SMB 2/3, S
 
 The module is **off by default**. Turn it on under *Settings → Modules → File server*, then add a server.
 
+**A module package** (docs/module-packages.md): installed from its zip (`make module ID=drive`), not built into the core. The package ships the SMB gateway (`server/gateway/smbgate.py`, `ntacl.py`); the core image provides its runtime (python3, smbprotocol, Pillow, dwg2dxf). Public links `/d/<token>` are drawn by the package for anonymous visitors too (manifest `web.publicPaths`).
+
 **Access management («Доступ»).** A block of the File server settings with its own switch: who can open a folder through Active Directory security groups (`sg_<project>_<name>_full|read`), and the folders' NTFS permissions — a «Доступ» panel on every folder, an overview by project, person cards, a journal and a mismatch report, for superadministrators and holders of `drive.access`. See [File server: access management](drive-access.md).
 
 ## What people get

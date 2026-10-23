@@ -27,7 +27,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import {
-  assertTestDatabase, dataSize, diffSnapshots, fillPath, formatReport, judgeStatus, kitDatabaseName, overallStatus,
+  assertTestDatabase, dataSize, diffSnapshots, fillPath, formatReport, judgeStatus, kitBackendEnv, kitDatabaseName, overallStatus,
   pageList, parseArgs, parseEnvText, routeMatcher, routePathsFromSource, tablePatterns,
 } from './lib/pure.mjs';
 import { baseEnv, freePort, run, sleep, stopAll, stop, ownPids } from './lib/proc.mjs';
@@ -104,6 +104,7 @@ function loadConfig(id) {
 }
 
 function setupContext(args) {
+  APPEND_ONLY = loadConfig(args.id).appendOnly || [];
   const envFile = resolve(args.env || process.env.PACKAGE_KIT_ENV || '');
   if (!args.env && !process.env.PACKAGE_KIT_ENV) throw new Error('Give the test database env file: KIT_ENV=<file> (make) / --env FILE / $PACKAGE_KIT_ENV — POSTGRES_* of wh-test-pg');
   if (!existsSync(envFile)) throw new Error(`Test env file ${envFile} not found`);
@@ -127,9 +128,10 @@ function setupContext(args) {
 
 const logFile = (ctx, name) => join(ctx.logDir, `${String((ctx.logIndex += 1)).padStart(2, '0')}-${name.replace(/[^a-z0-9.-]+/gi, '-')}.log`);
 
-function backendEnv(ctx, { port, database, modulesDir, uploadDir, frontendUrl, envFile }) {
+function backendEnv(ctx, { port, database, modulesDir, uploadDir, frontendUrl, envFile, jwtSecret = null }) {
   const { host, port: pgPort, user, password } = ctx.creds;
-  const jwt = randomBytes(32).toString('hex');
+  // The same portal on a new core keeps its secret (an upgrade): what the old core sealed must open (stored passwords).
+  const jwt = jwtSecret || randomBytes(32).toString('hex');
   const values = {
     NODE_ENV: 'production',
     PORT: String(port),
@@ -157,11 +159,13 @@ function backendEnv(ctx, { port, database, modulesDir, uploadDir, frontendUrl, e
     // pg_dump / pg_restore of module backups through the test container (pgbin refuses other servers).
     PATH: `${join(KIT, 'pgbin')}:${process.env.PATH}`,
     NODE_OPTIONS: '--max-old-space-size=1024',
+    // The kit file's fakes (File server: SMBGATE_PYTHON → fakes/python-smbgate, an in-memory SMB gateway).
+    ...kitBackendEnv(ctx.config.backendEnv, KIT),
   };
 }
 
 /** A database, folders and a supervised backend of `dir` (this checkout's src/backend by default). */
-async function newPortal(ctx, tag, { dir = BACKEND, database = null, frontendPort = null, uploadDir = null, modulesDir = null } = {}) {
+async function newPortal(ctx, tag, { dir = BACKEND, database = null, frontendPort = null, uploadDir = null, modulesDir = null, jwtSecret = null } = {}) {
   const name = database || (await ctx.db.createDatabase(kitDatabaseName(ctx.args.id, tag)));
   const port = await freePort();
   const base = join(ctx.tmp, tag);
@@ -169,7 +173,7 @@ async function newPortal(ctx, tag, { dir = BACKEND, database = null, frontendPor
   const fport = frontendPort || (await freePort());
   const uploads = uploadDir || join(base, 'uploads');
   const modules = modulesDir || join(base, 'modules');
-  const env = backendEnv(ctx, { port, database: name, modulesDir: modules, uploadDir: uploads, frontendUrl: `http://127.0.0.1:${fport}`, envFile: join(base, 'portal.env') });
+  const env = backendEnv(ctx, { port, database: name, modulesDir: modules, uploadDir: uploads, frontendUrl: `http://127.0.0.1:${fport}`, envFile: join(base, 'portal.env'), jwtSecret });
   const backend = new Backend({ name: `backend-${tag}`, dir, env, port, logDir: ctx.logDir });
   return { tag, database: name, port, frontendPort: fport, env, backend, modulesDir: modules, uploadDir: uploads, dir: base };
 }
@@ -339,6 +343,13 @@ async function referenceStep(ctx, phase, admin, routes, label = '') {
     const listed = new Set((ref.endpoints || []).map((e) => `${e.method} ${trim(`/api${e.path}`)}`));
     const openapi = new Set(Object.entries(spec.body?.paths || {}).flatMap(([path, ops]) => Object.keys(ops).map((m) => `${m.toUpperCase()} /api${path}`)));
     const asOpenApi = (route) => `${route.method} ${route.path.replace(/:(\w+)(\([^)]*\))?/g, '{$1}').replace(/(.)\/$/, '$1')}`;
+    // The API reference documents what tokens may call: an area never open to tokens (kit file `sessionsOnly: true`,
+    // api/scopes.js BLOCKED) is left out on purpose — and must not be listed.
+    if (ctx.config.sessionsOnly === true) {
+      const leaked = (routes.routes || []).filter((r) => listed.has(`${r.method} ${trim(r.path)}`));
+      if (leaked.length) return fail(`${leaked.length} route(s) of an area closed to tokens are listed: ${leaked.slice(0, 4).map((r) => `${r.method} ${r.path}`).join(', ')}`);
+      return `none listed (sessions only: ${(routes.routes || []).length} routes closed to API tokens)`;
+    }
     const own = routes.routes || [];
     const missing = own.filter((r) => !listed.has(`${r.method} ${trim(r.path)}`)).map((r) => `${r.method} ${r.path}`);
     const missingSpec = own.filter((r) => !openapi.has(asOpenApi(r))).map((r) => `${r.method} ${r.path}`);
@@ -371,7 +382,7 @@ async function sweep(ctx, phase, portal, callers, routes, label = '') {
         const res = await client.get(url, { timeoutMs: 25_000 });
         statuses.push(res.timeout ? 'timeout' : res.status);
         if (who === 'superadmin') adminSizes.set(route.path, res.status < 300 ? dataSize(res) : null);
-        const verdict = judgeStatus(who, res.status, { open: open('GET', route.path), otherScopes: otherScopes('GET', route.path), timeout: res.timeout, code: res.body?.code || null, size: dataSize(res), adminSize: adminSizes.get(route.path) ?? null });
+        const verdict = judgeStatus(who, res.status, { open: open('GET', route.path), otherScopes: otherScopes('GET', route.path), timeout: res.timeout, code: res.body?.code || null, size: dataSize(res), adminSize: adminSizes.get(route.path) ?? null, sessionsOnly: ctx.config.sessionsOnly === true || (Array.isArray(ctx.config.sessionsOnly) && routeMatcher(ctx.config.sessionsOnly)('GET', route.path)) });
         const line = `${route.path} → ${verdict.note}${res.body?.code && !verdict.note.includes(res.body.code) ? ` (${res.body.code})` : ''}`;
         if (!verdict.ok) failures.push(line);
         else if (verdict.warn) warnings.push(line);
@@ -460,7 +471,8 @@ async function linkProbes(ctx, phase, admin, which, label, database) {
         if (expect.not != null && status === expect.not) return fail(`${probe.path} upgrade → ${status}, expected anything else`);
         return `upgrade → ${status || 'connection closed without an answer'}`;
       }
-      const res = await admin.get(url, { timeoutMs: 25_000 });
+      // `anonymous: true`: called without a session (a public page of the package, the shell list a visitor gets).
+      const res = await (probe.anonymous ? new Client(admin.base) : admin).get(url, { timeoutMs: 25_000 });
       if (res.status >= 500 || res.timeout) return fail(`${probe.path} → ${res.timeout ? 'timeout' : res.status}`);
       if (expect.status && res.status !== expect.status) return fail(`${probe.path} → ${res.status}, expected ${expect.status} ${res.body?.code || ''}`);
       if (expect.maxStatus && res.status > expect.maxStatus) return fail(`${probe.path} → ${res.status}, expected ≤ ${expect.maxStatus}`);
@@ -482,8 +494,10 @@ async function linkProbes(ctx, phase, admin, which, label, database) {
   }
 }
 
-function compare(before, after, { ignoreTables = [] } = {}) {
-  const diff = diffSnapshots(before, after, { ignoreTables });
+// Kit file `appendOnly`: log tables the kit's own requests add rows to (set once the kit file is read).
+let APPEND_ONLY = [];
+function compare(before, after, { ignoreTables = [], appendOnly = APPEND_ONLY } = {}) {
+  const diff = diffSnapshots(before, after, { ignoreTables, appendOnly });
   if (diff.length) return fail(`${diff.length} difference(s): ${diff.slice(0, 3).map((d) => `${d.path} ${d.before} → ${d.after}`).join('; ')}`, diff);
   const added = Object.keys(after.appSettings || {}).filter((key) => !(key in (before.appSettings || {})));
   return `identical: ${Object.keys(after.tables).length} tables, ${after.meta.rows} rows, ${after.files?.count ?? 0} files, settings, ${Object.keys(after.roles).length} role(s), ${Object.keys(after.layouts).length} layout(s)${added.length ? `; new app_settings keys: ${added.join(', ')}` : ''}`;
@@ -549,12 +563,13 @@ async function phasePackage(ctx) {
   ctx.manifest = manifest;
   ctx.report.data.facts.manifest = { id: manifest.id, version: manifest.version, core: manifest.core, sdk: manifest.sdk, requires: manifest.requires, enhances: manifest.enhances, permissions: manifest.permissions, tables: manifest.tables, web: manifest.web, files: files.length };
   await ctx.report.step(P, 'manifest: version, core, requires/enhances, permissions, tables, legacy prefixes', async () => {
-    const { MODULE_TABLES, tablePatternProblem } = await import(pathToFileURL(join(BACKEND, 'platform/packages/tableOwnership.js')).href);
+    const { MODULE_TABLES, ownsPermission, tablePatternProblem } = await import(pathToFileURL(join(BACKEND, 'platform/packages/tableOwnership.js')).href);
     const problems = [];
     if (!/^\d+\.\d+\.\d+$/.test(manifest.version)) problems.push(`version ${manifest.version}`);
     if (!manifest.core) problems.push('no core version');
     if (!manifest.sdk) problems.push('no sdk version');
-    for (const perm of manifest.permissions || []) if (!perm.startsWith(`${id}.`)) problems.push(`permission ${perm} is not ${id}.*`);
+    // <id>.* — or a legacy prefix the core declares for the module (tableOwnership.js: directory → ad.*).
+    for (const perm of manifest.permissions || []) if (!ownsPermission(id, perm)) problems.push(`permission ${perm} is not ${id}.*`);
     for (const pattern of manifest.tables || []) {
       const problem = tablePatternProblem(id, pattern);
       if (problem) problems.push(`tables ${pattern}: ${problem}`);
@@ -919,7 +934,7 @@ async function phaseUpgrade(ctx) {
   // This core, the module absent.
   // The same data: database, uploads folder (the module's files, e.g. uploads/masterplan) and MODULES_DIR (the
   // packages the old core ran — empty unless the kit file links to packages that were packages there already).
-  const after = await newPortal(ctx, 'upgrade-new', { database: before.database, uploadDir: before.uploadDir, modulesDir: before.modulesDir });
+  const after = await newPortal(ctx, 'upgrade-new', { database: before.database, uploadDir: before.uploadDir, modulesDir: before.modulesDir, jwtSecret: before.env.JWT_SECRET });
   ctx.portals.push(after);
   await ctx.report.step(P, 'this core without the module on the same database', async () => {
     await after.backend.start();

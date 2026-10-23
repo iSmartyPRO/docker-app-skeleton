@@ -278,11 +278,6 @@ export const SETTINGS_GROUPS = [
         keywords: 'online resources links home page bookmarks icons онлайн ресурсы ссылки главная страница закладки иконки',
       },
       {
-        id: 'drive',
-        defaultIcon: 'server',
-        keywords: 'drive file server smb share dfs network windows active directory сетевой диск файловый сервер шара папки access security groups ntfs permissions sg доступ к папкам группы безопасности права ntfs',
-      },
-      {
         id: 'kb',
         defaultIcon: 'graduation',
         keywords: 'knowledge base kb documents files folders sharing база знаний документы папки ссылки',
@@ -293,19 +288,9 @@ export const SETTINGS_GROUPS = [
         keywords: 'tasks projects kanban board todo задачи проекты канбан доска',
       },
       {
-        id: 'employees',
-        defaultIcon: 'people',
-        keywords: 'employees staff people hr personnel clearances positions org chart birthdays сотрудники персонал кадры допуски должности оргсхема дни рождения табельный',
-      },
-      {
         id: 'calendar',
         defaultIcon: 'calendar',
         keywords: 'calendar events meetings reminders календарь события встречи напоминания',
-      },
-      {
-        id: 'directory',
-        defaultIcon: 'directory',
-        keywords: 'active directory ad ldap ou users groups computers password reset unlock каталог ad пользователи группы компьютеры сброс пароля разблокировать учётные записи домен',
       },
     ],
   },

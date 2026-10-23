@@ -39,16 +39,16 @@ test('replanStages: stages ahead follow the plan, reached ones stay', () => {
 
 test('tokenAllowsType: an API token reaches documents only of modules in its scope', () => {
   // A module built into this core (a package's area is known only while it is installed).
-  const type = { key: 'employees.request', module: 'employees' };
+  const type = { key: 'kb.request', module: 'kb' };
   const token = (scopes, rules = []) => ({ user: { id: 1 }, apiToken: { policy: { scopes, rules } } });
   assert.equal(tokenAllowsType({ user: { id: 1 } }, type, 'write'), true, 'a session is not affected');
   assert.equal(tokenAllowsType({ system: true }, type, 'write'), true);
   assert.equal(tokenAllowsType(token({ approvals: 'write' }), type, 'read'), false);
-  assert.equal(tokenAllowsType(token({ approvals: 'write', employees: 'read' }), type, 'read'), true);
-  assert.equal(tokenAllowsType(token({ approvals: 'write', employees: 'read' }), type, 'write'), false);
-  assert.equal(tokenAllowsType(token({ approvals: 'write', employees: 'write' }), type, 'write'), true);
+  assert.equal(tokenAllowsType(token({ approvals: 'write', kb: 'read' }), type, 'read'), true);
+  assert.equal(tokenAllowsType(token({ approvals: 'write', kb: 'read' }), type, 'write'), false);
+  assert.equal(tokenAllowsType(token({ approvals: 'write', kb: 'write' }), type, 'write'), true);
   // The token may also come on the request inside a provider context.
   assert.equal(tokenAllowsType({ user: { id: 1 }, req: token({ approvals: 'read' }) }, type, 'read'), false);
   // A deny rule on the module wins.
-  assert.equal(tokenAllowsType(token({ employees: 'write' }, [{ effect: 'deny', methods: [], path: '/app/employees/**' }]), type, 'read'), false);
+  assert.equal(tokenAllowsType(token({ kb: 'write' }, [{ effect: 'deny', methods: [], path: '/app/kb/**' }]), type, 'read'), false);
 });

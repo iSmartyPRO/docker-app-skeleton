@@ -8,7 +8,6 @@ import portal from './portal.js';
 import dashboard from './dashboard.js';
 import tasks from './tasks.js';
 import files from './files.js';
-import drive from './drive.js';
 import chat from './chat.js';
 import calendar from './calendar.js';
 import kb from './kb.js';
@@ -16,6 +15,6 @@ import companies from './companies.js';
 import resources from './resources.js';
 import notifications from './notifications.js';
 
-export const BUILTIN_TOURS = [portal, dashboard, tasks, files, drive, chat, calendar, kb, companies, resources, notifications];
+export const BUILTIN_TOURS = [portal, dashboard, tasks, files, chat, calendar, kb, companies, resources, notifications];
 
 BUILTIN_TOURS.forEach((tour) => registerTour(tour));

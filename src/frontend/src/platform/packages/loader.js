@@ -40,8 +40,10 @@ import { backgroundDelays, checkEntry, fetchInstalled as fetchList, fetchWithinB
  * while the portal restarts, a lost connection). If it still fails, it is
  * retried in the background with backoff; when the packages arrive late the
  * page reloads once to draw them. Anonymous visitors get no list (the server
- * does not tell who runs what); after signing in the list is fetched again
- * and the page reloads once when there are packages. Stylesheets are linked
+ * does not tell who runs what) — on a package's public page (manifest
+ * web.publicPaths: /d/<token>) only that package; after signing in the list is
+ * fetched again and the page reloads once when there are packages it has not
+ * prepared. Stylesheets are linked
  * only for packages that are switched on.
  */
 
@@ -51,7 +53,8 @@ let bootId = null;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // The pure decisions live in loaderLogic.js (tested without a browser).
-const fetchInstalled = (timeoutMs) => fetchList((...args) => fetch(...args), timeoutMs);
+// The page's path: an anonymous visitor of a package's public page (/d/<token>) gets that package (web.publicPaths).
+const fetchInstalled = (timeoutMs) => fetchList((...args) => fetch(...args), timeoutMs, { path: window.location.pathname });
 
 /** Reloads the page once per boot of the server and reason (never in a loop; never without storage). */
 function reloadOnce(reason, id) {

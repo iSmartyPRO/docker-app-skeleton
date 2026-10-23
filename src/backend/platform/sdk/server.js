@@ -27,6 +27,8 @@ export { query, withTransaction, getPool } from '../../config/database.js';
 export { APP_VERSION } from '../../config/version.js';
 export { uploadRoot } from '../../config/paths.js';
 export { seal, unseal } from '../../services/secrets.js';
+// signModuleToken / verifyModuleToken (SDK 1.1.0): JWTs keyed by the portal secret and a purpose, never the key.
+export { signModuleToken, verifyModuleToken } from '../../services/secrets.js';
 
 // ── Access ──────────────────────────────────────────────────────────────────
 export { requireAuth, optionalAuth, requirePermission, refuseImpersonation } from '../../middleware/auth.js';
@@ -46,7 +48,7 @@ export { notify, eventAllows, prefsWithZone, quietState, subscribersOf, listNoti
 export { pushToUser } from '../../services/push.js';
 export { registerInboxProvider, inboxFor, inboxAct, setUrgencyRanker } from '../../services/inbox.js';
 export { emitEvent, requestAs } from '../../api/events.js';
-export { onModuleEvent, emitModuleEvent, onBeforeUserDelete, onDirectorySignIn, onDirectoryCredential } from '../../services/hooks.js';
+export { onModuleEvent, emitModuleEvent, onBeforeUserDelete, onDirectorySignIn, onDirectoryCredential, provideDirectoryCredentialInfo } from '../../services/hooks.js';
 export { registerJob } from '../../services/scheduler.js';
 
 // ── Journal (Settings → Activity) ──────────────────────────────────────────

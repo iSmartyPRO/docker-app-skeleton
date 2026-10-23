@@ -17,7 +17,7 @@ WORKDIR /app/backend
 COPY src/backend/package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 
-# Stage 3: LibreDWG (dwg2dxf) for AutoCAD drawing previews in the Drive module
+# Stage 3: LibreDWG (dwg2dxf) for AutoCAD drawing previews of the File server package (drive): kept in the core image
 FROM alpine:3.24 AS libredwg
 RUN apk add --no-cache build-base curl xz perl python3 pkgconf
 WORKDIR /src
@@ -38,7 +38,8 @@ ARG APP_VERSION=
 LABEL org.opencontainers.image.version="${APP_VERSION}"
 WORKDIR /app
 
-# nginx; Python + smbprotocol for the SMB gateway (Drive module), Pillow for thumbnails
+# nginx; Python + smbprotocol for the SMB gateway of the File server package (drive: its gateway/smbgate.py runs with
+# this python3), Pillow for its thumbnails — the package ships the .py files, the image keeps the runtime
 RUN apk add --no-cache nginx python3 py3-cryptography py3-pillow py3-pip \
  && pip install --no-cache-dir --break-system-packages smbprotocol==1.17.0 pyspnego==0.12.4 \
  && apk del py3-pip

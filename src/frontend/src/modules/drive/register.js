@@ -1,12 +1,17 @@
 /*
- * Frontend entry of the File server module (loaded by modules/registry.js; in a
- * package this is web/index.js): what the module adds outside its own pages.
+ * What the File server package adds outside its own pages (imported by its web
+ * entry index.js): its tour, the public link page /d/<token>, the module API for
+ * other modules (Tasks: «Из файлового сервера»), the dashboard widgets.
  * Keep it small — anything heavy is lazy.
  */
 import { lazyWidget, registerWidget } from '../../platform/widgets/registry';
 import { period, limit } from '../../platform/widgets/fields';
 import { lazy } from 'react';
 import { contribute, provideModule } from '../../platform/extensions';
+import { registerTour } from '../../tour/engine';
+import driveTour from './tour';
+
+registerTour(driveTour);
 
 // Public links /d/<token> (no sign-in).
 contribute('app.publicRoutes', { id: 'drive.link', path: '/d/:token', Component: lazy(() => import('./PublicDrive')) });

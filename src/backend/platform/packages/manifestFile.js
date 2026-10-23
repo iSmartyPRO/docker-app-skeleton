@@ -1,6 +1,6 @@
 import { ID_PATTERN, RESERVED_IDS } from './paths.js';
 import { isVersion } from './version.js';
-import { tablePatternProblem } from './tableOwnership.js';
+import { ownsPermission, tablePatternProblem } from './tableOwnership.js';
 
 /*
  * manifest.json of a package (spec §4, docs/module-packages.md «manifest.json»):
@@ -28,6 +28,9 @@ const PERMISSION = /^[a-z][a-z0-9_]*\.[a-z0-9_.]+$/;
 const LOCALE_NS = /^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const LANG = /^[a-z]{2,3}$/;
 const ICON = /^[a-z0-9-]{1,40}$/;
+const PUBLIC_PATH = /^\/[a-z0-9][a-z0-9-]{0,31}\/$/;
+// Paths of the portal itself (the shell, the API, package files): never a package's public page.
+const RESERVED_PUBLIC = ['/app/', '/admin/', '/api/', '/modules/', '/sdk/', '/assets/', '/uploads/', '/login/', '/account/'];
 const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
 const isText = (value) => isObject(value) && TEXT_LANGS.every((lang) => typeof value[lang] === 'string' && value[lang].trim());
 const textOr = (value, fallback) => (isText(value) ? value : typeof value === 'string' && value.trim() ? { en: value, ru: value } : fallback);
@@ -87,7 +90,7 @@ export function normalizeManifest(raw, { categories = null, integrations = null 
   if (raw.permissions != null && !Array.isArray(raw.permissions)) problems.push('permissions must be a list');
   for (const permission of permissions) {
     if (typeof permission !== 'string' || !PERMISSION.test(permission)) problems.push(`permission "${permission}" must look like <module>.<right>`);
-    else if (typeof id === 'string' && !permission.startsWith(`${id}.`)) problems.push(`permission "${permission}" must start with "${id}."`);
+    else if (typeof id === 'string' && !ownsPermission(id, permission)) problems.push(`permission "${permission}" must start with "${id}."`);
   }
 
   const tables = Array.isArray(raw.tables) ? raw.tables : [];
@@ -123,7 +126,15 @@ export function normalizeManifest(raw, { categories = null, integrations = null 
     for (const file of css) if (!safePath(file) || !file.startsWith('web/')) problems.push(`web.css "${file}" must be a file under web/`);
     if (w.icon != null && (typeof w.icon !== 'string' || !ICON.test(w.icon))) problems.push(`web.icon "${w.icon}" is not an icon name`);
     const permission = Array.isArray(w.permission) ? w.permission.filter((item) => typeof item === 'string') : typeof w.permission === 'string' ? [w.permission] : [];
-    web = { entry, css, icon: w.icon || 'apps', ...(permission.length ? { permission } : {}), ...(w.page === false ? { page: false } : {}), ...(w.settings === true ? { settings: true } : {}) };
+    // publicPaths: browser path prefixes of the package's public pages ("/d/"): anonymous visitors of such a path
+    // get the package in the shell list (loader.js shellPackages). Not under the shell's own routes.
+    const publicPaths = [];
+    if (w.publicPaths != null && !Array.isArray(w.publicPaths)) problems.push('web.publicPaths must be a list');
+    for (const path of Array.isArray(w.publicPaths) ? w.publicPaths : []) {
+      if (typeof path !== 'string' || !PUBLIC_PATH.test(path) || RESERVED_PUBLIC.some((prefix) => path.startsWith(prefix))) problems.push(`web.publicPaths "${path}" must look like "/x/" outside the portal's own paths`);
+      else if (!publicPaths.includes(path)) publicPaths.push(path);
+    }
+    web = { entry, css, icon: w.icon || 'apps', ...(permission.length ? { permission } : {}), ...(w.page === false ? { page: false } : {}), ...(w.settings === true ? { settings: true } : {}), ...(publicPaths.length ? { publicPaths } : {}) };
   }
   const locales = {};
   if (isObject(raw.locales)) {

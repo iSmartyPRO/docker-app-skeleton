@@ -1,8 +1,4 @@
-import { query } from '../../config/database.js';
-import { registerJob } from '../../services/scheduler.js';
-import { onDirectoryCredential, onDirectorySignIn } from '../../services/hooks.js';
-import { cleanupCredentials, rememberLoginCredential, storeDirectoryCredential } from './credentials.js';
-import { pruneActivity } from './activity.js';
+import { withTransaction } from '../../config/database.js';
 import { ensureSlugSchema } from '../shared/linkSlug.js';
 import { ensureJournalTable } from './access/journal.js';
 import { migrateFolderAccess } from './access/migrate.js';
@@ -22,9 +18,30 @@ import { migrateFolderAccess } from './access/migrate.js';
  * Access to content is decided by the file server (share permissions and NTFS
  * ACLs, i.e. Active Directory security groups); the portal only chooses which
  * folders a person sees.
+ *
+ * Migration 001 (index.js `migrations`, docs/module-packages.md «Migrations»): the schema the File
+ * server had while built into the core — CREATE … IF NOT EXISTS / ADD COLUMN IF NOT EXISTS, all
+ * idempotent — so on a portal that already has the drive_* tables it changes nothing. Everything goes
+ * through `db` (the migration's transaction), the move of the former «Доступ к папкам» module
+ * (access/migrate.js) too, each of its steps in a savepoint. Foreign keys point at core tables
+ * (users) and its own; no other module's table points at these.
  */
 
-export async function ensureDriveSchema() {
+/** Runs `fn(db)` inside a savepoint of the migration's transaction: a failed step leaves the rest usable. */
+async function inSavepoint(db, fn) {
+  await db.query('SAVEPOINT drive_folderaccess');
+  try {
+    const result = await fn(db);
+    await db.query('RELEASE SAVEPOINT drive_folderaccess');
+    return result;
+  } catch (err) {
+    await db.query('ROLLBACK TO SAVEPOINT drive_folderaccess');
+    throw err;
+  }
+}
+
+export async function createDriveSchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS drive_servers (
       id SERIAL PRIMARY KEY,
@@ -111,7 +128,7 @@ export async function ensureDriveSchema() {
       ADD COLUMN IF NOT EXISTS notify BOOLEAN NOT NULL DEFAULT FALSE
   `);
   // Custom addresses /d/<slug> (shared/linkSlug.js).
-  await ensureSlugSchema('drive');
+  await ensureSlugSchema('drive', db);
   await query(`UPDATE drive_links SET permissions = CASE WHEN allow_download THEN '{view,download}'::text[] ELSE '{view}'::text[] END WHERE permissions IS NULL`);
   // Files visitors uploaded through a link: their "my uploads" list (per
   // browser session) and the author's overview.
@@ -193,11 +210,15 @@ export async function ensureDriveSchema() {
   // «Доступ»: how people write this folder's path in AD group descriptions ("G:\ОБЪЕКТ-2\_DocArch", "W:").
   await query(`ALTER TABLE drive_shares ADD COLUMN IF NOT EXISTS path_prefixes TEXT[] NOT NULL DEFAULT '{}'`);
   // The former «Доступ к папкам» module: journal, settings and permission move here (idempotent).
-  await migrateFolderAccess();
-  await ensureJournalTable();
+  await migrateFolderAccess({ transaction: (fn) => inSavepoint(db, fn), run: (text, params) => inSavepoint(db, () => db.query(text, params)) });
+  await ensureJournalTable(db);
+}
 
-  onDirectorySignIn(rememberLoginCredential);
-  onDirectoryCredential(storeDirectoryCredential);
-  registerJob({ name: 'drive:activity', everyMs: 24 * 60 * 60 * 1000, run: pruneActivity });
-  registerJob({ name: 'drive:credentials', everyMs: 60 * 60 * 1000, run: cleanupCredentials });
+/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+export async function ensureDriveSchema() {
+  await withTransaction(async (client) => {
+    // The lock the package migrations take (platform/packages/migrations.js): one at a time.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:drive'))`);
+    await createDriveSchema({ query: (text, params) => client.query(text, params) });
+  });
 }

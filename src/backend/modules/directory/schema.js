@@ -1,4 +1,4 @@
-import { query } from '../../config/database.js';
+import { withTransaction } from '../../config/database.js';
 
 /*
  * Tables of the AD directory module (docs/directory.md → Data):
@@ -9,9 +9,15 @@ import { query } from '../../config/database.js';
  *                    while the AD integration is not set up)
  *
  * Passwords are never stored anywhere: the acting administrator's own domain password
- * is the File server's sealed drive_credentials row (drive/access/credentials.js).
+ * is the File server's sealed drive_credentials row (drive/access/credentials.js), reached
+ * through the File server's public API.
+ *
+ * Migration 001 (index.js `migrations`, docs/module-packages.md «Migrations»): the schema the
+ * directory had while built into the core — CREATE … IF NOT EXISTS — so on a portal that already has
+ * the ad_* tables it changes nothing. Everything goes through `db` (the migration's transaction).
  */
-export async function ensureDirectorySchema() {
+export async function createDirectorySchema(db) {
+  const query = (text, params) => db.query(text, params);
   await query(`
     CREATE TABLE IF NOT EXISTS ad_journal (
       id BIGSERIAL PRIMARY KEY,
@@ -49,4 +55,13 @@ export async function ensureDirectorySchema() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS ad_demo_objects_parent_idx ON ad_demo_objects (parent_canon)`);
+}
+
+/** The schema outside a package install (tests, scripts): migration 001 in its own transaction. */
+export async function ensureDirectorySchema() {
+  await withTransaction(async (client) => {
+    // The lock the package migrations take (platform/packages/migrations.js): one at a time.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('module-migrations:directory'))`);
+    await createDirectorySchema({ query: (text, params) => client.query(text, params) });
+  });
 }

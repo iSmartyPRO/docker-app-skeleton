@@ -1,0 +1,57 @@
+{
+  "id": "directory",
+  "name": { "en": "AD directory", "ru": "Каталог AD", "ky": "AD каталогу", "tr": "AD dizini", "zh": "AD 目录" },
+  "nameForms": { "ru": { "ins": "Каталогом AD" } },
+  "description": {
+    "en": "Users, groups, computers and OUs of Active Directory, password resets, journal",
+    "ru": "Пользователи, группы, компьютеры и OU Active Directory, сброс паролей, журнал",
+    "ky": "Active Directory'нин колдонуучулары, топтору, компьютерлери жана OU, сырсөздү калыбына келтирүү, журнал",
+    "tr": "Active Directory kullanıcıları, grupları, bilgisayarları ve OU'ları, parola sıfırlama, günlük",
+    "zh": "Active Directory 的用户、组、计算机和 OU，密码重置，日志"
+  },
+  "version": "1.1.0",
+  "category": "infrastructure",
+  "requires": [
+    {
+      "integration": "activeDirectory",
+      "reason": { "en": "Users, groups and OUs are read from and written to Active Directory", "ky": "Колдонуучулар, топтор жана OU Active Directory'ден окулат жана анда өзгөртүлөт", "tr": "Kullanıcılar, gruplar ve OU'lar Active Directory'den okunur ve orada değiştirilir", "zh": "用户、组和 OU 从 Active Directory 读取并写回", "ru": "Пользователи, группы и OU читаются из Active Directory и меняются в нём" },
+      "demo": true
+    }
+  ],
+  "enhances": [
+    { "id": "employees", "what": { "en": "Link AD accounts to employee cards and create them from a card", "ky": "AD эсептик жазууларын кызматкерлердин карточкалары менен байланыштыруу жана карточкадан түзүү", "tr": "AD hesaplarını çalışan kartlarına bağlama ve karttan oluşturma", "zh": "将 AD 账户关联到员工卡片，并从卡片创建账户", "ru": "Связывать учётные записи AD с карточками сотрудников и создавать их из карточки" } },
+    { "id": "drive", "what": { "en": "Folder access groups (sg_…) are managed in File server → Access", "ky": "Папкаларга кирүү укугунун топтору (sg_…) «Файл сервери → Кирүү укугу» бөлүмүндө башкарылат", "tr": "Klasör erişim grupları (sg_…) Dosya sunucusu → Erişim bölümünden yönetilir", "zh": "文件夹访问组（sg_…）在“文件服务器 → 访问权限”中管理", "ru": "Группы доступа к папкам (sg_…) управляются в «Файловый сервер → Доступ»" } }
+  ],
+  "permissions": ["ad.view", "ad.manage", "ad.passwords", "ad.admin"],
+  "webPermission": ["ad.view", "ad.manage", "ad.passwords", "ad.admin"],
+  "tables": ["ad_%"],
+  "icon": "directory",
+  "docsInfo": { "user": "directory", "guide": "docs/directory.md" },
+  "localeKeys": {
+    "apps": ["directory"],
+    "settings": ["directory"],
+    "permissions": ["groups.module_directory", "ad_*"],
+    "tour": ["directory"]
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-24",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); the journal, the demo directory and settings are kept. Employee cards are read and linked through the Employees API, the AD connection and stored passwords through the File server API."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); журнал, демо-каталог и настройки сохраняются. Карточки сотрудников читаются и связываются через API «Сотрудников», подключение к AD и сохранённые пароли — через API «Файлового сервера»."]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-16",
+      "changes": {
+        "en": ["OU tree within a managed root, users, groups and computers, account actions under the administrator’s own AD account, password reset over LDAPS / StartTLS, journal, demo directory."],
+        "ru": ["Дерево OU внутри корня управления, пользователи, группы и компьютеры, действия с учётными записями от AD-учётки администратора, сброс пароля по LDAPS / StartTLS, журнал, демо-каталог."],
+        "ky": ["Башкаруу тамырынын ичиндеги OU дарагы, колдонуучулар, топтор жана компьютерлер, администратордун өз AD эсептик жазуусу аркылуу аракеттер, LDAPS / StartTLS аркылуу сырсөздү калыбына келтирүү, журнал, демо каталог."],
+        "tr": ["Yönetilen kök içinde OU ağacı, kullanıcılar, gruplar ve bilgisayarlar, yöneticinin kendi AD hesabıyla hesap işlemleri, LDAPS / StartTLS üzerinden parola sıfırlama, günlük, demo dizini."],
+        "zh": ["受管根节点下的 OU 树、用户、组和计算机，以管理员本人 AD 账户执行账户操作，通过 LDAPS / StartTLS 重置密码，日志，演示目录。"]
+      }
+    }
+  ]
+}

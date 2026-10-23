@@ -10,10 +10,13 @@ export const INSTALLED_URL = '/api/modules/installed';
 
 export const withTimeout = (promise, ms, setTimer = setTimeout) => Promise.race([promise, new Promise((resolve) => setTimer(() => resolve(null), ms))]);
 
+/** The list's URL: `path` (the page's location) lets an anonymous visitor of a package's public page get that package. */
+export const installedUrl = (path) => (typeof path === 'string' && path.startsWith('/') && path !== '/' ? `${INSTALLED_URL}?path=${encodeURIComponent(path.slice(0, 300))}` : INSTALLED_URL);
+
 /** One GET /api/modules/installed: { data } or { retry } (no answer, timeout, 5xx, 429: try again; 4xx: do not). */
-export async function fetchInstalled(fetchFn, timeoutMs, { setTimer = setTimeout } = {}) {
+export async function fetchInstalled(fetchFn, timeoutMs, { setTimer = setTimeout, path = '' } = {}) {
   try {
-    const res = await withTimeout(fetchFn(INSTALLED_URL, { credentials: 'same-origin', headers: { Accept: 'application/json' }, cache: 'no-store' }), timeoutMs, setTimer);
+    const res = await withTimeout(fetchFn(installedUrl(path), { credentials: 'same-origin', headers: { Accept: 'application/json' }, cache: 'no-store' }), timeoutMs, setTimer);
     if (!res) return { retry: true };
     if (res.ok) return { data: await res.json() };
     return { retry: res.status >= 500 || res.status === 429 };
@@ -67,7 +70,8 @@ export const newPackages = (data, known) => (data?.modules || []).filter((pkg) =
 export function lateAnswerAction(result, known, { afterSignIn = false } = {}) {
   if (!result || result.retry) return 'retry';
   const data = result.data;
-  if (afterSignIn) return data?.modules?.length ? 'reload' : null;
+  // After signing in: reload once for packages the page has not prepared (a public page may have loaded its own already).
+  if (afterSignIn) return newPackages(data, known).length ? 'reload' : null;
   if (newPackages(data, known).length) return 'reload';
   if (data?.signedIn === false) return 'watch-sign-in';
   return null;

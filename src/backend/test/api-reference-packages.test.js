@@ -50,7 +50,7 @@ test('package routes appear in the reference once the package is loaded', () => 
   assert.equal(byKey.get('POST /app/hellopkg/items').level, 'write');
   assert.equal(byKey.get('GET /app/qr/codes').section, 'qr', 'the hand-written QR section is used');
   // Built-in routes are still there.
-  assert.ok(byKey.has('GET /app/drive/access/at'));
+  assert.ok(byKey.has('GET /app/files/spaces/:id/files'));
 
   const sections = referenceSections();
   const own = sections.find((section) => section.key === 'hellopkg');

@@ -100,7 +100,7 @@ const json = (value) => {
  *   tables      { name: { rows, sum } } of its tables
  *   settings    the stored settings.modules.<id> block
  *   appSettings app_settings keys "<id>_…" (flags the module writes itself)
- *   roles       { roleKey: [its <id>.* permissions] }
+ *   roles       { roleKey: [its <id>.* permissions (and legacy prefixes: directory ad.*)] }
  *   layouts     personal dashboards and the starting layout, as stored (widgets of the module included)
  *   files       count + digest of its upload folders (UPLOAD_DIR/<id>)
  * `ignoreTables` are left out (e.g. the kit's probe table).
@@ -132,8 +132,11 @@ export async function snapshot(client, backendDir, id, { manifestTables = [], ig
   const settings = modulesRow ? json(modulesRow.value)?.[id] ?? null : null;
   const appSettings = Object.fromEntries((await client.query(`SELECT key, value FROM app_settings WHERE key LIKE $1 ORDER BY key`, [`${id.replace(/_/g, '\\_')}\\_%`]).catch(() => ({ rows: [] }))).rows.map((row) => [row.key, row.value]));
   const roles = {};
+  // <id>.* plus the legacy permission prefixes the core declares for it (tableOwnership.js: directory → ad.*).
+  const { MODULE_PERMISSION_PREFIXES = {} } = await tableOwnership(backendDir);
+  const prefixes = [id, ...(MODULE_PERMISSION_PREFIXES[id] || [])].map((prefix) => `${prefix}.`);
   for (const row of (await client.query(`SELECT key, permissions FROM app_roles ORDER BY key`).catch(() => ({ rows: [] }))).rows) {
-    const own = (row.permissions || []).filter((perm) => perm.startsWith(`${id}.`)).sort();
+    const own = (row.permissions || []).filter((perm) => prefixes.some((prefix) => perm.startsWith(prefix))).sort();
     if (own.length) roles[row.key] = own;
   }
   // Widgets by id: a save may append parked widgets after the visible ones (mergeParked); the set is what must survive.

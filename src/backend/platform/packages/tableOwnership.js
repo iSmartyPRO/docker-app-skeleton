@@ -85,6 +85,19 @@ export const MODULE_TABLES = Object.freeze({
   warehouse: ['wh_'],
 });
 
+/**
+ * Permission prefixes a module used before packages existed besides "<id>." (the AD
+ * directory's rights were always ad.view, ad.manage, …: renaming them would strip
+ * every role). A package's `permissions` must start with "<id>." or one of these.
+ */
+export const MODULE_PERMISSION_PREFIXES = Object.freeze({
+  directory: Object.freeze(['ad']),
+});
+
+/** May module `id` declare the permission `permission` (its own "<id>." or a legacy prefix above)? */
+export const ownsPermission = (id, permission) =>
+  typeof permission === 'string' && [id, ...(MODULE_PERMISSION_PREFIXES[id] || [])].some((prefix) => permission.startsWith(`${prefix}.`));
+
 const isPrefix = (entry) => entry.endsWith('_');
 
 /** Does a table name (or, with `prefix`, any table starting with it) fall under `entry`? */

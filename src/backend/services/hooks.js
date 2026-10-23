@@ -64,6 +64,28 @@ export async function emitDirectoryCredential(payload) {
   return directoryCredential.size > 0;
 }
 
+/*
+ * What the Users page shows about a person's stored directory password («доменный
+ * пароль сохранён»): the module that keeps it (the File server) answers
+ * `(userId) → { username, source, status, updatedAt } | null`. One provider; none
+ * (the module not installed) or a failing one answers null.
+ */
+let credentialInfoProvider = null;
+export function provideDirectoryCredentialInfo(fn) {
+  credentialInfoProvider = typeof fn === 'function' ? fn : null;
+  return () => {
+    if (credentialInfoProvider === fn) credentialInfoProvider = null;
+  };
+}
+export async function directoryCredentialInfo(userId) {
+  if (!credentialInfoProvider) return null;
+  try {
+    return (await credentialInfoProvider(userId)) || null;
+  } catch {
+    return null;
+  }
+}
+
 const beforeUserDelete = new Set();
 
 export function onBeforeUserDelete(fn) {

@@ -144,15 +144,18 @@ export function checksumSql(table) {
  * Differences between two snapshots { tables: { name: { rows, sum } }, settings, roles, layouts, … }.
  * `ignoreTables`: names left out of the comparison. Returns [{ path, before, after }].
  */
-export function diffSnapshots(before, after, { ignoreTables = [] } = {}) {
+export function diffSnapshots(before, after, { ignoreTables = [], appendOnly = [] } = {}) {
   const out = [];
   const ignore = new Set(ignoreTables);
+  // Logs the kit's own requests add to (kit file `appendOnly`: the File server's activity log): rows may only grow.
+  const growing = new Set(appendOnly);
   const tableNames = new Set([...Object.keys(before?.tables || {}), ...Object.keys(after?.tables || {})]);
   for (const name of [...tableNames].sort()) {
     if (ignore.has(name)) continue;
     const a = before?.tables?.[name];
     const b = after?.tables?.[name];
     if (!a || !b) out.push({ path: `tables.${name}`, before: a ? `${a.rows} rows` : 'missing', after: b ? `${b.rows} rows` : 'missing' });
+    else if (growing.has(name) && b.rows >= a.rows) continue;
     else if (a.rows !== b.rows || a.sum !== b.sum) out.push({ path: `tables.${name}`, before: `${a.rows} rows ${a.sum.slice(0, 8)}`, after: `${b.rows} rows ${b.sum.slice(0, 8)}` });
   }
   // Flags a module writes itself (app_settings "<id>_…"): a key may appear later (Masterplan's
@@ -294,7 +297,7 @@ export function dataSize(res) {
  * rights per project) — then the answer must carry less than the superadmin's (0 of N passes,
  * the same N fails). With nothing to compare (the superadmin sees no data either) it is a warning.
  */
-export function judgeStatus(who, status, { open = false, timeout = false, code = null, size = null, adminSize = null, otherScopes = false } = {}) {
+export function judgeStatus(who, status, { open = false, timeout = false, code = null, size = null, adminSize = null, otherScopes = false, sessionsOnly = false } = {}) {
   if (timeout) return { ok: false, note: 'no answer in time' };
   if (status === 0) return { ok: false, note: 'no answer (connection failed)' };
   if (status >= 500) return { ok: false, note: `server error ${status}` };
@@ -305,6 +308,9 @@ export function judgeStatus(who, status, { open = false, timeout = false, code =
       return { ok: true, note: status >= 400 ? `${status} (parameter placeholder)` : String(status) };
     case 'scoped-token':
       if (status === 401) return { ok: false, note: 'a valid token was refused (401)' };
+      // A module the core never opens to tokens (kit file `sessionsOnly`: the AD directory acts as the person's own domain account).
+      // `sessionsOnly`: true (the whole area) or route patterns of the kit file (the File server's «Доступ»: 403 FA_NO_TOKENS).
+      if (status === 403 && sessionsOnly) return { ok: true, note: `403 ${code || ''} (declared: sessions only)`.trim() };
       if (status === 403 && code === 'SCOPE_DENIED') return otherScopes ? { ok: true, note: '403 SCOPE_DENIED (declared: needs another area\'s scope too)' } : { ok: true, warn: true, note: '403 SCOPE_DENIED: the route needs another area\'s scope too (declare it in needsOtherScopes)' };
       if (status === 403) return { ok: false, note: `forbidden for a token with the module's scope (403 ${code || ''})`.trim() };
       return { ok: true, note: String(status) };
@@ -326,6 +332,8 @@ export function judgeStatus(who, status, { open = false, timeout = false, code =
       return { ok: false, note: `${status}: a token without the module's scope got through` };
     case 'anonymous':
       if (status === 401 || status === 403 || status === 404) return { ok: true, note: String(status) };
+      // A public route refusing what the placeholder parameters ask for (a folder link's /file without a path: 400, no thumbnail: 415).
+      if (status >= 400 && status < 500 && open) return { ok: true, note: `${status} (public, parameter placeholder)` };
       // A public route may answer with a redirect (a dynamic QR code → its target, a share link).
       if (status < 400 && open) return { ok: true, note: `${status} (public)` };
       return { ok: false, note: `${status} for an anonymous visitor` };
@@ -407,3 +415,28 @@ export function formatReport(report) {
 }
 
 export const overallStatus = (steps) => (steps.some((step) => step.status === 'fail') ? 'fail' : 'pass');
+
+/*
+ * `backendEnv` of a kit file: extra environment of the kit's backends, for the module's fakes only — keys
+ * SMBGATE_* (the File server's gateway: SMBGATE_PYTHON → fakes/python-smbgate). A value "@kit/<path>" is a
+ * file of the kit folder (fakes/…, no ".."). Anything else (database, secrets, MODULES_*, PATH…) is refused.
+ */
+export function kitBackendEnv(spec, kitDir) {
+  const out = {};
+  if (spec == null) return out;
+  if (typeof spec !== 'object' || Array.isArray(spec)) throw new Error('backendEnv must be an object');
+  for (const [key, raw] of Object.entries(spec)) {
+    if (!/^SMBGATE_[A-Z0-9_]{1,40}$/.test(key)) throw new Error(`backendEnv ${key}: only SMBGATE_* (the module's fakes) may be set`);
+    const value = String(raw ?? '');
+    if (value.startsWith('@kit/')) {
+      const rel = value.slice(5);
+      if (!/^fakes\/[A-Za-z0-9._-]+$/.test(rel)) throw new Error(`backendEnv ${key}: "${value}" must be a file in the kit's fakes/ folder`);
+      out[key] = `${kitDir.replace(/\/$/, '')}/${rel}`;
+    } else {
+      if (/[\n\r\0]/.test(value)) throw new Error(`backendEnv ${key}: bad value`);
+      out[key] = value;
+    }
+  }
+  return out;
+}
+

@@ -137,7 +137,8 @@ async function write(handle, req, info, who) {
   return { lastModified: mtime, size: entry.size, version: `${mtime.getTime()}-${entry.size}` };
 }
 
-registerProvider({ prefix: 'drive', module: 'drive', resolve, read, write });
+/** The online editor's provider of File server files (register(ctx) in index.js). */
+export const registerOfficeProvider = () => registerProvider({ prefix: 'drive', module: 'drive', resolve, read, write });
 
 // ── Lock files of desktop programs ──────────────────────────────────────────
 

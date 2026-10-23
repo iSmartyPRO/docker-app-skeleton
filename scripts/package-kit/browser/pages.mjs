@@ -23,7 +23,10 @@ const ignored = (text) => ignore.some((re) => re.test(text));
 const result = { pages: [], login: null };
 const browser = await chromium.launch();
 try {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: job.locale || 'ru-RU' });
+  // An automated client, and it says so (like the kit's HTTP client): modules that count people's visits (the File
+  // server's link views, QR scans) leave the kit's page loads out, so the data snapshots stay comparable.
+  const userAgent = `${(await browser.newContext().then(async (probe) => { const page = await probe.newPage(); const ua = await page.evaluate(() => navigator.userAgent); await probe.close(); return ua; }))} portal-package-kit/1 (bot; automated checks)`;
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: job.locale || 'ru-RU', userAgent });
   const login = await context.request.post(`${job.base}/api/auth/login`, { data: { username: job.username, password: job.password } });
   result.login = login.status();
   if (!login.ok()) throw new Error(`sign-in ${login.status()}`);

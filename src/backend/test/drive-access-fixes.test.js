@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DRIVE_ACCESS_DEFAULTS } from '../modules/catalog.js';
+import { DRIVE_ACCESS_DEFAULTS } from '../modules/drive/settings.js';
 import { directoryGuid } from '../services/ldap.js';
 import { describeGroup, nameTaken, newGroupNames } from '../modules/drive/access/naming.js';
 import { groupRefusal, journalScope, supersededRefusal } from '../modules/drive/access/policy.js';

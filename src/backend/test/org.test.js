@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ancestorIds, buildTree, cleanUnitInput, descendantIds, effectiveTimeZone, isTimeZone, reorderSiblings, walkManager, wouldCycle } from '../modules/org/logic.js';
@@ -102,8 +103,10 @@ test('org: a core module with configurable types; employees requires it', () => 
   assert.equal(modules.org.enabled, true);
   assert.deepEqual(modules.org.settings.purposes, [{ key: 'retail', label: 'Retail' }]);
   assert.equal(MODULE_MANIFEST.org.category, 'people');
-  assert.equal(MODULE_MANIFEST.employees.category, 'people');
-  assert.ok(MODULE_MANIFEST.employees.requires.some((link) => link.id === 'org'));
+  // Employees is a module package: its manifest is module.json.
+  const employees = JSON.parse(readFileSync(new URL('../modules/employees/module.json', import.meta.url), 'utf8'));
+  assert.equal(employees.category, 'people');
+  assert.ok(employees.requires.some((link) => link.id === 'org'));
   assert.ok(CORE_SERVICES.some((service) => service.id === 'org'));
   assert.deepEqual(validateManifests(MODULE_MANIFEST, { catalogIds: MODULE_CATALOG.map((module) => module.id), coreIds: MODULE_CATALOG.filter((module) => module.core).map((module) => module.id) }), []);
 });

@@ -1,8 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DRIVE_ACCESS_DEFAULTS, resolveModules } from '../modules/catalog.js';
+import { resolveModules } from '../modules/catalog.js';
+import { DRIVE_ACCESS_DEFAULTS } from '../modules/drive/settings.js';
+import { sourcePackage } from './helpers/modules.js';
 import { LEGACY_KEY, NEW_PERMISSION, OLD_PERMISSION, convertFolderAccess, migrateJournal, migratePermission, migrateSettings, saveLegacyCopy } from '../modules/drive/access/migrate.js';
 import { sanitizeModules } from '../modules/catalog.js';
+
+// The File server is a module package: its catalog entry as an installed package adds it (module.json + settings.js).
+await sourcePackage('drive');
 
 /*
  * The former «Доступ к папкам» module (modules.folderaccess, fa_journal, folderaccess.groups)

@@ -416,6 +416,9 @@ export const CONVERTED_MODULES = Object.freeze({
   contracts: { version: '1.0.0', name: { en: 'Contracts', ru: 'Договоры', ky: 'Келишимдер', tr: 'Sözleşmeler', zh: '合同' } },
   procurement: { version: '1.0.0', name: { en: 'Procurement', ru: 'Закупки', ky: 'Сатып алуулар', tr: 'Satın alma', zh: '采购' } },
   warehouse: { version: '1.0.0', name: { en: 'Warehouse', ru: 'Склад', ky: 'Кампа', tr: 'Depo', zh: '仓库' } },
+  employees: { version: '1.0.0', name: { en: 'Employees', ru: 'Сотрудники', ky: 'Кызматкерлер', tr: 'Çalışanlar', zh: '员工' } },
+  directory: { version: '1.0.0', name: { en: 'AD directory', ru: 'Каталог AD', ky: 'AD каталогу', tr: 'AD dizini', zh: 'AD 目录' } },
+  drive: { version: '1.0.0', name: { en: 'File server', ru: 'Файловый сервер', ky: 'Файл сервери', tr: 'Dosya sunucusu', zh: '文件服务器' } },
 });
 
 async function hasModuleData(id) {
@@ -645,18 +648,22 @@ export async function packageStates() {
 /**
  * GET /api/modules/installed: loaded packages (with their on/off state), the
  * addresses of their web code and translations, for the browser shell.
- * Anonymous visitors get none (`signedIn: false`; no public page needs a
- * package yet): which modules a portal runs is not public. The addresses
+ * Anonymous visitors get none (`signedIn: false`): which modules a portal runs
+ * is not public — except on a public page of a package (manifest
+ * `web.publicPaths`, the File server's /d/<token>): for `path` under one of its
+ * prefixes they get that package alone, while it is switched on. The addresses
  * carry the version and the first 12 hex of the files' listing digest, so a
  * package reinstalled with other bytes under the same version gets new URLs
  * (the files are cached as immutable for a year).
  */
-export async function shellPackages({ signedIn = true } = {}) {
-  if (!signedIn) return { bootId: BOOT_ID, signedIn: false, modules: [] };
+export async function shellPackages({ signedIn = true, path = '' } = {}) {
+  const publicFor = signedIn ? null : publicPathPackages(path);
+  if (!signedIn && !publicFor.length) return { bootId: BOOT_ID, signedIn: false, modules: [] };
   const modules = (await getSettingsView()).modules;
   const out = [];
   for (const record of LOADED.values()) {
     if (record.source !== 'package') continue;
+    if (publicFor && (!publicFor.includes(record.id) || !modules[record.id]?.enabled)) continue;
     const { manifest } = record;
     const base = assetBase(record);
     out.push({
@@ -670,7 +677,20 @@ export async function shellPackages({ signedIn = true } = {}) {
       locales: Object.fromEntries(Object.entries(manifest.locales || {}).map(([lang, names]) => [lang, names.map((ns) => `${base}locales/${lang}/${ns}.js`)])),
     });
   }
-  return { bootId: BOOT_ID, signedIn: true, modules: out };
+  return { bootId: BOOT_ID, signedIn: Boolean(signedIn), modules: out };
+}
+
+/** Ids of the loaded packages with a public page under `path` (manifest web.publicPaths: "/d/" covers "/d/<token>"). */
+export function publicPathPackages(path) {
+  const text = String(path || '');
+  if (!/^\/[^/]/.test(text)) return [];
+  const out = [];
+  for (const record of LOADED.values()) {
+    if (record.source !== 'package') continue;
+    const prefixes = record.manifest?.web?.publicPaths || [];
+    if (prefixes.some((prefix) => text.startsWith(prefix) && text.length > prefix.length)) out.push(record.id);
+  }
+  return out;
 }
 
 /** Short digest of a loaded package's files for its asset URLs (null when unknown). */

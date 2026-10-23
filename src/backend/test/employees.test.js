@@ -15,9 +15,14 @@ import {
   toCsv,
   upcomingDates,
 } from '../modules/employees/logic.js';
-import { EMPLOYEES_DEFAULTS, MODULE_CATALOG, resolveModules, sanitizeEmployees } from '../modules/catalog.js';
+import { MODULE_CATALOG, resolveModules } from '../modules/catalog.js';
+import { EMPLOYEES_DEFAULTS, sanitizeEmployees } from '../modules/employees/settings.js';
+import { sourcePackage } from './helpers/modules.js';
 import { NOTIFICATION_GROUPS } from '../services/notificationCatalog.js';
 import { suggestUsername } from '../modules/employees/accounts.js';
+
+// Employees is a module package: its catalog entry as an installed package adds it (module.json + settings.js).
+await sourcePackage('employees');
 
 /* Pure parts of the Employees module (docs/employees.md). */
 

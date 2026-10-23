@@ -1,0 +1,55 @@
+{
+  "id": "drive",
+  "name": { "en": "File server", "ru": "Файловый сервер", "ky": "Файл сервери", "tr": "Dosya sunucusu", "zh": "文件服务器" },
+  "nameForms": { "ru": { "ins": "Файловым сервером" } },
+  "description": {
+    "en": "SMB shares as one drive, public links, activity log, online editing, folder access management",
+    "ru": "SMB-шары как единый диск, публичные ссылки, журнал действий, онлайн-редактирование, управление доступом к папкам",
+    "ky": "SMB жалпы папкалары бир диск катары, ачык шилтемелер, аракеттер журналы, онлайн түзөтүү, папкаларга кирүү укугун башкаруу",
+    "tr": "Tek sürücü olarak SMB paylaşımları, herkese açık bağlantılar, etkinlik günlüğü, çevrimiçi düzenleme, klasör erişim yönetimi",
+    "zh": "SMB 共享合为一个网盘、公开链接、操作日志、在线编辑、文件夹访问权限管理"
+  },
+  "version": "1.1.0",
+  "category": "infrastructure",
+  "requires": [],
+  "enhances": [
+    { "integration": "activeDirectory", "what": { "en": "Folder access groups, the domain password for shares", "ky": "Папкаларга кирүү укугунун топтору, жалпы папкалар үчүн домендик сырсөз", "tr": "Klasör erişim grupları, paylaşımlar için etki alanı parolası", "zh": "文件夹访问组、共享的域密码", "ru": "Группы доступа к папкам, доменный пароль для шар" } },
+    { "integration": "documents", "what": { "en": "Office previews and online editing", "ky": "Office документтерин көрүү жана онлайн түзөтүү", "tr": "Office önizlemeleri ve çevrimiçi düzenleme", "zh": "Office 文档预览和在线编辑", "ru": "Просмотр и онлайн-редактирование документов Office" } }
+  ],
+  "permissions": ["drive.admin", "drive.audit", "drive.access"],
+  "tables": ["drive_%"],
+  "icon": "server",
+  "web": { "publicPaths": ["/d/"] },
+  "docsInfo": { "user": "drive", "guide": "docs/drive.md" },
+  "docFiles": ["docs/drive.md", "docs/drive-access.md"],
+  "locales": ["drive", "driveSettings"],
+  "localeKeys": {
+    "apps": ["drive"],
+    "settings": ["drive"],
+    "permissions": ["groups.module_drive", "drive_*"],
+    "notifyPrefs": ["groups.drive", "events.drive_*"],
+    "tour": ["drive"],
+    "dashboard": ["widgets.drive", "widgets.driveActivity", "drive"]
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-24",
+      "changes": {
+        "en": ["Installed as a module package (no longer built into the core); servers, folders, saved credentials, links (custom addresses, visitor uploads), favourites, the activity log, the access journal and settings are kept. Public links /d/… open for anonymous visitors from the package. A portal that still has the former «Folder access» module's data gets it moved on install."],
+        "ru": ["Устанавливается пакетом модуля (больше не встроен в ядро); серверы, папки, сохранённые учётные данные, ссылки (свои адреса, загрузки посетителей), избранное, журнал действий, журнал доступа и настройки сохраняются. Публичные ссылки /d/… открываются анонимным посетителям из пакета. Данные прежнего модуля «Доступ к папкам», если они ещё есть, переносятся при установке."]
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-16",
+      "changes": {
+        "en": ["SMB shares as one drive, links, activity log, folder access management."],
+        "ru": ["SMB-шары как единый диск, ссылки, журнал действий, управление доступом к папкам."],
+        "ky": ["SMB жалпы папкалары бир диск катары, шилтемелер, аракеттер журналы, папкаларга кирүү укугун башкаруу."],
+        "tr": ["Tek sürücü olarak SMB paylaşımları, bağlantılar, etkinlik günlüğü, klasör erişim yönetimi."],
+        "zh": ["SMB 共享合为一个网盘、链接、操作日志、文件夹访问权限管理。"]
+      }
+    }
+  ]
+}

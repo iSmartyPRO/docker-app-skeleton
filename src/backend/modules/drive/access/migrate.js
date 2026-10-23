@@ -1,13 +1,15 @@
 import { isDeepStrictEqual } from 'node:util';
 import { query, withTransaction } from '../../../config/database.js';
 import { invalidateSettings } from '../../../services/settings.js';
-import { DRIVE_ACCESS_DEFAULTS, sanitizeDriveAccess } from '../../catalog.js';
+import { DRIVE_ACCESS_DEFAULTS, sanitizeDriveAccess } from '../settings.js';
 import { cleanPrefixes } from './naming.js';
 
 /*
  * From the separate «Доступ к папкам» module (≤ v1.4, id `folderaccess`) to the
- * File server's access block. Runs at every start (drive schema), is idempotent and
- * does not destroy anything the old version needs (a rollback to v1.4 keeps working):
+ * File server's access block. Runs in the package's migration 001 (a portal upgraded
+ * from ≤ v1.4 straight to the package still has the old data) and once a day after
+ * that (the `drive:folderaccess` job: a step that failed is retried), is idempotent
+ * and does not destroy anything the old version needs (a rollback to v1.4 keeps working):
  *
  *   0. the old block is copied once to its own settings key `legacy_folderaccess`
  *      (a save of Settings → Modules rewrites `modules` from the catalog and would
@@ -165,21 +167,25 @@ export async function migratePermission(run = query) {
   return rowCount || 0;
 }
 
-/** Everything, at start-up. Never stops the start: a failure is logged and retried next time. */
-export async function migrateFolderAccess() {
+/**
+ * Everything: in migration 001 of the package (on the migration's transaction, each step in a
+ * savepoint: `transaction(fn)` gives fn a client, `run` runs one statement) and again by the
+ * daily job (own transactions). Never stops either: a failure is logged and retried next time.
+ */
+export async function migrateFolderAccess({ transaction = withTransaction, run = query } = {}) {
   const out = {};
   try {
-    out.copied = await saveLegacyCopy();
+    out.copied = await saveLegacyCopy(transaction);
   } catch (err) {
     console.warn('Drive access: copying the folder access settings failed:', err.message);
   }
   try {
-    out.journal = await migrateJournal();
+    out.journal = await migrateJournal(transaction);
   } catch (err) {
     console.warn('Drive access: moving the folder access journal failed:', err.message);
   }
   try {
-    out.settings = await migrateSettings();
+    out.settings = await migrateSettings(transaction);
     if (out.settings.migrated) {
       invalidateSettings();
       console.log(`Drive access: folder access settings moved to the File server (enabled: ${out.settings.enabled ?? 'kept'}, prefixes: ${out.settings.prefixes?.map((row) => `#${row.shareId} ${row.prefix}`).join(', ') || 'none'})`);
@@ -188,7 +194,7 @@ export async function migrateFolderAccess() {
     console.warn('Drive access: moving the folder access settings failed:', err.message);
   }
   try {
-    out.roles = await migratePermission();
+    out.roles = await migratePermission(run);
     if (out.roles) console.log(`Drive access: ${out.roles} role(s) got ${NEW_PERMISSION} (from ${OLD_PERMISSION})`);
   } catch (err) {
     console.warn('Drive access: moving the folder access permission failed:', err.message);

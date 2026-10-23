@@ -16,8 +16,9 @@ import { GROUP_ACTIONS, MEMBERSHIP_ACTIONS } from './policy.js';
  * changes with the previous descriptor in `before.sd` for undo, see ntfs.js).
  */
 
-export async function ensureJournalTable() {
-  await query(`
+export async function ensureJournalTable(db = { query }) {
+  const run = (text, params) => db.query(text, params);
+  await run(`
     CREATE TABLE IF NOT EXISTS drive_access_journal (
       id BIGSERIAL PRIMARY KEY,
       at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -48,9 +49,9 @@ export async function ensureJournalTable() {
       undone_by BIGINT REFERENCES drive_access_journal(id) ON DELETE SET NULL
     )
   `);
-  await query(`CREATE INDEX IF NOT EXISTS drive_access_journal_at_idx ON drive_access_journal (at DESC, id DESC)`);
-  await query(`CREATE INDEX IF NOT EXISTS drive_access_journal_user_idx ON drive_access_journal (user_id, at DESC)`);
-  await query(`CREATE INDEX IF NOT EXISTS drive_access_journal_member_idx ON drive_access_journal (LOWER(member_dn))`);
+  await run(`CREATE INDEX IF NOT EXISTS drive_access_journal_at_idx ON drive_access_journal (at DESC, id DESC)`);
+  await run(`CREATE INDEX IF NOT EXISTS drive_access_journal_user_idx ON drive_access_journal (user_id, at DESC)`);
+  await run(`CREATE INDEX IF NOT EXISTS drive_access_journal_member_idx ON drive_access_journal (LOWER(member_dn))`);
 }
 
 export const kindOf = (action) => (MEMBERSHIP_ACTIONS.includes(action) ? 'membership' : GROUP_ACTIONS.includes(action) ? 'group' : 'ntfs');

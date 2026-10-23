@@ -1,6 +1,6 @@
 # AD directory («Каталог AD»)
 
-Module `directory` (category *Infrastructure*, off by default). It shows and changes Active Directory users, groups and computers **inside one OU — the managed root** (spec `docs/specs/platform-2.0.ru.md` §5). Without the AD integration the rest of the portal works as usual; the module page then explains the setup, and a superadministrator can fill a **demo directory**.
+Module `directory` (category *Infrastructure*, off by default). It shows and changes Active Directory users, groups and computers **inside one OU — the managed root** (spec `docs/specs/platform-2.0.ru.md` §5). Without the AD integration the rest of the portal works as usual; the module page then explains the setup, and a superadministrator can fill a **demo directory**. A module package (docs/module-packages.md, `make module ID=directory`); it reaches the File server (AD connection, stored passwords; real AD only — 409 `DRIVE_MISSING` without it) and Employees (card links) through their public APIs.
 
 - [Concepts](#concepts)
 - [Credential model](#credential-model)

@@ -222,6 +222,8 @@ async function inRepoSource(id) {
         page: config.web?.page === false ? false : registry ? registry.page : true,
         // A Settings screen: an item in Settings → Modules (frontend platform/packages/loader.js).
         settings: generated ? Boolean(generated.settings) : /\bSettings\s*:/.test(readFileSync(webEntry, 'utf8')),
+        // module.json `web.publicPaths`: browser paths of its public pages (anonymous visitors load it there).
+        ...(Array.isArray(config.web?.publicPaths) ? { publicPaths: config.web.publicPaths } : {}),
       }
     : null;
   // Namespaces only this module uses: src/frontend/src/modules/<id>/locales/<lang>/<ns>.js (not in the
@@ -246,7 +248,7 @@ async function inRepoSource(id) {
 function externalWeb(webDir, config) {
   const entry = firstFile(webDir, ['index.jsx', 'index.js']);
   const settings = config.web?.settings ?? Boolean(entry && /\bSettings\s*:/.test(readFileSync(entry, 'utf8')));
-  return { dir: webDir, entry, icon: config.web?.icon || config.icon || 'apps', permission: config.web?.permission || null, page: config.web?.page !== false, settings };
+  return { dir: webDir, entry, icon: config.web?.icon || config.icon || 'apps', permission: config.web?.permission || null, page: config.web?.page !== false, settings, ...(Array.isArray(config.web?.publicPaths) ? { publicPaths: config.web.publicPaths } : {}) };
 }
 
 function externalSource(dir) {
@@ -310,10 +312,11 @@ function copyServerAssets(srcDir, outDir) {
       const path = join(dir, name);
       const rel = toPosix(relative(srcDir, path));
       if (statSync(path).isDirectory()) {
-        if (!['migrations', 'node_modules', 'test', '__tests__'].includes(name)) walk(path);
+        if (!['migrations', 'node_modules', 'test', '__tests__', '__pycache__'].includes(name)) walk(path);
         continue;
       }
-      if (/\.(m?js|cjs)$/.test(name) || name === 'module.json' || name.startsWith('.')) continue;
+      // Python helpers ship too (the File server's SMB gateway, gateway/*.py); their tests and bytecode do not.
+      if (/\.(m?js|cjs)$/.test(name) || name === 'module.json' || name.startsWith('.') || /\.py[co]$/.test(name) || /^test_.*\.py$/.test(name)) continue;
       mkdirSync(dirname(join(outDir, rel)), { recursive: true });
       cpSync(path, join(outDir, rel));
       copied.push(rel);
@@ -556,7 +559,7 @@ export async function buildModule(id, args = {}) {
       core: source.manifest.core || coreVersion,
       changelog: changelog.slice(0, 5),
       server: source.server ? { entry: 'server/index.js' } : undefined,
-      web: existsSync(join(stage, 'web/index.js')) ? { entry: 'web/index.js', css, icon: source.web.icon, ...(source.web.permission ? { permission: source.web.permission } : {}), ...(source.web.page === false ? { page: false } : {}), ...(source.web.settings ? { settings: true } : {}) } : undefined,
+      web: existsSync(join(stage, 'web/index.js')) ? { entry: 'web/index.js', css, icon: source.web.icon, ...(source.web.permission ? { permission: source.web.permission } : {}), ...(source.web.page === false ? { page: false } : {}), ...(source.web.settings ? { settings: true } : {}), ...(source.web.publicPaths ? { publicPaths: source.web.publicPaths } : {}) } : undefined,
       locales,
       builtAt: new Date().toISOString(),
       sdk: SDK_VERSION,

@@ -1,7 +1,7 @@
 import { query, withTransaction } from '../config/database.js';
 import { getSettings, parseSettings } from './settings.js';
 import { authenticateDirectory, directoryEntry, searchDirectory } from './ldap.js';
-import { emitDirectoryCredential } from './hooks.js';
+import { directoryCredentialInfo, emitDirectoryCredential } from './hooks.js';
 import { disconnectGoogle, getGoogleAccount } from './google.js';
 import { linkTelegram, unlinkTelegram } from './users.js';
 
@@ -51,17 +51,8 @@ async function linkedTo(dns, exceptId = 0) {
   return new Map(rows.map((row) => [row.dn, { id: row.id, username: row.username }]));
 }
 
-async function driveLogin(userId) {
-  try {
-    const { rows } = await query(
-      `SELECT username, source, status, updated_at FROM drive_credentials WHERE user_id = $1 AND server_id IS NULL`,
-      [userId]
-    );
-    return rows[0] ? { username: rows[0].username, source: rows[0].source, status: rows[0].status, updatedAt: rows[0].updated_at } : null;
-  } catch {
-    return null;
-  }
-}
+// The stored domain password lives in the File server module (a package): it answers through a hook.
+const driveLogin = (userId) => directoryCredentialInfo(userId);
 
 /** Everything the Users page shows about a person's links. */
 export async function userLinks(userId) {

@@ -46,6 +46,7 @@ export const EXPOSED_CORE = [
   'lib/scanBurst',
   // Excel exports / imports (exceljs loaded on demand by the core copy): Warehouse reports and imports.
   'lib/xlsx',
+  'lib/clipboard',
   'lib/lazyPage',
   'lib/search',
   'components/AppFooter',
@@ -58,6 +59,14 @@ export const EXPOSED_CORE = [
   'components/icons/menuIcons',
   'components/readme/ReadmeCard',
   'components/documents/viewers/PdfViewer',
+  // The document viewers, file icons and the upload / transfer kit of Files, shared with the File server package.
+  'components/documents/Icons',
+  'components/documents/viewers/DocumentViewer',
+  'components/documents/viewers/Markdown',
+  'components/filekit/NameDialog',
+  'components/filekit/TransferPanel',
+  'components/filekit/UploadButton',
+  'components/filekit/folderUpload',
   // The shared legal entities directory editor (Settings → Legal entities; Procurement's paying entities).
   'components/legalEntities/LegalEntitiesEditor',
   'components/ui/BarcodeScanner',
@@ -95,6 +104,13 @@ export const EXPOSED_CORE = [
   'modules/approvals/public',
   'modules/approvals/public/ApprovalPath',
   'modules/approvals/public/ApprovalActions',
+  // The org structure is a core service with a public UI (modules/org/public.js): unit pickers, the org chart (Employees,
+  // the AD directory).
+  'modules/org/public',
+  'modules/org/public/OrgChart',
+  // The online editor (Collabora over the core's WOPI host): Files and the File server package.
+  'modules/office/OfficeEditor',
+  'modules/office/editable',
 ];
 
 /** File name of the shim of a shared name: 'react/jsx-runtime' → 'react__jsx-runtime', core path → 'core/<path>'. */

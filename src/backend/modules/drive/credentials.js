@@ -1,5 +1,5 @@
 import { query } from '../../config/database.js';
-import { seal, unseal } from '../../services/crypto.js';
+import { seal, unseal } from '../../services/secrets.js';
 import { getSettings, parseSettings } from '../../services/settings.js';
 import { httpError } from '../shared/acl.js';
 import { gateCall } from './gate.js';
@@ -67,6 +67,12 @@ export async function storeDirectoryCredential({ userId, username, password, for
      DO UPDATE SET username = EXCLUDED.username, secret = EXCLUDED.secret, source = 'admin', status = 'ok', verified_at = NOW(), updated_at = NOW()`,
     [userId, String(username).slice(0, 255), seal(password)]
   );
+}
+
+/** The person's stored domain password for the Users page (services/userLinks.js, through a core hook). */
+export async function credentialInfo(userId) {
+  const { rows } = await query(`SELECT username, source, status, updated_at FROM drive_credentials WHERE user_id = $1 AND server_id IS NULL`, [userId]);
+  return rows[0] ? { username: rows[0].username, source: rows[0].source, status: rows[0].status, updatedAt: rows[0].updated_at } : null;
 }
 
 /** Hourly: drop secrets of people who can no longer sign in, and login secrets when the feature is off. */

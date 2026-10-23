@@ -144,8 +144,8 @@ test('unchanged modules, settings-only patches and core modules are never blocke
 
 test('the real catalog: Approvals is always on, so business modules switch freely', () => {
   const state = Object.fromEntries(MODULE_CATALOG.map((module) => [module.id, false]));
-  const plan = planModuleChanges(state, { employees: { enabled: true }, directory: { enabled: true } }, { core: coreIds });
-  assert.equal(plan.enabled.employees && plan.enabled.directory && plan.enabled.approvals, true);
+  const plan = planModuleChanges(state, { tasks: { enabled: true }, calendar: { enabled: true } }, { core: coreIds });
+  assert.equal(plan.enabled.tasks && plan.enabled.calendar && plan.enabled.approvals, true);
 });
 
 // ── System report (no secrets) ─────────────────────────────────────────────

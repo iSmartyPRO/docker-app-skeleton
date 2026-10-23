@@ -37,11 +37,11 @@ Anything else at the top level (except `README.md`, `CHANGELOG.md`, `LICENSE`) i
 | `requires` | `[{ id, version, name?, reason? }]` modules (installed, same major, ≥ version) or `[{ integration, reason, demo? }]` |
 | `enhances` | `["id"]` or `[{ id, what }]` — optional links |
 | `category` | one of `modules/manifest.js` `CATEGORIES` |
-| `permissions` | `["<id>.<right>"]` — added to the roles editor |
+| `permissions` | `["<id>.<right>"]` — added to the roles editor; a legacy prefix the core declares for the module is accepted too (`tableOwnership.js MODULE_PERMISSION_PREFIXES`: the AD directory's `ad.*`) |
 | `description`, `changelog`, `docs` | the card before install, the Modules page |
 | `settings` | `{ defaultEnabled (false), defaults {…}, public [keys] }` — the module's `settings.modules.<id>`; sanitized by the server export `sanitizeSettings(current, incoming)`, else by type against `defaults` |
 | `tables` | table names or prefixes (`"hello_%"`) owned by the module, in addition to the tables its migrations create (backups, rollback restore, «Удалить данные»). Each must start with `<id>_` — or a legacy prefix the core declares for that module (`platform/packages/tableOwnership.js`: masterplan → `mp_`) — and may not match a core table or overlap another module's tables; the same rules filter the tables at run time |
-| `server` `{ entry }`, `web` `{ entry, css, icon, permission, page }` | entry points (written by the build) |
+| `server` `{ entry }`, `web` `{ entry, css, icon, permission, page, publicPaths }` | entry points (written by the build). `publicPaths` (module.json `"web": { "publicPaths": ["/d/"] }`): browser path prefixes of the package's public pages (`/x/`, not a portal path such as `/app/`, `/api/`): an anonymous visitor of such a page gets the package in the shell list (below) |
 | `locales` `{ <lang>: [ns…] }`, `builtAt`, `sdk` | written by the build |
 
 `platform/packages/manifestFile.js` validates and normalizes it (`normalizeManifest`).
@@ -150,11 +150,11 @@ resolves bare names imported from package code against the core's `node_modules`
 | Group | Names |
 |---|---|
 | Database | `query`, `withTransaction`, `getPool` |
-| Config, secrets | `APP_VERSION`, `uploadRoot`, `seal`, `unseal` (SDK 1.1.0: the core's sealing of stored secrets, `services/secrets.js`, no key material) |
+| Config, secrets | `APP_VERSION`, `uploadRoot`, `seal`, `unseal` (SDK 1.1.0: the core's sealing of stored secrets, `services/secrets.js`, no key material), `signModuleToken(purpose, payload, options)` / `verifyModuleToken(purpose, token)` (SDK 1.1.0: HS256 JWTs keyed by the portal secret + `purpose`, the key the File server's link tokens always had — the module never sees it) |
 | Access | `requireAuth`, `optionalAuth`, `requirePermission`, `refuseImpersonation`, `hasPermission`, `getUserAccess`, `getAccessMap` |
 | Settings, regional | `getSettings`, `getSettingsView`, `parseSettings`, `getSetting`, `setSetting`, `invalidateSettings`, `updateAdminSettings`, `localeFor`, `recipientLocale`, `regionalFor`, `portalRegional`, `regionalOfUser`, `requestRegional`, `requestZone`, `REGIONAL_DEFAULTS`, `formatDate`, `formatDateTime`, `formatTime`, `isValidTimeZone`, `isoDay`, `startOfDay`, `startOfWeek`, `wallToInstant`, `zoneLabel`, `zoneOffsetMinutes`, `zonedParts` |
 | Languages | `tr`, `translator`, `plural`, `pick`, `localeOrDefault`, `localeTag`, `SUPPORTED`, `formatNumber`, `moneyText`, `decimalSeparator`, `exportLocale` |
-| Notifications, inbox, events, jobs | `notify`, `eventAllows`, `prefsWithZone`, `quietState`, `subscribersOf`, `listNotifications`, `unreadCount`, `pushToUser`, `registerInboxProvider`, `inboxFor`, `inboxAct`, `setUrgencyRanker`, `emitEvent`, `requestAs`, `onModuleEvent`, `emitModuleEvent`, `onBeforeUserDelete`, `onDirectorySignIn`, `onDirectoryCredential`, `registerJob` |
+| Notifications, inbox, events, jobs | `notify`, `eventAllows`, `prefsWithZone`, `quietState`, `subscribersOf`, `listNotifications`, `unreadCount`, `pushToUser`, `registerInboxProvider`, `inboxFor`, `inboxAct`, `setUrgencyRanker`, `emitEvent`, `requestAs`, `onModuleEvent`, `emitModuleEvent`, `onBeforeUserDelete`, `onDirectorySignIn`, `onDirectoryCredential`, `provideDirectoryCredentialInfo` (SDK 1.1.0: the stored domain password's state on the Users page — the File server answers it), `registerJob` |
 | Journal | `recordSecurityEvent` |
 | Extension points | `modules`, `events`, `registerWidget`, `registerWidgetSection`, `registerLinkProvider`, `linkProvider`, `registerObjectSource`, `objectSource`, `registerSearchProvider`, `searchAll`, `registerPreviewProvider`, `registerFollowable`, `canFollow`, `registerTokenResources`, `onHttpServer`, `onShutdown`, namespaces `widgets`, `pickers` (prefer the same functions on `ctx` inside `register()`: they are tagged with the module) |
 | Other | `createUser`, `updateUser`, `assertCanManage`, `isValidPhone`, `normalizePhone`, `findUserById`, `listLegalEntities`, `getLegalEntity`, `getDefaultLegalEntity`, `convertToPdf`, `registerDemo`, `decide`, `limitsByTable`, `httpError(status, message, code)`, `logger(id)`, `SDK_VERSION` |
@@ -289,8 +289,9 @@ export default {
 `main.jsx` awaits `loadInstalledPackages()` (`src/platform/packages/loader.js`, ≤ 1.5 s, short retries on a
 lost connection or a 5xx within that time; afterwards retried in the background with backoff and the page reloads
 once when packages arrive late) before the first render: `GET /api/modules/installed` (signed in; anonymous
-visitors get no list — after a sign-in, `auth:signed-in` from AuthContext fetches it again and reloads once when
-there are packages) → translations added (`i18n/translations.js`
+visitors get no list — except on a package's public page: `?path=` of the page under its `web.publicPaths`
+(`/d/<token>`) gives that package, whose `register()` contributes the `app.publicRoutes` page; after a sign-in,
+`auth:signed-in` from AuthContext fetches it again and reloads once when there are packages the page has not prepared) → translations added (`i18n/translations.js`
 `addTranslationSource`, English laid under each language), CSS of switched-on packages linked, entries of switched-on packages
 imported and `register(ctx)` run, page modules pushed into `MODULE_REGISTRY` (`/app/<id>`, `icon`,
 `apps.<id>.name`) with lazy `App` / `Settings`; a package without a page (manifest `web.page: false`, module.json
@@ -347,7 +348,7 @@ Superadministrators in their own session (not an API token, not «sign in as»).
 
 | | API (under `/api`) |
 |---|---|
-| Shell list (signed in) | `GET /modules/installed` → `{ bootId, signedIn, modules: [{ id, version, enabled, name, base, web: { entry, css, icon, permission, page }, locales }] }`; anonymous: `{ bootId, signedIn: false, modules: [] }` |
+| Shell list (signed in) | `GET /modules/installed` → `{ bootId, signedIn, modules: [{ id, version, enabled, name, base, web: { entry, css, icon, permission, page }, locales }] }`; anonymous: `{ bootId, signedIn: false, modules: [] }` — with `?path=<the page's path>` under a package's `web.publicPaths` (the File server's `/d/<token>`) that one package while it is switched on (`loader.js publicPathPackages`); the browser always sends its path |
 | State | `GET /admin/modules/packages` → rows with state, error, `incompatible`, `blocked`, `lastRollback`, `pendingCheck`, backups; `canManage`, `devMode`, `maxUploadMb`, `restartPending` |
 | Upload | `POST /admin/modules/packages/upload` (multipart `file`) → `{ token, preview, problems, unsigned }` |
 | Packages on the server | `GET /admin/modules/incoming` → `{ files: [{ file, bytes, modifiedAt, id, name, version }], maxUploadMb }` |
@@ -514,6 +515,11 @@ start-up and listed on Settings → Modules («These modules need an update for 
   module.json / settings.js, registrations in `register(ctx)`, no raw SQL on other packages' tables (Warehouse → Procurement's
   `api.requestLineQuantities`, Masterplan through the objects source or behind `masterplanTables()`), no foreign keys into other
   modules, the core files their pages need are shared, their builds (web with `MODULE_BUILD_WEB=1`).
+- `test/packages-employees-directory-drive.test.js` (no database): Employees, the AD directory and the File server are out
+  of every core list, their module.json / settings.js (the File server's nested access block, its upgrade), registrations in
+  `register(ctx)`, migration 001 through `db` (the «Доступ к папкам» move in savepoints), no raw SQL on other packages' tables,
+  the hook for the domain password, `signModuleToken`, the legacy permission prefix `ad.`, public pages (`web.publicPaths`,
+  `publicPathPackages`, the browser's `?path=`), their builds with the gateway's Python files (web with `MODULE_BUILD_WEB=1`).
 - `test/module-packages-hardening.test.js` (no database): table ownership (and that its lists cover every
   `CREATE TABLE` of the tree), migration attribution and conflicts, downgrade after removal, core / SDK checks,
   `check-core-upgrade`, files re-verified, boot markers, limits, staging cleanup, backup retention, the deferred
@@ -540,7 +546,7 @@ start-up and listed on Settings → Modules («These modules need an update for 
 - `test/frontend-package-loader.test.js`: the browser loader's decisions (`loaderLogic.js`).
 - Fixture: `test-fixtures/module-hello` (route, table, SQL + JS migration, page, translations, docs).
 
-## Converting a module (checklist; done for Masterplan, QR codes, Robot assistant, Remote access, CRM, Contracts, Procurement, Warehouse)
+## Converting a module (checklist; done for Masterplan, QR codes, Robot assistant, Remote access, CRM, Contracts, Procurement, Warehouse, Employees, AD directory, File server)
 
 Masterplan was the pilot (`src/backend/modules/masterplan`, `src/frontend/src/modules/masterplan`); copy what it does.
 QR codes (anonymous routes), the robot assistant (no page: `web.page: false`, contributions only) and Remote access
@@ -556,7 +562,12 @@ QR codes (anonymous routes), the robot assistant (no page: `web.page: false`, co
    Procurement approval field «Проект» go through the core «objects» source; Warehouse reads the names of Masterplan
    objects stock was issued to only while `mp_nodes` / `mp_projects` exist (`warehouse/access.js masterplanTables`).
    Left, guarded: the Contracts and Masterplan demo purges clear their ids in `proc_requests` (`.catch`), the
-   Procurement demo purge clears its ids in `wh_docs` (`to_regclass`). **No foreign keys
+   Procurement demo purge clears its ids in `wh_docs` (`to_regclass`). Batch 4: the AD directory reads and writes
+   employee cards' AD logins through Employees' `api` (`cardsForAdAccounts`, `findCardsByName`, `setAdAccount`,
+   `clearAdAccount`; directory/employeesLink.js), the core reads the stored domain password's state through the hook
+   `provideDirectoryCredentialInfo` (not `drive_credentials`); left, guarded: the demo directory's seed and purge touch
+   `employees.ad_account` behind `to_regclass('employees')`. Sensitive core files are off limits for packages: the File
+   server seals with `services/secrets.js` and signs link tokens with `signModuleToken` (not `config/app.js`). **No foreign keys
    from other modules' tables into its tables**: the platform refuses an update and «Удалить данные» of a package
    that other tables reference (`FOREIGN_KEYS`), and the other module could not be installed without it
    (Masterplan dropped its keys into `crm_deals`, migration 002).
@@ -637,6 +648,20 @@ reference sections, server-side texts (`src/backend/locales/<lang>/warehouse.js`
 (`modules/approvals/lib.js`), texts in shared namespaces (copied into the packages by `localeKeys`), name forms in `checks.js`,
 the table prefixes `proc_` / `wh_` in `tableOwnership.js`. The camera scanner, label printing and Excel helpers stay core
 components shared with packages.
+
+What is left in the core for Employees, the AD directory and the File server (all work while they are absent): help articles
+and `HELP_ORDER` entries, their notification kinds and the API reference sections, the people provider extension point of the
+org structure (`modules/org/providers.js`: without Employees it answers from portal accounts), the directory sign-in hooks
+(`onDirectorySignIn`, `onDirectoryCredential`, `provideDirectoryCredentialInfo`), the Users page's domain account links
+(`services/userLinks.js`), the online editor's WOPI host (`services/office/wopi.js`: the File server registers its provider),
+link previews of `/d/<token>` (`services/linkPreview`, the File server's preview provider), nginx's upload limits for
+`/api/app/drive` and `/api/d/`, the `drive` / `driveSettings` texts (Files uses a few; copied into the package by module.json
+`locales`), texts in shared namespaces, name forms in `checks.js`, the table prefixes `emp_` / `employees`, `ad_`, `drive_` and the
+permission prefix `ad.` in `tableOwnership.js`, the shared document viewers, file kit, clipboard, org UI and online editor
+(`EXPOSED_CORE`). **The core image keeps the File server's runtime**: `python3`, `smbprotocol` + `pyspnego`, `py3-cryptography`,
+`py3-pillow` (thumbnails) and LibreDWG's `dwg2dxf` (drawing previews) — the package ships only `server/gateway/smbgate.py` and
+`ntacl.py`, which `gate.js` starts from next to `server/index.js` (`new URL('./gateway/smbgate.py', import.meta.url)`) with
+`$SMBGATE_PYTHON` or `python3`.
 
 ## Upgrading a portal that had Masterplan built in
 
@@ -758,6 +783,40 @@ Rehearsed by `make package-check ID=procurement|warehouse MODE=all SOURCE_REF=ma
 packages (main: Masterplan 1.1.0 package; CRM, Contracts, Procurement and Warehouse built in): the snapshot of the module's
 tables, settings, roles, dashboards and upload folder is identical before the deploy, with the core alone, after the install, after
 the linked packages are installed and after a restart.
+
+## Upgrading a portal that had Employees, the AD directory or the File server built in
+
+The core after 1.20.0 no longer contains Employees (last built-in 1.0.0), the AD directory (1.0.0) or the File server (1.0.0).
+Their tables (`employees`, `emp_*`; `ad_*`; `drive_*` — servers, folder entries, sealed credentials, links with their custom
+addresses and visitor uploads, favourites, the activity log, the access journal), files (`uploads/employees` — photos and
+documents), settings (`settings.modules.employees|directory|drive`, the File server's access block, `legacy_folderaccess`),
+roles (`employees.*`, `ad.*`, `drive.*`), API token scopes and dashboard widgets stay untouched. Until the packages are installed
+they are listed under «Удалённые модули» (data kept): `/app/employees`, `/app/directory` and `/app/drive` are not there, public
+links `/d/<token>` answer 404 (shared links stop working for that window), the org structure shows heads and headcount from
+portal accounts only, AD sign-in no longer refreshes the stored domain password (the next sign-in after the install does), the
+Users page shows no stored domain password, and the online editor cannot open File server documents — install them right away.
+
+1. Build the packages with the release core: `make module ID=employees`, `make module ID=directory`, `make module ID=drive`
+   (signed) → `employees-1.1.0.zip`, `directory-1.1.0.zip`, `drive-1.1.0.zip`; `make modules-verify FILE=…` each. They need a
+   core with SDK 1.1.0 and the core files shared from this core on (document viewers, file kit, org UI, online editor;
+   `web.publicPaths`), i.e. the core they are built with or newer.
+2. Usual deploy routine of the core (database backup first). The image must still have python3 + smbprotocol + Pillow and
+   `dwg2dxf` (it does: Dockerfile).
+3. **Right after the deploy**, install the **File server** first (public links, the stored domain passwords), then
+   **Employees**, then the **AD directory** (it enhances both; any order works, but this one gives the directory its AD
+   connection and the employee cards at once). Each restart takes 5–10 s. Migrations `001_init` create nothing on this
+   database and record themselves (the File server's move of the former «Доступ к папкам» module finds nothing left to move:
+   `legacy_folderaccess.migratedAt` is set; a portal that still has `modules.folderaccess` or `fa_journal` gets them moved in
+   the same transaction, each step in a savepoint, and retried by the daily `drive:folderaccess` job when a step failed).
+4. They come back as they were (switched on where an administrator had turned them on). Check `/app/drive` (a folder, a file
+   preview, «Доступ»), a public link `/d/<token>` in a private window, `/app/employees` (a card with its «AD» section),
+   `/app/directory`, Settings → File server / Employees / AD directory, Users → a person → domain account.
+
+Rehearsed by `make package-check ID=employees|directory|drive MODE=all SOURCE_REF=main` (docs/package-testing.md) with the
+linked packages (main: all three built in; the File server's gateway is the kit's in-memory fake, no SMB server; the AD
+directory runs on its demo directory, no AD): the snapshot of the module's tables, settings, roles, dashboards and upload folder
+is identical before the deploy, with the core alone, after the install, after the linked packages are installed and after a
+restart.
 
 ## Limitations
 

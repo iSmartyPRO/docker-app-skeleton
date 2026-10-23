@@ -12,8 +12,8 @@ import { lazyPage } from '../lib/lazyPage';
  */
 // Folders of modules distributed as packages (their web/index.js is loaded by
 // platform/packages/loader.js when installed) are left out: masterplan, qr, assistant, remote, crm, contracts,
-// procurement, warehouse.
-import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js', '!./assistant/register.js', '!./remote/register.js', '!./crm/register.js', '!./contracts/register.js', '!./procurement/register.js', '!./warehouse/register.js'], { eager: true });
+// procurement, warehouse, employees, directory, drive.
+import.meta.glob(['./*/register.js', '!./masterplan/register.js', '!./qr/register.js', '!./assistant/register.js', '!./remote/register.js', '!./crm/register.js', '!./contracts/register.js', '!./procurement/register.js', '!./warehouse/register.js', '!./employees/register.js', '!./directory/register.js', '!./drive/register.js'], { eager: true });
 
 /**
  * Frontend side of the module platform. Each entry is an app reachable at
@@ -100,8 +100,6 @@ export const MODULE_REGISTRY = [
     App: lazyPage(() => import('./tasks/TasksApp')),
     Settings: lazy(() => import('./tasks/TasksSettings')),
   },
-
-
   {
     id: 'calendar',
     path: '/app/calendar',
@@ -110,36 +108,6 @@ export const MODULE_REGISTRY = [
     descKey: 'apps.calendar.desc',
     App: lazyPage(() => import('./calendar/CalendarApp')),
     Settings: lazy(() => import('./calendar/CalendarSettings')),
-  },
-  {
-    // Employees (docs/employees.md): listed for everyone; the module itself decides what each person sees.
-    id: 'employees',
-    path: '/app/employees',
-    icon: 'people',
-    labelKey: 'apps.employees.name',
-    descKey: 'apps.employees.desc',
-    App: lazyPage(() => import('./employees/EmployeesApp')),
-    Settings: lazy(() => import('./employees/EmployeesSettings')),
-  },
-  {
-    // AD directory (docs/directory.md): listed only for people with an ad.* permission.
-    id: 'directory',
-    path: '/app/directory',
-    icon: 'directory',
-    permission: ['ad.view', 'ad.manage', 'ad.passwords', 'ad.admin'],
-    labelKey: 'apps.directory.name',
-    descKey: 'apps.directory.desc',
-    App: lazyPage(() => import('./directory/DirectoryApp')),
-    Settings: lazy(() => import('./directory/DirectorySettings')),
-  },
-  {
-    id: 'drive',
-    path: '/app/drive',
-    icon: 'server',
-    labelKey: 'apps.drive.name',
-    descKey: 'apps.drive.desc',
-    App: lazyPage(() => import('./drive/DriveApp')),
-    Settings: lazy(() => import('./drive/DriveSettings')),
   },
 ];
 

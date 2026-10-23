@@ -19,15 +19,12 @@ import files from './files/index.js';
 import kb from './kb/index.js';
 import tasks from './tasks/index.js';
 import calendar from './calendar/index.js';
-import drive from './drive/index.js';
 import resources from './resources/index.js';
 import companies from './companies/index.js';
 import dashboard from './dashboard/index.js';
 import chat from './chat/index.js';
 import approvals from './approvals/index.js';
 import org from './org/index.js';
-import employees from './employees/index.js';
-import directory from './directory/index.js';
 
 /*
  * Module platform.
@@ -47,12 +44,12 @@ import directory from './directory/index.js';
 
 // Files first: the knowledge base keeps its files there.
 // Chat before tasks: task conversations are entity rooms of the chat module.
-// CRM, Contracts, Procurement, Warehouse, Masterplan, QR codes, the robot assistant and Remote access are module packages
-// (docs/module-packages.md): they load after every built-in module, in any order among themselves.
+// CRM, Contracts, Procurement, Warehouse, Masterplan, QR codes, the robot assistant, Remote access, Employees,
+// the AD directory and the File server are module packages (docs/module-packages.md): they load after every
+// built-in module, in any order among themselves.
 // Approvals first: modules register their document types against it at import time and its tables must exist for theirs.
-// Org structure before everything: approvals resolve «руководитель подразделения» through it, Employees point at its units.
-// Directory after Employees and Drive: it adds a section to employee cards and reuses the File server's AD credentials.
-export const MODULES = [org, approvals, files, kb, chat, tasks, calendar, drive, resources, companies, dashboard, employees, directory];
+// Org structure before everything: approvals resolve «руководитель подразделения» through it.
+export const MODULES = [org, approvals, files, kb, chat, tasks, calendar, resources, companies, dashboard];
 // Built-in modules are in the core registry from the start: one module's schema() or demo may look up another
 // (modules.loaded('files') from the knowledge base); register(ctx) runs later, in bootModules().
 for (const module of MODULES) registerInCore({ ...module, version: module.version || MODULE_MANIFEST[module.id]?.version });
