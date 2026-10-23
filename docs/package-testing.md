@@ -70,7 +70,10 @@ build when `src/frontend` changed since the last run.
 3. Uploads refused while dev mode is off: unsigned, tampered, untrusted.
 4. Install over HTTP: upload → card (`install`, signed) → install → restart → **installed, switched off** →
    switched on (with `enableAlso` of the kit file).
-5. The module's own demo data (`POST /api/admin/demo/<id>/seed`, after the `seed` list of the kit file), then the
+5. With linked `packages` in the kit file: the module first on a portal that never had them (their tables do not
+   exist) — its own demo data, every GET route as the superadministrator, the `alone` link probes, the demo data removed
+   again — then the linked packages installed and switched on.
+   The module's own demo data (`POST /api/admin/demo/<id>/seed`, after the `seed` list of the kit file), then the
    `seedRequests` of the kit file; a module with neither is a warning — the data checks then cover what its
    migrations create.
 6. Two API tokens: one with `account: read` only, one with `<id>: read`.
@@ -138,7 +141,7 @@ sha256; other folders with `uploadFolders` in the kit file).
    are recorded as the module's; a save of another module's settings and of the dashboard in this window keeps
    everything (snapshot = A); link probes «module absent»; core pages render.
 4. Install the signed package over HTTP → loaded, migrations recorded (001 runs on the existing tables) →
-   snapshot = A, the module's widget types available again, the API reference lists its routes, GET sweep as
+   snapshot = A; the linked `packages` installed / updated to this checkout's builds → snapshot = A again; the module's widget types available again, the API reference lists its routes, GET sweep as
    superadmin and as the user holding the kept role, link probes «package installed», all module pages in Playwright.
 5. Restart → snapshot = A.
 
@@ -177,13 +180,14 @@ Package check masterplan (all) — PASS: 73 passed, 0 failed, 2 warnings, 0 skip
 | Key | Meaning |
 |---|---|
 | `enableAlso` | built-in modules to switch on with it (the ones its links need) |
+| `packages` | other **module packages** its links need (`["masterplan", "contracts"]` for the CRM): built from this checkout and signed with the kit key (package phase); fresh: installed after the module was checked alone (below), then switched on; upgrade: when `SOURCE_REF` has them built in, installed after the module (their «removed» rows → `install`), when they are packages there too, built from `SOURCE_REF`, installed on the old core and updated to this checkout's build after the module (`update`); the old core's `MODULES_DIR` is kept for the new core |
 | `seed` | demo data order (`["crm", "masterplan"]`: CRM deals first, Masterplan links its units to them) |
 | `seedRequests` | records made through the module's own API after the demo data, as the superadministrator (both phases; a module without demo data then needs no warning): `[{ method (POST), path, body, save, upload: { name, type, base64 }, expectStatus }]` — `save` keeps the answer, `"@name.key.path"` in a later body or path uses a value of it (`"@folder.folder.id"`) |
 | `apiParams` / `pageParams` | `{ name: "SELECT …" | value }` for `:name` in API routes / page routes |
 | `openToUsers` | `["GET /api/app/<id>/meta", …]` readable by everyone signed in (reference lists); give reasons next to it |
 | `needsOtherScopes` | routes that also need another area's token scope |
 | `skipApi` | routes the sweep must not call (`*` one segment, `**` the rest) |
-| `links` | `[{ name, path, present: { status, nonEmpty }, absent: { maxStatus, empty } }]` — probes of the links with other modules (or of the module's public side), called with both installed and with this module missing; `oldCore` (same keys) replaces `present` on the `SOURCE_REF` core when the built-in module answered differently there (give the reason in `oldCoreWhy`). `websocket: true` sends a WebSocket upgrade instead (raw HTTP, no frames) and compares the status line: `{ status }` or `{ not }` (Remote's tunnels) |
+| `links` | `[{ name, path, present: { status, nonEmpty }, absent: { maxStatus, empty } }]` — probes of the links with other modules (or of the module's public side), called with both installed and with this module missing; `alone` (same keys) is checked in the fresh phase before the linked `packages` are installed (probes without it are not run then); `oldCore` (same keys) replaces `present` on the `SOURCE_REF` core when the built-in module answered differently there (give the reason in `oldCoreWhy`). `has` / `lacks` check that a value at a path of the answer is (not) there; `websocket: true` sends a WebSocket upgrade instead (raw HTTP, no frames) and compares the status line: `{ status }` or `{ not }` (Remote's tunnels) |
 | `pages`, `replacePages` | extra pages (`"/app/crm"` or `{ path, expectPrefix }`); `replacePages: true` uses only these |
 | `ignoreBrowser` | regular expressions of browser messages to ignore |
 | `uploadFolders` | folders under `uploads/` that hold the module's files (default `[<id>]`) |

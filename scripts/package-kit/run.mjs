@@ -97,7 +97,7 @@ function loadConfig(id) {
   const file = join(KIT, 'modules', `${id}.json`);
   const config = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
   return {
-    enableAlso: [], seed: null, apiParams: {}, needsOtherScopes: [], pageParams: {}, pages: [], links: [], openToUsers: [], skipApi: [], ignoreBrowser: [], waitMs: 4500,
+    enableAlso: [], packages: [], seed: null, apiParams: {}, needsOtherScopes: [], pageParams: {}, pages: [], links: [], openToUsers: [], skipApi: [], ignoreBrowser: [], waitMs: 4500,
     ...config,
     file: existsSync(file) ? file : null,
   };
@@ -161,16 +161,17 @@ function backendEnv(ctx, { port, database, modulesDir, uploadDir, frontendUrl, e
 }
 
 /** A database, folders and a supervised backend of `dir` (this checkout's src/backend by default). */
-async function newPortal(ctx, tag, { dir = BACKEND, database = null, frontendPort = null, uploadDir = null } = {}) {
+async function newPortal(ctx, tag, { dir = BACKEND, database = null, frontendPort = null, uploadDir = null, modulesDir = null } = {}) {
   const name = database || (await ctx.db.createDatabase(kitDatabaseName(ctx.args.id, tag)));
   const port = await freePort();
   const base = join(ctx.tmp, tag);
   for (const sub of ['modules', 'uploads']) mkdirSync(join(base, sub), { recursive: true });
   const fport = frontendPort || (await freePort());
   const uploads = uploadDir || join(base, 'uploads');
-  const env = backendEnv(ctx, { port, database: name, modulesDir: join(base, 'modules'), uploadDir: uploads, frontendUrl: `http://127.0.0.1:${fport}`, envFile: join(base, 'portal.env') });
+  const modules = modulesDir || join(base, 'modules');
+  const env = backendEnv(ctx, { port, database: name, modulesDir: modules, uploadDir: uploads, frontendUrl: `http://127.0.0.1:${fport}`, envFile: join(base, 'portal.env') });
   const backend = new Backend({ name: `backend-${tag}`, dir, env, port, logDir: ctx.logDir });
-  return { tag, database: name, port, frontendPort: fport, env, backend, modulesDir: join(base, 'modules'), uploadDir: uploads, dir: base };
+  return { tag, database: name, port, frontendPort: fport, env, backend, modulesDir: modules, uploadDir: uploads, dir: base };
 }
 
 // ── Portal operations over HTTP ─────────────────────────────────────────────
@@ -231,6 +232,26 @@ async function uninstall(portal, admin, id) {
   const body = expectOk(await admin.del(`/api/admin/modules/packages/${id}`), `remove ${id}`);
   await portal.backend.waitRestart(before);
   return body;
+}
+
+/*
+ * Linked module packages (kit file `packages`): other packages the module's links need (Masterplan for the
+ * CRM, the CRM for Contracts…), signed with the kit key. `files`: { id: zip }. Each is installed (or, when
+ * the portal runs an older version of it, updated) and switched on. → a note.
+ */
+async function installLinkedPackages(ctx, portal, admin, files, { expect = {} } = {}) {
+  const notes = [];
+  for (const [other, file] of Object.entries(files)) {
+    const { staged } = await installFile(ctx, portal, admin, file, expect[other] ? { expectAction: expect[other] } : {});
+    notes.push(`${other} ${staged.preview?.version || ''} ${staged.preview?.action || ''}`.replace(/\s+/g, ' ').trim());
+  }
+  const ids = Object.keys(files);
+  if (ids.length) await setModules(admin, Object.fromEntries(ids.map((other) => [other, { enabled: true }])), 'switch on the linked packages');
+  for (const other of ids) {
+    const { row } = await packageState(admin, other);
+    if (!row?.loaded || row.state !== 'enabled') throw new Error(`${other}: state ${row?.state}, loaded ${row?.loaded}, error ${row?.error || '—'}`);
+  }
+  return notes.join('; ');
 }
 
 async function seedDemo(ctx, admin, phase) {
@@ -412,11 +433,14 @@ async function browserStep(ctx, phase, name, ui, pages, { username = ADMIN.usern
 }
 
 /**
- * Cross-module link probes of the kit file: `present` (both modules on), `absent` (this module missing) or
- * `oldCore` (the SOURCE_REF core with the module built in; falls back to `present`).
+ * Cross-module link probes of the kit file: `present` (both modules on), `absent` (this module missing),
+ * `oldCore` (the SOURCE_REF core with the module built in; falls back to `present`) or `alone` (the module
+ * installed before the linked packages of the kit file `packages`; only probes that have it).
  */
 async function linkProbes(ctx, phase, admin, which, label, database) {
-  const probes = ctx.config.links || [];
+  // `alone`: the module installed, the linked packages never were — only probes that say what to expect then.
+  const probes = (ctx.config.links || []).filter((probe) => which !== 'alone' || probe.alone);
+  if (which === 'alone' && !probes.length) return;
   const params = await resolveParams(ctx, database, ctx.config.apiParams);
   if (!probes.length) {
     ctx.report.add(phase, `links (${label})`, 'skip', 'no link probes in the kit file');
@@ -440,6 +464,10 @@ async function linkProbes(ctx, phase, admin, which, label, database) {
       if (res.status >= 500 || res.timeout) return fail(`${probe.path} → ${res.timeout ? 'timeout' : res.status}`);
       if (expect.status && res.status !== expect.status) return fail(`${probe.path} → ${res.status}, expected ${expect.status} ${res.body?.code || ''}`);
       if (expect.maxStatus && res.status > expect.maxStatus) return fail(`${probe.path} → ${res.status}, expected ≤ ${expect.maxStatus}`);
+      // `has` / `lacks`: a value at that path of the answer is there (not null) / is not.
+      const at = (path) => path.split('.').reduce((v, k) => v?.[k], res.body);
+      if (expect.has && at(expect.has) == null) return fail(`${probe.path} → ${res.status} but ${expect.has} is missing`);
+      if (expect.lacks && at(expect.lacks) != null) return fail(`${probe.path} → ${expect.lacks} is still there without the module`);
       if (expect.nonEmpty) {
         const value = expect.nonEmpty.split('.').reduce((v, k) => v?.[k], res.body);
         if (!Array.isArray(value) || !value.length) return fail(`${probe.path} → ${res.status} but ${expect.nonEmpty} is empty`);
@@ -534,7 +562,8 @@ async function phasePackage(ctx) {
     const legacy = (manifest.tables || []).filter((p) => !p.startsWith(`${id}_`));
     for (const pattern of legacy) if (!(MODULE_TABLES[id] || []).some((prefix) => pattern.startsWith(prefix))) problems.push(`${pattern} is not a prefix the core declares for ${id} (tableOwnership.js)`);
     const migrations = files.filter((f) => f.name.startsWith('migrations/')).map((f) => f.name.slice(11));
-    const hasInit = migrations.some((name) => name.startsWith('001_')) || /\bmigrations\s*:\s*\[/.test(files.find((f) => f.name === manifest.server?.entry)?.data.toString('utf8') || '');
+    // A migrations/001_* file, or an inline migration whose id starts with 001_ (`migrations: [{ id: '001_init', … }]`, also through a constant).
+    const hasInit = migrations.some((name) => name.startsWith('001_')) || /\bid\s*:\s*["'`]001_/.test(files.find((f) => f.name === manifest.server?.entry)?.data.toString('utf8') || '');
     if (!hasInit) problems.push('no migration 001 (migrations/001_*.sql|js or an inline migrations list)');
     if (problems.length) return fail(problems.join('; '), problems);
     return `v${manifest.version}, core ${manifest.core}+, sdk ${manifest.sdk}, requires [${(manifest.requires || []).map((r) => r.id || r.integration).join(', ')}], enhances [${(manifest.enhances || []).map((e) => e.id || e.integration).join(', ')}], ${manifest.permissions.length} permissions, tables [${(manifest.tables || []).join(', ') || `${id}_*`}]${legacy.length ? ` (legacy ${legacy.join(', ')} declared)` : ''}, migrations [${migrations.join(', ') || 'inline'}]`;
@@ -548,6 +577,14 @@ async function phasePackage(ctx) {
     }
     return 'both REJECTED';
   });
+  // Linked module packages (kit file `packages`): this checkout's builds, signed with the kit key.
+  ctx.files.linked = {};
+  for (const other of ctx.config.packages || []) {
+    ctx.files.linked[other] = await ctx.report.step(P, `linked package ${other}: build signed (this checkout)`, async () => {
+      const file = await buildPackage({ root: ROOT, id: other, outDir: join(dist, 'linked'), keyFile: ctx.keys.keyFile, trustedFile: ctx.keys.trustedFile, env, log: logFile(ctx, `build-linked-${other}`) });
+      return { value: file, note: file.split('/').pop() };
+    });
+  }
 }
 
 // ── Phase: fresh ────────────────────────────────────────────────────────────
@@ -595,18 +632,39 @@ async function phaseFresh(ctx) {
     if (after.state !== 'enabled' || !after.loaded) return fail(`state ${after.state}, loaded ${after.loaded}`);
     return `v${after.version} ${after.state}, signed by ${after.signedBy}${ctx.config.enableAlso.length ? `; on: ${ctx.config.enableAlso.join(', ')}` : ''}`;
   });
+  const routes = await ctx.report.step(P, 'routes the package mounts (its router stack)', async () => {
+    const found = await introspect(ctx, portal, ctx.manifest.version);
+    ctx.report.data.facts.routes = found;
+    const gets = found.routes.filter((r) => r.method === 'GET').length;
+    return { value: found, note: `${found.routes.length} routes (${gets} GET), ${found.public.length} public${found.skipped.length ? `; unreadable: ${found.skipped.join(', ')}` : ''}`, status: found.routes.length ? 'pass' : 'warn' };
+  });
+  const linked = Object.keys(ctx.files.linked || {});
+  if (linked.length) {
+    // The module on a portal that never had the packages it links to (their tables do not exist): its own
+    // demo data, every GET route as the superadministrator, the demo data removed again.
+    await ctx.report.step(P, `before the linked packages (${linked.join(', ')}) are installed: own demo data`, async () => {
+      const overview = await admin.get('/api/admin/demo');
+      if (!(overview.body?.demo?.modules || []).some((item) => item.module === id)) return { status: 'skip', note: 'the module has no demo data' };
+      const body = expectOk(await admin.post(`/api/admin/demo/${id}/seed`, {}, { timeoutMs: 600_000 }), 'demo data alone');
+      ctx.aloneDemo = true;
+      return Object.entries(body.result?.counts || {}).map(([k, v]) => `${k} ${v}`).join(', ') || 'seeded';
+    }, { critical: false });
+    await sweep(ctx, P, portal, [{ who: 'superadmin', client: admin }], routes, ` (linked packages not installed)`);
+    await linkProbes(ctx, P, admin, 'alone', 'linked packages not installed', portal.database);
+    if (ctx.aloneDemo) {
+      await ctx.report.step(P, 'own demo data removed again', async () => {
+        expectOk(await admin.post(`/api/admin/demo/${id}/purge`, {}, { timeoutMs: 600_000 }), 'demo purge');
+        return 'removed';
+      }, { critical: false });
+    }
+    await ctx.report.step(P, `linked packages installed and switched on: ${linked.join(', ')}`, async () => installLinkedPackages(ctx, portal, admin, ctx.files.linked));
+  }
   await ctx.report.step(P, 'demo data (the module\'s own seeding)', () => seedDemo(ctx, admin, P), { critical: false });
   const tokens = await ctx.report.step(P, 'API tokens: one without the module\'s scope, one with read', async () => {
     const none = expectOk(await admin.post('/api/admin/api/tokens', { name: 'kit-no-scope', scopes: { account: 'read' } }), 'token without scope');
     const scoped = expectOk(await admin.post('/api/admin/api/tokens', { name: 'kit-scoped', scopes: { account: 'read', [id]: 'read' } }), 'token with scope');
     if (scoped.token?.scopes && scoped.token.scopes[id] !== 'read') return fail(`the scope ${id} was not kept: ${JSON.stringify(scoped.token.scopes)}`);
     return { value: { none: new Client(portal.backend.base, { token: none.secret, name: 'token' }), scoped: new Client(portal.backend.base, { token: scoped.secret, name: 'scoped-token' }) }, note: 'created' };
-  });
-  const routes = await ctx.report.step(P, 'routes the package mounts (its router stack)', async () => {
-    const found = await introspect(ctx, portal, ctx.manifest.version);
-    ctx.report.data.facts.routes = found;
-    const gets = found.routes.filter((r) => r.method === 'GET').length;
-    return { value: found, note: `${found.routes.length} routes (${gets} GET), ${found.public.length} public${found.skipped.length ? `; unreadable: ${found.skipped.join(', ')}` : ''}`, status: found.routes.length ? 'pass' : 'warn' };
   });
   await referenceStep(ctx, P, admin, routes);
   await sweep(ctx, P, portal, [
@@ -626,12 +684,12 @@ async function phaseFresh(ctx) {
     await browserStep(ctx, P, 'module page as the plain user (no crash, no access)', ui, [{ url: `/app/${id}`, expectPrefix: '/' }], { username: USER.username, password: USER.password });
   }
   // The module alone: what it links to switched off (each enhances link degrades).
-  const others = [...new Set([...(ctx.manifest.enhances || []).map((e) => e.id).filter(Boolean), ...ctx.config.enableAlso])];
+  const others = [...new Set([...(ctx.manifest.enhances || []).map((e) => e.id).filter(Boolean), ...ctx.config.enableAlso, ...linked])];
   if (others.length) {
     const wasOn = await ctx.db.with(portal.database, async (c) => {
       const row = (await c.query(`SELECT value FROM app_settings WHERE key = 'modules'`)).rows[0];
       const stored = row ? JSON.parse(row.value) : {};
-      return others.filter((other) => stored[other]?.enabled === true || ctx.config.enableAlso.includes(other));
+      return others.filter((other) => stored[other]?.enabled === true || ctx.config.enableAlso.includes(other) || linked.includes(other));
     });
     const off = await ctx.report.step(P, `switch off what it links to: ${others.join(', ')}`, async () => {
       const res = await admin.put('/api/admin/settings', { modules: Object.fromEntries(others.map((other) => [other, { enabled: false }])) });
@@ -805,6 +863,18 @@ async function phaseUpgrade(ctx) {
     const version = readFileSync(join(dir, 'VERSION'), 'utf8').trim();
     return { value: { dir, version }, note: `core ${version} at ${execFileSync('git', ['rev-parse', '--short', sourceRef], { cwd: ROOT, encoding: 'utf8' }).trim()}` };
   });
+  // Linked packages (kit file `packages`): built into the old core, or packages there too — then built from
+  // that ref (signed with the kit key) and installed on the old core, as a portal of that version runs them.
+  const linked = ctx.config.packages || [];
+  const oldIndex = readFileSync(join(old.dir, 'src/backend/modules/index.js'), 'utf8');
+  const oldBuiltIn = Object.fromEntries(linked.map((other) => [other, new RegExp(`from '\\./${other}/index\\.js'`).test(oldIndex)]));
+  const oldPackages = {};
+  for (const other of linked.filter((item) => !oldBuiltIn[item])) {
+    oldPackages[other] = await ctx.report.step(P, `linked package ${other} of ${sourceRef}: build signed there`, async () => {
+      const file = await buildPackage({ root: old.dir, id: other, outDir: join(ctx.runDir, 'dist', 'linked-old'), keyFile: ctx.keys.keyFile, trustedFile: ctx.keys.trustedFile, env: baseEnv(), log: logFile(ctx, `build-old-${other}`) });
+      return { value: file, note: file.split('/').pop() };
+    });
+  }
   const before = await newPortal(ctx, 'upgrade-old', { dir: join(old.dir, 'src/backend') });
   ctx.portals.push(before);
   let admin;
@@ -813,8 +883,12 @@ async function phaseUpgrade(ctx) {
     admin = await setupPortal(before);
     return `boot ${before.backend.bootIdNow}`;
   });
-  await ctx.report.step(P, `enable ${id}${ctx.config.enableAlso.length ? ` + ${ctx.config.enableAlso.join(', ')}` : ''}, demo data`, async () => {
-    await setModules(admin, { [id]: { enabled: true }, ...Object.fromEntries(ctx.config.enableAlso.map((other) => [other, { enabled: true }])) }, 'enable on the old core');
+  if (Object.keys(oldPackages).length) {
+    await ctx.report.step(P, `linked packages on the old core: ${Object.keys(oldPackages).join(', ')}`, async () => installLinkedPackages(ctx, before, admin, oldPackages));
+  }
+  const switchOn = [...ctx.config.enableAlso, ...linked];
+  await ctx.report.step(P, `enable ${id}${switchOn.length ? ` + ${switchOn.join(', ')}` : ''}, demo data`, async () => {
+    await setModules(admin, { [id]: { enabled: true }, ...Object.fromEntries(switchOn.map((other) => [other, { enabled: true }])) }, 'enable on the old core');
     return seedDemo(ctx, admin, P);
   });
   await ctx.report.step(P, 'a role with the module\'s permissions, a user holding it, dashboards with every widget', async () => {
@@ -843,8 +917,9 @@ async function phaseUpgrade(ctx) {
   });
   removeWorktrees(ctx);
   // This core, the module absent.
-  // The same data: database and uploads folder (the module's files, e.g. uploads/masterplan); a new, empty MODULES_DIR.
-  const after = await newPortal(ctx, 'upgrade-new', { database: before.database, uploadDir: before.uploadDir });
+  // The same data: database, uploads folder (the module's files, e.g. uploads/masterplan) and MODULES_DIR (the
+  // packages the old core ran — empty unless the kit file links to packages that were packages there already).
+  const after = await newPortal(ctx, 'upgrade-new', { database: before.database, uploadDir: before.uploadDir, modulesDir: before.modulesDir });
   ctx.portals.push(after);
   await ctx.report.step(P, 'this core without the module on the same database', async () => {
     await after.backend.start();
@@ -881,6 +956,14 @@ async function phaseUpgrade(ctx) {
     return `${row.state} v${row.version}; migrations recorded [${applied.join(', ')}] (applied now: ${(installed.applied || []).join(', ') || 'none'}); card ${staged.preview?.action}`;
   });
   await ctx.report.step(P, 'snapshot after install = before the upgrade', async () => compare(snapA, await snap(ctx, after)));
+  if (linked.length) {
+    // The rest of the upgrade: the linked packages of this checkout — installed where they were built in
+    // (a «removed» row: data kept), updated where the old core ran them as packages.
+    await ctx.report.step(P, `linked packages of this checkout: ${linked.map((other) => `${other} ${oldBuiltIn[other] ? 'install' : 'update'}`).join(', ')}`, async () =>
+      installLinkedPackages(ctx, after, admin, ctx.files.linked, { expect: Object.fromEntries(linked.map((other) => [other, oldBuiltIn[other] ? 'install' : 'update'])) })
+    );
+    await ctx.report.step(P, 'snapshot after the linked packages = before the upgrade', async () => compare(snapA, await snap(ctx, after)));
+  }
   await ctx.report.step(P, 'module widgets available again', async () => {
     const dash = expectOk(await admin.get('/api/app/dashboard'), 'dashboard');
     const missing = (ctx.moduleWidgets || []).filter((type) => !(dash.available || []).includes(type));
