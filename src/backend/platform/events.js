@@ -22,6 +22,8 @@
  * Events used today (docs/extending.md keeps the list):
  *   contract.signed, contract.deposit_received, contract.paid  (Contracts → Masterplan)
  *   crm.deal.stage                                              (CRM → Masterplan)
+ *   module.installed, module.updated, module.removed,          (package installer → anyone caching
+ *   module.data_removed                                          another module's tables; { id })
  */
 
 const handlers = new Map();

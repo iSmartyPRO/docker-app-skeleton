@@ -1,4 +1,4 @@
-import { t } from '../i18n/translations';
+import { activeLocale, t } from '../i18n/translations';
 
 /** Human-readable message from an axios error (API `{ error }` first). */
 export function errorMessage(err, fallback = 'Request failed') {
@@ -13,10 +13,17 @@ export function errorMessage(err, fallback = 'Request failed') {
   // API error codes shown in the UI language instead of the server text (locales/<lang>/errors.js).
   if (data?.code && /^[A-Z0-9_]+$/.test(data.code)) {
     const key = `errors.codes.${data.code}`;
-    const known = t(key);
+    const known = t(key, codeParams(data.info));
     if (known !== key) return known;
   }
   return data?.error || err?.message || fallback;
+}
+
+/** Values a code's text may name: `{module}` — a module's name ({ ru, en, … }) in the UI language, else its id. */
+function codeParams(info) {
+  if (!info || typeof info !== 'object') return {};
+  const name = info.name && typeof info.name === 'object' ? info.name[activeLocale()] || info.name.en || info.name.ru : info.name;
+  return { module: name || info.module || '' };
 }
 
 /*

@@ -208,6 +208,7 @@ async function inRepoSource(id) {
       public: config.settings?.public || own.publicSettings || catalog.publicSettings || [],
     },
     tables: config.tables || [],
+    ...(Array.isArray(config.functions) && config.functions.length ? { functions: config.functions } : {}),
   };
   const webEntry = existsSync(webDir) ? firstFile(webDir, ['index.jsx', 'index.js']) : null;
   const generated = webEntry ? null : { app: registry?.app ? resolveFront(registry.app) : null, settings: registry?.settings ? resolveFront(registry.settings) : null, register: firstFile(webDir, ['register.jsx', 'register.js']) };

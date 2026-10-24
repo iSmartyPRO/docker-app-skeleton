@@ -5,9 +5,9 @@ import { httpError } from '../shared/acl.js';
 import { FORWARD_MOVES, HELD, STATUSES, TIMED } from './constants.js';
 import { crmScopeAllows, forbidden, modulesEnabled, notFound, requireCrmScope, requireNode, usersWithRole, visibleProjectIds } from './access.js';
 import { actCaps, applyPriceChange, checkExtend, checkTransition, conflictMessage, dealLinkAllowed, has, priceCutAllowed, readCaps } from './rules.js';
-import { loadNodeRow, visibleNode, withCrmJoin } from './shapes.js';
+import { dealJoin, loadNodeRow, visibleNode } from './shapes.js';
 import { unitsChanged } from './realtime.js';
-import { afterUnitStatus, dealForLink, dealLineAfterExpiry } from './crmLink.js';
+import { afterUnitStatus, crmInstalled, dealForLink, dealLineAfterExpiry } from './crmLink.js';
 import { mpMessage } from './messages.js';
 import { dayString, idList, intOr, iso, logEvent, money, parseDay, parseNumber, text, userName } from './util.js';
 
@@ -213,11 +213,14 @@ async function applyStatus(ctx, unitId, input = {}) {
     );
     const after = updated[0];
     const managerName = after.manager_id ? await userName(after.manager_id) : row.manager_name;
+    // The deal's history cannot hear of it now (the CRM not installed): caught up once it is (crmLink.js).
+    const crmPending = Boolean(after.deal_id || row.deal_id) && !crmInstalled();
     await logEvent(client, {
       projectId: node.project_id,
       nodeId: node.id,
       kind: 'status',
       data: {
+        ...(crmPending ? { crmPending: true } : {}),
         from: row.status,
         to,
         transition: check.kind,
@@ -320,7 +323,7 @@ export async function listBookings(ctx, input = {}) {
     where.push(`b.kind = $${params.length}`);
   }
   const { rows } = await query(
-    await withCrmJoin(`SELECT b.*, n.code, n.name, n.path, n.project_id AS node_project, p.name AS project_name,
+    `SELECT b.*, n.code, n.name, n.path, n.project_id AS node_project, p.name AS project_name,
             COALESCE(m.display_name, m.username) AS manager_name, u.status AS unit_status, u.version, u.price AS unit_price, u.currency AS unit_currency,
             d.title AS deal_title
      FROM mp_bookings b
@@ -328,8 +331,8 @@ export async function listBookings(ctx, input = {}) {
      JOIN mp_projects p ON p.id = b.project_id
      JOIN mp_units u ON u.node_id = b.unit_id
      LEFT JOIN users m ON m.id = b.manager_id
-     LEFT JOIN crm_deals d ON d.id = b.deal_id
-     WHERE ${where.join(' AND ')} ORDER BY b.ends_at LIMIT 1000`),
+     ${await dealJoin('b.deal_id')}
+     WHERE ${where.join(' AND ')} ORDER BY b.ends_at LIMIT 1000`,
     params
   );
   const out = [];
@@ -446,7 +449,13 @@ export async function expireBooking(bookingId, now = new Date(), cache = null) {
       projectId: booking.project_id,
       nodeId: unit.node_id,
       kind: 'expired',
-      data: { from: unit.status, to: 'free', manager: booking.manager_id ? { id: booking.manager_id, name: await userName(booking.manager_id) } : null, deal: unit.deal_id ? { id: unit.deal_id } : null },
+      data: {
+        ...(unit.deal_id && !crmInstalled() ? { crmPending: true } : {}),
+        from: unit.status,
+        to: 'free',
+        manager: booking.manager_id ? { id: booking.manager_id, name: await userName(booking.manager_id) } : null,
+        deal: unit.deal_id ? { id: unit.deal_id } : null,
+      },
     });
     return { booking, unit };
   });

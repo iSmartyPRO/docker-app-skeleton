@@ -9,7 +9,7 @@
     "tr": "Satış hattı aşamalarında fırsatlar: kanban, liste, aktiviteler ve takvim",
     "zh": "按销售漏斗阶段推进交易：看板、列表、活动和日历"
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "category": "sales",
   "requires": [],
   "enhances": [
@@ -28,6 +28,20 @@
     "tour": ["crm"]
   },
   "changelog": [
+    {
+      "version": "1.1.1",
+      "date": "2026-10-23",
+      "changes": {
+        "en": [
+          "Migration 001 adds its stock lists to the settings without overwriting a settings save made at the same time.",
+          "Public API: dealHistoryMarks() for modules catching up with the deals' history."
+        ],
+        "ru": [
+          "Миграция 001 добавляет стандартные списки в настройки, не затирая сохранение настроек в тот же момент.",
+          "Публичный API: dealHistoryMarks() для модулей, догоняющих историю сделок."
+        ]
+      }
+    },
     {
       "version": "1.1.0",
       "date": "2026-10-23",

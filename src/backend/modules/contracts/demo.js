@@ -211,7 +211,8 @@ registerDemo({
       await dropProcesses(ctx, TYPE_KEY, ids);
       await dropEntityChats(ctx.query, 'contract', ids);
       await dropNotifications(ctx.query, ids.map((id) => `/app/contracts/${id}`));
-      await ctx.query(`UPDATE proc_requests SET contract_id = NULL, contract_label = NULL WHERE contract_id = ANY($1::int[])`, [ids]).catch(() => {});
+      // Purchase requests forget them through Procurement's API (nothing to do while it is not installed).
+      await modules.loaded('procurement')?.api?.forgetContracts?.(ids).catch(() => {});
       await ctx.query(`DELETE FROM ctr_contracts WHERE id = ANY($1::int[])`, [ids]);
       await removeDemoBlobs(files.map((row) => row.key));
     }

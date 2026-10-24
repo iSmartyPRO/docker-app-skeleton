@@ -41,6 +41,7 @@ Anything else at the top level (except `README.md`, `CHANGELOG.md`, `LICENSE`) i
 | `description`, `changelog`, `docs` | the card before install, the Modules page |
 | `settings` | `{ defaultEnabled (false), defaults {…}, public [keys] }` — the module's `settings.modules.<id>`; sanitized by the server export `sanitizeSettings(current, incoming)`, else by type against `defaults` |
 | `tables` | table names or prefixes (`"hello_%"`) owned by the module, in addition to the tables its migrations create (backups, rollback restore, «Удалить данные»). Each must start with `<id>_` — or a legacy prefix the core declares for that module (`platform/packages/tableOwnership.js`: masterplan → `mp_`) — and may not match a core table or overlap another module's tables; the same rules filter the tables at run time |
+| `functions` | names of functions the module creates (trigger functions: Warehouse `wh_moves_immutable`). «Удалить данные» drops them after its tables (`DROP FUNCTION` without CASCADE, same transaction), together with every plain function of the schema under the module's own prefixes (`<id>_`, its legacy prefix), which need not be listed; same ownership rules as `tables`; refused (`FOREIGN_KEYS`) while a trigger of another table runs one. The answer of `POST …/purge` lists them in `functions` |
 | `server` `{ entry }`, `web` `{ entry, css, icon, permission, page, publicPaths }` | entry points (written by the build). `publicPaths` (module.json `"web": { "publicPaths": ["/d/"] }`): browser path prefixes of the package's public pages (`/x/`, not a portal path such as `/app/`, `/api/`): an anonymous visitor of such a page gets the package in the shell list (below) |
 | `locales` `{ <lang>: [ns…] }`, `builtAt`, `sdk` | written by the build |
 
@@ -429,7 +430,9 @@ is kept (they count only for downgrades).
 - **Dependencies**: an update and «Удалить данные» are refused (`FOREIGN_KEYS`) when objects outside the module
   depend on its tables — foreign keys of other tables, views / materialized views (`pg_depend` through their rewrite
   rules), constraint triggers of other tables and SQL-standard (`BEGIN ATOMIC`) functions. A plpgsql function body
-  is not tracked by PostgreSQL and cannot be found.
+  is not tracked by PostgreSQL and cannot be found. «Удалить данные» also drops the module's functions (manifest `functions`), so a
+  restore of its backup by hand needs the package installed first (its migration makes them again: a table's
+  trigger in the dump refers to its function).
 - **Remove**: refused while modules require it; the code folder and pointers are deleted, tables and
   settings stay, the row becomes `removed`. Built-in modules can only be switched off.
 - **Delete data** (removed modules only, confirm by id): a fresh backup, then `DROP TABLE` of the module's
@@ -484,6 +487,38 @@ released (`scripts/release.mjs --next-version`), so a refusal leaves no local re
 (`MODULES_CHECK=skip` deploys anyway). After the release it backs up the database and `data/modules`
 (`make backup-modules`). On the portal the same check runs at every boot: such packages are failed with the §5 message, logged at
 start-up and listed on Settings → Modules («These modules need an update for core …»).
+
+### Rolling the core back
+
+A package updated for the new core (`core` / `sdk` in its manifest newer than the old core provides) does not load on
+the old one: at boot it is failed with `CORE_TOO_OLD` / `SDK_TOO_OLD` and the start-up warning «Modules that need an
+update for core …» names, for each, its previous version when that one fits («its previous version X fits this core:
+point <id>/current to it»). Before bringing the old image back (operations.md «Failed deploy»):
+
+1. `make check-core-upgrade CORE=<old>` — the SDK of the old core is read from its tag `v<old>` (`SDK=x.y.z` when the
+   tag is not in this checkout; a core without the package platform, before 1.20.0, reports every package as
+   `NO_PLATFORM`). `TOO NEW` lines are the packages that would not load; under each, `previous X fits` names the
+   version to go back to (the folder `data/modules/<id>/<X>` kept by the last update). Exit 1 while any is too new.
+2. Stop the portal (`make down`), then for each such package swap its pointers on the host and tell the database which
+   version is installed now — the boot checks the files against the listing recorded at install, so without the
+   `UPDATE` the old version is refused as «the files on disk differ from the package that was installed»:
+
+   ```sh
+   cd data/modules/<id> && new=$(cat current) && old=$(cat previous) \
+     && printf '%s\n' "$old" > current && printf '%s\n' "$new" > previous
+   make sql SQL="UPDATE installed_modules SET version = '<old>', previous_version = '<new>', listing_sha256 = NULL,
+     pending_check = FALSE, error = NULL WHERE id = '<id>'"
+   ```
+
+   The signature of the old folder is still verified at boot (and its listing recorded again); keeping `<new>` as
+   `previous` keeps its folder, so going forward later is the same swap (or install the file again).
+3. Start the old image. The older code runs on the newer tables: migrations the new version applied stay
+   (`SCHEMA_NEWER` is only logged at boot). When they changed tables the old version uses, restore the backup taken
+   before that update (`data/modules/.backups/<id>/<id>-<old>-…-update.*`, operations.md «Module packages»), with the
+   portal stopped, before starting it.
+4. `make check-core-upgrade CORE=<old>` again prints `ok` for every package; after the start Settings → Modules shows
+   them active with the old versions. A package whose previous version does not fit either (or has none) stays failed on
+   the old core: keep the newer core, or install a package file made for the old one.
 
 ## Store preparation (stage 6)
 
@@ -704,7 +739,7 @@ key) stay untouched. Until the packages are installed they are listed under «У
 that window), the robot is not drawn, and no remote session can start (both WebSocket tunnels belong to the package).
 
 1. Build the packages with the release core: `make module ID=qr`, `make module ID=assistant`, `make module ID=remote`
-   (signed) → `qr-1.1.0.zip`, `assistant-1.1.0.zip`, `remote-1.4.0.zip`; `make modules-verify FILE=…` each. They need a
+   (signed) → `qr-1.1.0.zip`, `assistant-1.1.0.zip`, `remote-1.4.1.zip`; `make modules-verify FILE=…` each. They need a
    core with SDK 1.1.0 (`seal` / `unseal`), i.e. the core they are built with or newer.
 2. Usual deploy routine of the core (database backup first).
 3. **Right after the deploy**, install all three (Settings → Modules → «Установить из файла», or «Пакеты на сервере»
@@ -735,16 +770,29 @@ the CRM's stock lists, the `crm_seeded` flag), roles, the approval routes of `co
 API token scopes stay untouched. Until the packages are installed they are listed under «Удалённые модули» (data kept):
 `/app/crm` and `/app/contracts` are not there, Masterplan answers deal links with `CRM_DISABLED` (units keep their deal ids,
 the deal titles still show), the Counterparties timeline hides deal lines, Procurement keeps contract labels, contract
-reminders and payment jobs do not run and the contracts of an open approval wait (a decision on one fails until Contracts is
-back — install it right away).
+reminders and payment jobs do not run and the contracts of an open approval wait: approvals refuse every action on a process
+whose document type nobody registers — decide, answer, withdraw, restart and the inbox's bulk approve answer
+**409 `MODULE_ABSENT`** naming the module (from its last installed manifest), the process and the document stay as they were,
+the process is not in «Ждёт меня», gets no reminders or escalations, and API tokens neither see nor reach it (participants still see its history). Install
+Contracts right away; its approvals then go on where they stopped.
 
-1. Build the packages with the release core: `make module ID=crm`, `make module ID=contracts`, `make module ID=masterplan`
-   (signed) → `crm-1.1.0.zip`, `contracts-1.1.0.zip`, `masterplan-1.2.0.zip`; `make modules-verify FILE=…` each.
+1. Build the packages with the release core: `make module ID=masterplan`, `make module ID=crm`, `make module ID=contracts`
+   (signed) → `masterplan-1.2.1.zip`, `crm-1.1.1.zip`, `contracts-1.1.1.zip`; `make modules-verify FILE=…` each.
 2. Usual deploy routine of the core (database backup first).
-3. **Right after the deploy**, install: **CRM** first, then **Contracts** (it requires only Approvals — any order works,
-   but the CRM first gives contracts their deal links at once), then **update Masterplan** to 1.2.0 (its migration 002 drops
-   the foreign keys into `crm_deals`; while Masterplan 1.1.0 runs, the CRM package cannot be updated or its data deleted —
-   `FOREIGN_KEYS`). Each restart takes 5–10 s. Migrations `001_init` create nothing on this database and record themselves.
+3. **Right after the deploy**, in this order (each restart takes 5–10 s; migrations `001_init` create nothing on this
+   database and record themselves):
+   1. **Update Masterplan to 1.2.1 first** — it is safe without the CRM: its migration 002 drops the foreign keys of
+      `mp_units` / `mp_bookings` into `crm_deals` (units keep the deal ids), and its SELECTs join `crm_deals` only while
+      the table exists. Doing it first matters twice: while Masterplan 1.1.0 runs, those keys make the platform refuse
+      every later update of the CRM package and «Удалить данные» of it (`FOREIGN_KEYS`); and 1.2.1 is the version that,
+      once the CRM is installed, writes into each deal's history the unit status changes made while the CRM was absent
+      (and sets the deal amount again with «Сумма сделки = цена юнита») — once per CRM install, about 20 s after the
+      start (`masterplan_crm_resync` in `app_settings`). Masterplan 1.1.0 would never catch up.
+   2. **CRM** — its deals, pipelines and history come back; Masterplan's deal links and titles work again.
+   3. **Contracts** (requires only Approvals) — after the CRM so contracts get their deal links at once; its open
+      approvals go on (they answered `MODULE_ABSENT` until now).
+   4. Then **Procurement** and **Warehouse** (next section) — Procurement after Contracts so a request's contract link and
+      a contract's «Заявки на закупку» work at once, Warehouse last (it only enhances Procurement).
 4. They come back as they were (switched on where they were on — the CRM by default, Contracts where an administrator turned
    it on). Check `/app/crm` (a deal with linked units, its history), `/app/contracts` (a contract with a deal and an object,
    «Платежи», its approval), the «Поступления по договорам» widget, Settings → CRM / Contracts.
@@ -752,7 +800,9 @@ back — install it right away).
 Rehearsed by `make package-check ID=crm|contracts MODE=all SOURCE_REF=main` (docs/package-testing.md) with Masterplan as a
 linked package (main: Masterplan 1.1.0 package, CRM and Contracts built in): the snapshot of the module's tables, settings,
 roles and dashboards is identical before the deploy, with the core alone, after the install, after Masterplan's update and
-after a restart.
+after a restart. (The kit installs the module before updating its linked packages; Masterplan 1.2.1 running without the CRM
+package — the first step above — is what `make package-check ID=masterplan` checks with the CRM absent, and its catch-up of
+the deal history is `test/masterplan-crm-resync.db.test.js`.)
 
 ## Upgrading a portal that had Procurement or Warehouse built in
 
@@ -764,15 +814,17 @@ payment orders, waybills; `uploads/warehouse` — item photos, document attachme
 under «Удалённые модули» (data kept): `/app/procurement` and `/app/warehouse` (with the storekeeper's mobile mode
 `/app/warehouse/m`) are not there, Contracts shows «Закупки выключены» on its card, pay-by / deliver-by reminders, the daily
 low-stock digest and inventory reminders do not run, «Ждёт меня» has no payment, transfer, requisition or hand-over items, and
-a decision on an open approval of a request or a warehouse document fails until its module is back — install them right away.
+an open approval of a request or a warehouse document waits: every action on it answers **409 `MODULE_ABSENT`** (as for
+Contracts above) until its module is back — install them right away.
 
 1. Build the packages with the release core: `make module ID=procurement`, `make module ID=warehouse` (signed) →
-   `procurement-1.1.0.zip`, `warehouse-1.1.0.zip`; `make modules-verify FILE=…` each. The web part of both imports core
+   `procurement-1.1.1.zip`, `warehouse-1.1.1.zip`; `make modules-verify FILE=…` each. The web part of both imports core
    files shared with packages from this core on (`lib/xlsx`, `components/legalEntities/LegalEntitiesEditor`), so they need
    the core they are built with or newer.
 2. Usual deploy routine of the core (database backup first).
-3. **Right after the deploy**, install **Procurement**, then **Warehouse** (Warehouse only enhances Procurement — any order
-   works, but Procurement first gives the receipt form its purchase requests at once). Each restart takes 5–10 s. Migrations
+3. **Right after the deploy** — after Masterplan's update, the CRM and Contracts (section above) — install **Procurement**,
+   then **Warehouse** (Warehouse only enhances Procurement — any order works, but Procurement first gives the receipt form
+   its purchase requests at once). Each restart takes 5–10 s. Migrations
    `001_init` create nothing on this database and record themselves (Warehouse's journal trigger is kept as it is).
 4. They come back as they were (switched on where an administrator had turned them on). Check `/app/procurement` (a request
    with its invoice, payments and approval; the payments registry), a contract's «Заявки на закупку», `/app/warehouse`

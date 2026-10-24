@@ -10,6 +10,7 @@ export default {
     other: 'Bu iletişim bilgisi',
   },
   codes: {
+    MODULE_ABSENT: 'Bu belgenin ait olduğu «{module}» modülü kurulu değil. Bir yönetici modülü kurduğunda onay süreci devam edebilir.',
     PASSBOLT_OFF: 'Passbolt etkin değil.',
     PASSBOLT_NOT_SET: 'Önce Passbolt\'unuzu bağlayın (Parola yöneticisi).',
     PASSBOLT_KEY: 'Passbolt anahtarı veya parolası geçersiz.',

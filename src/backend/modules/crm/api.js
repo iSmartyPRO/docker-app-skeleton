@@ -52,6 +52,22 @@ export async function addDealEvent(dealId, { kind, body = null, data = {}, autho
   if (touch) await query(`UPDATE crm_deals SET updated_at = NOW() WHERE id = $1`, [dealId]);
 }
 
+/**
+ * For another module catching up with the CRM after it was absent (Masterplan: unit changes made while the
+ * CRM was not installed): of `dealIds`, the deals that exist, each with the time of its last history line
+ * of `kind` (null when it has none). Map(dealId → Date | null).
+ */
+export async function dealHistoryMarks(dealIds, kind) {
+  const ids = [...new Set((dealIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  if (!ids.length) return new Map();
+  const { rows } = await query(
+    `SELECT d.id, (SELECT MAX(e.created_at) FROM crm_events e WHERE e.deal_id = d.id AND e.kind = $2) AS last_at
+     FROM crm_deals d WHERE d.id = ANY($1::int[])`,
+    [ids, String(kind || '')]
+  );
+  return new Map(rows.map((row) => [Number(row.id), row.last_at ? new Date(row.last_at) : null]));
+}
+
 /** Sets a deal's amount and currency when they differ (with a 'field' line in its history). True when changed. */
 export async function setDealAmount(dealId, { amount, currency, actorId = null }) {
   const { rows } = await query(`SELECT amount, currency FROM crm_deals WHERE id = $1`, [dealId]);

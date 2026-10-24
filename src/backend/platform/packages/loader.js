@@ -476,7 +476,7 @@ async function doLoad(builtinIds, manifestEntries) {
   guardBoot();
   for (const pkg of packages) await bootOne(pkg, results);
   const behind = results.filter((item) => item.problem);
-  if (behind.length) console.warn(`Modules that need an update for core ${APP_VERSION} (SDK ${SDK_VERSION}): ${behind.map((item) => `${item.id} ${item.version} — ${item.error}`).join('; ')}`);
+  if (behind.length) console.warn(`Modules that need an update for core ${APP_VERSION} (SDK ${SDK_VERSION}): ${behind.map((item) => `${item.id} ${item.version} — ${item.error}${previousFits(item.id)}`).join('; ')}`);
   return results;
 }
 
@@ -512,6 +512,22 @@ function guardBoot() {
 function unguardBoot() {
   for (const [signal, fn] of bootGuards || []) process.off(signal, fn);
   bootGuards = null;
+}
+
+/**
+ * After a core rollback a package may need a newer core than this one: its previous version on disk may still
+ * fit — the hint names it (docs/module-packages.md «Rolling the core back»).
+ */
+export function previousFits(id) {
+  try {
+    const previous = readPointer(id, 'previous');
+    if (!previous) return '';
+    const manifest = readManifestAt(id, previous);
+    if (compatibilityProblem(manifest, { coreVersion: APP_VERSION, sdkVersion: SDK_VERSION })) return '';
+    return ` (its previous version ${previous} fits this core: point ${id}/current to it, see «Rolling the core back»)`;
+  } catch {
+    return '';
+  }
 }
 
 /** Boots one package (doLoad): marker check, then load, mount and record — or the failure path. */

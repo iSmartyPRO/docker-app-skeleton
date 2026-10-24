@@ -10,6 +10,7 @@ export default {
     other: 'This contact',
   },
   codes: {
+    MODULE_ABSENT: 'The {module} module that owns this document is not installed. The approval can go on once an administrator installs it.',
     GATEWAY_EXISTS: 'A gateway with this address already exists.',
     RDP_INVALID: 'This is not a valid .rdp file.',
     PASSBOLT_OFF: 'Passbolt is not enabled.',

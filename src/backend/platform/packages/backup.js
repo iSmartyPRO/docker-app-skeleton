@@ -509,14 +509,62 @@ export function removeUploads(id) {
 }
 
 /** Drops the module's tables and forgets its migrations (after a backup — the installer makes one first). */
-export async function dropModuleData(id, manifest = null) {
+/**
+ * Functions of a module that exist now (trigger functions such as Warehouse's wh_moves_immutable): the plain
+ * functions of the current schema named in its manifest `functions` or under its own prefixes (ownPatterns;
+ * the same ownership rules as tables), not part of an extension. [{ name, signature }] (signature:
+ * regprocedure text, what DROP FUNCTION takes).
+ */
+export async function moduleFunctions(id, manifest = null, db = { query }) {
+  const declared = new Set((manifest?.functions || []).filter((name) => typeof name === 'string' && SAFE_TABLE.test(name)));
+  const prefixes = ownPatterns(id).map((pattern) => pattern.slice(0, -1));
+  const { rows } = await db.query(
+    `SELECT p.proname AS name, p.oid::regprocedure::text AS signature
+       FROM pg_proc p
+      WHERE p.pronamespace = current_schema()::regnamespace AND p.prokind = 'f'
+        AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
+      ORDER BY 1, 2`
+  );
+  return rows.filter((row) => SAFE_TABLE.test(row.name) && (declared.has(row.name) || prefixes.some((prefix) => row.name.startsWith(prefix))) && mayOwnTable(id, row.name));
+}
+
+/** Triggers of tables outside `tables` that run one of `functions` (those would break when the functions go). */
+async function triggersUsing(functions, tables, db = { query }) {
+  if (!functions.length) return [];
+  const { rows } = await db.query(
+    `SELECT c.relname AS "from", t.tgname AS "trigger", t.tgfoid::regprocedure::text AS "function"
+       FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+      WHERE NOT t.tgisinternal AND t.tgfoid::regprocedure::text = ANY($1) AND NOT (c.relname = ANY($2))
+      ORDER BY 1, 2`,
+    [functions.map((fn) => fn.signature), tables]
+  );
+  return rows;
+}
+
+/**
+ * «Удалить данные»: drops the module's tables and then its functions (moduleFunctions) in one transaction,
+ * and forgets its migration records. Refused (FOREIGN_KEYS) when another table references a table, or a
+ * trigger of another table runs one of its functions. `report.functions` receives the dropped functions.
+ */
+export async function dropModuleData(id, manifest = null, { report = null } = {}) {
   const tables = await moduleTables(id, manifest);
   const keys = await foreignKeysInto(tables);
   if (keys.length) throw Object.assign(new Error(`other tables reference the module's tables: ${keys.map((key) => `${key.from} → ${key.to}`).join(', ')}`), { code: 'FOREIGN_KEYS', keys });
+  const functions = await moduleFunctions(id, manifest);
+  const users = await triggersUsing(functions, tables);
+  if (users.length) {
+    throw Object.assign(new Error(`triggers of other tables run the module's functions: ${users.map((row) => `${row.from}.${row.trigger} → ${row.function}`).join(', ')}`), {
+      code: 'FOREIGN_KEYS',
+      keys: users.map((row) => ({ from: row.from, to: row.function, constraint: row.trigger, kind: 'trigger function' })),
+    });
+  }
   await withTransaction(async (client) => {
     if (tables.length) await client.query(`DROP TABLE IF EXISTS ${tables.map(quoteIdent).join(', ')}`);
+    // After the tables (their triggers go with them); no CASCADE: anything else still using one aborts it all.
+    for (const fn of functions) await client.query(`DROP FUNCTION IF EXISTS ${fn.signature}`);
     await client.query(`DELETE FROM module_tables WHERE module_id = $1`, [id]);
     await client.query(`DELETE FROM module_migrations WHERE module_id = $1`, [id]);
   });
+  if (report) report.functions = functions.map((fn) => fn.signature);
   return tables;
 }

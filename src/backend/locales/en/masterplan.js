@@ -50,6 +50,7 @@ export default {
     text: 'Masterplan: unit {unit} — {status}{until}{reason}',
     until: ' until {date}',
     reason: ' ({reason})',
+    resync: ' — a change of {date}, recorded once the CRM was installed',
     expired: {
       reserve: 'Masterplan: the reserve of unit {unit} was released automatically — the time ran out',
       booking: 'Masterplan: the booking of unit {unit} was released automatically — the time ran out',

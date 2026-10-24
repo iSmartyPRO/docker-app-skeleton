@@ -76,7 +76,7 @@ test('core without them: sources stay out of the image; legacy table prefixes an
     assert.equal(tablePatternProblem(id, manifest.tables[0]), null);
     assert.equal(CONVERTED_MODULES[id].version, '1.0.0');
     assert.equal(CONVERTED_MODULES[id].name.ru, manifest.name.ru);
-    assert.equal(manifest.version, '1.1.0');
+    assert.equal(manifest.version, '1.1.1');
   }
 });
 
@@ -139,16 +139,42 @@ test('Masterplan without the CRM: no foreign keys into crm_deals, deal titles on
   };
   assert.equal(await dropCrmForeignKeys(db), 2);
   assert.deepEqual(statements.slice(1), ['ALTER TABLE "mp_units" DROP CONSTRAINT IF EXISTS "mp_units_deal_id_fkey"', 'ALTER TABLE "mp_bookings" DROP CONSTRAINT IF EXISTS "mp_bookings_deal_id_fkey"']);
-  // The SELECTs join crm_deals only while it exists.
-  const { nodeSelect, withCrmJoin } = await import('../modules/masterplan/shapes.js');
-  const answer = (ok) => ({ query: async () => ({ rows: [{ ok }] }) });
+  // The SELECTs join crm_deals only while it exists — built with the join as a parameter, not by rewriting SQL.
+  const shapes = await import('../modules/masterplan/shapes.js');
+  const { nodeSelect, nodeSelectSql, crmDealJoin, dealJoin, hasCrmDeals, forgetCrmTable, watchCrmTable, CRM_CHECK_TTL_MS } = shapes;
+  let asked = 0;
+  const answer = (ok) => ({ query: async () => (asked++, { rows: [{ ok }] }) });
+  forgetCrmTable();
   assert.match(await nodeSelect(answer(true)), /LEFT JOIN crm_deals d ON d\.id = u\.deal_id/);
+  forgetCrmTable();
   const without = await nodeSelect(answer(false));
   assert.doesNotMatch(without, /crm_deals/);
   assert.match(without, /d\.title AS deal_title/);
-  assert.doesNotMatch(await withCrmJoin('SELECT d.title FROM mp_bookings b LEFT JOIN crm_deals d ON d.id = b.deal_id', answer(false)), /crm_deals/);
+  assert.equal(nodeSelectSql({ crm: false }), without);
+  assert.match(nodeSelectSql({ crm: true, extra: 'x AS effective_readiness' }), /st\.name AS stage_name, x AS effective_readiness\s+FROM mp_nodes n/);
+  assert.equal(crmDealJoin(true, 'b.deal_id'), 'LEFT JOIN crm_deals d ON d.id = b.deal_id');
+  assert.doesNotMatch(crmDealJoin(false, 'b.deal_id'), /crm_deals/);
+  assert.throws(() => crmDealJoin(true, 'b.deal_id; DROP TABLE x'), /bad deal column/);
+  // Cached for 30 s: one catalog question for many queries; a module.* event forgets it.
+  forgetCrmTable();
+  asked = 0;
+  const now = Date.now();
+  assert.equal(await hasCrmDeals(answer(false), { now }), false);
+  assert.equal(await hasCrmDeals(answer(true), { now: now + 1000 }), false, 'cached');
+  assert.doesNotMatch(await dealJoin('b.deal_id', answer(true)), /crm_deals/, 'cached');
+  assert.equal(asked, 1);
+  assert.equal(await hasCrmDeals(answer(true), { now: now + CRM_CHECK_TTL_MS + 1 }), true, 'expired');
+  assert.equal(asked, 2);
+  const listeners = new Map();
+  watchCrmTable({ on: (name, fn) => listeners.set(name, fn) });
+  assert.deepEqual([...listeners.keys()].sort(), ['module.data_removed', 'module.installed', 'module.removed', 'module.updated']);
+  listeners.get('module.data_removed')({ id: 'crm' });
+  assert.equal(await hasCrmDeals(answer(false), { now: now + CRM_CHECK_TTL_MS + 2 }), false, 'asked again after the event');
+  assert.equal(asked, 3);
+  forgetCrmTable();
+  for (const file of ['sales.js', 'projects.js', 'units.js', 'nodes.js', 'shapes.js']) assert.doesNotMatch(read(`src/backend/modules/masterplan/${file}`), /withCrmJoin|\.replace\(\/LEFT JOIN|\.replace\(\/\\n\\s\*FROM/, file);
   for (const file of ['sales.js', 'projects.js', 'units.js', 'nodes.js']) assert.doesNotMatch(read(`src/backend/modules/masterplan/${file}`), /\$\{NODE_SELECT\}|NODE_SELECT\.replace/, file);
-  assert.equal(moduleJson('masterplan').version, '1.2.0');
+  assert.equal(moduleJson('masterplan').version, '1.2.1');
 });
 
 test('Masterplan: a token without the CRM scope gets no deal titles while the CRM is not installed', async () => {
@@ -173,7 +199,7 @@ test('build: each builds into a package (server part; web with MODULE_BUILD_WEB=
       const m = opened.manifest;
       const file = (name) => opened.files.find((item) => item.name === name)?.data.toString();
       assert.equal(m.id, id);
-      assert.equal(m.version, '1.1.0');
+      assert.equal(m.version, moduleJson(id).version);
       assert.match(file('server/index.js'), /001_init/);
       // Other modules are reached through the registry only: no other module's code in the bundle.
       assert.doesNotMatch(file('server/index.js'), /@portal\/sdk\/core\/modules\/(crm|contracts|masterplan)\//);

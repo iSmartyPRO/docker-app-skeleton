@@ -204,6 +204,10 @@ const parseModules = (value) => {
  * else the Russian stock older versions showed (what the deals hold). → the keys written.
  */
 export async function storeStockLists(db) {
+  // The settings service saves the modules row under this lock (services/settings.js withModulesLock): held
+  // until this transaction ends, so an administrator's save cannot read the row before this write commits and
+  // then write its older copy over it — nor can this run between that save's read and its write.
+  await db.query(`SELECT pg_advisory_xact_lock(hashtext('settings:modules'))`);
   const row = (await db.query(`SELECT value FROM app_settings WHERE key = 'modules' FOR UPDATE`)).rows[0];
   const modules = row ? parseModules(row.value) : {};
   if (!modules) return []; // unreadable: left alone, the settings fall back to the defaults
@@ -214,11 +218,18 @@ export async function storeStockLists(db) {
   const deals = (await db.query(`SELECT 1 FROM crm_deals LIMIT 1`)).rows.length;
   const lists = deals ? CRM_DEFAULTS : crmStockLists(await localeFor(null));
   const added = Object.fromEntries(missing.map((key) => [key, [...lists[key]]]));
-  const next = { ...modules, crm: { ...crm, settings: { ...settings, ...added } } };
+  // Only modules.crm.settings.<missing list> is written (jsonb), the rest of the row as the database has it:
+  // a list stored meanwhile wins over the stock one.
   await db.query(
-    `INSERT INTO app_settings (key, value) VALUES ('modules', $1)
-     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-    [JSON.stringify(next)]
+    `INSERT INTO app_settings (key, value) VALUES ('modules', $2)
+     ON CONFLICT (key) DO UPDATE SET value = (
+       WITH cur AS (SELECT app_settings.value::jsonb AS v),
+            crm AS (SELECT CASE WHEN jsonb_typeof(v -> 'crm') = 'object' THEN v -> 'crm' ELSE '{}'::jsonb END AS c FROM cur),
+            st AS (SELECT CASE WHEN jsonb_typeof(c -> 'settings') = 'object' THEN c -> 'settings' ELSE '{}'::jsonb END AS s FROM crm)
+       SELECT jsonb_set(cur.v, '{crm}', crm.c || jsonb_build_object('settings', $1::jsonb || st.s))::text FROM cur, crm, st
+     ), updated_at = NOW()
+     WHERE app_settings.value ~ '^\\s*\\{'`,
+    [JSON.stringify(added), JSON.stringify({ crm: { settings: added } })]
   );
   return missing;
 }

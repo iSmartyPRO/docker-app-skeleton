@@ -3,6 +3,8 @@ import { privateRoutes } from './routes.js';
 import * as api from './api.js';
 import { registerContractSync, scheduleContractResync } from './contractSync.js';
 import { objectSource } from './links.js';
+import { scheduleCrmResync } from './crmLink.js';
+import { watchCrmTable } from './shapes.js';
 import { sanitizeSettings } from './settings.js';
 // Demo data (Settings → Modules → Demo data): registerDemo at import time.
 import './demo.js';
@@ -30,6 +32,10 @@ export default {
     registerContractSync(ctx.events);
     // Contract events of the time it was not installed went to nobody: catch up once per install.
     scheduleContractResync(ctx);
+    // Likewise the deal history of units sold / booked while the CRM was absent: once per CRM install.
+    scheduleCrmResync(ctx);
+    // «Is crm_deals there?» is cached briefly; package installs, removals and data deletions reset it.
+    watchCrmTable(ctx.events);
     // Procurement and Warehouse pick «objects» (projects and their plots / objects) through the core.
     ctx.registerObjectSource(objectSource);
   },

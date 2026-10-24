@@ -9,7 +9,7 @@
     "tr": "Tarayıcıda bilgisayarlar ve yayımlanmış uygulamalar (guacd üzerinden RDP / VNC, Portal VNC ajanları), talep üzerine destek ve bildirimli izleme, çalışanın gördüğü bağlantı günlüğü",
     "zh": "在浏览器中访问计算机和已发布的应用（经 guacd 的 RDP / VNC、Portal VNC 代理），应请求协助和告知式监看，员工可查看的连接日志"
   },
-  "version": "1.4.0",
+  "version": "1.4.1",
   "category": "infrastructure",
   "requires": [],
   "enhances": [
@@ -29,6 +29,18 @@
     "tour": ["remote"]
   },
   "changelog": [
+    {
+      "version": "1.4.1",
+      "date": "2026-10-23",
+      "changes": {
+        "en": [
+          "Settings → Remote access translated into Kyrgyz, Turkish and Chinese."
+        ],
+        "ru": [
+          "Настройки удалённого доступа переведены на кыргызский, турецкий и китайский."
+        ]
+      }
+    },
     {
       "version": "1.4.0",
       "date": "2026-10-23",

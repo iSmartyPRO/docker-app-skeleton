@@ -49,6 +49,7 @@ export default {
     text: '总体规划：房源单元 {unit} — {status}{until}{reason}',
     until: '，至 {date}',
     reason: '（{reason}）',
+    resync: ' — {date} 的变更，安装 CRM 后补记',
     expired: {
       reserve: '总体规划：房源单元 {unit} 的保留已自动解除 — 时限已到',
       booking: '总体规划：房源单元 {unit} 的预订已自动解除 — 时限已到',

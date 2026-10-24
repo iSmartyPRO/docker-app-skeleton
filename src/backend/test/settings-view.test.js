@@ -120,10 +120,22 @@ function fakeDb({ modules, deals = 0 }) {
   const state = { modules: modules === undefined ? undefined : JSON.stringify(modules), writes: 0 };
   const db = {
     async query(text, params) {
+      if (/pg_advisory_xact_lock\(hashtext\('settings:modules'\)\)/.test(text)) {
+        state.locked = true;
+        return { rows: [] };
+      }
       if (/FROM crm_deals/.test(text)) return { rows: deals ? [{ '?column?': 1 }] : [] };
       if (/SELECT value FROM app_settings/.test(text)) return { rows: state.modules === undefined ? [] : [{ value: state.modules }] };
       if (/INSERT INTO app_settings/.test(text)) {
-        state.modules = params[0];
+        assert.ok(state.locked, 'the settings lock is taken before the write');
+        // As the SQL does: only crm.settings.<missing lists> merged into the stored row (stored lists win).
+        if (state.modules === undefined) state.modules = params[1];
+        else {
+          const current = JSON.parse(state.modules);
+          const crm = current.crm && typeof current.crm === 'object' ? current.crm : {};
+          const settings = crm.settings && typeof crm.settings === 'object' ? crm.settings : {};
+          state.modules = JSON.stringify({ ...current, crm: { ...crm, settings: { ...JSON.parse(params[0]), ...settings } } });
+        }
         state.writes += 1;
         return { rowCount: 1 };
       }

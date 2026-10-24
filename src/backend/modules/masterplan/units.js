@@ -133,7 +133,7 @@ export async function listUnits(ctx, input = {}) {
   const order = input.order === 'desc' ? 'DESC' : 'ASC';
   const pageSize = Math.min(5000, Math.max(1, intOr(input.pageSize, 50)));
   const page = Math.max(1, intOr(input.page, 1));
-  const select = (await nodeSelect()).replace(/\n\s*FROM mp_nodes n\b/, `, ${READINESS} AS effective_readiness\n  FROM mp_nodes n`);
+  const select = await nodeSelect(undefined, { extra: `${READINESS} AS effective_readiness` });
   const sql = `${select} WHERE ${where.join(' AND ')} ORDER BY ${sortSql} ${order} NULLS LAST, n.sort, n.id LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
   const [{ rows }, count] = await Promise.all([
     query(sql, p.values),

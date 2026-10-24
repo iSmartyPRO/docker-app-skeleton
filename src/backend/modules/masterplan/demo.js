@@ -375,7 +375,8 @@ registerDemo({
     await dropNotifications(ctx.query, [...projects.map((id) => `/app/masterplan/p/${id}/plan`), ...projects.map((id) => `/app/masterplan/p/${id}/construction`)]);
     // Contracts and requests keep plain ids of objects: forget them.
     await ctx.query(`UPDATE ctr_contracts SET mp_project_id = NULL, mp_node_id = NULL WHERE mp_project_id = ANY($1::int[])`, [projects]).catch(() => {});
-    await ctx.query(`UPDATE proc_requests SET project_id = NULL, project_label = NULL, object_id = NULL, object_label = NULL WHERE project_id = ANY($1::int[])`, [projects]).catch(() => {});
+    // Purchase requests forget them through Procurement's API (nothing to do while it is not installed).
+    await modules.loaded('procurement')?.api?.forgetProjects?.(projects).catch(() => {});
     await ctx.query(`DELETE FROM mp_projects WHERE id = ANY($1::int[])`, [projects]);
   },
 });

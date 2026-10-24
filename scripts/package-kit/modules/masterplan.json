@@ -1,12 +1,11 @@
 {
-  "comment": "Package kit hints for Masterplan (docs/package-testing.md «Module kit file»). Masterplan is open to everyone signed in and checks rights per project (access.js): lists come back filtered, so the kit compares them with the superadmin's; the reference lists below carry no project data. The CRM and Contracts are module packages too (linked packages of the kit, `packages`); on the upgrade source v1.19.0 all three are built in.",
-  "enableAlso": [
-    "procurement",
-    "warehouse"
-  ],
+  "comment": "Package kit hints for Masterplan (docs/package-testing.md «Module kit file»). Masterplan is open to everyone signed in and checks rights per project (access.js): lists come back filtered, so the kit compares them with the superadmin's; the reference lists below carry no project data. The CRM, Contracts, Procurement and Warehouse are module packages too (linked packages of the kit, `packages`: the CRM and Contracts link to units, Procurement and Warehouse pick projects through the objects source); on the upgrade source v1.19.0 all of them are built in.",
+  "enableAlso": [],
   "packages": [
     "crm",
-    "contracts"
+    "contracts",
+    "procurement",
+    "warehouse"
   ],
   "seed": [
     "crm",

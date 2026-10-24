@@ -9,7 +9,7 @@
     "tr": "Satın alma talepleri: onay, ödeme kaydı, teslimat",
     "zh": "采购申请：审批、付款台账、交货"
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "category": "supply",
   "requires": [
     { "id": "approvals", "reason": { "en": "Documents go through approval routes", "ky": "Документтер макулдашуу маршруттарынан өтөт", "tr": "Belgeler onay akışlarından geçer", "zh": "单据按审批流程流转", "ru": "Документы проходят маршруты согласования" } }
@@ -35,6 +35,18 @@
     "dashboard": ["widgets.procurement"]
   },
   "changelog": [
+    {
+      "version": "1.1.1",
+      "date": "2026-10-23",
+      "changes": {
+        "en": [
+          "Public API: forgetContracts() / forgetProjects() — requests forget links to contracts and projects being removed."
+        ],
+        "ru": [
+          "Публичный API: forgetContracts() / forgetProjects() — заявки забывают ссылки на удаляемые договоры и проекты."
+        ]
+      }
+    },
     {
       "version": "1.1.0",
       "date": "2026-10-23",

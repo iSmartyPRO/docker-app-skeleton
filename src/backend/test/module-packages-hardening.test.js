@@ -220,6 +220,48 @@ test('make check-core-upgrade: lists the modules a new core cannot run', async (
   }
 });
 
+test('check-core-upgrade before a core rollback: packages too new for the older core, with the previous version that fits', async () => {
+  const dir = temp();
+  try {
+    // hello: 1.1.0 needs core 1.21.0, its previous 1.0.0 needs 1.20.0; other: no previous; old: fits as it is.
+    const put = (id, version, core, sdk = '1.0.0') => {
+      mkdirSync(join(dir, id, version), { recursive: true });
+      writeFileSync(join(dir, id, version, 'manifest.json'), JSON.stringify({ ...base, id, version, core, sdk }));
+    };
+    put('hello', '1.1.0', '1.21.0', '1.1.0');
+    put('hello', '1.0.0', '1.20.0');
+    writeFileSync(join(dir, 'hello', 'current'), '1.1.0\n');
+    writeFileSync(join(dir, 'hello', 'previous'), '1.0.0\n');
+    put('other', '2.0.0', '1.21.0');
+    writeFileSync(join(dir, 'other', 'current'), '2.0.0\n');
+    put('old', '1.0.0', '1.20.0');
+    writeFileSync(join(dir, 'old', 'current'), '1.0.0\n');
+    const { checkCoreUpgrade, sdkOfCore } = await import(resolve(BACKEND, '../../scripts/check-core-upgrade.mjs'));
+    const report = await checkCoreUpgrade({ coreVersion: '1.20.0', sdkVersion: '1.0.0', modulesDir: dir });
+    const by = Object.fromEntries(report.map((item) => [item.id, item]));
+    assert.equal(by.hello.ok, false);
+    assert.equal(by.hello.problem.code, 'CORE_TOO_OLD');
+    assert.deepEqual([by.hello.previous.version, by.hello.previous.ok], ['1.0.0', true]);
+    assert.equal(by.other.ok, false);
+    assert.equal(by.other.previous, undefined);
+    assert.equal(by.old.ok, true);
+    // A newer SDK requirement than the older core provides counts too.
+    const sdk = await checkCoreUpgrade({ coreVersion: '1.21.0', sdkVersion: '1.0.0', modulesDir: dir });
+    assert.equal(sdk.find((item) => item.id === 'hello').problem.code, 'SDK_TOO_OLD');
+    // A core without the package platform: nothing loads.
+    const none = await checkCoreUpgrade({ coreVersion: '1.19.0', sdkVersion: 'none', modulesDir: dir });
+    assert.deepEqual(none.map((item) => item.problem?.code), ['NO_PLATFORM', 'NO_PLATFORM', 'NO_PLATFORM']);
+    // The SDK of a released core comes from its tag (when the tags are here).
+    assert.equal(sdkOfCore('0.0.1'), null, 'no such tag: unknown');
+    const v120 = sdkOfCore('1.20.0');
+    if (v120 !== null) assert.equal(v120, '1.0.0');
+    const v119 = sdkOfCore('1.19.0');
+    if (v119 !== null) assert.equal(v119, 'none');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // ── #9 files re-checked at boot ───────────────────────────────────────────
 
 function signedFolder(dir, key, files = { 'manifest.json': JSON.stringify(base), 'server/index.js': 'export default { id: "hello" };\n' }) {

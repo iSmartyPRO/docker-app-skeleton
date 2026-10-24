@@ -9,6 +9,7 @@ import { CATEGORIES, INTEGRATIONS, MODULE_MANIFEST } from '../../modules/manifes
 import { invalidateSettings } from '../../services/settings.js';
 import { recordSecurityEvent } from '../../services/security.js';
 import { onShutdown } from '../registry.js';
+import { emit } from '../events.js';
 import { SDK_VERSION } from '../sdk/version.js';
 import { openPackage, writePackageFiles, PackageError } from './archive.js';
 import { badPackage, checkInstall, checkUninstall } from './checks.js';
@@ -321,6 +322,8 @@ export async function installStaged(token, { actor = null, ip = null, restart = 
       detail: (current ? `${manifest.id} updated ${current.version} → ${manifest.version}${from}` : `${manifest.id} ${manifest.version} installed${meta.signed ? '' : ' (unsigned, development mode)'}${from}`).slice(0, 200),
       params: { module: manifest.id, version: manifest.version, from: current?.version || '', ...(meta.incoming ? { file: meta.incoming.file } : {}) },
     });
+    // For modules that cache what another module's tables look like (Masterplan: is crm_deals there?).
+    await emit(current ? 'module.updated' : 'module.installed', { id: manifest.id, version: manifest.version });
     if (restart) requestRestart(`${current ? 'update' : 'install'} ${manifest.id} ${manifest.version}`);
     return { id: manifest.id, version: manifest.version, action: current ? 'update' : 'install', ...(meta.incoming ? { incomingFile: meta.incoming.file, incomingMoved: Boolean(moved) } : {}), applied: prepared.applied, tables: prepared.tables, backup: backup ? { file: backup.file, format: backup.format } : null, restart, bootId: BOOT_ID };
   });
@@ -355,6 +358,7 @@ export async function uninstallPackage(id, { actor = null, ip = null, restart = 
     rmSync(moduleRoot(id), { recursive: true, force: true });
     await saveModuleRow({ id, version, state: 'removed', source: 'package', error: null, pending_check: false, previous_version: null });
     journal({ actor, ip, code: 'module_removed', detail: `${id} ${version} removed (data kept)`, params: { module: id, version } });
+    await emit('module.removed', { id, version });
     if (restart) requestRestart(`remove ${id}`);
     return { id, version, restart, bootId: BOOT_ID };
   });
@@ -377,7 +381,8 @@ export async function purgeModuleData(id, { actor = null, ip = null, confirm = n
     // The backup holds the tables and the upload folder (uploads/<id>); nothing is deleted when either fails.
     const backup = await backupModule({ id, version: row.version, manifest, reason: 'purge', uploads: true });
     if (!backup?.file || !existsSync(backup.file) || statSync(backup.file).size === 0) throw problemError(500, [simpleProblem('BACKUP_FAILED', 'Резервная копия не создана — данные не удалены', 'The backup was not made — nothing was deleted')]);
-    const tables = await dropModuleData(id, manifest);
+    const dropped = {};
+    const tables = await dropModuleData(id, manifest, { report: dropped });
     await query(`UPDATE app_settings SET value = (value::jsonb - $1::text)::text, updated_at = NOW() WHERE key = 'modules' AND value ~ '^\\s*\\{'`, [id]);
     invalidateSettings();
     await query(`DELETE FROM installed_modules WHERE id = $1`, [id]);
@@ -387,10 +392,13 @@ export async function purgeModuleData(id, { actor = null, ip = null, confirm = n
     } catch (err) {
       console.warn(`Module ${id}: its upload folder could not be removed: ${err.message}`);
     }
+    // No restart follows «Удалить данные»: modules that cache the module's tables hear it here.
+    await emit('module.data_removed', { id, tables });
     journal({ actor, ip, code: 'module_data_removed', detail: `${id}: data removed (${tables.length} tables, ${files?.files || 0} files), backup ${backup.file.split('/').pop()}`.slice(0, 200), params: { module: id, tables: tables.length, files: files?.files || 0 } });
     return {
       id,
       tables,
+      functions: dropped.functions || [],
       files: files ? { folder: id, files: files.files, bytes: files.bytes } : null,
       backup: { file: backup.file, format: backup.format, bytes: backup.bytes, uploads: backup.uploads ? { file: backup.uploads.file, files: backup.uploads.files, bytes: backup.uploads.bytes } : null },
     };

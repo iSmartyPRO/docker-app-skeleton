@@ -40,6 +40,13 @@ export async function dealForLink(ctx, dealId, { allowClosed = false, scope = 'w
   return row;
 }
 
+/**
+ * Is the CRM installed (loaded, switched on or not)? While it is not, status changes of units with a deal are
+ * marked crmPending and caught up after its install. (While it is installed but switched off nothing is kept
+ * for later — as before: the CRM's own switch.)
+ */
+export const crmInstalled = () => Boolean(modules.loaded('crm')?.api);
+
 /** A system line in a deal's history (the portal's default language and time zone). */
 async function dealLine(dealId, body, data, authorId = null) {
   const crm = modules.loaded('crm')?.api;
@@ -165,4 +172,155 @@ export function registerCrmHooks() {
   if (registered) return;
   registered = true;
   onModuleEvent('crm.deal.stage', onDealStage);
+}
+
+// ── Catching up with the CRM after it was absent ────────────────────────────
+
+/*
+ * While the CRM is not installed (a package of its own since core 1.21), a unit's status
+ * changes write no line into its deal's history and do not set the deal amount (afterUnitStatus returns
+ * early) — units keep their deal ids (mp_units.deal_id, mp_events data.deal) and such events are marked
+ * data.crmPending (sales.js). Once per install of the CRM (its installed_modules.installed_at), as
+ * Contracts' scheduleContractResync, Masterplan replays them: for every existing deal, each marked status
+ * change / expiry of its units newer than the deal's last «masterplan» line becomes that line
+ * (data.resync: true, data.at: when it happened), and with
+ * syncDealAmount the deal amount is set again from the units it holds. Idempotent: a second run finds
+ * the lines written. The CRM's stage is not touched — Masterplan never moves a deal's stage (the
+ * stageMap goes the other way), so there is nothing of the kind to replay.
+ * Recorded in app_settings masterplan_crm_resync: { at, crmInstalledAt, deals, lines, amounts }.
+ */
+const CRM_RESYNC_FLAG = 'masterplan_crm_resync';
+const REPLAYED = ['status', 'expired'];
+
+async function readJsonFlag(key) {
+  const { rows } = await query(`SELECT value FROM app_settings WHERE key = $1`, [key]);
+  try {
+    return rows[0] ? JSON.parse(rows[0].value) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** When the CRM package was installed (not updated), or null (built into the core, or not installed). */
+export async function crmInstalledAt() {
+  try {
+    const { rows } = await query(`SELECT installed_at, state, source FROM installed_modules WHERE id = 'crm'`);
+    const row = rows[0];
+    if (!row || row.source !== 'package' || row.state === 'removed' || !row.installed_at) return null;
+    return new Date(row.installed_at).toISOString();
+  } catch {
+    return null;
+  }
+}
+
+/** Replays the deal-side effects missed while the CRM was absent. → { deals, lines, amounts } or { unavailable }. */
+export async function resyncCrmDeals(crmApi) {
+  const summary = { deals: 0, lines: 0, amounts: 0 };
+  if (!crmApi?.dealHistoryMarks || !crmApi.addDealEvent) return { ...summary, unavailable: true };
+  const parsed = parseSettings(await getSettings());
+  if (!parsed.modules.masterplan?.enabled || !parsed.modules.crm?.enabled) return { ...summary, unavailable: true };
+  const mpSettings = parsed.modules.masterplan.settings || {};
+  const { rows: linked } = await query(
+    `SELECT DISTINCT (data->'deal'->>'id')::int AS deal_id FROM mp_events
+     WHERE kind = ANY($1) AND data->>'crmPending' = 'true' AND data->'deal'->>'id' ~ '^[0-9]+$'`,
+    [REPLAYED]
+  );
+  const marks = await crmApi.dealHistoryMarks(linked.map((row) => row.deal_id), 'masterplan');
+  if (!marks.size) return summary;
+  const regional = await regionalFor(null);
+  const locale = await localeFor(null);
+  const t = translator(locale);
+  const optional = (key, params) => {
+    const text = t(key, params);
+    return text === key ? '' : text;
+  };
+  for (const [dealId, lastAt] of marks) {
+    const { rows: events } = await query(
+      `SELECT e.id, e.kind, e.data, e.created_at, e.node_id, e.project_id, e.author_id, n.code, n.name
+       FROM mp_events e LEFT JOIN mp_nodes n ON n.id = e.node_id
+       WHERE e.kind = ANY($1) AND e.data->>'crmPending' = 'true' AND e.data->'deal'->>'id' = $2 AND ($3::timestamptz IS NULL OR e.created_at > $3)
+       ORDER BY e.created_at, e.id`,
+      [REPLAYED, String(dealId), lastAt]
+    );
+    if (!events.length) continue;
+    summary.deals += 1;
+    for (const event of events) {
+      const node = { id: event.node_id, project_id: event.project_id, code: event.code, name: event.name };
+      const data = event.data || {};
+      const when = formatDateTime(event.created_at, regional, locale);
+      const note = optional('masterplan.dealLine.resync', { date: when });
+      const body =
+        event.kind === 'expired'
+          ? `${t('masterplan.dealLine.expired.booking', { unit: unitLabel(node) })}${note}`
+          : t('masterplan.dealLine.text', {
+              unit: unitLabel(node),
+              status: statusName(data.to, locale),
+              until: data.endsAt ? t('masterplan.dealLine.until', { date: formatDateTime(data.endsAt, regional, locale) }) : '',
+              reason: `${data.reason ? t('masterplan.dealLine.reason', { reason: data.reason }) : ''}${note}`,
+            });
+      await crmApi.addDealEvent(dealId, {
+        kind: 'masterplan',
+        body,
+        data: { unitId: node.id, projectId: node.project_id, code: node.code, from: data.from, to: data.to, endsAt: data.endsAt || null, expired: event.kind === 'expired' || undefined, link: `/app/masterplan/p/${node.project_id}/plan?node=${node.id}`, resync: true, at: iso(event.created_at), event: Number(event.id) },
+        authorId: event.author_id || null,
+      });
+      summary.lines += 1;
+    }
+    // "Сумма сделки = цена юнита", from the units the deal holds now (as afterUnitStatus does).
+    if (mpSettings.syncDealAmount && crmApi.setDealAmount) {
+      const { rows: held } = await query(
+        `SELECT currency, COALESCE(SUM(CASE WHEN status IN ('contract', 'sold', 'handed') THEN COALESCE(contract_amount, price) ELSE price END), 0) AS total
+         FROM mp_units WHERE deal_id = $1 AND status IN ('booking', 'deposit', 'contract', 'sold', 'handed') GROUP BY currency`,
+        [dealId]
+      );
+      // One currency only: a deal amount has one (several currencies: left to a person, as live).
+      if (held.length === 1 && (held[0].currency || '').trim()) {
+        const amount = money(held[0].total);
+        if (amount !== null && (await crmApi.setDealAmount(dealId, { amount, currency: held[0].currency.trim(), actorId: null }))) summary.amounts += 1;
+      }
+    }
+  }
+  return summary;
+}
+
+/** Once per CRM install: replay, then record (not recorded while either module is off: the next try runs it). */
+export async function autoCrmResync(crmApi, { installedAt = null } = {}) {
+  const crmAt = installedAt || (await crmInstalledAt());
+  if (!crmAt) return null;
+  const flag = await readJsonFlag(CRM_RESYNC_FLAG);
+  if (flag?.crmInstalledAt === crmAt) return null;
+  const summary = await resyncCrmDeals(crmApi);
+  if (summary.unavailable) return summary;
+  const record = { at: new Date().toISOString(), crmInstalledAt: crmAt, deals: summary.deals, lines: summary.lines, amounts: summary.amounts };
+  await query(`INSERT INTO app_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`, [CRM_RESYNC_FLAG, JSON.stringify(record)]);
+  console.log(`[masterplan] caught up with the CRM after its install: ${summary.lines} deal history lines for ${summary.deals} deals, ${summary.amounts} amounts`);
+  return summary;
+}
+
+/**
+ * register(ctx): once the CRM is loaded (ctx.modules.whenLoaded), MASTERPLAN_RESYNC_DELAY_MS (20 s) after the
+ * boot, then every 15 minutes until it ran for this CRM install (the CRM or Masterplan may be switched on later
+ * without a restart). Nothing when the CRM is not a package (built in: it was never absent).
+ */
+export function scheduleCrmResync(ctx, { delayMs = Number(process.env.MASTERPLAN_RESYNC_DELAY_MS ?? 20_000), everyMs = 15 * 60_000 } = {}) {
+  const whenLoaded = ctx?.modules?.whenLoaded;
+  if (typeof whenLoaded !== 'function') return;
+  whenLoaded.call(ctx.modules, 'crm', (api) => {
+    let timer = null;
+    const run = async () => {
+      let done = false;
+      try {
+        const result = await autoCrmResync(api);
+        done = result === null || !result.unavailable;
+      } catch (err) {
+        console.warn('[masterplan] catching up with the CRM failed:', err.message);
+      }
+      if (!done) {
+        timer = setTimeout(run, everyMs);
+        timer.unref?.();
+      }
+    };
+    timer = setTimeout(run, Math.max(0, delayMs || 0));
+    timer.unref?.();
+  });
 }

@@ -9,7 +9,7 @@
     "tr": "Sözleşme kaydı: sürümler, hukukçunun riskleri, onay, bitiş takvimi ve hatırlatıcılar",
     "zh": "合同台账：版本、法务风险、审批、到期日历和提醒"
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "category": "documents",
   "requires": [
     { "id": "approvals", "reason": { "en": "Documents go through approval routes", "ky": "Документтер макулдашуу маршруттарынан өтөт", "tr": "Belgeler onay akışlarından geçer", "zh": "单据按审批流程流转", "ru": "Документы проходят маршруты согласования" } }
@@ -34,6 +34,18 @@
     "dashboard": ["widgets.contractsPayments"]
   },
   "changelog": [
+    {
+      "version": "1.1.1",
+      "date": "2026-10-23",
+      "changes": {
+        "en": [
+          "Removing the demo data clears purchase-request links through Procurement's API (nothing to do while it is not installed)."
+        ],
+        "ru": [
+          "Удаление демо-данных снимает ссылки заявок на закупку через API Закупок (пока они не установлены — ничего)."
+        ]
+      }
+    },
     {
       "version": "1.1.0",
       "date": "2026-10-23",

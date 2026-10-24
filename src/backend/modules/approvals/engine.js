@@ -50,9 +50,13 @@ async function enabledModules() {
   return parseSettings(await getSettings()).modules;
 }
 
-/** A type is usable while its module is on (types of unknown modules, e.g. tests, always). */
+/**
+ * A registered type is usable while its module is on (types of modules the settings do not list, e.g. tests,
+ * always). No type (its module's package is not installed) is never usable: see moduleAbsentError.
+ */
 export function typeEnabled(modules, type) {
-  return !type || !modules[type.module] || modules[type.module].enabled !== false;
+  if (!type) return false;
+  return !modules[type.module] || modules[type.module].enabled !== false;
 }
 
 const userIdOf = (ctx) => (ctx?.user?.id ? Number(ctx.user.id) : null);
@@ -78,12 +82,53 @@ const tokenPolicyOf = (ctx) => ctx?.apiToken?.policy || ctx?.req?.apiToken?.poli
  */
 export function tokenAllowsType(ctx, type, level = 'read') {
   const policy = tokenPolicyOf(ctx);
-  if (!policy || !type) return true;
+  if (!policy) return true;
+  // A type nobody registers (its module's package is not installed) is out of every token's reach.
+  if (!type) return false;
   return scopeDecision(policy, level === 'write' ? 'POST' : 'GET', `/app/${type.module}`).ok;
 }
 
 function assertTokenScope(ctx, type, level) {
   if (!tokenAllowsType(ctx, type, level)) throw httpError(403, `The token lacks the ${type.module}:${level} scope`, 'SCOPE_DENIED');
+}
+
+/** The module id of a stored type key ('contracts.contract' → 'contracts'). */
+const moduleOfKey = (key) => String(key || '').split('.')[0];
+
+/** The name of a module whose package is not installed: from its last installed manifest, else its id. */
+async function absentModuleName(moduleId) {
+  try {
+    const { rows } = await query(`SELECT manifest FROM installed_modules WHERE id = $1`, [moduleId]);
+    const name = rows[0]?.manifest?.name;
+    if (name && typeof name === 'object') return name;
+    if (typeof name === 'string' && name) return { en: name, ru: name };
+  } catch {
+    // No installed_modules table (tests, an old database): the id names the module.
+  }
+  return { en: moduleId, ru: moduleId };
+}
+
+/**
+ * 409 MODULE_ABSENT: the process's document type is not registered — the package of the module that owns
+ * it (Contracts, Procurement, Warehouse…) is not installed. Nothing may change the process then: its
+ * module's onStatus could not update the document, so a decision would leave the two out of step.
+ */
+export async function moduleAbsentError(typeKey) {
+  const module = moduleOfKey(typeKey);
+  const name = await absentModuleName(module);
+  const label = name.en || module;
+  return httpError(409, `The module of this document (${label}) is not installed — install it to act on this approval`, 'MODULE_ABSENT', {
+    module,
+    type: String(typeKey || ''),
+    name,
+  });
+}
+
+/** The registered type of a locked process, or 409 MODULE_ABSENT. */
+async function presentType(process) {
+  const type = getApprovalType(process.type);
+  if (!type) throw await moduleAbsentError(process.type);
+  return type;
 }
 
 /** Decisions on a type whose module is switched off are refused (its documents are out of reach too). */
@@ -310,7 +355,9 @@ export function processShape(process, type = getApprovalType(process.type)) {
 }
 
 async function callOnStatus(type, client, process, info) {
-  if (!type?.onStatus) return;
+  // Never a silent no-op for an unregistered type: the document would not follow the process.
+  if (!type) throw await moduleAbsentError(process.type);
+  if (!type.onStatus) return;
   await type.onStatus(process.doc_id, process.status, { ...info, client, process: processShape(process, type) });
 }
 
@@ -534,7 +581,7 @@ export async function decide(ctx, ref, input = {}) {
   let type = null;
   const row = await withTransaction(async (client) => {
     const process = await lockProcess(client, ref);
-    type = getApprovalType(process.type);
+    type = await presentType(process);
     if (!typeEnabled(modules, type)) throw httpError(404, 'The module of this document is turned off', 'MODULE_DISABLED');
     assertTokenScope(ctx, type, 'write');
     if (process.status !== 'pending') throw httpError(409, 'This approval is no longer waiting for a decision', 'NOT_PENDING', { status: process.status });
@@ -605,7 +652,7 @@ export async function answer(ctx, ref, input = {}) {
   const effects = [];
   const row = await withTransaction(async (client) => {
     const process = await lockProcess(client, ref);
-    const type = getApprovalType(process.type);
+    const type = await presentType(process);
     if (!typeEnabled(modules, type)) throw httpError(404, 'The module of this document is turned off', 'MODULE_DISABLED');
     assertTokenScope(ctx, type, 'write');
     if (process.status !== 'question') throw httpError(409, 'There is no open question', 'NOT_QUESTION', { status: process.status });
@@ -644,7 +691,7 @@ export async function withdraw(ctx, typeKey, docId, input = {}) {
   const actorId = userIdOf(ctx);
   const row = await withTransaction(async (client) => {
     const process = await lockProcess(client, { type: typeKey, docId });
-    const type = getApprovalType(process.type);
+    const type = await presentType(process);
     assertTokenScope(ctx, type, 'write');
     assertAuthorOrManager(ctx, process, type);
     if (![...ACTIVE_STATUSES, 'returned'].includes(process.status)) throw httpError(409, 'Nothing to withdraw', 'NOT_ACTIVE', { status: process.status });
@@ -669,7 +716,13 @@ export async function withdraw(ctx, typeKey, docId, input = {}) {
  * returned it when the route says restartFrom: 'current'.
  */
 export async function restart(ctx, typeKey, docId, options = {}) {
-  const type = requireApprovalType(typeKey);
+  const type = getApprovalType(typeKey);
+  if (!type) {
+    // A process of a type nobody registers: its module's package is absent (409); no process at all: 404.
+    const { rows } = await query(`SELECT 1 FROM approval_processes WHERE type = $1 AND doc_id = $2`, [String(typeKey), String(docId)]);
+    if (rows[0]) throw await moduleAbsentError(typeKey);
+    requireApprovalType(typeKey);
+  }
   await assertTypeEnabled(type);
   assertTokenScope(ctx, type, 'write');
   const summary = await loadSummary(type, docId);

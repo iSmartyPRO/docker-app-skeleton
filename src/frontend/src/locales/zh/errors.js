@@ -10,6 +10,7 @@ export default {
     other: '此联系方式',
   },
   codes: {
+    MODULE_ABSENT: '此文档所属的模块「{module}」未安装。管理员安装该模块后，审批即可继续。',
     PASSBOLT_OFF: 'Passbolt 未启用。',
     PASSBOLT_NOT_SET: '请先连接您的 Passbolt（密码管理器）。',
     PASSBOLT_KEY: 'Passbolt 密钥或口令无效。',

@@ -456,10 +456,10 @@ module: ## Build a signed module package into dist/modules: make module ID=maste
 module-keygen: ## Create the module signing key (outside the repo, once) and trust its public key (platform/trusted-keys.json)
 	@node "$(PROJECT_ROOT)scripts/build-module.mjs" keygen --key "$(MODULE_SIGNING_KEY_FILE)"
 
-check-core-upgrade: ## Before a core update: can the installed module packages (./data/modules) run on this checkout's core? [CORE=x.y.z]
-	@node "$(PROJECT_ROOT)scripts/check-core-upgrade.mjs" --modules-dir "$(PROJECT_ROOT)data/modules" $(if $(CORE),--core $(CORE))
+check-core-upgrade: ## Before a core update or rollback: can the installed module packages (./data/modules) run on this core? [CORE=x.y.z (an older one: rollback, its SDK from tag v<CORE>)] [SDK=x.y.z]
+	@node "$(PROJECT_ROOT)scripts/check-core-upgrade.mjs" --modules-dir "$(PROJECT_ROOT)data/modules" $(if $(CORE),--core $(CORE)) $(if $(SDK),--sdk $(SDK))
 
-modules-verify: ## Check a module package's signature and manifest: make modules-verify FILE=dist/modules/masterplan-1.2.0.zip
+modules-verify: ## Check a module package's signature and manifest: make modules-verify FILE=dist/modules/masterplan-1.2.1.zip
 	@test -n "$(FILE)" || { echo "Usage: make modules-verify FILE=<package.zip>"; exit 1; }
 	@node "$(PROJECT_ROOT)scripts/build-module.mjs" verify "$(FILE)"
 

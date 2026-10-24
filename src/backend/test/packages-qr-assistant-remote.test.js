@@ -71,9 +71,9 @@ test('core without them: sources stay out of the image; legacy table prefixes an
     assert.equal(tablePatternProblem(id, manifest.tables[0]), null);
     assert.equal(CONVERTED_MODULES[id].version, lastBuiltIn[id]);
     assert.equal(CONVERTED_MODULES[id].name.ru, manifest.name.ru);
-    // The first package version is a minor bump of the last built-in one.
+    // The first package version is a minor bump of the last built-in one (patches of it since).
     const [major, minor] = lastBuiltIn[id].split('.').map(Number);
-    assert.equal(manifest.version, `${major}.${minor + 1}.0`);
+    assert.match(manifest.version, new RegExp(`^${major}\\.${minor + 1}\\.\\d+$`));
   }
 });
 

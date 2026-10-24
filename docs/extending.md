@@ -818,6 +818,8 @@ Registrations made through `ctx` carry the module's id, so they hide while it is
 |---|---|---|---|
 | `contract.deposit_received`, `contract.signed`, `contract.paid` | Contracts (`objectSync.js`) | `{ contract: { id, number, extNumber, concludedOn, amount, framework, payTracked, mpNodeId }, paid, full, actor: { userId, req } }` | Masterplan (`contractSync.js`): the unit's status and paid amount; answers `{ result, logs }` — the card shows `result`, Contracts keeps `logs` in its history |
 | `crm.deal.stage` | CRM | `{ dealId, from, to, actorId }` | Masterplan (units follow the deal's stage) |
+| `module.installed`, `module.updated`, `module.removed` | package installer (before the restart) | `{ id, version }` | Masterplan (drops its cached «is `crm_deals` there?») |
+| `module.data_removed` | package installer («Удалить данные», no restart) | `{ id, tables }` | Masterplan (same) |
 
 **Public APIs** (`api.js`): `org`, `approvals`, `companies` (core); `crm` (`dealFor`, `searchDeals`, `visibleDealIds`, `addDealEvent`, `setDealAmount`, link provider), `masterplan` (`contractUnit`, `unitPaymentPlans`, `projectFor`, `nodeFor`, `projectLinkOptions`), `contracts` (link provider), `procurement` (`listRequests`, `getRequest`, `createRequest`, delivery marks), `chat` (`registerChatEntity`, `postSystem`, `importHistory`, `removeStored`), `files` (`nodeAccess`, `usageOf`, the knowledge base's storage), `drive` (AD helpers and credentials for the AD directory), `employees` (`registerEmployeeExtension`).
 

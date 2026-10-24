@@ -9,7 +9,7 @@
     "tr": "Vaziyet planı, daire tablosu ve bağımsız bölüm kaydı: satış durumları, rezervasyonlar, fiyatlar ve inşaat ilerlemesi",
     "zh": "总平面图、房源表和房源单元登记：销售状态、预订、价格和施工进度"
   },
-  "version": "1.2.0",
+  "version": "1.2.1",
   "category": "construction",
   "requires": [],
   "enhances": [
@@ -38,6 +38,22 @@
     "tour": ["masterplan"]
   },
   "changelog": [
+    {
+      "version": "1.2.1",
+      "date": "2026-10-23",
+      "changes": {
+        "en": [
+          "Once the CRM is installed after being absent, unit status changes made meanwhile are written into their deals' history (and the deal amount set again with «deal amount = unit price») — once per CRM install.",
+          "Whether the CRM's deals table exists is checked at most every 30 s (and again after a package install, removal or data deletion); the deal join is built as a query part, not by rewriting SQL.",
+          "Removing the demo data clears purchase-request links through Procurement's API."
+        ],
+        "ru": [
+          "Когда CRM установлен после отсутствия, смены статусов юнитов за это время записываются в историю их сделок (и сумма сделки снова выставляется при «сумма сделки = цена юнита») — один раз на установку CRM.",
+          "Наличие таблицы сделок CRM проверяется не чаще раза в 30 с (и заново после установки, удаления пакета или удаления данных); связь со сделками собирается как часть запроса, а не заменой текста SQL.",
+          "Удаление демо-данных снимает ссылки заявок на закупку через API Закупок."
+        ]
+      }
+    },
     {
       "version": "1.2.0",
       "date": "2026-10-23",

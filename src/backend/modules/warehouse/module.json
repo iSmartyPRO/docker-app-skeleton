@@ -9,7 +9,7 @@
     "tr": "Stok, giriş ve çıkışlar, transferler, aletler, barkodlar",
     "zh": "库存、入库和出库、调拨、工具、条形码"
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "category": "supply",
   "requires": [
     { "id": "approvals", "reason": { "en": "Documents go through approval routes", "ky": "Документтер макулдашуу маршруттарынан өтөт", "tr": "Belgeler onay akışlarından geçer", "zh": "单据按审批流程流转", "ru": "Документы проходят маршруты согласования" } }
@@ -21,6 +21,7 @@
   ],
   "permissions": ["warehouse.view", "warehouse.request", "warehouse.operate", "warehouse.writeoff", "warehouse.inventory", "warehouse.cost", "warehouse.backdate", "warehouse.admin"],
   "tables": ["wh_%"],
+  "functions": ["wh_moves_immutable"],
   "icon": "box",
   "docsInfo": { "user": "warehouse", "guide": "docs/warehouse.md" },
   "localeKeys": {
@@ -32,6 +33,18 @@
     "dashboard": ["widgets.warehouseLow", "widgets.warehouseIncoming", "widgets.warehouseMyTools"]
   },
   "changelog": [
+    {
+      "version": "1.1.1",
+      "date": "2026-10-23",
+      "changes": {
+        "en": [
+          "«Delete data» also removes the movement journal's trigger function (wh_moves_immutable)."
+        ],
+        "ru": [
+          "«Удалить данные» удаляет и функцию триггера журнала движений (wh_moves_immutable)."
+        ]
+      }
+    },
     {
       "version": "1.1.0",
       "date": "2026-10-23",

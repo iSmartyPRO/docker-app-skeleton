@@ -14,28 +14,70 @@ import { dayString, iso, money } from './util.js';
 /*
  * The deal's title comes from the CRM's table when it is there. The CRM is an optional package: on a
  * portal that never had it (or deleted its data) crm_deals does not exist, and the same SELECT joins
- * an empty row instead (deal id kept, no title). Checked per query: the CRM's data can be deleted
- * while Masterplan runs.
+ * an empty row instead (deal id kept, no title). The queries are built with the join as a parameter
+ * (crmDealJoin), never by rewriting SQL text. Whether the table exists is cached for CRM_CHECK_TTL_MS
+ * (30 s) and forgotten when a package is installed, updated, removed or its data deleted (the
+ * module.* events, watchCrmTable) — «Удалить данные» of the CRM does not restart the portal.
  */
-const CRM_DEAL_JOIN = 'LEFT JOIN crm_deals d ON d.id = u.deal_id';
-const NO_CRM_DEAL_JOIN = 'LEFT JOIN (SELECT NULL::int AS id, NULL::text AS title, NULL::timestamptz AS deleted_at) d ON FALSE';
+export const CRM_CHECK_TTL_MS = 30_000;
+let crmCheck = null; // { at, ok }
+
+/** Forgets the cached answer (module.* events; tests). */
+export function forgetCrmTable() {
+  crmCheck = null;
+}
+
+/** register(ctx): the cache follows package installs, updates, removals and data deletions. */
+export function watchCrmTable(events) {
+  if (!events?.on) return;
+  for (const name of ['module.installed', 'module.updated', 'module.removed', 'module.data_removed']) events.on(name, () => forgetCrmTable());
+}
 
 /** True when the CRM's deals table exists (the CRM installed now or its data kept). */
-export async function hasCrmDeals(client = { query }) {
+export async function hasCrmDeals(client = { query }, { now = Date.now() } = {}) {
+  if (crmCheck && now - crmCheck.at < CRM_CHECK_TTL_MS) return crmCheck.ok;
   const { rows } = await client.query(`SELECT to_regclass('crm_deals') IS NOT NULL AS ok`);
-  return Boolean(rows[0]?.ok);
+  crmCheck = { at: now, ok: Boolean(rows[0]?.ok) };
+  return crmCheck.ok;
 }
 
-/** SQL with the CRM deal join replaced by an empty one while crm_deals does not exist. */
-export async function withCrmJoin(sql, client = { query }) {
-  return (await hasCrmDeals(client)) ? sql : sql.replace(/LEFT JOIN crm_deals d ON d\.id = \w+\.deal_id/g, NO_CRM_DEAL_JOIN);
+const DEAL_COLUMN = /^[a-z]\.deal_id$/;
+
+/**
+ * The CRM deal join (alias `d`: d.id, d.title, d.deleted_at) on a deal id column such as 'u.deal_id':
+ * the CRM's table while it exists (`crm`), else an empty row so the SELECT stays the same.
+ */
+export function crmDealJoin(crm, column) {
+  if (!DEAL_COLUMN.test(column)) throw new Error(`crmDealJoin: bad deal column ${column}`);
+  return crm ? `LEFT JOIN crm_deals d ON d.id = ${column}` : 'LEFT JOIN (SELECT NULL::int AS id, NULL::text AS title, NULL::timestamptz AS deleted_at) d ON FALSE';
 }
 
-/** NODE_SELECT for this database (see withCrmJoin). */
-export const nodeSelect = (client = { query }) => withCrmJoin(NODE_SELECT, client);
+/** crmDealJoin for this database now. */
+export async function dealJoin(column, client = { query }) {
+  return crmDealJoin(await hasCrmDeals(client), column);
+}
 
-export const NODE_SELECT = `
-  SELECT n.*, t.key AS type_key, t.name AS type_name, t.category AS type_category, t.icon AS type_icon, t.color AS type_color,
+/** The node SELECT (columns of NODE_COLUMNS, joins of nodeJoins) with or without the CRM's table; `extra`: more columns. */
+export function nodeSelectSql({ crm, extra = '' } = {}) {
+  return `
+  SELECT ${NODE_COLUMNS}${extra ? `, ${extra}` : ''}
+  FROM mp_nodes n
+  LEFT JOIN mp_types t ON t.id = n.type_id
+  LEFT JOIN mp_units u ON u.node_id = n.id
+  LEFT JOIN users mu ON mu.id = u.manager_id
+  LEFT JOIN mp_bookings b ON b.id = u.booking_id AND b.status = 'active'
+  ${crmDealJoin(crm, 'u.deal_id')}
+  LEFT JOIN cmp_people pp ON pp.id = u.person_id
+  LEFT JOIN cmp_companies c ON c.id = u.company_id
+  LEFT JOIN mp_stages st ON st.id = n.current_stage_id`;
+}
+
+/** The node SELECT for this database (see hasCrmDeals); `extra`: more columns. */
+export async function nodeSelect(client = { query }, { extra = '' } = {}) {
+  return nodeSelectSql({ crm: await hasCrmDeals(client), extra });
+}
+
+const NODE_COLUMNS = `n.*, t.key AS type_key, t.name AS type_name, t.category AS type_category, t.icon AS type_icon, t.color AS type_color,
          t.sellable AS type_sellable, t.stage_set AS type_stage_set,
          u.node_id AS u_id, u.status, u.version, u.price, u.currency, u.discount_pct, u.min_price, u.area_total, u.area_living,
          u.area_plot, u.area_terrace, u.rooms, u.bedrooms, u.bathrooms, u.levels, u.ceiling, u.floor, u.number, u.riser,
@@ -45,16 +87,10 @@ export const NODE_SELECT = `
          b.id AS b_id, b.kind AS b_kind, b.ends_at AS b_ends_at, b.starts_at AS b_starts_at, b.extensions AS b_extensions, b.paid AS b_paid,
          d.title AS deal_title, d.deleted_at AS deal_deleted,
          NULLIF(CONCAT_WS(' ', pp.last_name, pp.first_name), '') AS person_name, c.name AS company_name,
-         st.name AS stage_name
-  FROM mp_nodes n
-  LEFT JOIN mp_types t ON t.id = n.type_id
-  LEFT JOIN mp_units u ON u.node_id = n.id
-  LEFT JOIN users mu ON mu.id = u.manager_id
-  LEFT JOIN mp_bookings b ON b.id = u.booking_id AND b.status = 'active'
-  ${CRM_DEAL_JOIN}
-  LEFT JOIN cmp_people pp ON pp.id = u.person_id
-  LEFT JOIN cmp_companies c ON c.id = u.company_id
-  LEFT JOIN mp_stages st ON st.id = n.current_stage_id`;
+         st.name AS stage_name`;
+
+/** The node SELECT with the CRM's table (tests, docs); queries use nodeSelect(). */
+export const NODE_SELECT = nodeSelectSql({ crm: true });
 
 const num = (value) => (value === null || value === undefined ? null : Number(value));
 

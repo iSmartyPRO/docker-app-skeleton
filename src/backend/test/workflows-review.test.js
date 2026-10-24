@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { replanStages } from '../modules/approvals/logic.js';
-import { tokenAllowsType } from '../modules/approvals/engine.js';
+import { tokenAllowsType, typeEnabled } from '../modules/approvals/engine.js';
 
 /*
  * Pure rules behind the code-review fixes of approvals, procurement and
@@ -51,4 +51,14 @@ test('tokenAllowsType: an API token reaches documents only of modules in its sco
   assert.equal(tokenAllowsType({ user: { id: 1 }, req: token({ approvals: 'read' }) }, type, 'read'), false);
   // A deny rule on the module wins.
   assert.equal(tokenAllowsType(token({ kb: 'write' }, [{ effect: 'deny', methods: [], path: '/app/kb/**' }]), type, 'read'), false);
+});
+
+test('an unregistered type (its module package absent) is out of reach of tokens and lists', () => {
+  const token = { user: { id: 1 }, apiToken: { policy: { scopes: { approvals: 'write', contracts: 'write' }, rules: [] } } };
+  assert.equal(tokenAllowsType(token, null, 'read'), false, 'a token never reaches a type nobody registers');
+  assert.equal(tokenAllowsType(token, null, 'write'), false);
+  assert.equal(tokenAllowsType({ user: { id: 1 } }, null, 'read'), true, 'sessions are decided by participation, not the token');
+  assert.equal(typeEnabled({}, null), false);
+  assert.equal(typeEnabled({ contracts: { enabled: false } }, { module: 'contracts' }), false);
+  assert.equal(typeEnabled({}, { module: 'test' }), true);
 });

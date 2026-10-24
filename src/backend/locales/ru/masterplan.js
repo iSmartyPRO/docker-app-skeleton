@@ -51,6 +51,7 @@ export default {
     text: 'Мастерплан: объект {unit} — {status}{until}{reason}',
     until: ' до {date}',
     reason: ' ({reason})',
+    resync: ' — изменение от {date}, записано после установки CRM',
     expired: {
       reserve: 'Мастерплан: резерв объекта {unit} снят автоматически — срок истёк',
       booking: 'Мастерплан: бронь объекта {unit} снята автоматически — срок истёк',

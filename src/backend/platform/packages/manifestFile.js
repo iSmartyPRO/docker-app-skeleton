@@ -13,7 +13,7 @@ import { ownsPermission, tablePatternProblem } from './tableOwnership.js';
  *   description {..}, changelog [{ version, date, changes {en:[..], ru:[..]} }],
  *   docs { user, guide }, nameForms { ru: { ins } } (declined name for messages),
  *   settings { defaultEnabled, defaults {..}, public [..] }, tables ["hello_items", "hello_%"]
- *   (only the module's own tables, tableOwnership.js),
+ *   (only the module's own tables, tableOwnership.js), functions ["hello_touch"] (its own functions, same rules),
  *   server { entry }, web { entry, css [..], icon, permission [..], page, settings (has a Settings screen) },
  *   locales { <lang>: [<namespace>, …] }, builtAt, sdk (SDK version it was built against).
  *
@@ -24,6 +24,7 @@ import { ownsPermission, tablePatternProblem } from './tableOwnership.js';
 
 const TEXT_LANGS = ['en', 'ru'];
 const TABLE = /^[a-z_][a-z0-9_]{0,62}[%*]?$/;
+const FUNCTION = /^[a-z_][a-z0-9_]{0,62}$/;
 const PERMISSION = /^[a-z][a-z0-9_]*\.[a-z0-9_.]+$/;
 const LOCALE_NS = /^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const LANG = /^[a-z]{2,3}$/;
@@ -103,6 +104,18 @@ export function normalizeManifest(raw, { categories = null, integrations = null 
     }
   }
 
+  // Functions the module creates (trigger functions): «Удалить данные» drops them after its tables. Same
+  // ownership rules as tables; functions under the module's own prefixes are found without being listed.
+  const functions = Array.isArray(raw.functions) ? raw.functions : [];
+  if (raw.functions != null && !Array.isArray(raw.functions)) problems.push('functions must be a list');
+  for (const fn of functions) {
+    if (typeof fn !== 'string' || !FUNCTION.test(fn)) problems.push(`function "${fn}" is not a valid function name`);
+    else if (typeof id === 'string' && ID_PATTERN.test(id)) {
+      const problem = tablePatternProblem(id, fn);
+      if (problem) problems.push(problem.replace(/^table /, 'function '));
+    }
+  }
+
   let changelog = Array.isArray(raw.changelog) ? raw.changelog.filter((item) => isObject(item) && isVersion(item.version)) : [];
   if (!changelog.length || changelog[0].version !== raw.version) changelog = [{ version: raw.version, date: raw.builtAt ? String(raw.builtAt).slice(0, 10) : undefined, changes: { en: [], ru: [] } }, ...changelog];
   changelog = changelog.slice(0, 10).map((item) => ({ version: item.version, ...(item.date ? { date: String(item.date).slice(0, 10) } : {}), changes: isObject(item.changes) ? item.changes : { en: [], ru: [] } }));
@@ -164,6 +177,7 @@ export function normalizeManifest(raw, { categories = null, integrations = null 
     ...(isObject(raw.nameForms) ? { nameForms: raw.nameForms } : {}),
     settings: { defaultEnabled: Boolean(settings.defaultEnabled), defaults, public: publicSettings },
     tables: tables.filter((table) => typeof table === 'string' && TABLE.test(table)),
+    ...(functions.some((fn) => typeof fn === 'string' && FUNCTION.test(fn)) ? { functions: functions.filter((fn) => typeof fn === 'string' && FUNCTION.test(fn)) } : {}),
     server,
     web,
     locales,

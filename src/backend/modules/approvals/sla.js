@@ -1,7 +1,7 @@
 import { query } from '../../config/database.js';
 import { notify } from '../../services/notifications.js';
 import { emitEvent } from '../../api/events.js';
-import { getApprovalType } from './registry.js';
+import { getApprovalType, listApprovalTypes } from './registry.js';
 import { approvalMessage } from './messages.js';
 import { peopleOf } from './people.js';
 
@@ -23,12 +23,15 @@ export async function runSla(now = new Date()) {
   const { approvalSettings, escalationPeople, canSeeProcess, processShape } = await import('./engine.js');
   const settings = await approvalSettings();
   const result = { reminded: 0, escalated: 0 };
+  // Only registered types: an approval whose module's package is not installed cannot be decided
+  // (409 MODULE_ABSENT), so nobody is reminded of it — it is reminded / escalated once the module is back.
+  const present = listApprovalTypes().map((type) => type.key);
 
   const { rows: due } = await query(
     `UPDATE approval_processes SET reminded_at = $1
-     WHERE status = 'pending' AND reminded_at IS NULL AND remind_at IS NOT NULL AND remind_at <= $1 AND due_at > $1
+     WHERE status = 'pending' AND reminded_at IS NULL AND remind_at IS NOT NULL AND remind_at <= $1 AND due_at > $1 AND type = ANY($2::text[])
      RETURNING *`,
-    [now]
+    [now, present]
   );
   for (const process of due) {
     try {
@@ -44,9 +47,9 @@ export async function runSla(now = new Date()) {
 
   const { rows: overdue } = await query(
     `UPDATE approval_processes SET escalated_at = $1, reminded_at = COALESCE(reminded_at, $1)
-     WHERE status = 'pending' AND escalated_at IS NULL AND due_at IS NOT NULL AND due_at <= $1
+     WHERE status = 'pending' AND escalated_at IS NULL AND due_at IS NOT NULL AND due_at <= $1 AND type = ANY($2::text[])
      RETURNING *`,
-    [now]
+    [now, present]
   );
   for (const process of overdue) {
     try {

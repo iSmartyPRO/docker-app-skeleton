@@ -77,7 +77,7 @@ test('core without them: sources stay out of the image; legacy table prefixes an
     assert.equal(tablePatternProblem(id, manifest.tables[0]), null);
     assert.equal(CONVERTED_MODULES[id].version, '1.0.0');
     assert.equal(CONVERTED_MODULES[id].name.ru, manifest.name.ru);
-    assert.equal(manifest.version, '1.1.0');
+    assert.equal(manifest.version, '1.1.1');
   }
 });
 
@@ -123,6 +123,10 @@ test('no raw SQL on other packages: Procurement request lines through its API, M
   for (const path of sources('procurement')) assert.doesNotMatch(read(path), /\b(mp_\w+|ctr_contracts)\b(?!', '(masterplan|contracts)')/, `${path} reads Masterplan / Contracts tables`);
   assert.match(read('src/backend/modules/procurement/api.js'), /export async function requestLineQuantities/);
   assert.match(read('src/backend/modules/warehouse/procurement.js'), /requestLineQuantities/);
+  // The demo purges of Contracts and Masterplan clear request links through Procurement's API, guarded.
+  for (const id of ['contracts', 'masterplan']) assert.doesNotMatch(read(`src/backend/modules/${id}/demo.js`), /\bproc_requests\b/, `${id}/demo.js writes Procurement's table`);
+  assert.match(read('src/backend/modules/contracts/demo.js'), /modules\.loaded\('procurement'\)\?\.api\?\.forgetContracts\?\.\(/);
+  assert.match(read('src/backend/modules/masterplan/demo.js'), /modules\.loaded\('procurement'\)\?\.api\?\.forgetProjects\?\.\(/);
   // Masterplan names of issued stock: only behind the table check.
   for (const name of ['stock', 'reports']) {
     const text = read(`src/backend/modules/warehouse/${name}.js`);
@@ -145,7 +149,7 @@ test('build: each builds into a package (server part; web with MODULE_BUILD_WEB=
       const m = opened.manifest;
       const file = (name) => opened.files.find((item) => item.name === name)?.data.toString();
       assert.equal(m.id, id);
-      assert.equal(m.version, '1.1.0');
+      assert.equal(m.version, moduleJson(id).version);
       assert.match(file('server/index.js'), /001_init/);
       // Other modules are reached through the registry only: no other module's code in the bundle.
       assert.doesNotMatch(file('server/index.js'), /@portal\/sdk\/core\/modules\/(crm|contracts|masterplan|procurement|warehouse)\//);

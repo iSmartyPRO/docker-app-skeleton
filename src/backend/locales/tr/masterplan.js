@@ -50,6 +50,7 @@ export default {
     text: 'Master plan: bağımsız bölüm {unit} — {status}{until}{reason}',
     until: ' ({date} tarihine kadar)',
     reason: ' ({reason})',
+    resync: ' — {date} tarihli değişiklik, CRM kurulduktan sonra kaydedildi',
     expired: {
       reserve: 'Master plan: bağımsız bölüm {unit} ön rezervasyonu otomatik olarak kaldırıldı — süre doldu',
       booking: 'Master plan: bağımsız bölüm {unit} rezervasyonu otomatik olarak kaldırıldı — süre doldu',
