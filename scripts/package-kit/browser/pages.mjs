@@ -51,6 +51,8 @@ try {
       if (ignored(line)) return;
       if (res.status() >= 500) current.errors.push(`http ${line}`);
       else if (res.status() >= 400 && url.pathname.startsWith('/modules/')) current.errors.push(`package file ${line}`);
+      // An anonymous visitor's «who am I» answers 401 by design.
+      else if (current.anonymous && res.status() === 401 && /^\/api\/auth\/me$/.test(url.pathname)) return;
       else if (res.status() >= 400 && url.pathname.startsWith('/api/')) current.notes.push(`api ${line}`);
     });
   };

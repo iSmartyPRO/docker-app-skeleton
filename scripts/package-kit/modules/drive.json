@@ -116,7 +116,8 @@
           "ms": 6000
         }
       ],
-      "waitMs": 11000
+      "waitMs": 11000,
+      "expectText": "Kit folder link"
     },
     {
       "name": "public link, anonymous, the package list held back 4 s twice (late answer, prepared in place)",
@@ -130,7 +131,8 @@
           "times": 2
         }
       ],
-      "waitMs": 16000
+      "waitMs": 16000,
+      "expectText": "Kit folder link"
     },
     {
       "path": "/app/drive/s/:shareId/Documents",
