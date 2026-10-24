@@ -36,7 +36,40 @@ test('shutdown: a hook that never resolves is left behind after its timeout; the
 test('shutdown: server.js arms the force-exit timers before awaiting the hooks', () => {
   const text = readFileSync(resolve(here, '../server.js'), 'utf8');
   const body = text.slice(text.indexOf('const shutdown = async'));
-  assert.ok(body.indexOf("'Shutdown timed out, exiting'") < body.indexOf('await runShutdownHooks()'));
+  assert.ok(body.indexOf("'Shutdown timed out, exiting'") < body.indexOf('hooksDone = runShutdownHooks()'));
+});
+
+test('shutdown: the pool closes and node exits only after the shutdown hooks finished', () => {
+  // With no connection open, server.close() calls back at once: the pool ended and the process exited while the
+  // loader's hook (confirming a package update: marker removed, pending_check off) still ran, so installs in a row
+  // within the probation counted as unfinished boots and rolled the update back (release rehearsal 2026-10-24).
+  const text = readFileSync(resolve(here, '../server.js'), 'utf8');
+  const body = text.slice(text.indexOf('const shutdown = async'));
+  const close = body.slice(body.indexOf('server.close(async () => {'), body.indexOf('process.exit(0)'));
+  assert.ok(close.includes('await hooksDone;'), 'the close callback waits for the hooks');
+  assert.ok(close.indexOf('await hooksDone;') < close.indexOf('await closePool()'), 'hooks before the pool closes');
+  assert.ok(body.includes('hooksDone = runShutdownHooks();') && body.includes('await hooksDone;'));
+});
+
+test('shutdown: hooks still waiting on the event loop finish before a close callback that awaits them', async () => {
+  // The race itself: a callback that ends things after a few microtasks (pg-pool with no clients ends at once).
+  const order = [];
+  onShutdown(async () => {
+    for (let i = 0; i < 20; i += 1) await null; // many loaded packages before the one to confirm
+    order.push('confirmed');
+  }, { module: 'loader-like' });
+  let hooksDone = Promise.resolve();
+  const closed = new Promise((resolvePromise) => {
+    process.nextTick(async () => {
+      await hooksDone;
+      order.push('pool closed');
+      resolvePromise();
+    });
+  });
+  hooksDone = runShutdownHooks({ timeoutMs: 500 });
+  await hooksDone;
+  await closed;
+  assert.deepEqual(order.slice(-2), ['confirmed', 'pool closed']);
 });
 
 test('crash attribution: the topmost frame in $MODULES_DIR names the package', () => {

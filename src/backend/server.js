@@ -278,7 +278,14 @@ async function start() {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`Received ${signal}, shutting down`);
+    // The shutdown hooks finish before the pool closes and node exits: with no connection open,
+    // close() calls back at once, and the pool ended (and the process exited) while the hooks still
+    // ran — the loader's hook, which confirms a package update that started well (marker removed,
+    // pending_check off, a database write), never got to it, so quick installs in a row counted as
+    // unfinished boots and rolled the update back.
+    let hooksDone = Promise.resolve();
     server.close(async () => {
+      await hooksDone;
       await closePool();
       process.exit(0);
     });
@@ -295,7 +302,8 @@ async function start() {
     // No new background jobs start; the ones running finish within the grace period.
     stopScheduler();
     // Modules end their live streams (Chat) — ctx.onShutdown; each hook has its own timeout.
-    await runShutdownHooks();
+    hooksDone = runShutdownHooks();
+    await hooksDone;
     server.closeIdleConnections?.();
   };
 

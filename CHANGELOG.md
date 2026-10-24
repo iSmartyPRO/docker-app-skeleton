@@ -7,13 +7,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- **CRM and Contracts are installable module packages** and no longer built into the core — install their packages right after this update (CRM first, then Contracts), and update Masterplan to 1.2.0; their data, settings, roles and approval routes are kept (see [docs/module-packages.md](docs/module-packages.md#upgrading-a-portal-that-had-the-crm-or-contracts-built-in)).
+- **CRM and Contracts are installable module packages** and no longer built into the core — install their packages right after this update (CRM first, then Contracts), after updating Masterplan to 1.2.1; their data, settings, roles and approval routes are kept (see [docs/module-packages.md](docs/module-packages.md#upgrading-a-portal-that-had-the-crm-or-contracts-built-in)).
 - **Procurement and Warehouse are installable module packages** and no longer built into the core — install their packages right after this update (Procurement first, then Warehouse); their requests, payments, stock, documents, the movement journal, files, settings, roles and approval routes are kept (see [docs/module-packages.md](docs/module-packages.md#upgrading-a-portal-that-had-procurement-or-warehouse-built-in)).
 - **Employees, the AD directory and the File server are installable module packages** and no longer built into the core — install their packages right after this update (File server first, then Employees, then the AD directory); their cards, journals, servers, folders, saved credentials, public links, activity log and settings are kept (docs/module-packages.md «Upgrading a portal that had Employees, the AD directory or the File server built in»). Public links `/d/…` open for anonymous visitors from the File server package; the core image keeps the gateway's Python runtime.
 - **Masterplan 1.2.0 works without the CRM**: units and bookings keep their deal without a database link into the CRM's tables, so the CRM can be installed, updated and removed on its own.
 
 ### Fixed
 
+- **Modules — installing several packages in a row no longer rolls back a package update**: a restart during the first 30 seconds after an update now confirms the new version as documented; before, the app stopped before confirming it, so the next quick installs counted as failed starts and Masterplan's update was rolled back.
 - **API reference — installed module packages**: the developer reference and `openapi.json` now list the routes of installed module packages too (they listed only the modules built into the core).
 - **Modules — a newly installed package comes up switched off** as documented, also when the module is on by default (the robot assistant came up switched on); a portal that already had the module keeps its state.
 - **Modules — «Delete data» removes the module's files**: besides its tables, the module's upload folder (`uploads/<id>`, e.g. Masterplan's media) is now archived into the backup made first and then removed; previously the files stayed behind.
