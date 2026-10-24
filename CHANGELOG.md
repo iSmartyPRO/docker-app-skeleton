@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- **Core rollback check**: `make check-core-upgrade CORE=<older>` lists the packages of modules that core has built in as «built in» (they are ignored there and its built-in copy runs on the same data) instead of reporting them as too new.
 - **Modules — installing several packages in a row no longer rolls back a package update**: a restart during the first 30 seconds after an update now confirms the new version as documented; before, the app stopped before confirming it, so the next quick installs counted as failed starts and Masterplan's update was rolled back.
 - **API reference — installed module packages**: the developer reference and `openapi.json` now list the routes of installed module packages too (they listed only the modules built into the core).
 - **Modules — a newly installed package comes up switched off** as documented, also when the module is on by default (the robot assistant came up switched on); a portal that already had the module keeps its state.

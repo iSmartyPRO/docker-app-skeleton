@@ -520,6 +520,16 @@ point <id>/current to it»). Before bringing the old image back (operations.md �
    them active with the old versions. A package whose previous version does not fit either (or has none) stays failed on
    the old core: keep the newer core, or install a package file made for the old one.
 
+**Modules the old core has built in** (back to 1.20.0 from the release that turned QR codes, the assistant, Remote access,
+the CRM, Contracts, Procurement, Warehouse, Employees, the AD directory and the File server into packages): nothing to
+do for them. `check-core-upgrade` reads the old core's built-in modules from its tag and lists their packages as `built in`
+(not a problem); the old core ignores those packages («a built-in module has the same id») and runs its own copy on the
+same tables (their migrations `001` changed nothing). Its Settings → Modules lists them as failed («built into this core
+version; the package is ignored») with the package's version, although the built-in module works — that is 1.20.0's
+display. Leave the package folders in place: with the newer core again they load as before. Only Masterplan (a package
+already in 1.20.0) needs the pointer swap above. Rehearsed on a copy of the production database (2026-10-24): after the
+rollback every module answered, the data of every table was unchanged, QR redirects worked.
+
 ## Store preparation (stage 6)
 
 - **Portal identity** (`platform/identity.js`): UUID + Ed25519 key pair created on first use in

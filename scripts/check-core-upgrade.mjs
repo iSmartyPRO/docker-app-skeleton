@@ -50,6 +50,21 @@ export function sdkOfCore(coreVersion, { root = ROOT } = {}) {
   }
 }
 
+/**
+ * Ids of the modules a released core has built in, from its tag (`modules/index.js` imports), or null (no such
+ * tag here). A rollback to such a core ignores the package of a module it has built in and runs its own copy on
+ * the same tables, so that package is no problem (docs/module-packages.md «Rolling the core back»).
+ */
+export function builtinOfCore(coreVersion, { root = ROOT } = {}) {
+  try {
+    execFileSync('git', ['-C', root, 'rev-parse', '--verify', '--quiet', `refs/tags/v${coreVersion}`], { stdio: 'ignore' });
+    const text = execFileSync('git', ['-C', root, 'show', `v${coreVersion}:src/backend/modules/index.js`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return [...text.matchAll(/^import\s+\w+\s+from\s+'\.\/([a-z][a-z0-9_]*)\/index\.js';?\s*$/gm)].map((match) => match[1]);
+  } catch {
+    return null;
+  }
+}
+
 function readManifest(modulesDir, id, version) {
   return JSON.parse(readFileSync(join(modulesDir, id, version, 'manifest.json'), 'utf8'));
 }
@@ -59,7 +74,7 @@ const NO_PLATFORM = (coreVersion) => ({
   message: { en: `core ${coreVersion} has no module packages (it had the module built in)`, ru: `в ядре ${coreVersion} нет модулей-пакетов (модуль был встроен)` },
 });
 
-export async function checkCoreUpgrade({ coreVersion, sdkVersion, modulesDir }) {
+export async function checkCoreUpgrade({ coreVersion, sdkVersion, modulesDir, builtin = [] }) {
   const { compatibilityProblem } = await import(pathToFileURL(join(BACKEND, 'platform/packages/checks.js')).href);
   const { ID_PATTERN, VERSION_PATTERN } = await import(pathToFileURL(join(BACKEND, 'platform/packages/paths.js')).href);
   const modules = [];
@@ -75,6 +90,11 @@ export async function checkCoreUpgrade({ coreVersion, sdkVersion, modulesDir }) 
       manifest = JSON.parse(readFileSync(join(modulesDir, id, version, 'manifest.json'), 'utf8'));
     } catch (err) {
       modules.push({ id, version, ok: false, problem: { code: 'UNREADABLE', message: { en: `manifest.json cannot be read: ${err.message}`, ru: `manifest.json не читается: ${err.message}` } } });
+      continue;
+    }
+    if (builtin.includes(id)) {
+      // That core has the module built in: the package is ignored there, its built-in copy runs on the same data.
+      modules.push({ id, version, core: manifest.core, sdk: manifest.sdk || null, ok: true, problem: null, builtin: true });
       continue;
     }
     const fits = (m) => (sdkVersion === 'none' ? NO_PLATFORM(coreVersion) : compatibilityProblem(m, { coreVersion, sdkVersion }));
@@ -113,7 +133,8 @@ async function main() {
     if (!released && compare(coreVersion, ownCore) < 0) sdkNote = ` — no tag v${coreVersion} here, so its SDK is unknown: this checkout's SDK is assumed (pass SDK=x.y.z)`;
   }
   const modulesDir = resolve(option('modules-dir', process.env.MODULES_DIR_HOST || join(ROOT, 'data/modules')));
-  const modules = await checkCoreUpgrade({ coreVersion, sdkVersion, modulesDir });
+  const builtin = coreGiven ? builtinOfCore(coreVersion) || [] : [];
+  const modules = await checkCoreUpgrade({ coreVersion, sdkVersion, modulesDir, builtin });
   const bad = modules.filter((item) => !item.ok);
   if (process.argv.includes('--json')) {
     process.stdout.write(`${JSON.stringify({ core: coreVersion, sdk: sdkVersion, modulesDir, modules }, null, 2)}\n`);
@@ -122,6 +143,10 @@ async function main() {
     console.log(`Installed module packages vs core ${coreVersion} (SDK ${sdkVersion === 'none' ? 'none' : sdkVersion}${sdkNote}) in ${modulesDir}:`);
     if (!modules.length) console.log('  none');
     for (const item of modules) {
+      if (item.builtin) {
+        console.log(`  built in ${item.id} ${item.version} — core ${coreVersion} has it built in: the package is ignored there and the built-in module runs on the same data (the package loads again with a newer core)`);
+        continue;
+      }
       const label = item.ok ? 'ok     ' : rollback ? 'TOO NEW' : 'UPDATE ';
       console.log(`  ${label} ${item.id} ${item.version}${item.core ? ` (core ${item.core}${item.sdk ? `, sdk ${item.sdk}` : ''})` : ''}${item.problem ? ` — ${item.problem.message.en}` : ''}`);
       if (item.previous) {

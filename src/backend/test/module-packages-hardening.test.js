@@ -257,6 +257,19 @@ test('check-core-upgrade before a core rollback: packages too new for the older 
     if (v120 !== null) assert.equal(v120, '1.0.0');
     const v119 = sdkOfCore('1.19.0');
     if (v119 !== null) assert.equal(v119, 'none');
+    // A module the older core has built in: its package is ignored there, the built-in copy runs — no problem.
+    const built = await checkCoreUpgrade({ coreVersion: '1.20.0', sdkVersion: '1.0.0', modulesDir: dir, builtin: ['other'] });
+    assert.deepEqual(
+      built.map((item) => [item.id, item.ok, Boolean(item.builtin)]),
+      [['hello', false, false], ['old', true, false], ['other', true, true]]
+    );
+    const { builtinOfCore } = await import(resolve(BACKEND, '../../scripts/check-core-upgrade.mjs'));
+    assert.equal(builtinOfCore('0.0.1'), null, 'no such tag: unknown');
+    const in120 = builtinOfCore('1.20.0');
+    if (in120 !== null) {
+      assert.ok(in120.includes('crm') && in120.includes('directory') && in120.includes('tasks'));
+      assert.ok(!in120.includes('masterplan'), 'Masterplan was a package already in 1.20.0');
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
