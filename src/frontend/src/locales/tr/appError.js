@@ -12,4 +12,6 @@ export default {
   updating: 'Yeni sürüm yükleniyor…',
   reload: 'Yenile',
   home: 'Ana sayfa',
+  slowTitle: 'Bu sayfanın açılması çok uzun sürüyor',
+  slowText: 'Bağlantı yavaş olabilir. Sayfayı yenileyin — ya da bekleyin, yüklendiğinde kendiliğinden açılacak.',
 };

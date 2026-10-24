@@ -42,7 +42,7 @@ Anything else at the top level (except `README.md`, `CHANGELOG.md`, `LICENSE`) i
 | `settings` | `{ defaultEnabled (false), defaults {…}, public [keys] }` — the module's `settings.modules.<id>`; sanitized by the server export `sanitizeSettings(current, incoming)`, else by type against `defaults` |
 | `tables` | table names or prefixes (`"hello_%"`) owned by the module, in addition to the tables its migrations create (backups, rollback restore, «Удалить данные»). Each must start with `<id>_` — or a legacy prefix the core declares for that module (`platform/packages/tableOwnership.js`: masterplan → `mp_`) — and may not match a core table or overlap another module's tables; the same rules filter the tables at run time |
 | `functions` | names of functions the module creates (trigger functions: Warehouse `wh_moves_immutable`). «Удалить данные» drops them after its tables (`DROP FUNCTION` without CASCADE, same transaction), together with every plain function of the schema under the module's own prefixes (`<id>_`, its legacy prefix), which need not be listed; same ownership rules as `tables`; refused (`FOREIGN_KEYS`) while a trigger of another table runs one. The answer of `POST …/purge` lists them in `functions` |
-| `server` `{ entry }`, `web` `{ entry, css, icon, permission, page, publicPaths }` | entry points (written by the build). `publicPaths` (module.json `"web": { "publicPaths": ["/d/"] }`): browser path prefixes of the package's public pages (`/x/`, not a portal path such as `/app/`, `/api/`): an anonymous visitor of such a page gets the package in the shell list (below) |
+| `server` `{ entry }`, `web` `{ entry, css, icon, permission, page, publicPaths }` | entry points (written by the build). `publicPaths` (module.json `"web": { "publicPaths": ["/d/"] }`): browser path prefixes of the package's public pages (`/x/`): an anonymous visitor of such a page gets the package in the shell list (below). Refused: the portal's own paths (`manifestFile.js RESERVED_PUBLIC`: `/app/`, `/admin/`, `/api/`, `/modules/`, `/sdk/`, `/assets/`, `/uploads/`, `/login/`, `/account/`, the core's public pages `/l/` (Files links), `/s/` (KB shares), `/res/`, and `/auth/`, `/setup/`, `/install/`, `/apps/`, `/help/`, `/developers/`, `/inbox/`, `/health/`, `/ready/`, `/sw/`) and paths owned by one module (`OWNED_PUBLIC`: `/q/` only for `qr` — nginx sends it to the QR redirect —, `/d/` only for `drive`) |
 | `locales` `{ <lang>: [ns…] }`, `builtAt`, `sdk` | written by the build |
 
 `platform/packages/manifestFile.js` validates and normalizes it (`normalizeManifest`).
@@ -151,7 +151,7 @@ resolves bare names imported from package code against the core's `node_modules`
 | Group | Names |
 |---|---|
 | Database | `query`, `withTransaction`, `getPool` |
-| Config, secrets | `APP_VERSION`, `uploadRoot`, `seal`, `unseal` (SDK 1.1.0: the core's sealing of stored secrets, `services/secrets.js`, no key material), `signModuleToken(purpose, payload, options)` / `verifyModuleToken(purpose, token)` (SDK 1.1.0: HS256 JWTs keyed by the portal secret + `purpose`, the key the File server's link tokens always had — the module never sees it) |
+| Config, secrets | `APP_VERSION`, `uploadRoot`, `seal`, `unseal` (SDK 1.1.0: the core's sealing of stored secrets, `services/secrets.js`, no key material), `moduleTokens(id)` → `{ sign(purpose, payload, options), verify(purpose, token, options) }`, also `ctx.tokens` in `register(ctx)` (SDK 1.1.0: HS256 JWTs keyed by the portal secret + `purpose`; the module never sees the key). A module uses only **its own purposes**: `pkg-<id>` / `pkg-<id>-<name>` (ids have no `-`, so a purpose names one module), plus the purposes it used while built into the core (`services/secrets.js LEGACY_TOKEN_PURPOSES`: the File server's `drive-link`, the key its link tokens always had — links and visitor sessions stay valid). The core's purposes (`files-link`, `kb-share`, `google-state`, `seal`, …: `CORE_TOKEN_PURPOSES`) and ids of built-in modules are refused (`TOKEN_PURPOSE_DENIED`), so a package cannot mint Files or KB visitor sessions |
 | Access | `requireAuth`, `optionalAuth`, `requirePermission`, `refuseImpersonation`, `hasPermission`, `getUserAccess`, `getAccessMap` |
 | Settings, regional | `getSettings`, `getSettingsView`, `parseSettings`, `getSetting`, `setSetting`, `invalidateSettings`, `updateAdminSettings`, `localeFor`, `recipientLocale`, `regionalFor`, `portalRegional`, `regionalOfUser`, `requestRegional`, `requestZone`, `REGIONAL_DEFAULTS`, `formatDate`, `formatDateTime`, `formatTime`, `isValidTimeZone`, `isoDay`, `startOfDay`, `startOfWeek`, `wallToInstant`, `zoneLabel`, `zoneOffsetMinutes`, `zonedParts` |
 | Languages | `tr`, `translator`, `plural`, `pick`, `localeOrDefault`, `localeTag`, `SUPPORTED`, `formatNumber`, `moneyText`, `decimalSeparator`, `exportLocale` |
@@ -184,7 +184,7 @@ boundary (see «SIGNATURE»).
 3. Packages, in requirement order: core / SDK compatibility (`manifest.core` same major and not newer than the
    core, `manifest.sdk` same major and not newer than `SDK_VERSION`; otherwise failed with the §5 message, not
    imported, listed in the start-up log and on Settings → Modules as «needs an update») → files re-verified
-   (above) → import `server/index.js` → check the contract and requirements → pending migrations → mount routes →
+   (above; stray Python byte-code caches `__pycache__` are deleted first and left out of the listing — see «Python byte-code» below) → import `server/index.js` → check the contract and requirements → pending migrations → mount routes →
    join the registry. Then every package's `register(ctx)`. Import + migrations and `register()` each have
    `MODULE_BOOT_TIMEOUT_MS` (120 s).
    `ctx.onHttpServer` hooks run once both the HTTP server is up (`startModuleServer(server)` in server.js) and the modules registered; a hook registered after that runs at once on the running server. `ctx.onShutdown` hooks run on SIGTERM (`runShutdownHooks()`).
@@ -272,6 +272,16 @@ At boot both are only logged (a rollback runs the previous code on purpose). For
 `CREATE … IF NOT EXISTS` (safe on existing databases) and `tables` in module.json names its existing tables.
 Not possible inside a transaction: `CREATE INDEX CONCURRENTLY`, `ALTER TYPE … ADD VALUE` used in the same batch.
 
+### Python byte-code
+
+A package may ship Python (the File server's SMB gateway, `server/gateway/*.py`). `__pycache__` folders are never part of a
+package (`build-module.mjs` leaves them out); one that appears later (someone ran `smbgate.py` by hand in the container)
+would make the files differ from the signed listing and stop the module, so `integrity.js` leaves `__pycache__` out of
+the listing and the loader deletes them at every boot before the check (`removeBytecodeCaches`, logged). They are never
+executed either: the gateway runs Python with `PYTHONDONTWRITEBYTECODE=1` and `PYTHONPYCACHEPREFIX=/dev/null/…` (a path
+that cannot exist), so Python reads no cache next to the sources. A `.pyc` anywhere else still fails the check (Python
+would import it instead of a module of the standard library).
+
 ## Browser side
 
 ### Web contract
@@ -289,7 +299,15 @@ export default {
 
 `main.jsx` awaits `loadInstalledPackages()` (`src/platform/packages/loader.js`, ≤ 1.5 s, short retries on a
 lost connection or a 5xx within that time; afterwards retried in the background with backoff and the page reloads
-once when packages arrive late) before the first render: `GET /api/modules/installed` (signed in; anonymous
+once when packages arrive late — an anonymous visitor's public packages are prepared in place instead) before the first render.
+**Public pages never bounce to the sign-in page while their package loads** (a first visit of `/d/<token>` on a slow
+network): every prefix of a switched-on package's `web.publicPaths` (sent in the list) gets a placeholder route
+(`/d/*`, `PublicPlaceholder.jsx`) before the first render; it shows a spinner until the package's web entry has run
+(its own `/d/:token` ranks above `/d/*` and takes over), a «taking too long — Reload» card after 20 s (it keeps waiting
+behind it) or at once when the entry failed, and goes home only when the entry loaded and none of its pages matches.
+While the list itself is still on its way, the catch-all route (`CatchAll`) does not redirect the page the visitor opened
+(at most 60 s, `readiness.js`), and every retry asks for that page's path (`START_PATH`), not the address shown now.
+Then: `GET /api/modules/installed` (signed in; anonymous
 visitors get no list — except on a package's public page: `?path=` of the page under its `web.publicPaths`
 (`/d/<token>`) gives that package, whose `register()` contributes the `app.publicRoutes` page; after a sign-in,
 `auth:signed-in` from AuthContext fetches it again and reloads once when there are packages the page has not prepared) → translations added (`i18n/translations.js`
@@ -384,7 +402,9 @@ own session, `exclusive()` (`MODULES_BUSY`) and `RESTART_PENDING` refusals.
   failed move is logged and does not undo the install. A failed or refused install leaves it in `incoming/`.
 - **Journal**: like uploads — `module_rejected` (a refused file, with `server file <name>`), `module_installed` /
   `module_updated` with «from server file <name>» (and «file not moved» when the move failed); `params.file`.
-- The id `incoming` is reserved (no package may take the folder's name).
+- The id `incoming` is reserved (no package may take the folder's name), and so are legacy permission prefixes of
+  other modules (`ad`, the AD directory's `ad.*`: no package `ad`, and no package but `directory` may declare `ad.*` —
+  `tableOwnership.js legacyPrefixOwner` / `ownsPermission`).
 
 ### Checks (spec §5, `platform/packages/checks.js`)
 
@@ -420,6 +440,9 @@ is kept (they count only for downgrades).
   (no `installed_modules` row) stores `settings.modules.<id> = { enabled: false }`. A portal that has had the module (a
   «removed» row — data kept, e.g. it was built into an older core — or a reinstall) keeps the state it had, so a module
   that ran by its default before keeps running.
+- **Install over a «removed» row** (data kept: a module built into an older core, or removed without «Удалить
+  данные»): when the module's tables exist, a backup of them is taken first (reason `reinstall`), as before an update —
+  migration 001 may rewrite them (the File server's move of the former «Доступ к папкам» module).
 - **Update**: the same, preceded by a refusal when other tables have foreign keys into the module's tables and a
   backup of the module's tables; `previous` keeps the old version folder (older ones are pruned); the first boot
   confirms the new version (`pending_check`, after the probation above) or rolls back. Writes the old version made
@@ -563,8 +586,13 @@ rollback every module answered, the data of every table was unchanged, QR redire
 - `test/packages-employees-directory-drive.test.js` (no database): Employees, the AD directory and the File server are out
   of every core list, their module.json / settings.js (the File server's nested access block, its upgrade), registrations in
   `register(ctx)`, migration 001 through `db` (the «Доступ к папкам» move in savepoints), no raw SQL on other packages' tables,
-  the hook for the domain password, `signModuleToken`, the legacy permission prefix `ad.`, public pages (`web.publicPaths`,
+  the hook for the domain password, `moduleTokens` (own purposes only, never the core's), the legacy permission prefix `ad.`
+  (and the reserved id `ad`), the reserved / owned public paths, the shell's placeholders of public pages, public pages (`web.publicPaths`,
   `publicPathPackages`, the browser's `?path=`), their builds with the gateway's Python files (web with `MODULE_BUILD_WEB=1`).
+- The package kit's browser pass opens pages anonymously (`"anonymous": true`) and on a slow network
+  (`"delay": [{ "match": "<regexp of the URL>", "ms": 6000, "times"?: n }]`: the Playwright route holds the requests back);
+  a page that passes through another address while it loads fails (`scripts/package-kit/drive.json`: `/d/<token>` with
+  the web entry or the package list held back past the start-up budget).
 - `test/module-packages-hardening.test.js` (no database): table ownership (and that its lists cover every
   `CREATE TABLE` of the tree), migration attribution and conflicts, downgrade after removal, core / SDK checks,
   `check-core-upgrade`, files re-verified, boot markers, limits, staging cleanup, backup retention, the deferred
@@ -612,7 +640,8 @@ QR codes (anonymous routes), the robot assistant (no page: `web.page: false`, co
    `clearAdAccount`; directory/employeesLink.js), the core reads the stored domain password's state through the hook
    `provideDirectoryCredentialInfo` (not `drive_credentials`); left, guarded: the demo directory's seed and purge touch
    `employees.ad_account` behind `to_regclass('employees')`. Sensitive core files are off limits for packages: the File
-   server seals with `services/secrets.js` and signs link tokens with `signModuleToken` (not `config/app.js`). **No foreign keys
+   server seals with `services/secrets.js` and signs link tokens with `moduleTokens('<id>')` (not `config/app.js`; a purpose it
+   used while built in goes into `LEGACY_TOKEN_PURPOSES`). **No foreign keys
    from other modules' tables into its tables**: the platform refuses an update and «Удалить данные» of a package
    that other tables reference (`FOREIGN_KEYS`), and the other module could not be installed without it
    (Masterplan dropped its keys into `crm_deals`, migration 002).
@@ -864,12 +893,26 @@ Users page shows no stored domain password, and the online editor cannot open Fi
    `web.publicPaths`), i.e. the core they are built with or newer.
 2. Usual deploy routine of the core (database backup first). The image must still have python3 + smbprotocol + Pillow and
    `dwg2dxf` (it does: Dockerfile).
-3. **Right after the deploy**, install the **File server** first (public links, the stored domain passwords), then
-   **Employees**, then the **AD directory** (it enhances both; any order works, but this one gives the directory its AD
-   connection and the employee cards at once). Each restart takes 5–10 s. Migrations `001_init` create nothing on this
-   database and record themselves (the File server's move of the former «Доступ к папкам» module finds nothing left to move:
-   `legacy_folderaccess.migratedAt` is set; a portal that still has `modules.folderaccess` or `fa_journal` gets them moved in
-   the same transaction, each step in a savepoint, and retried by the daily `drive:folderaccess` job when a step failed).
+3. **Right after the deploy**, install **Employees** first, then the **File server**, then the **AD directory**. There is no
+   batch install (each package restarts the portal, 5–10 s each), so the order decides which gap is shortest:
+   - **Employees first** — the only gap that leaves something behind. While Employees is absent, an approval stage that opens
+     resolves the author's manager without employee cards (no card managers, no unit heads that are employees only —
+     `head_employee_id`) and seats the fallback / escalation approvers; seats are stored for good (`approvals/engine.js`
+     `activateStage`; deferring them while the manager provider is missing is not a simple or safe change of the engine).
+   - **File server second** — its gap is temporary: public links `/d/<token>` answer 404 and AD sign-ins do not refresh the
+     stored domain password until it is installed; nothing is stored wrongly.
+   - **AD directory last** — it enhances both (its AD connection comes from the File server, the employee cards from
+     Employees), so it gets them at once.
+   To keep the approvals gap at zero, deploy outside working hours. Approvals that opened a stage between the deploy and the
+   Employees install can be found and restarted by their authors (Отозвать → Запустить заново):
+   `SELECT id, type, doc_id, title, stage_started_at FROM approval_processes WHERE status = 'pending' AND stage_started_at BETWEEN '<deploy time>' AND '<Employees installed>';`
+   Migrations `001_init` create nothing on this database and record themselves (the File server's move of the former
+   «Доступ к папкам» module finds nothing left to move: `legacy_folderaccess.migratedAt` is set; a portal that still has
+   `modules.folderaccess` or `fa_journal` gets them moved in the same transaction, each step in a savepoint, and retried by the
+   daily `drive:folderaccess` job when a step failed). Roles are moved **once**: `folderaccess.groups` → `drive.access`
+   (the old permission is removed), then `legacy_folderaccess.rolesMigratedAt` is set and no later run (restart, daily job)
+   touches roles again — an administrator who takes `drive.access` away keeps it away. The install over the «removed» rows
+   takes a backup of each module's tables first (reason `reinstall`).
 4. They come back as they were (switched on where an administrator had turned them on). Check `/app/drive` (a folder, a file
    preview, «Доступ»), a public link `/d/<token>` in a private window, `/app/employees` (a card with its «AD» section),
    `/app/directory`, Settings → File server / Employees / AD directory, Users → a person → domain account.
@@ -893,7 +936,11 @@ restart.
   removed by «Удалить данные» (its upload folder `uploads/<id>` is: archived into the backup first). Files a module
   keeps outside `uploads/<id>` stay.
 - No automatic preinstall of base modules from zips in the image yet (spec stage 5).
-- One install / update / remove at a time per process; the restart makes concurrent work moot.
+- One install / update / remove at a time per process, each followed by its own restart: there is no batch install of
+  several packages with one restart (`installStaged(…, { restart: false })` exists for tests only).
+- Anonymous `GET /api/modules/installed?path=/d/<anything>` tells that the File server is installed (with its version and
+  file digest) for any string under `/d/`. Accepted: it is the same as opening a `/d/` page, and the package files are
+  public by URL anyway (review of batch 4, finding 9).
 - A package that crashes the process later than the probation window is not rolled back automatically: its
   crashes are counted and it is blocked after three within 10 minutes (crash guard). A crash whose stack has no
   frame in the package (a callback the core calls later without the package on the stack) cannot be attributed.

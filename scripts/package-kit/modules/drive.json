@@ -106,6 +106,33 @@
       "expectPrefix": "/d/"
     },
     {
+      "name": "public link, anonymous, the package's web entry held back 6 s (past the 1.5 s start-up budget)",
+      "path": "/d/:token",
+      "expectPrefix": "/d/",
+      "anonymous": true,
+      "delay": [
+        {
+          "match": "/modules/drive/[^/]+/web/index\\.js",
+          "ms": 6000
+        }
+      ],
+      "waitMs": 11000
+    },
+    {
+      "name": "public link, anonymous, the package list held back 4 s twice (late answer, prepared in place)",
+      "path": "/d/:token",
+      "expectPrefix": "/d/",
+      "anonymous": true,
+      "delay": [
+        {
+          "match": "/api/modules/installed",
+          "ms": 4000,
+          "times": 2
+        }
+      ],
+      "waitMs": 16000
+    },
+    {
       "path": "/app/drive/s/:shareId/Documents",
       "expectPrefix": "/app/drive/s/"
     }
@@ -217,5 +244,6 @@
     "link-slugs/check": "is a custom link address free (answers for the asking person only)"
   },
   "needsOtherScopes": [],
-  "skipApi": []
+  "skipApi": [],
+  "pagesWhy": "The public link /d/<token> is also opened as an anonymous visitor on a slow first visit (Playwright holds the web entry or the package list back past the shell's start-up budget): the page must stay on /d/ the whole time (no detour to the sign-in page) and show the link (review of batch 4, finding 1)."
 }

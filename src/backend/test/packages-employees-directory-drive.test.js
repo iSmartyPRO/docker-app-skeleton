@@ -94,6 +94,14 @@ test('core without them: sources stay out of the image; table and permission pre
   assert.deepEqual(MODULE_PERMISSION_PREFIXES.directory, ['ad']);
   assert.equal(ownsPermission('crm', 'ad.view'), false);
   assert.equal(ownsPermission('directory', 'drive.admin'), false);
+  // The id "ad" is reserved (the directory's legacy prefix): no package with it, and ad.* stays the directory's.
+  assert.equal(ownsPermission('ad', 'ad.view'), false);
+  assert.equal(ownsPermission('directory', 'ad.view'), true);
+  const { normalizeManifest } = await import('../platform/packages/manifestFile.js');
+  const { CATEGORIES, INTEGRATIONS } = await import('../modules/manifest.js');
+  const ad = normalizeManifest({ id: 'ad', name: { en: 'AD', ru: 'AD' }, version: '1.0.0', core: '1.0.0', category: CATEGORIES[0], permissions: ['ad.view'] }, { categories: CATEGORIES, integrations: INTEGRATIONS });
+  assert.ok(ad.problems.some((problem) => /id "ad" is reserved/.test(problem)), ad.problems.join('; '));
+  assert.ok(ad.problems.some((problem) => /permission "ad.view"/.test(problem)), ad.problems.join('; '));
 });
 
 test('module.json + settings.js: the facts the built-in modules had', async () => {
@@ -181,15 +189,56 @@ test('core hooks: the stored domain password answers through the File server, nu
 test('module tokens: the same key the File server used while built in (visitor sessions keep working)', async () => {
   const jwt = (await import('jsonwebtoken')).default;
   const config = (await import('../config/app.js')).default;
-  const { signModuleToken, verifyModuleToken } = await import('../services/secrets.js');
+  const { moduleTokens } = await import('../services/secrets.js');
+  const drive = moduleTokens('drive');
   const old = jwt.sign({ lid: 3, v: 1, s: 'r' }, `${config.auth.jwtSecret || 'dev-secret'}:drive-link`, { expiresIn: '1h' });
-  assert.equal(verifyModuleToken('drive-link', old).lid, 3);
-  const made = signModuleToken('drive-link', { lid: 4 }, { expiresIn: '1h' });
+  assert.equal(drive.verify('drive-link', old).lid, 3);
+  const made = drive.sign('drive-link', { lid: 4 }, { expiresIn: '1h' });
   assert.equal(jwt.verify(made, `${config.auth.jwtSecret || 'dev-secret'}:drive-link`).lid, 4);
-  assert.throws(() => verifyModuleToken('files-link', made));
-  assert.throws(() => signModuleToken('Bad Purpose', {}), /purpose/);
+  assert.throws(() => drive.sign('Bad Purpose', {}), /purpose/);
   const sdk = await import('../platform/sdk/server.js');
-  for (const name of ['signModuleToken', 'verifyModuleToken', 'provideDirectoryCredentialInfo']) assert.equal(typeof sdk[name], 'function', name);
+  for (const name of ['moduleTokens', 'provideDirectoryCredentialInfo']) assert.equal(typeof sdk[name], 'function', name);
+  assert.equal(sdk.signModuleToken, undefined, 'no purpose-only signing in the SDK');
+});
+
+test('module tokens: a package signs only its own purposes — never the core\'s (Files, KB, Google), never another package\'s', async () => {
+  const jwt = (await import('jsonwebtoken')).default;
+  const config = (await import('../config/app.js')).default;
+  const { CORE_TOKEN_PURPOSES, LEGACY_TOKEN_PURPOSES, moduleTokens, tokenPurposeAllowed } = await import('../services/secrets.js');
+  const { BUILTIN_MODULE_IDS } = await import('../modules/catalog.js');
+  const { moduleContext } = await import('../platform/registry.js');
+  const secret = config.auth.jwtSecret || 'dev-secret';
+  const files = jwt.sign({ lid: 1, v: 1, scope: 'rw' }, `${secret}:files-link`, { expiresIn: '1h' });
+  for (const id of ['drive', 'hello', 'qr']) {
+    const tokens = moduleTokens(id);
+    // The core's purposes (Files and KB visitor sessions, the Google sign-in state) — neither sign nor verify.
+    for (const purpose of ['files-link', 'kb-share', 'google-state', 'seal', ...CORE_TOKEN_PURPOSES]) {
+      assert.throws(() => tokens.sign(purpose, { lid: 1 }), (err) => err.code === 'TOKEN_PURPOSE_DENIED', `${id} ${purpose}`);
+      assert.throws(() => tokens.verify(purpose, files), (err) => err.code === 'TOKEN_PURPOSE_DENIED', `${id} ${purpose}`);
+    }
+    // Its own: pkg-<id>, pkg-<id>-<name>.
+    const own = tokens.sign(`pkg-${id}-visit`, { a: 1 });
+    assert.equal(jwt.verify(own, `${secret}:pkg-${id}-visit`).a, 1);
+    assert.equal(tokens.verify(`pkg-${id}`, tokens.sign(`pkg-${id}`, { b: 2 })).b, 2);
+    // Another package's.
+    assert.throws(() => tokens.sign(`pkg-other-visit`, {}), /TOKEN_PURPOSE_DENIED|may not/);
+  }
+  // Legacy purposes: only their owner.
+  assert.deepEqual(LEGACY_TOKEN_PURPOSES, { drive: ['drive-link'] });
+  assert.throws(() => moduleTokens('hello').sign('drive-link', {}), (err) => err.code === 'TOKEN_PURPOSE_DENIED');
+  assert.equal(tokenPurposeAllowed('drive', 'drive-link'), true);
+  // No legacy purpose is a core one; ids have no "-" so pkg-a-… belongs to a only.
+  for (const list of Object.values(LEGACY_TOKEN_PURPOSES)) for (const purpose of list) assert.ok(!CORE_TOKEN_PURPOSES.includes(purpose) && !purpose.startsWith('pkg-'));
+  assert.equal(tokenPurposeAllowed('ab', 'pkg-ab-c-d'), true);
+  assert.equal(tokenPurposeAllowed('ab_c', 'pkg-ab-c-d'), false);
+  // A module built into the core gets no helper (its keys are its own code's).
+  for (const id of ['files', 'kb', ...BUILTIN_MODULE_IDS.slice(0, 5)]) assert.throws(() => moduleTokens(id), (err) => err.code === 'TOKEN_PURPOSE_DENIED', id);
+  assert.throws(() => moduleTokens('Bad-Id'), (err) => err.code === 'TOKEN_PURPOSE_DENIED');
+  // register(ctx): ctx.tokens is bound to the module.
+  const ctx = moduleContext({ id: 'hello' });
+  assert.equal(ctx.tokens.id, 'hello');
+  assert.throws(() => ctx.tokens.sign('files-link', {}), (err) => err.code === 'TOKEN_PURPOSE_DENIED');
+  assert.ok(ctx.tokens.sign('pkg-hello-x', {}));
 });
 
 test('public pages of packages: an anonymous visitor of /d/<token> gets that package alone, while it is on', async () => {
@@ -199,6 +248,15 @@ test('public pages of packages: an anonymous visitor of /d/<token> gets that pac
   const check = (publicPaths) => normalizeManifest({ ...base, web: { ...base.web, publicPaths } }, { categories: CATEGORIES, integrations: INTEGRATIONS });
   assert.deepEqual(check(['/h/', '/h/']).manifest.web.publicPaths, ['/h/']);
   for (const bad of [['/app/'], ['/api/'], ['h/'], ['/h'], ['/a/b/'], [1]]) assert.ok(check(bad).problems.length, JSON.stringify(bad));
+  // The core's own public pages and paths (Files links, KB shares, sign-in callbacks, setup, install…).
+  for (const core of ['/l/', '/s/', '/res/', '/auth/', '/setup/', '/install/', '/api/', '/apps/', '/help/', '/health/']) assert.ok(check([core]).problems.some((problem) => /portal itself/.test(problem)), core);
+  // Owned public paths: /q/ is QR's (nginx), /d/ the File server's — nobody else's.
+  const { publicPathProblem } = await import('../platform/packages/manifestFile.js');
+  assert.match(check(['/q/']).problems.join(';'), /belongs to the module "qr"/);
+  assert.match(check(['/d/']).problems.join(';'), /belongs to the module "drive"/);
+  assert.equal(publicPathProblem('qr', '/q/'), null);
+  assert.equal(publicPathProblem('drive', '/d/'), null);
+  assert.deepEqual(normalizeManifest({ ...base, id: 'drive', web: { ...base.web, publicPaths: ['/d/'] } }, { categories: CATEGORIES, integrations: INTEGRATIONS }).manifest.web.publicPaths, ['/d/']);
   assert.ok(normalizeManifest({ ...base, web: { ...base.web, publicPaths: '/h/' } }, { categories: CATEGORIES, integrations: INTEGRATIONS }).problems.length);
 
   const { setLoadedForTests, resetLoader, shellPackages, publicPathPackages } = await import('../platform/packages/loader.js');
@@ -222,6 +280,33 @@ test('public pages of packages: an anonymous visitor of /d/<token> gets that pac
   // After signing in only packages the page has not prepared reload it (a public page may have loaded its own).
   assert.equal(logic.lateAnswerAction({ data: { signedIn: true, modules: [{ id: 'drive' }] } }, [{ id: 'drive' }], { afterSignIn: true }), null);
   assert.equal(logic.lateAnswerAction({ data: { signedIn: true, modules: [{ id: 'drive' }, { id: 'crm' }] } }, [{ id: 'drive' }], { afterSignIn: true }), 'reload');
+});
+
+test('shell: public pages of a package wait for its web entry; the catch-all does not redirect the opened page while its list is on its way', async () => {
+  const logic = await import(pathToFileURL(join(FRONT, 'platform/packages/loaderLogic.js')).href);
+  // The server sends publicPaths in the shell list (placeholders before the first render).
+  assert.match(read('src/backend/platform/packages/loader.js'), /settings: Boolean\(manifest\.web\.settings\), \.\.\.\(manifest\.web\.publicPaths\?\.length \? \{ publicPaths: manifest\.web\.publicPaths \} : \{\}\)/);
+  const drive = { id: 'drive', enabled: true, web: { entry: '/modules/drive/1.1.0/web/index.js', publicPaths: ['/d/', '/bad', 7] } };
+  assert.deepEqual(logic.publicPrefixesOf(drive), ['/d/']);
+  assert.deepEqual(logic.publicPrefixesOf({ ...drive, enabled: false }), [], 'a switched-off package holds no place');
+  assert.deepEqual(logic.publicPrefixesOf({ ...drive, web: { publicPaths: ['/d/'] } }), [], 'no entry, no page');
+  assert.deepEqual(logic.publicPrefixesOf({ id: 'x', web: { entry: 'e' } }), []);
+  assert.equal(logic.placeholderRoute('/d/'), '/d/*');
+  // The catch-all: held for the opened page while the list is pending, at most a minute; never for another page.
+  assert.equal(logic.holdsCatchAll({ listPending: true, startPath: '/d/abc', path: '/d/abc', elapsedMs: 3000 }), true);
+  assert.equal(logic.holdsCatchAll({ listPending: true, startPath: '/d/abc', path: '/d/abc', elapsedMs: 61000 }), false);
+  assert.equal(logic.holdsCatchAll({ listPending: false, startPath: '/d/abc', path: '/d/abc' }), false);
+  assert.equal(logic.holdsCatchAll({ listPending: true, startPath: '/d/abc', path: '/elsewhere' }), false);
+  // A late answer: an anonymous visitor's public packages join in place; a signed-in shell reloads (once).
+  assert.equal(logic.lateAnswerPlan({ signedIn: false, modules: [{ id: 'drive' }] }), 'prepare');
+  assert.equal(logic.lateAnswerPlan({ signedIn: true, modules: [{ id: 'crm' }] }), 'reload');
+  // The browser side: placeholders registered before the first render, retries ask for the ORIGINAL path.
+  const loader = readFileSync(join(FRONT, 'platform/packages/loader.js'), 'utf8');
+  assert.match(loader, /fetchList\(\(\.\.\.args\) => fetch\(\.\.\.args\), timeoutMs, \{ path: START_PATH \}\)/);
+  assert.doesNotMatch(loader, /window\.location\.pathname/);
+  assert.match(loader, /addPublicPlaceholders\(pkg\);/);
+  assert.match(readFileSync(join(FRONT, 'App.jsx'), 'utf8'), /<Route path="\*" element=\{<CatchAll \/>\} \/>/);
+  assert.match(readFileSync(join(FRONT, 'main.jsx'), 'utf8'), /loadInstalledPackages\(\{ timeoutMs: 1500 \}\)\.finally/);
 });
 
 test('build: each builds into a package (server part; web with MODULE_BUILD_WEB=1); the gateway ships with the File server', { timeout: 900_000 }, async () => {

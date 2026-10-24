@@ -100,3 +100,27 @@ export function checkEntry(pkg, mod) {
 
 /** The namespace a translation file fills: …/locales/<lang>/<ns>.js → <ns>. */
 export const namespaceOf = (url) => String(url).split('/').pop().replace(/\.js$/, '');
+
+/**
+ * The public page prefixes of a package the shell holds a place for (manifest web.publicPaths: "/d/"), before its
+ * web entry has loaded: only of a package that is switched on and has a web entry; well-formed prefixes only.
+ */
+export const publicPrefixesOf = (pkg) =>
+  pkg?.web?.entry && pkg.enabled !== false && Array.isArray(pkg.web.publicPaths) ? pkg.web.publicPaths.filter((prefix) => typeof prefix === 'string' && /^\/[a-z0-9][a-z0-9-]{0,31}\/$/.test(prefix)) : [];
+
+/** The route of the placeholder of a public prefix ("/d/" → "/d/*"): ranked below the package's own route ("/d/:token"). */
+export const placeholderRoute = (prefix) => `${prefix}*`;
+
+/**
+ * May the catch-all route («unknown address → /») redirect `path` now? Not while the package list is still being
+ * fetched for the page the visitor opened (`startPath`): the page may belong to a package whose route is not drawn yet
+ * (an anonymous visitor of /d/<token> on a slow first visit). Never held longer than `maxMs` after the page opened.
+ */
+export const holdsCatchAll = ({ listPending, startPath, path, elapsedMs = 0, maxMs = 60000 }) => Boolean(listPending) && path === startPath && elapsedMs < maxMs;
+
+/**
+ * A late answer brought packages the page has not prepared: 'reload' (a signed-in shell draws its routes once; when
+ * the page has already reloaded for this boot it prepares them in place instead) or 'prepare' — an anonymous visitor
+ * gets only public pages, which join the routes in place, without a reload.
+ */
+export const lateAnswerPlan = (data) => (data?.signedIn === false ? 'prepare' : 'reload');

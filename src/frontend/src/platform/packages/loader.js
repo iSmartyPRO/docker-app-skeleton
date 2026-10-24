@@ -6,7 +6,10 @@ import { addTranslationSource } from '../../i18n/translations';
 import { addPackageSettingsItem } from '../../admin/navigation';
 import { addMenuSlot } from '../../components/icons/menuIcons';
 import { installShared } from './shared';
-import { backgroundDelays, checkEntry, fetchInstalled as fetchList, fetchWithinBudget, lateAnswerAction, namespaceOf, packageBase, packagesToPrepare, shouldReload, withTimeout } from './loaderLogic';
+import { contribute } from '../extensions';
+import { backgroundDelays, checkEntry, fetchInstalled as fetchList, fetchWithinBudget, lateAnswerAction, lateAnswerPlan, namespaceOf, packageBase, packagesToPrepare, placeholderRoute, publicPrefixesOf, shouldReload, withTimeout } from './loaderLogic';
+import { START_PATH, markPackageReady, settleList } from './readiness';
+import { placeholderFor } from './PublicPlaceholder';
 
 /*
  * Module packages in the browser shell (docs/module-packages.md «Shell»).
@@ -45,6 +48,13 @@ import { backgroundDelays, checkEntry, fetchInstalled as fetchList, fetchWithinB
  * fetched again and the page reloads once when there are packages it has not
  * prepared. Stylesheets are linked
  * only for packages that are switched on.
+ *
+ * Public pages wait for their package (an anonymous visitor of /d/<token> on a slow first visit): every prefix of
+ * web.publicPaths gets a placeholder route (/d/*) as soon as the list is read, before the first render; it waits for
+ * the web entry (PublicPlaceholder.jsx) and the package's own route (/d/:token) takes over. While the list itself is
+ * still being fetched, the catch-all route does not redirect the page the visitor opened (readiness.js), and every
+ * retry asks for that page's path (START_PATH), not the address shown now. A late answer for an anonymous visitor
+ * prepares its packages in place (public pages join the routes without a reload).
  */
 
 export const PACKAGES = [];
@@ -54,17 +64,25 @@ let bootId = null;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // The pure decisions live in loaderLogic.js (tested without a browser).
 // The page's path: an anonymous visitor of a package's public page (/d/<token>) gets that package (web.publicPaths).
-const fetchInstalled = (timeoutMs) => fetchList((...args) => fetch(...args), timeoutMs, { path: window.location.pathname });
+const fetchInstalled = (timeoutMs) => fetchList((...args) => fetch(...args), timeoutMs, { path: START_PATH });
 
-/** Reloads the page once per boot of the server and reason (never in a loop; never without storage). */
+/** Reloads the page once per boot of the server and reason (never in a loop; never without storage). → reloading? */
 function reloadOnce(reason, id) {
   let storage = null;
   try {
     storage = window.sessionStorage;
   } catch {
-    return;
+    return false;
   }
-  if (shouldReload(storage, reason, id)) window.location.reload();
+  if (!shouldReload(storage, reason, id)) return false;
+  window.location.reload();
+  return true;
+}
+
+/** A late answer with packages the page has not prepared: reload once, or prepare them in place (lateAnswerPlan). */
+function takeLateAnswer(data, reason) {
+  if (lateAnswerPlan(data) === 'reload' && reloadOnce(reason, data.bootId)) return;
+  prepareAll(data);
 }
 
 let retrying = false;
@@ -77,11 +95,13 @@ async function retryLater() {
     const result = await fetchInstalled(5000);
     const action = lateAnswerAction(result, PACKAGES);
     if (action === 'retry') continue;
-    if (action === 'reload') reloadOnce('late', result.data.bootId);
+    if (action === 'reload') takeLateAnswer(result.data, 'late');
     else if (action === 'watch-sign-in') watchSignIn();
     break;
   }
   retrying = false;
+  // An answer came (or the retries gave up): the catch-all may redirect the opened page now.
+  settleList();
 }
 
 let watching = false;
@@ -93,7 +113,7 @@ function watchSignIn() {
     watching = false;
     const result = await fetchInstalled(5000);
     const action = lateAnswerAction(result, PACKAGES, { afterSignIn: true });
-    if (action === 'reload') reloadOnce('signin', result.data.bootId);
+    if (action === 'reload') takeLateAnswer(result.data, 'signin');
     else if (action === 'retry') retryLater();
   }, { once: true });
 }
@@ -183,6 +203,43 @@ function addToRegistry(pkg) {
   });
 }
 
+/** Placeholder routes of the package's public pages (/d/*): they wait for its web entry (PublicPlaceholder.jsx). */
+function addPublicPlaceholders(pkg) {
+  for (const prefix of publicPrefixesOf(pkg)) {
+    contribute('app.publicRoutes', { id: `package.${pkg.id}.public${prefix}`, path: placeholderRoute(prefix), Component: placeholderFor(pkg.id) });
+  }
+}
+
+/** Imports a switched-on package's web entry and runs its register(); its public placeholders learn the outcome. */
+function startPackage(pkg) {
+  return packageEntry(pkg)
+    .then((entry) => {
+      if (entry.tour) MODULE_UI[pkg.id] = { ...(MODULE_UI[pkg.id] || {}), tour: entry.tour };
+      return typeof entry.register === 'function' ? entry.register({ id: pkg.id, version: pkg.version, base: packageBase(pkg) }) : null;
+    })
+    .then(() => markPackageReady(pkg.id, true))
+    .catch((err) => {
+      markPackageReady(pkg.id, false);
+      console.warn(`Module package ${pkg.id} did not load:`, err?.message || err);
+    });
+}
+
+/** Prepares the packages of a list answer the page has not prepared yet; → the start of their web entries. */
+function prepareAll(data) {
+  const started = [];
+  for (const pkg of packagesToPrepare(data, PACKAGES)) {
+    PACKAGES.push(pkg);
+    if (Object.keys(pkg.locales || {}).length) addTranslationSource(translationsOf(pkg));
+    // A switched-off package's styles stay out of the page.
+    if (pkg.enabled !== false) for (const url of pkg.web?.css || []) linkCss(url);
+    addToRegistry(pkg);
+    addSettingsItem(pkg);
+    addPublicPlaceholders(pkg);
+    if (pkg.web && pkg.enabled !== false) started.push(startPackage(pkg));
+  }
+  return Promise.allSettled(started);
+}
+
 /** Packages switched on now (after loadInstalledPackages). */
 export const installedPackage = (id) => PACKAGES.find((pkg) => pkg.id === id) || null;
 export const packagesBootId = () => bootId;
@@ -198,31 +255,14 @@ export async function loadInstalledPackages({ timeoutMs = 3000 } = {}) {
   const data = result?.data;
   if (!data) {
     if (!result || result.retry) retryLater();
+    else settleList();
     return PACKAGES;
   }
   bootId = data.bootId || null;
   if (data.signedIn === false) watchSignIn();
-  if (!data.modules?.length) return PACKAGES;
-  for (const pkg of packagesToPrepare(data, PACKAGES)) {
-    PACKAGES.push(pkg);
-    if (Object.keys(pkg.locales || {}).length) addTranslationSource(translationsOf(pkg));
-    // A switched-off package's styles stay out of the page.
-    if (pkg.enabled !== false) for (const url of pkg.web?.css || []) linkCss(url);
-    addToRegistry(pkg);
-    addSettingsItem(pkg);
-  }
-  await withTimeout(
-    Promise.allSettled(
-      PACKAGES.filter((pkg) => pkg.web && pkg.enabled !== false).map((pkg) =>
-        packageEntry(pkg)
-          .then((entry) => {
-            if (entry.tour) MODULE_UI[pkg.id] = { ...(MODULE_UI[pkg.id] || {}), tour: entry.tour };
-            return typeof entry.register === 'function' ? entry.register({ id: pkg.id, version: pkg.version, base: packageBase(pkg) }) : null;
-          })
-          .catch((err) => console.warn(`Module package ${pkg.id} did not load:`, err?.message || err))
-      )
-    ),
-    Math.max(200, deadline - Date.now())
-  );
+  const started = data.modules?.length ? prepareAll(data) : null;
+  // The list is read and the placeholders of public pages are in place: the catch-all may redirect again.
+  settleList();
+  if (started) await withTimeout(started, Math.max(200, deadline - Date.now()));
   return PACKAGES;
 }

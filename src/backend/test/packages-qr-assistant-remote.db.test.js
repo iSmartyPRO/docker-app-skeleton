@@ -243,6 +243,11 @@ test('upgrade: removed until installed (data and settings kept) → signed packa
     assert.equal(staged.preview.signed, true);
     const installed = await installStaged(staged.token, { actor: ACTOR });
     assert.deepEqual(installed.applied, ['001_init'], `${id}: 001 recorded`);
+    // Installed over a «removed» row with tables: a backup of them was taken first (migration 001 may touch them).
+    if (before[id].tables.length) {
+      assert.ok(installed.backup?.file, `${id}: backed up before the install over the removed row`);
+      assert.match(installed.backup.file, /-reinstall\./, id);
+    }
   }
   const results = await reboot();
   for (const id of IDS) assert.deepEqual(results.filter((item) => item.id === id).map((item) => item.ok), [true], id);

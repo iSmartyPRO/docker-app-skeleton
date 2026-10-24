@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { resolveModules } from '../modules/catalog.js';
 import { DRIVE_ACCESS_DEFAULTS } from '../modules/drive/settings.js';
 import { sourcePackage } from './helpers/modules.js';
-import { LEGACY_KEY, NEW_PERMISSION, OLD_PERMISSION, convertFolderAccess, migrateJournal, migratePermission, migrateSettings, saveLegacyCopy } from '../modules/drive/access/migrate.js';
+import { LEGACY_KEY, NEW_PERMISSION, OLD_PERMISSION, convertFolderAccess, migrateFolderAccess, migrateJournal, migratePermission, migrateSettings, saveLegacyCopy } from '../modules/drive/access/migrate.js';
+import { readFileSync } from 'node:fs';
+import { PERMISSIONS } from '../services/permissions.js';
+
+const DRIVE_PERMISSIONS = JSON.parse(readFileSync(new URL('../modules/drive/module.json', import.meta.url), 'utf8')).permissions;
 import { sanitizeModules } from '../modules/catalog.js';
 
 // The File server is a module package: its catalog entry as an installed package adds it (module.json + settings.js).
@@ -63,13 +67,15 @@ function fakeDb({ modules, shares = [], roles = [], tables = { fa_journal: [{ id
       db.shares.find((row) => row.id === params[0]).path_prefixes = params[1];
       return { rowCount: 1, rows: [] };
     }
-    if (text.startsWith('UPDATE app_roles SET permissions = array_append(permissions, $2)')) {
+    if (text.startsWith('UPDATE app_roles SET permissions = CASE WHEN $2 = ANY(permissions) THEN array_remove(permissions, $1) ELSE array_append(array_remove(permissions, $1), $2) END')) {
       const [from, to] = params;
       let count = 0;
       for (const role of db.roles) {
-        if (!role.permissions.includes(from) || role.permissions.includes(to)) continue;
+        if (!role.permissions.includes(from)) continue;
         count += 1;
-        role.permissions.push(to);
+        const had = role.permissions.includes(to);
+        role.permissions = role.permissions.filter((perm) => perm !== from);
+        if (!had) role.permissions.push(to);
       }
       return { rowCount: count, rows: [] };
     }
@@ -210,19 +216,61 @@ test('no stored modules, or no old module: nothing happens', async () => {
   assert.equal(JSON.parse(gone.db.settings.modules).drive.settings.access.enabled, false);
 });
 
-test('roles: drive.access is added next to folderaccess.groups, once, without duplicates', async () => {
-  const { db, run } = fakeDb({
+test('roles: folderaccess.groups becomes drive.access once, behind a marker; nothing is touched after it', async () => {
+  const { db, transaction } = fakeDb({
     roles: [
       { key: 'sysadmin', permissions: ['drive.admin', OLD_PERMISSION] },
       { key: 'both', permissions: [OLD_PERMISSION, NEW_PERMISSION] },
       { key: 'other', permissions: ['kb.admin'] },
     ],
   });
-  assert.equal(await migratePermission(run), 1);
-  const expected = [['drive.admin', OLD_PERMISSION, NEW_PERMISSION], [OLD_PERMISSION, NEW_PERMISSION], ['kb.admin']];
+  assert.equal(await migratePermission(transaction), 2);
+  const expected = [['drive.admin', NEW_PERMISSION], [NEW_PERMISSION], ['kb.admin']];
   assert.deepEqual(db.roles.map((role) => role.permissions), expected);
-  assert.equal(await migratePermission(run), 0);
-  assert.deepEqual(db.roles.map((role) => role.permissions), expected);
+  assert.ok(JSON.parse(db.settings[LEGACY_KEY]).rolesMigratedAt);
+  assert.equal(db.locks, 1);
+  // A role that gets folderaccess.groups back (a restore of an old role, a rollback): the marker keeps the step from running.
+  db.roles[2].permissions.push(OLD_PERMISSION);
+  const writes = db.log.length;
+  assert.equal(await migratePermission(transaction), 0);
+  assert.deepEqual(db.roles[2].permissions, ['kb.admin', OLD_PERMISSION]);
+  assert.ok(!db.log.slice(writes).some((line) => /^UPDATE app_roles/.test(line)), 'roles are not touched after the marker');
+});
+
+test('an administrator who takes drive.access away keeps it away across restarts and the daily job', async () => {
+  const modules = { drive: { enabled: true }, folderaccess: { enabled: true, settings: OLD_SETTINGS } };
+  const { db, transaction } = fakeDb({ modules, roles: [{ key: 'fileadmins', permissions: ['drive.admin', OLD_PERMISSION] }] });
+  // Migration 001 (the install), then the boot run of the job.
+  await migrateFolderAccess({ transaction });
+  assert.deepEqual(db.roles[0].permissions, ['drive.admin', NEW_PERMISSION]);
+  // The administrator removes it in Roles: a role save keeps the permissions it does not know
+  // (keepUnknownPermissions; with the File server loaded its own are known) — none are left.
+  const known = new Set([...PERMISSIONS, ...DRIVE_PERMISSIONS]);
+  const save = (stored, next) => [...new Set([...next, ...stored.filter((perm) => !known.has(perm))])].sort();
+  assert.deepEqual(save(['drive.admin', OLD_PERMISSION, NEW_PERMISSION], ['drive.admin']), ['drive.admin', OLD_PERMISSION], 'the old one would have been kept');
+  db.roles[0].permissions = save(db.roles[0].permissions, ['drive.admin']);
+  assert.deepEqual(db.roles[0].permissions, ['drive.admin']);
+  for (let run = 0; run < 3; run += 1) await migrateFolderAccess({ transaction }); // restarts, daily runs
+  assert.deepEqual(db.roles[0].permissions, ['drive.admin']);
+  // The settings mark and the roles mark live side by side in the copy.
+  const legacy = JSON.parse(db.settings[LEGACY_KEY]);
+  assert.ok(legacy.migratedAt && legacy.rolesMigratedAt);
+  assert.deepEqual(legacy.folderaccess, modules.folderaccess);
+});
+
+test('the roles mark survives a later settings move, and the copy joins a key that holds only the mark', async () => {
+  const modules = { folderaccess: { enabled: true, settings: OLD_SETTINGS } };
+  const { db, transaction } = fakeDb({ modules, roles: [{ key: 'r', permissions: [OLD_PERMISSION] }] });
+  // Step 3 ran first (steps 0 and 2 failed that time).
+  assert.equal(await migratePermission(transaction), 1);
+  assert.equal(await saveLegacyCopy(transaction), true);
+  assert.deepEqual(JSON.parse(db.settings[LEGACY_KEY]).folderaccess, modules.folderaccess);
+  assert.equal((await migrateSettings(transaction)).migrated, true);
+  const legacy = JSON.parse(db.settings[LEGACY_KEY]);
+  assert.ok(legacy.rolesMigratedAt && legacy.migratedAt);
+  db.roles[0].permissions = [];
+  assert.equal(await migratePermission(transaction), 0);
+  assert.deepEqual(db.roles[0].permissions, []);
 });
 
 test('journal: fa_journal is renamed with its rows, indexes and sequence, once', async () => {

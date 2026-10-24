@@ -10,7 +10,7 @@ import { normalizeManifest } from '../platform/packages/manifestFile.js';
 import { CORE_TABLES, MODULE_TABLES, mayOwnTable, tablePatternProblem } from '../platform/packages/tableOwnership.js';
 import { checkInstall, checkSdk, checkUninstall, compatibilityProblem } from '../platform/packages/checks.js';
 import { inlineMigrations, migrationConflicts, runMigrations } from '../platform/packages/migrations.js';
-import { IntegrityError, verifyPackageDir } from '../platform/packages/integrity.js';
+import { IntegrityError, removeBytecodeCaches, verifyPackageDir } from '../platform/packages/integrity.js';
 import { PACKAGE_LIMITS, writePackageFiles } from '../platform/packages/archive.js';
 import { corePathAllowed, mapSpecifier } from '../platform/sdkLoader.mjs';
 import { SDK_VERSION } from '../platform/sdk/version.js';
@@ -309,6 +309,40 @@ test('integrity: the files on disk must verify against SIGNATURE and match the i
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('integrity: Python byte-code caches (__pycache__) are not part of the package — ignored, deleted at boot; a stray .pyc elsewhere still fails', () => {
+  const root = temp();
+  const key = generateSigningKey();
+  const trustedKeys = [{ id: key.keyId, publicKey: key.publicKey }];
+  try {
+    const dir = signedFolder(join(root, 'hello/1.0.0'), key, { 'manifest.json': JSON.stringify(base), 'server/index.js': 'export default { id: "hello" };\n', 'server/gateway/gate.py': 'print(1)\n' });
+    const good = verifyPackageDir(dir, { trustedKeys });
+    // Someone ran the script by hand: a cache next to it, nested ones too.
+    for (const folder of ['server/gateway/__pycache__', 'server/__pycache__/deeper']) mkdirSync(join(dir, folder), { recursive: true });
+    writeFileSync(join(dir, 'server/gateway/__pycache__/gate.cpython-312.pyc'), 'bytecode');
+    writeFileSync(join(dir, 'server/__pycache__/deeper/x.pyc'), 'bytecode');
+    assert.equal(verifyPackageDir(dir, { trustedKeys, expected: { listing_sha256: good.listingSha256, signed_by: key.keyId } }).listingSha256, good.listingSha256);
+    assert.deepEqual(removeBytecodeCaches(dir).sort(), ['server/__pycache__', 'server/gateway/__pycache__']);
+    assert.ok(!readdirSync(join(dir, 'server/gateway')).includes('__pycache__'));
+    assert.deepEqual(removeBytecodeCaches(dir), []);
+    // A link named __pycache__ is removed as a link, its target untouched.
+    const outside = join(root, 'outside');
+    mkdirSync(outside);
+    writeFileSync(join(outside, 'keep.txt'), 'x');
+    symlinkSync(outside, join(dir, 'server/__pycache__'));
+    assert.deepEqual(removeBytecodeCaches(dir), ['server/__pycache__']);
+    assert.ok(readdirSync(outside).includes('keep.txt'));
+    // A .pyc outside a cache folder (Python would import it instead of a standard library module): still refused.
+    writeFileSync(join(dir, 'server/gateway/json.pyc'), 'bytecode');
+    assert.throws(() => verifyPackageDir(dir, { trustedKeys }), /do not match the package signature/);
+    assert.deepEqual(removeBytecodeCaches(dir), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+  // The gateway never reads caches.
+  assert.match(readFileSync(resolve(here, '../modules/drive/gate.js'), 'utf8'), /PYTHONPYCACHEPREFIX: '\/dev\/null\//);
+  assert.match(readFileSync(resolve(here, '../platform/packages/loader.js'), 'utf8'), /removeBytecodeCaches\(pkg\.dir\);[\s\S]{0,300}verifyPackageDir\(pkg\.dir/);
 });
 
 test('integrity: unsigned packages load only in development mode, also ones installed in it', () => {

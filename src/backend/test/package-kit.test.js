@@ -184,6 +184,12 @@ test('pages: App routes from the source, settings, parameters; catch-all left ou
   assert.deepEqual(withParams.pages.map((p) => p.url), ['/app/x', '/app/x/projects', '/app/x/bookings', '/app/x/p/3/plan', '/app/x/p/3/chess', '/app/crm', '/app/x/p/3']);
   assert.equal(withParams.pages.at(-1).expectPrefix, '/app/x/p/3/plan');
   assert.deepEqual(kit.pageList('x', { hasPage: false }).pages, []);
+  // Options of a kit file page: anonymous visitor, requests held back (a slow network), own wait — its own entry even for a repeated URL.
+  const slow = kit.pageList('x', { hasPage: false, params: { token: 'tok' }, extra: [{ path: '/d/:token', expectPrefix: '/d/' }, { path: '/d/:token', expectPrefix: '/d/', anonymous: true, delay: [{ match: 'web/index\\.js', ms: 6000 }, { match: 'x', ms: 0 }], waitMs: 11000, name: 'slow' }] }).pages;
+  assert.deepEqual(slow, [
+    { path: '/d/:token', url: '/d/tok', expectPrefix: '/d/' },
+    { path: '/d/:token', url: '/d/tok', expectPrefix: '/d/', anonymous: true, delay: [{ match: 'web/index\\.js', ms: 6000 }], waitMs: 11000, name: 'slow' },
+  ]);
 });
 
 test('browser noise and the report text', () => {

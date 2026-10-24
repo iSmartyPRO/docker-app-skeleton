@@ -12,4 +12,6 @@ export default {
   updating: 'Loading the new version…',
   reload: 'Reload',
   home: 'Home',
+  slowTitle: 'This page is taking too long to open',
+  slowText: 'The connection may be slow. Reload the page — or wait, it opens by itself once it has loaded.',
 };

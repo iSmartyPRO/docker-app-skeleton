@@ -435,7 +435,7 @@ async function browserStep(ctx, phase, name, ui, pages, { username = ADMIN.usern
     const result = await browse({ jobDir, base: ui.base, username, password, pages, ignore: ctx.config.ignoreBrowser, waitMs: ctx.config.waitMs, pwModules: ctx.pwModules, log: logFile(ctx, 'playwright'), say: (text) => console.log(`    … ${text}`) });
     if (result.error) return fail(`browser: ${result.error}`, result);
     const bad = result.pages.filter((page) => page.errors.length);
-    const details = result.pages.map((page) => ({ url: page.url, finalPath: page.finalPath, errors: page.errors, notes: page.notes, shot: page.shot }));
+    const details = result.pages.map((page) => ({ url: page.url, ...(page.name ? { name: page.name } : {}), ...(page.anonymous ? { anonymous: true } : {}), ...(page.held?.length ? { held: page.held } : {}), finalPath: page.finalPath, ...(page.visited?.length > 1 ? { visited: page.visited } : {}), errors: page.errors, notes: page.notes, shot: page.shot }));
     if (bad.length) return fail(`${bad.length} of ${result.pages.length} pages: ${bad.slice(0, 3).map((page) => `${page.url}: ${page.errors[0].split('\n')[0]}`).join('; ')}`, details);
     const notes = [...new Set(result.pages.flatMap((page) => page.notes))];
     if (notes.length) return warn(`${result.pages.length} pages render; API 4xx to look at: ${notes.slice(0, 4).join(', ')}`, details);

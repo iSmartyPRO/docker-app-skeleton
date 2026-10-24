@@ -368,10 +368,22 @@ export function routePathsFromSource(text) {
 export function pageList(id, { routes = [], hasPage = true, hasSettings = false, extra = [], params = {} } = {}) {
   const pages = [];
   const skipped = [];
-  const add = (path, expectPrefix) => {
+  // `options` of a kit file page: anonymous (no sign-in), delay ([{ match: regexp text, ms, times? }]: the browser holds
+  // matching requests back — a slow network), waitMs, expectText (text the page must show). A page with options is
+  // its own entry even when its URL repeats another one.
+  const add = (path, expectPrefix, options = null) => {
     const { url, missing } = fillPath(path, params, null);
     if (missing.length) skipped.push({ path, reason: `no value for :${missing.join(', :')}` });
-    else if (!pages.some((page) => page.url === url)) pages.push({ path, url, expectPrefix: expectPrefix || url });
+    else if (options || !pages.some((page) => page.url === url && !page.anonymous && !page.delay)) pages.push({ path, url, expectPrefix: expectPrefix || url, ...(options || {}) });
+  };
+  const optionsOf = (page) => {
+    const out = {};
+    if (page.anonymous === true) out.anonymous = true;
+    if (Array.isArray(page.delay) && page.delay.length) out.delay = page.delay.filter((item) => item && typeof item.match === 'string' && Number(item.ms) > 0).map((item) => ({ match: item.match, ms: Number(item.ms), ...(Number(item.times) > 0 ? { times: Number(item.times) } : {}) }));
+    if (Number(page.waitMs) > 0) out.waitMs = Number(page.waitMs);
+    if (typeof page.expectText === 'string' && page.expectText) out.expectText = page.expectText;
+    if (typeof page.name === 'string' && page.name) out.name = page.name;
+    return Object.keys(out).length ? out : null;
   };
   if (hasPage) {
     add(`/app/${id}`);
@@ -380,7 +392,7 @@ export function pageList(id, { routes = [], hasPage = true, hasSettings = false,
   if (hasSettings) add(`/admin/settings/${id}`);
   for (const page of extra) {
     if (typeof page === 'string') add(page);
-    else if (page?.path) add(page.path, page.expectPrefix);
+    else if (page?.path) add(page.path, page.expectPrefix, optionsOf(page));
   }
   return { pages, skipped };
 }

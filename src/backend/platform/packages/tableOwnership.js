@@ -94,9 +94,20 @@ export const MODULE_PERMISSION_PREFIXES = Object.freeze({
   directory: Object.freeze(['ad']),
 });
 
-/** May module `id` declare the permission `permission` (its own "<id>." or a legacy prefix above)? */
-export const ownsPermission = (id, permission) =>
-  typeof permission === 'string' && [id, ...(MODULE_PERMISSION_PREFIXES[id] || [])].some((prefix) => permission.startsWith(`${prefix}.`));
+/** The module a legacy permission prefix belongs to ("ad" → "directory"), or null. */
+export const legacyPrefixOwner = (prefix) => Object.keys(MODULE_PERMISSION_PREFIXES).find((owner) => MODULE_PERMISSION_PREFIXES[owner].includes(prefix)) || null;
+
+/**
+ * May module `id` declare the permission `permission` (its own "<id>." or a legacy prefix above)? Never a legacy
+ * prefix of another module: a package with the id "ad" does not get "ad.*" (the manifest check also refuses that id).
+ */
+export const ownsPermission = (id, permission) => {
+  if (typeof permission !== 'string') return false;
+  const prefix = permission.split('.')[0];
+  const owner = legacyPrefixOwner(prefix);
+  if (owner && owner !== id) return false;
+  return [id, ...(MODULE_PERMISSION_PREFIXES[id] || [])].some((own) => permission.startsWith(`${own}.`));
+};
 
 const isPrefix = (entry) => entry.endsWith('_');
 

@@ -25,6 +25,7 @@ import AppErrorBoundary, { RootErrorBoundary } from './components/AppErrorBounda
 import { getSetupStatus } from './services/api';
 import { SETTINGS_VIEW } from './lib/access';
 import { MODULE_REGISTRY } from './modules/registry';
+import { CatchAll } from './platform/packages/PublicPlaceholder';
 import PackageSettings from './platform/packages/PackageSettings';
 import UpdateBanner from './pwa/UpdateBanner';
 import Maintenance from './components/Maintenance';
@@ -374,7 +375,8 @@ function ThemedRoutes() {
                 <Route key={id} path={path} element={<Component />} />
               ))}
             </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Unknown address → home; not while the package list of the opened page is still on its way (a package's public page). */}
+            <Route path="*" element={<CatchAll />} />
           </Routes>
         </Suspense>
         <AssistantSlot />

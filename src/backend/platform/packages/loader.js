@@ -17,7 +17,7 @@ import { ensurePackageTables, getModuleRow, listModuleRows, saveModuleRow } from
 import { inlineMigrations, mergeMigrations, packageMigrations, runMigrations } from './migrations.js';
 import { listBackups, moduleTables, restoreBackup } from './backup.js';
 import { compatibilityProblem } from './checks.js';
-import { verifyPackageDir } from './integrity.js';
+import { removeBytecodeCaches, verifyPackageDir } from './integrity.js';
 import { startStagingCleanup } from './staging.js';
 import { satisfies } from './version.js';
 import { devMode, versionDir } from './paths.js';
@@ -230,7 +230,9 @@ async function loadPackage(pkg, row) {
   // Built for this core and SDK? (A core update may have left it behind: «needs an update».)
   const compat = compatibilityProblem(pkg.manifest, { coreVersion: APP_VERSION, sdkVersion: SDK_VERSION });
   if (compat) throw Object.assign(new Error(compat.message.en), { problem: compat });
-  // The files are the signed package that was installed.
+  // The files are the signed package that was installed (stray Python byte-code caches deleted first: integrity.js).
+  const caches = removeBytecodeCaches(pkg.dir);
+  if (caches.length) console.warn(`[module packages] ${pkg.id}: removed Python byte-code caches that are not part of the package: ${caches.join(', ')}`);
   const integrity = verifyPackageDir(pkg.dir, { expected: row, devMode: devMode() });
   const module = await importServerEntry(pkg.dir, pkg.manifest);
   // Requirements (the installer checked them; a module removed by hand afterwards is caught here).
@@ -689,7 +691,7 @@ export async function shellPackages({ signedIn = true, path = '' } = {}) {
       category: manifest.category,
       enabled: Boolean(modules[record.id]?.enabled),
       base,
-      web: manifest.web ? { entry: base + manifest.web.entry, css: (manifest.web.css || []).map((file) => base + file), icon: manifest.web.icon, permission: manifest.web.permission || null, page: manifest.web.page !== false, settings: Boolean(manifest.web.settings) } : null,
+      web: manifest.web ? { entry: base + manifest.web.entry, css: (manifest.web.css || []).map((file) => base + file), icon: manifest.web.icon, permission: manifest.web.permission || null, page: manifest.web.page !== false, settings: Boolean(manifest.web.settings), ...(manifest.web.publicPaths?.length ? { publicPaths: manifest.web.publicPaths } : {}) } : null,
       locales: Object.fromEntries(Object.entries(manifest.locales || {}).map(([lang, names]) => [lang, names.map((ns) => `${base}locales/${lang}/${ns}.js`)])),
     });
   }

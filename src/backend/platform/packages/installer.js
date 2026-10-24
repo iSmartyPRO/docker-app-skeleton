@@ -270,6 +270,14 @@ export async function installStaged(token, { actor = null, ip = null, restart = 
       const tablesManifest = { tables: [...new Set([...(currentManifest?.tables || []), ...manifest.tables])] };
       await refuseForeignKeys(manifest.id, await moduleTables(manifest.id, tablesManifest));
       backup = await backupModule({ id: manifest.id, version: current.version, manifest: tablesManifest, reason: 'update' });
+    } else {
+      // Installed over a «removed» row (data kept: a module built into an older core, or uninstalled without «Удалить
+      // данные»): migration 001 may change its tables and settings — back them up first, when there are any.
+      const removed = await getModuleRow(manifest.id);
+      if (removed?.state === 'removed') {
+        const tablesManifest = { tables: [...new Set([...(removed.manifest?.tables || []), ...manifest.tables])] };
+        if ((await moduleTables(manifest.id, tablesManifest)).length) backup = await backupModule({ id: manifest.id, version: removed.version, manifest: tablesManifest, reason: 'reinstall' });
+      }
     }
     // The verified staged folder becomes the version folder (same file system: a rename).
     mkdirSync(moduleRoot(manifest.id), { recursive: true });

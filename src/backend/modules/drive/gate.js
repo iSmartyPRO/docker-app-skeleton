@@ -26,7 +26,9 @@ function start() {
   if (starting) return starting;
   starting = new Promise((resolve, reject) => {
     const proc = spawn(process.env.SMBGATE_PYTHON || 'python3', [SCRIPT, socketPath], {
-      env: { ...process.env, SMBGATE_KEY: key, PYTHONUNBUFFERED: '1', PYTHONDONTWRITEBYTECODE: '1' },
+      // No byte-code caches written, and none read: a __pycache__ next to the script (not part of the package,
+      // left out of its integrity check — platform/packages/integrity.js) is never run. /dev/null/… cannot exist.
+      env: { ...process.env, SMBGATE_KEY: key, PYTHONUNBUFFERED: '1', PYTHONDONTWRITEBYTECODE: '1', PYTHONPYCACHEPREFIX: '/dev/null/portal-no-pycache' },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     let settled = false;

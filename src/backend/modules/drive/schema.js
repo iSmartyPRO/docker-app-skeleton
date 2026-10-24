@@ -210,7 +210,7 @@ export async function createDriveSchema(db) {
   // «Доступ»: how people write this folder's path in AD group descriptions ("G:\ОБЪЕКТ-2\_DocArch", "W:").
   await query(`ALTER TABLE drive_shares ADD COLUMN IF NOT EXISTS path_prefixes TEXT[] NOT NULL DEFAULT '{}'`);
   // The former «Доступ к папкам» module: journal, settings and permission move here (idempotent).
-  await migrateFolderAccess({ transaction: (fn) => inSavepoint(db, fn), run: (text, params) => inSavepoint(db, () => db.query(text, params)) });
+  await migrateFolderAccess({ transaction: (fn) => inSavepoint(db, fn) });
   await ensureJournalTable(db);
 }
 

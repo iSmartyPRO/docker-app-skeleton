@@ -1,6 +1,6 @@
 import { ID_PATTERN, RESERVED_IDS } from './paths.js';
 import { isVersion } from './version.js';
-import { ownsPermission, tablePatternProblem } from './tableOwnership.js';
+import { legacyPrefixOwner, ownsPermission, tablePatternProblem } from './tableOwnership.js';
 
 /*
  * manifest.json of a package (spec §4, docs/module-packages.md «manifest.json»):
@@ -30,8 +30,18 @@ const LOCALE_NS = /^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const LANG = /^[a-z]{2,3}$/;
 const ICON = /^[a-z0-9-]{1,40}$/;
 const PUBLIC_PATH = /^\/[a-z0-9][a-z0-9-]{0,31}\/$/;
-// Paths of the portal itself (the shell, the API, package files): never a package's public page.
-const RESERVED_PUBLIC = ['/app/', '/admin/', '/api/', '/modules/', '/sdk/', '/assets/', '/uploads/', '/login/', '/account/'];
+// Paths of the portal itself (the shell and its pages, the API, package files, the core's public pages: Files links /l/,
+// KB shares /s/, sign-in callbacks /auth/, setup, install, health): never a package's public page.
+export const RESERVED_PUBLIC = Object.freeze(['/app/', '/admin/', '/api/', '/modules/', '/sdk/', '/assets/', '/uploads/', '/login/', '/account/', '/l/', '/s/', '/res/', '/auth/', '/setup/', '/install/', '/apps/', '/help/', '/developers/', '/inbox/', '/health/', '/ready/', '/sw/']);
+// Public paths that belong to one module (nginx and links issued while it was built into the core): only its own.
+export const OWNED_PUBLIC = Object.freeze({ '/q/': 'qr', '/d/': 'drive' });
+/** Why module `id` may not declare the public path prefix `path` (null when it may). */
+export function publicPathProblem(id, path) {
+  if (typeof path !== 'string' || !PUBLIC_PATH.test(path)) return `web.publicPaths "${path}" must look like "/x/"`;
+  if (RESERVED_PUBLIC.some((prefix) => path.startsWith(prefix))) return `web.publicPaths "${path}" is a path of the portal itself`;
+  if (OWNED_PUBLIC[path] && OWNED_PUBLIC[path] !== id) return `web.publicPaths "${path}" belongs to the module "${OWNED_PUBLIC[path]}"`;
+  return null;
+}
 const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
 const isText = (value) => isObject(value) && TEXT_LANGS.every((lang) => typeof value[lang] === 'string' && value[lang].trim());
 const textOr = (value, fallback) => (isText(value) ? value : typeof value === 'string' && value.trim() ? { en: value, ru: value } : fallback);
@@ -50,6 +60,7 @@ export function normalizeManifest(raw, { categories = null, integrations = null 
   const id = raw.id;
   if (typeof id !== 'string' || !ID_PATTERN.test(id)) problems.push(`id "${id}" must be 2–32 lowercase letters, digits or _ (starting with a letter)`);
   else if (RESERVED_IDS.has(id)) problems.push(`id "${id}" is reserved (a folder of the package platform)`);
+  else if (legacyPrefixOwner(id) && legacyPrefixOwner(id) !== id) problems.push(`id "${id}" is reserved (the permission prefix of the module "${legacyPrefixOwner(id)}")`);
   if (!isVersion(raw.version)) problems.push(`version "${raw.version}" must be x.y.z`);
   if (!isVersion(raw.core)) problems.push(`core "${raw.core}" must be x.y.z`);
   if (!isText(raw.name)) problems.push('name needs en and ru');
@@ -144,7 +155,8 @@ export function normalizeManifest(raw, { categories = null, integrations = null 
     const publicPaths = [];
     if (w.publicPaths != null && !Array.isArray(w.publicPaths)) problems.push('web.publicPaths must be a list');
     for (const path of Array.isArray(w.publicPaths) ? w.publicPaths : []) {
-      if (typeof path !== 'string' || !PUBLIC_PATH.test(path) || RESERVED_PUBLIC.some((prefix) => path.startsWith(prefix))) problems.push(`web.publicPaths "${path}" must look like "/x/" outside the portal's own paths`);
+      const problem = publicPathProblem(id, path);
+      if (problem) problems.push(`${problem} (a package's public pages must look like "/x/" outside the portal's own paths)`);
       else if (!publicPaths.includes(path)) publicPaths.push(path);
     }
     web = { entry, css, icon: w.icon || 'apps', ...(permission.length ? { permission } : {}), ...(w.page === false ? { page: false } : {}), ...(w.settings === true ? { settings: true } : {}), ...(publicPaths.length ? { publicPaths } : {}) };

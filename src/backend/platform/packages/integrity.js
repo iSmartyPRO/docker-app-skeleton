@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync, readdirSync } from 'node:fs';
+import { lstatSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { SIGNATURE_FILE, listingDigest, listingOf, verifyListing } from './signature.js';
 
@@ -18,7 +18,16 @@ import { SIGNATURE_FILE, listingDigest, listingOf, verifyListing } from './signa
  *
  * Cost: one read + SHA-256 of every file (a package is a few MB) and one
  * Ed25519 verification per package per boot.
+ *
+ * Python byte-code caches (`__pycache__` folders: someone ran the File server's gateway script by hand in the
+ * container) are not part of a package (build-module.mjs leaves them out) and are left out of the listing, so a
+ * stray one does not stop the module; they are deleted at boot before the check (removeBytecodeCaches) and never
+ * read: the package's Python runs with PYTHONPYCACHEPREFIX pointing nowhere (drive/gate.js). A `.pyc` file
+ * anywhere else still fails the check (Python could import it instead of a module of the standard library).
  */
+
+/** Folders that are never part of a package: Python byte-code caches. */
+export const IGNORED_DIRS = new Set(['__pycache__']);
 
 export class IntegrityError extends Error {
   constructor(message) {
@@ -35,6 +44,7 @@ export function hashFiles(dir) {
       const path = join(folder, entry.name);
       const name = prefix ? `${prefix}/${entry.name}` : entry.name;
       const stat = lstatSync(path);
+      if (stat.isDirectory() && IGNORED_DIRS.has(entry.name)) continue;
       if (stat.isSymbolicLink()) throw new IntegrityError(`${name} is a symbolic link`);
       if (stat.isDirectory()) walk(path, name);
       else if (stat.isFile()) out.push({ name, sha256: createHash('sha256').update(readFileSync(path)).digest('hex') });
@@ -43,6 +53,36 @@ export function hashFiles(dir) {
   };
   walk(dir, '');
   return out;
+}
+
+/**
+ * Deletes the Python byte-code caches (`__pycache__`) under `dir` (a link named so is removed as a link, never
+ * followed). → the relative paths removed. Never throws: a cache it cannot delete is still ignored and never read.
+ */
+export function removeBytecodeCaches(dir) {
+  const removed = [];
+  const walk = (folder, prefix) => {
+    let entries = [];
+    try {
+      entries = readdirSync(folder, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const path = join(folder, entry.name);
+      const name = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (IGNORED_DIRS.has(entry.name) && (entry.isDirectory() || entry.isSymbolicLink())) {
+        try {
+          rmSync(path, { recursive: true, force: true });
+          removed.push(name);
+        } catch {
+          /* read-only: ignored by the check, never read by Python */
+        }
+      } else if (entry.isDirectory()) walk(path, name);
+    }
+  };
+  walk(dir, '');
+  return removed;
 }
 
 /**

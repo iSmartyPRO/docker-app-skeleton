@@ -27,8 +27,9 @@ export { query, withTransaction, getPool } from '../../config/database.js';
 export { APP_VERSION } from '../../config/version.js';
 export { uploadRoot } from '../../config/paths.js';
 export { seal, unseal } from '../../services/secrets.js';
-// signModuleToken / verifyModuleToken (SDK 1.1.0): JWTs keyed by the portal secret and a purpose, never the key.
-export { signModuleToken, verifyModuleToken } from '../../services/secrets.js';
+// moduleTokens(id) (SDK 1.1.0): { sign, verify } of JWTs keyed by the portal secret and a purpose the module owns
+// (pkg-<id>-…, or its legacy purpose: drive-link), never the key, never a core purpose. Also ctx.tokens in register(ctx).
+export { moduleTokens } from '../../services/secrets.js';
 
 // ── Access ──────────────────────────────────────────────────────────────────
 export { requireAuth, optionalAuth, requirePermission, refuseImpersonation } from '../../middleware/auth.js';

@@ -27,6 +27,13 @@
 
 import { events } from './events.js';
 import { registerWidget, registerWidgetSection, widgetDefinitions } from './widgets.js';
+import { moduleTokens } from '../services/secrets.js';
+
+const moduleTokenHelpers = new Map();
+const tokensOf = (id) => {
+  if (!moduleTokenHelpers.has(id)) moduleTokenHelpers.set(id, moduleTokens(id));
+  return moduleTokenHelpers.get(id);
+};
 
 // ── Loaded modules ──────────────────────────────────────────────────────────
 
@@ -347,6 +354,10 @@ export function moduleContext(module, { pending = null } = {}) {
     registerTokenResources: (key, definition) => registerTokenResources(key, own(definition)),
     onHttpServer: (fn) => onHttpServer(fn, { module: id }),
     onShutdown: (fn) => onShutdown(fn, { module: id }),
+    // Signed tokens of the module's own purposes (pkg-<id>-…; services/secrets.js). Made on first use.
+    get tokens() {
+      return tokensOf(id);
+    },
     // Existing core mechanisms, reached through ctx too (loaded on use: no import cycles with the settings service).
     // Each returns a promise that is never an unhandled rejection, and activateModules waits for it.
     registerApprovalType: (definition) => handled(`${id}: registerApprovalType`, import('../modules/approvals/api.js').then((approvals) => approvals.registerApprovalType(definition)), pending),

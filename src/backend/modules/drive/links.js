@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { query, withTransaction } from '../../config/database.js';
-import { signModuleToken, verifyModuleToken } from '../../services/secrets.js';
+import { moduleTokens } from '../../services/secrets.js';
 import { forgetPreviews } from '../../services/linkPreview/memo.js';
 import { httpError, intId } from '../shared/acl.js';
 import { parseExpiry } from '../shared/linkPermissions.js';
@@ -42,9 +42,10 @@ import { checkWrite, contextForUser, openTarget, statEntry } from './service.js'
  * issued before scopes existed are swapped on the next page load.
  */
 
-// Visitor and read tokens: HS256 keyed by the portal secret + "drive-link" (services/secrets.js; the key the
-// module used while built into the core, so tokens issued then stay valid).
+// Visitor and read tokens: HS256 keyed by the portal secret + "drive-link" (services/secrets.js: the File server's
+// legacy purpose, the key the module used while built into the core, so tokens issued then stay valid).
 const PURPOSE = 'drive-link';
+const tokens = moduleTokens('drive');
 
 function linkStatus(row) {
   if (row.revoked_at) return 'revoked';
@@ -325,7 +326,7 @@ const SCOPES = { r: 'read', w: 'write' };
 export function readVisitor(row, token, { from = 'header' } = {}) {
   if (!token) return null;
   try {
-    const payload = verifyModuleToken(PURPOSE, token);
+    const payload = tokens.verify(PURPOSE, token);
     if (payload.lid !== row.id || payload.v !== row.version) return null;
     const scope = SCOPES[payload.s] || 'legacy';
     if (from === 'url' && scope === 'write') return null;
@@ -340,11 +341,11 @@ const signSession = (row, { sid, name, email }) => {
   const payload = { lid: row.id, v: row.version, s: 'w', sid: sid || randomBytes(12).toString('base64url') };
   if (name) payload.n = name;
   if (email) payload.e = email;
-  return signModuleToken(PURPOSE, payload, { expiresIn: '12h' });
+  return tokens.sign(PURPOSE, payload, { expiresIn: '12h' });
 };
 
 /** A read token for file addresses: no session, no name, no changes. */
-export const signReader = (row) => signModuleToken(PURPOSE, { lid: row.id, v: row.version, s: 'r' }, { expiresIn: '12h' });
+export const signReader = (row) => tokens.sign(PURPOSE, { lid: row.id, v: row.version, s: 'r' }, { expiresIn: '12h' });
 
 /**
  * Opens a visitor session: checks the password (when the link has one) and

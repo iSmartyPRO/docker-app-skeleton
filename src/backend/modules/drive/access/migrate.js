@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
-import { query, withTransaction } from '../../../config/database.js';
+import { withTransaction } from '../../../config/database.js';
 import { invalidateSettings } from '../../../services/settings.js';
 import { DRIVE_ACCESS_DEFAULTS, sanitizeDriveAccess } from '../settings.js';
 import { cleanPrefixes } from './naming.js';
@@ -22,8 +22,12 @@ import { cleanPrefixes } from './naming.js';
  *      extra accepted org codes → aliases of the main one, e.g. { wh: 'co' }), in one
  *      transaction that reads `modules` FOR UPDATE; done once (the copy is marked
  *      migratedAt). modules.folderaccess itself is left in place;
- *   3. roles: drive.access is added wherever folderaccess.groups is (the old one stays).
- * Steps 0–2 hold one advisory lock, so two instances starting together take turns.
+ *   3. roles, ONCE (marker legacy_folderaccess.rolesMigratedAt): drive.access replaces folderaccess.groups
+ *      wherever a role holds it (folderaccess.groups is removed: a role save keeps permissions it does not know,
+ *      so leaving it would let a later run give drive.access back after an administrator took it away). After
+ *      the marker no run touches roles again. A rollback to v1.4 then finds no folderaccess.groups (its roles
+ *      need it granted again by hand) — v1.4 is long gone everywhere.
+ * Every step holds one advisory lock, so two instances starting together take turns.
  */
 
 export const LEGACY_KEY = 'legacy_folderaccess';
@@ -87,7 +91,15 @@ export async function saveLegacyCopy(transaction = withTransaction) {
     const row = (await client.query(`SELECT value FROM app_settings WHERE key = 'modules' FOR UPDATE`)).rows[0];
     const modules = row ? parse(row.value) : {};
     if (!Object.hasOwn(modules, 'folderaccess')) return false;
-    const copy = { savedAt: new Date().toISOString(), migratedAt: null, folderaccess: modules.folderaccess };
+    const legacyRow = (await client.query(`SELECT value FROM app_settings WHERE key = $1 FOR UPDATE`, [LEGACY_KEY])).rows[0];
+    const legacy = legacyRow ? parse(legacyRow.value) : null;
+    if (legacy && Object.hasOwn(legacy, 'folderaccess')) return false;
+    // A key holding only the roles marker (step 3 ran while this step failed): the copy joins it.
+    const copy = { ...(legacy || {}), savedAt: new Date().toISOString(), migratedAt: legacy?.migratedAt || null, folderaccess: modules.folderaccess };
+    if (legacy) {
+      await client.query(UPSERT, [LEGACY_KEY, JSON.stringify(copy)]);
+      return true;
+    }
     const { rowCount } = await client.query(`INSERT INTO app_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, [LEGACY_KEY, JSON.stringify(copy)]);
     return rowCount > 0;
   });
@@ -150,29 +162,42 @@ export async function migrateSettings(transaction = withTransaction) {
       const next = { ...modules, drive: { ...drive, settings: { ...driveSettings, access } } };
       await client.query(UPSERT, ['modules', JSON.stringify(next)]);
     }
-    const mark = { savedAt: legacy?.savedAt || new Date().toISOString(), folderaccess: source, migratedAt: new Date().toISOString() };
+    // Other marks of the key (rolesMigratedAt) are kept.
+    const mark = { ...(legacy || {}), savedAt: legacy?.savedAt || new Date().toISOString(), folderaccess: source, migratedAt: new Date().toISOString() };
     await client.query(UPSERT, [LEGACY_KEY, JSON.stringify(mark)]);
     return { migrated: true, carried: fresh, enabled: fresh ? access.enabled : undefined, prefixes: added };
   });
 }
 
-/** 3. Roles: drive.access is added where folderaccess.groups is (kept, for a rollback). → number of roles changed. */
-export async function migratePermission(run = query) {
-  const { rowCount } = await run(
-    `UPDATE app_roles
-        SET permissions = array_append(permissions, $2), updated_at = NOW()
-      WHERE $1 = ANY(permissions) AND NOT ($2 = ANY(permissions))`,
-    [OLD_PERMISSION, NEW_PERMISSION]
-  );
-  return rowCount || 0;
+/**
+ * 3. Roles, once: folderaccess.groups → drive.access (the old one removed), then the marker
+ * legacy_folderaccess.rolesMigratedAt; with the marker set nothing is read or changed. → number of roles changed.
+ */
+export async function migratePermission(transaction = withTransaction) {
+  return transaction(async (client) => {
+    await lock(client);
+    const legacyRow = (await client.query(`SELECT value FROM app_settings WHERE key = $1 FOR UPDATE`, [LEGACY_KEY])).rows[0];
+    const legacy = legacyRow ? parse(legacyRow.value) : null;
+    if (legacy?.rolesMigratedAt) return 0;
+    const { rowCount } = await client.query(
+      `UPDATE app_roles
+          SET permissions = CASE WHEN $2 = ANY(permissions) THEN array_remove(permissions, $1) ELSE array_append(array_remove(permissions, $1), $2) END,
+              updated_at = NOW()
+        WHERE $1 = ANY(permissions)`,
+      [OLD_PERMISSION, NEW_PERMISSION]
+    );
+    await client.query(UPSERT, [LEGACY_KEY, JSON.stringify({ ...(legacy || { savedAt: null, migratedAt: null }), rolesMigratedAt: new Date().toISOString(), rolesMigrated: rowCount || 0 })]);
+    return rowCount || 0;
+  });
 }
 
 /**
  * Everything: in migration 001 of the package (on the migration's transaction, each step in a
- * savepoint: `transaction(fn)` gives fn a client, `run` runs one statement) and again by the
- * daily job (own transactions). Never stops either: a failure is logged and retried next time.
+ * savepoint: `transaction(fn)` gives fn a client) and again by the daily job (own transactions),
+ * which only retries a step that has not succeeded yet (settings and roles carry their marks).
+ * Never stops either: a failure is logged and retried next time.
  */
-export async function migrateFolderAccess({ transaction = withTransaction, run = query } = {}) {
+export async function migrateFolderAccess({ transaction = withTransaction } = {}) {
   const out = {};
   try {
     out.copied = await saveLegacyCopy(transaction);
@@ -194,7 +219,7 @@ export async function migrateFolderAccess({ transaction = withTransaction, run =
     console.warn('Drive access: moving the folder access settings failed:', err.message);
   }
   try {
-    out.roles = await migratePermission(run);
+    out.roles = await migratePermission(transaction);
     if (out.roles) console.log(`Drive access: ${out.roles} role(s) got ${NEW_PERMISSION} (from ${OLD_PERMISSION})`);
   } catch (err) {
     console.warn('Drive access: moving the folder access permission failed:', err.message);

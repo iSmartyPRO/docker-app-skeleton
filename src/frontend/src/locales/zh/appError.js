@@ -12,4 +12,6 @@ export default {
   updating: '正在加载新版本…',
   reload: '刷新',
   home: '返回首页',
+  slowTitle: '此页面打开时间过长',
+  slowText: '网络可能较慢。请刷新页面，或稍候，加载完成后会自动打开。',
 };
